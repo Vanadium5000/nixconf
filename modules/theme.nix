@@ -29,11 +29,14 @@ let
   };
 
   theme = {
+    font = "JetBrainsMono Nerd Font";
     rounding = 8;
     opacity = 0.9;
     gaps-in = 2; # between windows/buttons
     gaps-out = 3; # between windows and border of display
     border-size = 1;
+    font-size = 13;
+    system.font-size = 11;
   };
 
   hexDigits = {

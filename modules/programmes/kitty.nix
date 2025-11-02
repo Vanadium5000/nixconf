@@ -12,12 +12,14 @@ in
     {
       packages.terminal = self'.packages.kitty;
 
+      # Options: https://sw.kovidgoyal.net/kitty/conf/
       packages.kitty = self.wrapperModules.kitty.apply {
         inherit pkgs;
         config = {
           enable_audio_bell = "no";
 
-          font_size = 15;
+          font = theme.font;
+          font_size = theme.font-size;
 
           cursor_text_color = "background";
 
