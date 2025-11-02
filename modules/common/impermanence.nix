@@ -88,6 +88,7 @@
                 "Media"
                 "Documents"
                 "Shared"
+                "nixconf"
 
                 # Credential storage
                 {

@@ -1,8 +1,10 @@
+{ self, ... }:
 {
   flake.nixosModules.common =
     {
       lib,
       config,
+      pkgs,
       ...
     }:
     let
@@ -53,6 +55,10 @@
             "ollama"
           ]
           // cfg.user.extraGroups;
+          shell = self.packages.${pkgs.system}.environment;
+
+          hashedPasswordFile = "/persist/passwd";
+          initialPassword = "12345";
         };
 
         networking.hostName = cfg.hostname;

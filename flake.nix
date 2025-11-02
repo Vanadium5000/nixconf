@@ -37,6 +37,12 @@
       url = "github:feel-co/hjem";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    # My Neovim config using NVF
+    nvf-neovim = {
+      url = "github:Vanadium5000/nvf-neovim";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   # Define flake outputs using flake-parts and import-tree for modular configuration

@@ -20,21 +20,18 @@ pkgs: {
         "🕪"
       ];
     };
-    scroll-step = 5;
+    # scroll-step = 5;
     justify = "center";
-    on-click = "amixer sset Master toggle";
-    on-click-right = "pavucontrol";
-    on-scroll-up = "pactl set-sink-volume @DEFAULT_SINK@ +5%";
-    on-scroll-down = "pactl set-sink-volume @DEFAULT_SINK@ -5%";
+    on-click-right = "${pkgs.pavucontrol}/bin/pavucontrol";
   };
   "pulseaudio#mic" = {
     format = "{format_source} {volume}%";
     format-source = "";
     format-source-muted = "";
     tooltip-format = "{volume}% {format_source} ";
-    on-click = "pactl set-source-mute 0 toggle";
-    on-scroll-down = "pactl set-source-volume 0 -1%";
-    on-scroll-up = "pactl set-source-volume 0 +1%";
+    # on-click = "pactl set-source-mute 0 toggle";
+    # on-scroll-down = "pactl set-source-volume 0 -1%";
+    # on-scroll-up = "pactl set-source-volume 0 +1%";
   };
   "pulseaudio/slider" = {
     min = 0;
