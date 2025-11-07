@@ -43,6 +43,23 @@
       url = "github:Vanadium5000/nvf-neovim";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    # Source flakes for Dank Material stuff
+    # dankMaterialShell: The main shell configuration and assets
+    dankMaterialShell = {
+      url = "github:AvengeMedia/DankMaterialShell";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    # dms-cli: Command-line interface for Dank Material Shell
+    dms-cli = {
+      url = "github:AvengeMedia/danklinux";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    # dgop: System monitoring tool used by Dank Material Shell
+    dgop = {
+      url = "github:AvengeMedia/dgop";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   # Define flake outputs using flake-parts and import-tree for modular configuration

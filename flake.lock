@@ -1,5 +1,68 @@
 {
   "nodes": {
+    "dankMaterialShell": {
+      "inputs": {
+        "dgop": "dgop",
+        "dms-cli": "dms-cli",
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1762551461,
+        "narHash": "sha256-EZdEolosGjZvG8GDxJmZLbQifHroarNpkAJloYOuTqU=",
+        "owner": "AvengeMedia",
+        "repo": "DankMaterialShell",
+        "rev": "58b637bccacf5ff8470666da98858f3bd4389dcf",
+        "type": "github"
+      },
+      "original": {
+        "owner": "AvengeMedia",
+        "repo": "DankMaterialShell",
+        "type": "github"
+      }
+    },
+    "dgop": {
+      "inputs": {
+        "nixpkgs": [
+          "dankMaterialShell",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1762435535,
+        "narHash": "sha256-QhzRn7pYN35IFpKjjxJAj3GPJECuC+VLhoGem3ezycc=",
+        "owner": "AvengeMedia",
+        "repo": "dgop",
+        "rev": "6cf638dde818f9f8a2e26d0243179c43cb3458d7",
+        "type": "github"
+      },
+      "original": {
+        "owner": "AvengeMedia",
+        "repo": "dgop",
+        "type": "github"
+      }
+    },
+    "dgop_2": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1762435535,
+        "narHash": "sha256-QhzRn7pYN35IFpKjjxJAj3GPJECuC+VLhoGem3ezycc=",
+        "owner": "AvengeMedia",
+        "repo": "dgop",
+        "rev": "6cf638dde818f9f8a2e26d0243179c43cb3458d7",
+        "type": "github"
+      },
+      "original": {
+        "owner": "AvengeMedia",
+        "repo": "dgop",
+        "type": "github"
+      }
+    },
     "disko": {
       "inputs": {
         "nixpkgs": [
@@ -17,6 +80,47 @@
       "original": {
         "owner": "nix-community",
         "repo": "disko",
+        "type": "github"
+      }
+    },
+    "dms-cli": {
+      "inputs": {
+        "nixpkgs": [
+          "dankMaterialShell",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1762491516,
+        "narHash": "sha256-oGLH5Gje/p2Hc1kO3m8P5eAZ7JldBI30EmwzEET4cNU=",
+        "owner": "AvengeMedia",
+        "repo": "danklinux",
+        "rev": "050cf28a2963a7698ed4759736fe5fe77eee7cc2",
+        "type": "github"
+      },
+      "original": {
+        "owner": "AvengeMedia",
+        "repo": "danklinux",
+        "type": "github"
+      }
+    },
+    "dms-cli_2": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1762550269,
+        "narHash": "sha256-7mKBn4G9eIXapEI4K6FpqWMj8VXkBujDo7LCOvf4iPA=",
+        "owner": "AvengeMedia",
+        "repo": "danklinux",
+        "rev": "a187e50e019dc86df218bb51169d8a78147cf43c",
+        "type": "github"
+      },
+      "original": {
+        "owner": "AvengeMedia",
+        "repo": "danklinux",
         "type": "github"
       }
     },
@@ -359,7 +463,10 @@
     },
     "root": {
       "inputs": {
+        "dankMaterialShell": "dankMaterialShell",
+        "dgop": "dgop_2",
         "disko": "disko",
+        "dms-cli": "dms-cli_2",
         "flake-parts": "flake-parts",
         "hjem": "hjem",
         "impermanence": "impermanence",

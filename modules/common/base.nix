@@ -39,6 +39,16 @@
         hostname = mkOption {
           type = types.str;
         };
+
+        # Locales
+        timeZone = mkOption {
+          type = types.str;
+          default = "Europe/London";
+        };
+        locale = mkOption {
+          type = types.str;
+          default = "en_GB.UTF-8";
+        };
       };
 
       config = lib.mkIf cfg.enable {
@@ -58,10 +68,14 @@
           shell = self.packages.${pkgs.system}.environment;
 
           hashedPasswordFile = "/persist/passwd";
-          initialPassword = "12345";
+          initialPassword = "1234";
         };
 
         networking.hostName = cfg.hostname;
+
+        # Locales
+        time.timeZone = cfg.timeZone;
+        i18n.defaultLocale = cfg.locale;
       };
     };
 }
