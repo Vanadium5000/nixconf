@@ -12,15 +12,14 @@
     in
     {
       imports = [
-        self.nixosModules.gtk
         self.nixosModules.wallpaper
 
         self.nixosModules.pipewire
         self.nixosModules.firefox
         self.nixosModules.chromium
-      ];
 
-      preferences.autostart = [ selfpkgs.quickshellWrapped ];
+        self.nixosModules.extra_hjem
+      ];
 
       environment.systemPackages = [
         selfpkgs.terminal
