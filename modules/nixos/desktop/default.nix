@@ -15,8 +15,6 @@
         # Requirements
         self.nixosModules.terminal
 
-        self.nixosModules.wallpaper
-
         self.nixosModules.pipewire
         self.nixosModules.tuigreet
         self.nixosModules.firefox
