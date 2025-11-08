@@ -224,13 +224,13 @@
           # "${mod},E, exec, dolphin" # Dolphin
           "${mod},B, exec, librewolf" # Librewolf
           "${mod},G, exec, xdg-open https://x.com/i/grok" # Open Grok
-          "${mod},A, exec, tpkill nwg-drawer || ${getExe self.packages.nwg-drawer}" # Toggle nwg-drawer
+          "${mod},A, exec, tpkill nwg-drawer || ${getExe self.packages.${pkgs.system}.nwg-drawer}" # Toggle nwg-drawer
 
           "${mod},L, exec, dms ipc call lock lock" # Lock
 
           #"${mod},TAB, overview:toggle" # Overview (Hyprspace)
 
-          "${mod},D, exec, pkill nwg-dock || ${getExe self.packages.nwg-dock-hyprland}" # Toggle nwg-dock-hyprland (dock)
+          "${mod},D, exec, pkill nwg-dock || ${getExe self.packages.${pkgs.system}.nwg-dock-hyprland}" # Toggle nwg-dock-hyprland (dock)
           "${shiftMod},D, exec, waybar-toggle" # Toggle Hyprpanel (bar)
 
           "${mod},Q, killactive," # Close window
