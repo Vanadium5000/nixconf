@@ -1,12 +1,12 @@
 { self, inputs, ... }:
 {
-  flake.nixosConfigurations.macbookConfig = inputs.nixpkgs.lib.nixosSystem {
+  flake.nixosConfigurations.macbook = inputs.nixpkgs.lib.nixosSystem {
     modules = [
-      self.nixosModules.macbook
+      self.nixosModules.macbookHost
     ];
   };
 
-  flake.nixosModules.macbook =
+  flake.nixosModules.macbookHost =
     {
       pkgs,
       ...

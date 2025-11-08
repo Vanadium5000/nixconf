@@ -1,5 +1,5 @@
 {
-  flake.nixosModules.macbook =
+  flake.nixosModules.macbookHost =
     {
       config,
       lib,
