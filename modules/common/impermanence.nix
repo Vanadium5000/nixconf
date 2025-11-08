@@ -1,9 +1,9 @@
+{ inputs, ... }:
 {
   flake.nixosModules.common =
     {
       lib,
       config,
-      inputs,
       ...
     }:
     let

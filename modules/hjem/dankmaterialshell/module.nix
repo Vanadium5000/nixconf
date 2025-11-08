@@ -1,8 +1,8 @@
 # Converted from the existing home-manager module
+{ self, ... }:
 {
   flake.nixosModules.extra_hjem =
     {
-      self,
       config,
       pkgs,
       lib,
@@ -20,17 +20,17 @@
     in
     {
       # Preserve compatibility with removed/renamed options
-      imports = [
-        (lib.mkRemovedOptionModule [
-          "programs"
-          "dankMaterialShell"
-          "enableNightMode"
-        ] "Night mode is now always available.")
-        (lib.mkRenamedOptionModule
-          [ "programs" "dankMaterialShell" "enableSystemd" ]
-          [ "programs" "dankMaterialShell" "systemd" "enable" ]
-        )
-      ];
+      # imports = [
+      #   (lib.mkRemovedOptionModule [
+      #     "programs"
+      #     "dankMaterialShell"
+      #     "enableNightMode"
+      #   ] "Night mode is now always available.")
+      #   (lib.mkRenamedOptionModule
+      #     [ "programs" "dankMaterialShell" "enableSystemd" ]
+      #     [ "programs" "dankMaterialShell" "systemd" "enable" ]
+      #   )
+      # ];
 
       # Define options (kept similar to original, but now under programs.*)
       options.home.programs.dankMaterialShell = with lib.types; {
@@ -208,8 +208,8 @@
               ".config/systemd/user/dms.service".text = lib.generators.toINI { } {
                 Unit = {
                   Description = "DankMaterialShell";
-                  PartOf = [ "graphical-session.target" ];
-                  After = [ "graphical-session.target" ];
+                  PartOf = "graphical-session.target";
+                  After = "graphical-session.target";
                 }
                 // (lib.optionalAttrs cfg.systemd.restartIfChanged {
                   "X-Restart-Triggers" = "${self.packages.${pkgs.system}.dankMaterialShell}/etc/xdg/quickshell/dms";
@@ -221,7 +221,7 @@
                 };
 
                 Install = {
-                  WantedBy = [ "graphical-session.target" ];
+                  WantedBy = "graphical-session.target";
                 };
               };
             })

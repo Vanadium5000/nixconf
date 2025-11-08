@@ -8,7 +8,6 @@
 
   flake.nixosModules.macbook =
     {
-      inputs,
       pkgs,
       ...
     }:
@@ -26,6 +25,13 @@
         inputs.disko.nixosModules.disko
         self.diskoConfigurations.macbook
       ];
+
+      # Preferences
+      preferences = {
+        user = {
+          username = "matrix";
+        };
+      };
 
       # (cdc_ncm, cdc_mbim) prevent networkmanager spam from unusable cdc devices
       # (hci_bcm4377) disable bluetooth as it's very buggy on a MacBookAir9,1

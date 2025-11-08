@@ -1,12 +1,12 @@
-{ inputs, ... }:
+{ ... }:
 {
   flake.nixosModules.dev =
-    { pkgs, ... }:
+    { ... }:
     {
       services.mongodb.enable = true;
 
       # Custom option
-      allowedUnfree = [
+      preferences.allowedUnfree = [
         "mongodb"
       ];
 

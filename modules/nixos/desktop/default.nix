@@ -14,7 +14,6 @@
       imports = [
         # Requirements
         self.nixosModules.terminal
-        self.nixosModules.common
 
         self.nixosModules.wallpaper
 

@@ -1,16 +1,19 @@
+{ self, ... }:
 {
   flake.nixosModules.extra_hjem =
     {
-      colors,
       config,
       pkgs,
       ...
     }:
+
     let
+      inherit (self) colors theme;
+
       # Derive user and home directory from config
       user = config.preferences.user.username;
 
-      theme = {
+      style = {
         name = "Nix Cyberpunk Electric Dark";
         # Primary color scheme based on bright blue accent for cyberpunk neon feel
         primary = colors.accent; # #5454fc - bright blue
@@ -37,7 +40,7 @@
       settings = builtins.toJSON {
         # Theme and Colors
         currentThemeName = "custom";
-        customThemeFile = pkgs.writeText "theme.json" (builtins.toJSON theme);
+        customThemeFile = pkgs.writeText "theme.json" (builtins.toJSON style);
         matugenScheme = "scheme-tonal-spot";
         runUserMatugenTemplates = true;
         matugenTargetMonitor = "";
@@ -53,11 +56,11 @@
         notepadLastCustomTransparency = 0.7;
 
         # Appearance and Layout
-        cornerRadius = 12;
+        cornerRadius = theme.rounding;
         animationSpeed = 1;
         customAnimationDuration = 500;
-        fontFamily = "Inter Variable";
-        monoFontFamily = "Fira Code";
+        fontFamily = theme.font;
+        monoFontFamily = theme.font;
         fontWeight = 400;
         fontScale = 1;
         dankBarFontScale = 1;
@@ -309,7 +312,7 @@
       };
     in
     {
-      hjem.users.${user} = {
+      hjem.users.${user}.files = {
         ".config/DankMaterialShell/settings.json".text = settings;
       };
       home.programs.dankMaterialShell = {

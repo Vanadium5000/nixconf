@@ -23,7 +23,7 @@
       ];
 
       # Persist data
-      persistance.home.cache.directories = [
+      impermanence.home.cache.directories = [
         ".config/chromium"
       ];
     };

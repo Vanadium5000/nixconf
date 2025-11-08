@@ -13,14 +13,14 @@
     {
       config = lib.mkIf cfg.enable {
         networking = {
-          hostname = ""; # No hostname is better anonymity
+          hostName = ""; # No hostname is better anonymity
 
           # CLI/TUI for connecting to networks
           networkmanager = {
             enable = true;
 
             # Prevents networkmanager override set nameservers
-            dns = "none";
+            dns = "systemd-resolved";
 
             wifi = {
               macAddress = "random"; # Randomize MAC for Wi-Fi connections (stable per SSID)

@@ -22,6 +22,11 @@
           default = true;
         };
 
+        allowedUnfree = mkOption {
+          type = types.listOf (types.str);
+          default = [ ];
+        };
+
         autostart = mkOption {
           type = types.listOf (types.either types.str types.package);
           default = [ ];
@@ -61,7 +66,7 @@
             "podman"
             "ollama"
           ]
-          // cfg.user.extraGroups;
+          ++ cfg.user.extraGroups;
           shell = self.packages.${pkgs.system}.environment;
 
           hashedPasswordFile = "/persist/passwd";
@@ -78,7 +83,7 @@
           enable = true;
           enableSSHSupport = true;
           # Use curses-based PIN entry for terminal-only setups (avoids GUI prompts)
-          pinentryFlavor = "curses";
+          pinentryPackage = pkgs.pinentry-curses;
         };
 
         # Disable the default SSH agent to avoid conflicts
