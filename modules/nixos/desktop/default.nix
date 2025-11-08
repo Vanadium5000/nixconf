@@ -15,10 +15,11 @@
         # Requirements
         self.nixosModules.terminal
 
+        self.nixosModules.chromium
+        self.nixosModules.firefox
+        self.nixosModules.hyprland
         self.nixosModules.pipewire
         self.nixosModules.tuigreet
-        self.nixosModules.firefox
-        self.nixosModules.chromium
 
         self.nixosModules.extra_hjem
       ];
@@ -59,7 +60,5 @@
 
         "SUPER + RETURN".exec = "kitty";
       };
-
-      home.programs.hyprland.enable = true;
     };
 }
