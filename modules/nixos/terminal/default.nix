@@ -21,5 +21,6 @@
 
       security.polkit.enable = true;
       hardware.enableAllFirmware = true;
+      hardware.enableRedistributableFirmware = true;
     };
 }
