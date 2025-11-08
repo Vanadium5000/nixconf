@@ -7,7 +7,7 @@
       ...
     }:
     let
-      ext = name: "https://addons.mozilla.org/firefox/downloads/latest/${name}/latest.xpi";
+      ext = name: "\"https://addons.mozilla.org/firefox/downloads/latest/${name}/latest.xpi\"";
 
       extensions =
         extensionStrings: lib.strings.concatStringsSep ", " (builtins.map ext extensionStrings);
@@ -47,27 +47,6 @@
         # Disable annoying swipe gestures (alt + left/right arrow is so much easier)
         "browser.gesture.swipe.left" = "";
         "browser.gesture.swipe.right" = "";
-
-        # Extensions
-        "browser.policies.runOncePerModification.extensionsInstall" = extensions [
-          # Ad block
-          "ublock-origin"
-
-          # Bookmarks & tabs sync across browsers any WebDAV or Git service,
-          # via local file, Nextcloud, or Google Drive
-          "floccus"
-
-          # Dark mode for every website
-          "darkreader"
-
-          # YouTube enhancements
-          "sponsorblock"
-          "return-youtube-dislikes"
-          #youtube-enhancer-vc # Block YT shorts & general improvements
-
-          "tampermonkey" # Userscripts
-          "private-grammar-checker-harper" # Private spellcheck
-        ];
       };
 
     in
@@ -79,6 +58,35 @@
 
       hjem.users.${user} = {
         files.".librewolf/librewolf.overrides.cfg".text = mkOverridesFile settings;
+
+        files.".librewolf/distribution/policies.json".text = ''
+          {
+            "policies": {
+              "Extensions": {
+                "Install": [
+                  ${extensions [
+                    # Ad block
+                    "ublock-origin"
+
+                    # Bookmarks & tabs sync across browsers any WebDAV or Git service,
+                    # via local file, Nextcloud, or Google Drive
+                    "floccus"
+
+                    # Dark mode for every website
+                    "darkreader"
+
+                    # YouTube enhancements
+                    "sponsorblock"
+                    "return-youtube-dislikes"
+                    #youtube-enhancer-vc # Block YT shorts & general improvements
+
+                    "tampermonkey" # Userscripts
+                    "private-grammar-checker-harper" # Private spellcheck
+                  ]}
+                ]
+              }
+            }
+          }'';
       };
 
       impermanence.home.cache.directories = [
