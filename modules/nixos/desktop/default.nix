@@ -12,9 +12,14 @@
     in
     {
       imports = [
+        # Requirements
+        self.nixosModules.terminal
+        self.nixosModules.common
+
         self.nixosModules.wallpaper
 
         self.nixosModules.pipewire
+        self.nixosModules.tuigreet
         self.nixosModules.firefox
         self.nixosModules.chromium
 
@@ -33,8 +38,6 @@
       ];
 
       services.upower.enable = true;
-
-      security.polkit.enable = true;
 
       hardware = {
         enableAllFirmware = true;
@@ -60,7 +63,7 @@
           | ${pkgs.wl-clipboard}/bin/wl-copy
         '';
 
-        "SUPER + d"."b".package = pkgs.rofi-bluetooth;
+        "SUPER + RETURN".exec = "kitty";
       };
     };
 }

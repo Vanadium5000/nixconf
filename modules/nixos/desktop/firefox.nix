@@ -4,11 +4,11 @@
     {
       programs.firefox.enable = true;
 
-      persistance.data.directories = [
+      impermanence.home.directories = [
         ".mozilla"
       ];
 
-      persistance.cache.directories = [
+      impermanence.home.cache.directories = [
         ".cache/mozilla"
       ];
 

@@ -1,5 +1,6 @@
 { lib, ... }:
 let
+  # Nix Cyberpunk Electric Dark
   colors = {
     base00 = "#000000"; # black
     base01 = "#0d0d0d"; # darkish black

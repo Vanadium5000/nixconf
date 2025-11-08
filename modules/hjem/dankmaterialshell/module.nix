@@ -11,7 +11,6 @@
     let
       # Derive user and home directory from config
       user = config.preferences.user.name;
-      homeDir = config.users.users.${user}.home or "/home/${user}";
 
       # JSON format helper
       jsonFormat = pkgs.formats.json { };
@@ -172,12 +171,6 @@
         ++ lib.optional cfg.enableSystemSound pkgs.kdePackages.qtmultimedia;
 
         hjem.users.${user} = {
-          enable = true;
-          user = user;
-          directory = homeDir;
-          # Keep clobberFiles false to avoid overwriting existing files (matches default intent for settings/session)
-          clobberFiles = true;
-
           # Files: quickshell config, defaults, plugins, and systemd service
           files = lib.mkMerge [
             # Quickshell configuration directory (assuming source handles dirs)

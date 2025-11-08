@@ -36,9 +36,6 @@
             default = [ ];
           };
         };
-        hostname = mkOption {
-          type = types.str;
-        };
 
         # Locales
         timeZone = mkOption {
@@ -71,11 +68,21 @@
           initialPassword = "1234";
         };
 
-        networking.hostName = cfg.hostname;
-
         # Locales
         time.timeZone = cfg.timeZone;
         i18n.defaultLocale = cfg.locale;
+
+        # SSH
+        # Enable GnuPG with SSH support
+        programs.gnupg.agent = {
+          enable = true;
+          enableSSHSupport = true;
+          # Use curses-based PIN entry for terminal-only setups (avoids GUI prompts)
+          pinentryFlavor = "curses";
+        };
+
+        # Disable the default SSH agent to avoid conflicts
+        programs.ssh.startAgent = false;
       };
     };
 }
