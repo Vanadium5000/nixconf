@@ -78,7 +78,7 @@
       };
 
       hjem.users.${user} = {
-        files.".librewolf/librewolf.overrides.cfg".source = mkOverridesFile settings;
+        files.".librewolf/librewolf.overrides.cfg".text = mkOverridesFile settings;
       };
 
       impermanence.home.cache.directories = [
