@@ -33,14 +33,11 @@
       fonts.packages = with pkgs; [
         nerd-fonts.jetbrains-mono
         cm_unicode
-        corefonts
       ];
 
       services.upower.enable = true;
 
       hardware = {
-        enableAllFirmware = true;
-
         bluetooth.enable = true;
         bluetooth.powerOnBoot = false;
 
