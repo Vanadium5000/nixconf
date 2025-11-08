@@ -5,6 +5,9 @@
     # Main Nix package repository providing unstable channel packages
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
 
+    # Hardware configs/drivers
+    nixos-hardware.url = "github:NixOS/nixos-hardware/master";
+
     # Utility for wrapping applications and executables
     wrappers.url = "github:Lassulus/wrappers/39b27c1bbf6cfc38afb570f98664540639fc52f8";
 
