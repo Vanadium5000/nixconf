@@ -24,7 +24,7 @@ in
         getExe
         mkAfter
         ;
-      user = config.preferences.user.name;
+      user = config.preferences.user.username;
       cfg = config.home.programs.hyprland;
     in
     {

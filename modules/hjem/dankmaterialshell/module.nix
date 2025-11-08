@@ -10,7 +10,7 @@
     }:
     let
       # Derive user and home directory from config
-      user = config.preferences.user.name;
+      user = config.preferences.user.username;
 
       # JSON format helper
       jsonFormat = pkgs.formats.json { };

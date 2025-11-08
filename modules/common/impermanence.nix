@@ -21,7 +21,7 @@
         };
 
       cfg = config.impermanence;
-      username = config.preferences.username;
+      username = config.preferences.user.username;
     in
     {
       imports = [
