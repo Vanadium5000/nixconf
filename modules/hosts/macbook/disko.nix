@@ -23,6 +23,13 @@
                   mountpoint = "/boot";
                 };
               };
+              swap = {
+                size = "16G";
+                content = {
+                  type = "swap";
+                  resumeDevice = true;
+                };
+              };
               root = {
                 size = "100%";
                 content = {
@@ -68,13 +75,6 @@
                   };
 
                   mountpoint = "/partition-root";
-                  swap = {
-                    size = "16G";
-                    content = {
-                      type = "swap";
-                      resumeDevice = true;
-                    };
-                  };
                 };
               };
             };
