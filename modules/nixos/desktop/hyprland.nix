@@ -42,20 +42,15 @@
           gaps_out = 10;
           border_size = 2;
           "col.active_border" =
-            mkForce "rgba(${self.themeNoHash.base0E}ff) rgba(${self.themeNoHash.base09}ff) 60deg";
-          "col.inactive_border" = mkForce "rgba(${self.themeNoHash.base00}ff)";
+            mkForce "rgba(${self.colorsNoHash.base0E}ff) rgba(${self.colorsNoHash.base09}ff) 60deg";
+          "col.inactive_border" = mkForce "rgba(${self.colorsNoHash.base00}ff)";
 
           layout = "dwindle";
         };
 
-        monitor = mapAttrsToList (
-          name: m:
-          let
-            resolution = "${toString m.width}x${toString m.height}@${toString m.refreshRate}";
-            position = "${toString m.x}x${toString m.y}";
-          in
-          "${name},${if m.enabled then "${resolution},${position},1" else "disable"}"
-        ) (config.preferences.monitors);
+        monitor = [
+          ",prefered,auto,auto"
+        ];
 
         env = [
           "XCURSOR_SIZE,24"
