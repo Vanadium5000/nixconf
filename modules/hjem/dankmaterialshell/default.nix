@@ -258,8 +258,8 @@
         dankBarGothCornersEnabled = true;
         dankBarGothCornerRadiusOverride = true;
         dankBarGothCornerRadiusValue = theme.rounding;
-        dankBarBorderEnabled = false;
-        dankBarBorderColor = "surfaceText";
+        dankBarBorderEnabled = true;
+        dankBarBorderColor = "primaryColor";
         dankBarBorderOpacity = 1;
         dankBarBorderThickness = 1;
 

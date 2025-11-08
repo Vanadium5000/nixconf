@@ -17,7 +17,7 @@
 
         ${lib.concatStrings (
           lib.mapAttrsToList (name: value: ''
-            defaultPref("${name}", ${builtins.toJSON value});
+            pref("${name}", ${builtins.toJSON value});
           '') prefs
         )}
       '';
