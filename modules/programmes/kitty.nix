@@ -18,13 +18,15 @@ in
         config = {
           enable_audio_bell = "no";
 
-          font = theme.font;
+          font_family = theme.font;
           font_size = theme.font-size;
 
           cursor_text_color = "background";
 
           allow_remote_control = "yes";
           shell_integration = "enabled";
+
+          confirm_os_window_close = 0;
 
           cursor_trail = 3;
 

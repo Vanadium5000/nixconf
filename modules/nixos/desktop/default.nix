@@ -3,11 +3,11 @@
   flake.nixosModules.desktop =
     {
       pkgs,
-      lib,
+      # lib,
       ...
     }:
     let
-      inherit (lib) getExe;
+      # inherit (lib) getExe;
       selfpkgs = self.packages."${pkgs.system}";
     in
     {

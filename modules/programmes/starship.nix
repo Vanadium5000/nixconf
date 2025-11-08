@@ -67,7 +67,6 @@
       };
     in
     {
-
       packages.starship = inputs.wrappers.lib.makeWrapper {
         inherit pkgs;
         package = pkgs.starship;

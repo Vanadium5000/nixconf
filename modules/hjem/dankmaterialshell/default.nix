@@ -62,7 +62,7 @@
         fontFamily = theme.font;
         monoFontFamily = theme.font;
         fontWeight = 400;
-        fontScale = 1;
+        fontScale = 0.8;
         dankBarFontScale = 1;
         notepadFontFamily = "";
         notepadFontSize = 14;
@@ -255,9 +255,9 @@
         dankBarPosition = 0;
         dankBarSquareCorners = false;
         dankBarNoBackground = false;
-        dankBarGothCornersEnabled = false;
-        dankBarGothCornerRadiusOverride = false;
-        dankBarGothCornerRadiusValue = 12;
+        dankBarGothCornersEnabled = true;
+        dankBarGothCornerRadiusOverride = true;
+        dankBarGothCornerRadiusValue = theme.rounding;
         dankBarBorderEnabled = false;
         dankBarBorderColor = "surfaceText";
         dankBarBorderOpacity = 1;
