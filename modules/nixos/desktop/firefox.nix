@@ -68,9 +68,5 @@
         ".mozilla"
         ".librewolf"
       ];
-
-      preferences.keymap = {
-        "SUPER + b".package = config.programs.firefox.package;
-      };
     };
 }

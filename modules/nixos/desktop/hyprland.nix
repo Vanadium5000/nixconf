@@ -226,12 +226,12 @@
 
           "${mod},L, exec, ${pkgs.hyprlock}/bin/hyprlock" # Lock
 
-          "$shiftMod,SPACE, exec, hyprfocus-toggle" # Toggle HyprFocus
+          "${shiftMod},SPACE, exec, hyprfocus-toggle" # Toggle HyprFocus
 
           #"${mod},TAB, overview:toggle" # Overview (Hyprspace)
 
           "${mod},D, exec, toggle-dock" # Toggle nwg-dock-hyprland (dock)
-          "$shiftMod,D, exec, waybar-toggle" # Toggle Hyprpanel (bar)
+          "${shiftMod},D, exec, waybar-toggle" # Toggle Hyprpanel (bar)
 
           "${mod},Q, killactive," # Close window
           "${mod},T, togglefloating," # Toggle Floating
@@ -273,18 +273,17 @@
               ws = i + 1;
             in
             [
-              "$mod,code:1${toString i}, workspace, ${toString ws}"
-              "$mod SHIFT,code:1${toString i}, movetoworkspace, ${toString ws}"
+              "${mod},code:1${toString i}, workspace, ${toString ws}"
+              "${mod} SHIFT,code:1${toString i}, movetoworkspace, ${toString ws}"
             ]
           ) 9
         ));
 
         bindm = [
           # Move/resize windows with mainMod + LMB/RMB and dragging
-          "${mod}, mouse:272, movewindow"
           "${mod}, mouse:273, resizewindow"
-          "$mod,mouse:272, movewindow" # Move Window (mouse)
-          "$mod,R, resizewindow" # Resize Window (mouse)
+          "${mod},mouse:272, movewindow" # Move Window (mouse)
+          "${mod},R, resizewindow" # Resize Window (mouse)
         ];
 
         bindl = [
