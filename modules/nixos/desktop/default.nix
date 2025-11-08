@@ -61,5 +61,7 @@
 
         "SUPER + RETURN".exec = "kitty";
       };
+
+      home.programs.hyprland = true;
     };
 }

@@ -1,8 +1,9 @@
 {
   flake.diskoConfigurations.macbook = {
-    # Use with:
+    # Use with (fill in ...):
     # nix eval .#diskoConfigurations.macbook --pretty > /tmp/disko-config.nix
     # sudo nix run github:nix-community/disko/latest -- /tmp/disko-config.nix
+    # sudo nixos-install --root /mnt --flake ...
     disko.devices = {
       disk = {
         main = {
