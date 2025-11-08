@@ -42,6 +42,18 @@
           };
         };
 
+        system = {
+          backlightDevice = mkOption {
+            type = types.str;
+            example = "intel_backlight";
+          };
+
+          keyboardBacklightDevice = mkOption {
+            type = types.str;
+            example = "platform::kbd_backlight";
+          };
+        };
+
         # Locales
         timeZone = mkOption {
           type = types.str;

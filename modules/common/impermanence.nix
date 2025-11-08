@@ -8,7 +8,6 @@
     }:
     let
       inherit (lib)
-        mkEnableOption
         mkOption
         ;
 
@@ -29,7 +28,11 @@
       ];
 
       options.impermanence = {
-        enable = mkEnableOption "Enable impermanence for NixOS";
+        enable = mkOption {
+          description = "Enable impermanence for NixOS";
+          type = lib.types.bool;
+          default = true;
+        };
 
         nixos = {
           directories = persistOption "System directories to persist";

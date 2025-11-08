@@ -31,6 +31,10 @@
         user = {
           username = "matrix";
         };
+        system = {
+          backlightDevice = "acpi_video0";
+          keyboardBacklightDevice = "apple::kbd_backlight";
+        };
       };
 
       # Plymouth

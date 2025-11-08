@@ -31,6 +31,7 @@ let
 
   theme = {
     font = "JetBrainsMono Nerd Font";
+    blur = true;
     rounding = 8;
     opacity = 0.9;
     gaps-in = 2; # between windows/buttons
