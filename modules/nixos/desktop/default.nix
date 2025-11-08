@@ -16,7 +16,6 @@
         self.nixosModules.terminal
 
         self.nixosModules.chromium
-        self.nixosModules.firefox
         self.nixosModules.hyprland
         self.nixosModules.pipewire
         self.nixosModules.tuigreet

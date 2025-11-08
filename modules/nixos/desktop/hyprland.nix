@@ -256,7 +256,7 @@
           "${mod},C, exec, dms ipc call spotlight toggleQuery \"=\""
           "${mod},N, exec, dms ipc call notepad toggle"
           "${mod},X, exec, dms ipc call powermenu toggle"
-          "${mod},X, exec, dms ipc call processlist toggle"
+          "${mod},B, exec, dms ipc call processlist toggle"
           "${mod},S, exec, ${getExe pkgs.grim} -g \"$(${getExe pkgs.slurp})\" - | ${getExe pkgs.swappy} -f - | wl-copy"
 
           # Screen zooming on shiftMod + mouse_scroll
