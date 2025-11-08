@@ -1,7 +1,12 @@
 { inputs, ... }:
 {
   flake.nixosModules.nix =
-    { pkgs, ... }:
+    {
+      pkgs,
+      config,
+      lib,
+      ...
+    }:
     {
       imports = [
         inputs.nix-index-database.nixosModules.nix-index
@@ -14,7 +19,13 @@
       ];
       nix.package = pkgs.lix;
       programs.nix-ld.enable = true;
-      nixpkgs.config.allowUnfree = true;
+      nixpkgs.config = {
+        # Disable if you don't want unfree packages
+        allowUnfree = false;
+
+        # Exceptions
+        allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) config.preferences.allowedUnfree;
+      };
 
       environment.systemPackages = with pkgs; [
         # Nix tooling

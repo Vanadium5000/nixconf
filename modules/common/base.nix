@@ -86,8 +86,26 @@
           pinentryPackage = pkgs.pinentry-curses;
         };
 
+        # OpenSSH
+        services.openssh = {
+          enable = true;
+          settings = {
+            PermitRootLogin = "yes";
+            PasswordAuthentication = false;
+          };
+        };
+
         # Disable the default SSH agent to avoid conflicts
         programs.ssh.startAgent = false;
+
+        # Bootloader
+        # Use the grub EFI boot loader.
+        # NOTE: No need to set devices, disko will add all devices that have a EF02 partition to the list already
+        boot.loader = {
+          grub.enable = true;
+          grub.efiSupport = true;
+          grub.efiInstallAsRemovable = true;
+        };
       };
     };
 }
