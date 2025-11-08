@@ -29,6 +29,8 @@
         ".config/hypr/workspaces.conf"
       ];
 
+      programs.hyprland.enable = true;
+
       home.programs.hyprland.enable = true;
       home.programs.hyprland.settings = {
         monitor = [
