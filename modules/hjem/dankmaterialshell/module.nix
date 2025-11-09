@@ -170,8 +170,25 @@
         ++ lib.optional cfg.enableCalendarEvents pkgs.khal
         ++ lib.optional cfg.enableSystemSound pkgs.kdePackages.qtmultimedia;
 
+        # System-level systemd service
+        systemd.services.dms = lib.mkIf cfg.systemd.enable {
+          description = "DankMaterialShell";
+          wantedBy = [ "graphical-session.target" ];
+          partOf = [ "graphical-session.target" ];
+          after = [ "graphical-session.target" ];
+          serviceConfig = {
+            ExecStart = "${lib.getExe self.packages.${pkgs.system}.dmsCli} run";
+            Restart = "on-failure";
+            User = user;
+            Environment = "XDG_CONFIG_HOME=%h/.config";
+          };
+          restartTriggers = lib.optional cfg.systemd.restartIfChanged "${
+            self.packages.${pkgs.system}.dankMaterialShell
+          }/etc/xdg/quickshell/dms";
+        };
+
         hjem.users.${user} = {
-          # Files: quickshell config, defaults, plugins, and systemd service
+          # Files: quickshell config, defaults, plugins
           files = lib.mkMerge [
             # Quickshell configuration directory (assuming source handles dirs)
             {
@@ -202,29 +219,6 @@
                 };
               }
             ) cfg.plugins)
-
-            # Systemd service unit file (manual declaration)
-            (lib.mkIf cfg.systemd.enable {
-              ".config/systemd/user/dms.service".text = lib.generators.toINI { } {
-                Unit = {
-                  Description = "DankMaterialShell";
-                  PartOf = "graphical-session.target";
-                  After = "graphical-session.target";
-                }
-                // (lib.optionalAttrs cfg.systemd.restartIfChanged {
-                  "X-Restart-Triggers" = "${self.packages.${pkgs.system}.dankMaterialShell}/etc/xdg/quickshell/dms";
-                });
-
-                Service = {
-                  ExecStart = "${lib.getExe self.packages.${pkgs.system}.dmsCli} run";
-                  Restart = "on-failure";
-                };
-
-                Install = {
-                  WantedBy = "graphical-session.target";
-                };
-              };
-            })
           ];
         };
       };

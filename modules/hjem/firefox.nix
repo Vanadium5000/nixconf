@@ -46,34 +46,35 @@
         # Disable annoying swipe gestures (alt + left/right arrow is so much easier)
         "browser.gesture.swipe.left" = "";
         "browser.gesture.swipe.right" = "";
-
-        # Extensions
-        "browser.policies.runOncePerModification.extensionsInstall" = extensions [
-          # Ad block
-          "ublock-origin"
-
-          # Bookmarks & tabs sync across browsers any WebDAV or Git service,
-          # via local file, Nextcloud, or Google Drive
-          "floccus"
-
-          # Dark mode for every website
-          "darkreader"
-
-          # YouTube enhancements
-          "sponsorblock"
-          "return-youtube-dislikes"
-          #youtube-enhancer-vc # Block YT shorts & general improvements
-
-          "tampermonkey" # Userscripts
-          "private-grammar-checker-harper" # Private spellcheck
-        ];
       };
 
     in
     {
       programs.firefox = {
         enable = true;
-        package = pkgs.librewolf;
+        package = pkgs.librewolf.override {
+          extraPolicies = {
+            policies.Extensions.Install = extensions [
+              # Ad block
+              "ublock-origin"
+
+              # Bookmarks & tabs sync across browsers any WebDAV or Git service,
+              # via local file, Nextcloud, or Google Drive
+              "floccus"
+
+              # Dark mode for every website
+              "darkreader"
+
+              # YouTube enhancements
+              "sponsorblock"
+              "return-youtube-dislikes"
+              #youtube-enhancer-vc # Block YT shorts & general improvements
+
+              "tampermonkey" # Userscripts
+              "private-grammar-checker-harper" # Private spellcheck
+            ];
+          };
+        };
       };
 
       hjem.users.${user} = {
