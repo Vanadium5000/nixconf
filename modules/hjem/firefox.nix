@@ -54,7 +54,7 @@
         enable = true;
         package = pkgs.librewolf.override {
           extraPolicies = {
-            policies.Extensions.Install = extensions [
+            Extensions.Install = extensions [
               # Ad block
               "ublock-origin"
 
