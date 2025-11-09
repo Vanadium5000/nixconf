@@ -1,6 +1,6 @@
 { self, ... }:
 {
-  flake.nixosModules.extra_hjem =
+  flake.nixosModules.dankmaterialshell =
     {
       config,
       pkgs,

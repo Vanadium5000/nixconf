@@ -152,9 +152,9 @@
           pkgs.ddcutil
           pkgs.libsForQt5.qt5ct
           pkgs.kdePackages.qt6ct
-          self.packages.${pkgs.system}.dmsCli
+          self.packages.${pkgs.stdenv.hostPlatform.system}.dmsCli
         ]
-        ++ lib.optional cfg.enableSystemMonitoring self.packages.${pkgs.system}.dgop
+        ++ lib.optional cfg.enableSystemMonitoring self.packages.${pkgs.stdenv.hostPlatform.system}.dgop
         ++ lib.optionals cfg.enableClipboard [
           pkgs.cliphist
           pkgs.wl-clipboard
@@ -170,20 +170,19 @@
         ++ lib.optional cfg.enableCalendarEvents pkgs.khal
         ++ lib.optional cfg.enableSystemSound pkgs.kdePackages.qtmultimedia;
 
-        # System-level systemd service
-        systemd.services.dms = lib.mkIf cfg.systemd.enable {
+        # User-level systemd service
+        systemd.user.services.dms = lib.mkIf cfg.enable {
           description = "DankMaterialShell";
           wantedBy = [ "graphical-session.target" ];
           partOf = [ "graphical-session.target" ];
           after = [ "graphical-session.target" ];
           serviceConfig = {
-            ExecStart = "${lib.getExe self.packages.${pkgs.system}.dmsCli} run";
+            ExecStart = "${lib.getExe self.packages.${pkgs.stdenv.hostPlatform.system}.dmsCli} run";
             Restart = "on-failure";
-            User = user;
             Environment = "XDG_CONFIG_HOME=%h/.config";
           };
           restartTriggers = lib.optional cfg.systemd.restartIfChanged "${
-            self.packages.${pkgs.system}.dankMaterialShell
+            self.packages.${pkgs.stdenv.hostPlatform.system}.dankMaterialShell
           }/etc/xdg/quickshell/dms";
         };
 
@@ -193,7 +192,7 @@
             # Quickshell configuration directory (assuming source handles dirs)
             {
               ".config/quickshell/dms".source = "${
-                self.packages.${pkgs.system}.dankMaterialShell
+                self.packages.${pkgs.stdenv.hostPlatform.system}.dankMaterialShell
               }/etc/xdg/quickshell/dms";
             }
 

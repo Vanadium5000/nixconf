@@ -84,10 +84,10 @@
             "ollama"
           ]
           ++ cfg.user.extraGroups;
-          shell = self.packages.${pkgs.system}.environment;
+          shell = self.packages.${pkgs.stdenv.hostPlatform.system}.environment;
 
           hashedPasswordFile = "/persist/passwd";
-          initialPassword = "1234";
+          # initialPassword = "1234";
         };
 
         # Locales

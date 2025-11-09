@@ -41,6 +41,10 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    # Install flatpaks declaratively
+    # https://github.com/gmodena/nix-flatpak
+    nix-flatpak.url = "github:gmodena/nix-flatpak/?ref=v0.6.0";
+
     # My Neovim config using NVF
     nvf-neovim = {
       url = "github:Vanadium5000/nvf-neovim";

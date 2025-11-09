@@ -24,7 +24,40 @@
         allowUnfree = false;
 
         # Exceptions
-        allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) config.preferences.allowedUnfree;
+        allowUnfreePredicate =
+          pkg:
+          builtins.elem (lib.getName pkg) (
+            [
+              # "nvidia-x11"
+              # "nvidia-settings"
+
+              # # Nvidia CUDA
+              # "cuda_cudart"
+              # "cuda_cccl"
+              # "libnpp"
+              # "libcublas"
+              # "libcufft"
+              # "cuda_nvcc"
+              # "cuda-merged"
+              # "cuda_cuobjdump"
+              # "cuda_gdb"
+              # "cuda_nvdisasm"
+              # "cuda_nvprune"
+              # "cuda_cupti"
+              # "cuda_cuxxfilt"
+              # "cuda_nvml_dev"
+              # "cuda_nvrtc"
+              # "cuda_nvtx"
+              # "cuda_profiler_api"
+              # "cuda_sanitizer_api"
+              # "libcurand"
+              # "libcusolver"
+              # "libnvjitlink"
+              # "libcusparse"
+              # "cudnn"
+            ]
+            ++ config.preferences.allowedUnfree
+          );
       };
 
       environment.systemPackages = with pkgs; [

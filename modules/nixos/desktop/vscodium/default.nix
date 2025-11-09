@@ -1,5 +1,5 @@
 {
-  flake.nixosModules.extra_hjem =
+  flake.nixosModules.vscodium =
     {
       pkgs,
       config,

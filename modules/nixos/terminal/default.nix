@@ -8,7 +8,7 @@
     }:
     let
       # inherit (lib) getExe;
-      # selfpkgs = self.packages."${pkgs.system}";
+      # selfpkgs = self.packages."${pkgs.stdenv.hostPlatform.system}";
     in
     {
       imports = [

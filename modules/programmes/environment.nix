@@ -14,51 +14,81 @@
       inherit (lib)
         getExe
         ;
+
+      editor = inputs.nvf-neovim.packages.${pkgs.stdenv.hostPlatform.system}.default;
     in
     {
       packages.environment = inputs.wrappers.lib.makeWrapper {
         inherit pkgs;
         package = self'.packages.fish;
         runtimeInputs = [
-          inputs.nvf-neovim.packages.${pkgs.system}.default
-
-          # nix
-          pkgs.nil
-          pkgs.nixd
-          pkgs.statix
-          pkgs.alejandra
-          pkgs.manix
-          pkgs.nix-inspect
-
-          # other
-          pkgs.file
-          pkgs.unzip
-          pkgs.zip
-          pkgs.p7zip
-          pkgs.wget
-          pkgs.killall
-          pkgs.sshfs
-          pkgs.fzf
-          pkgs.htop
-          pkgs.btop
-          pkgs.eza
-          pkgs.fd
-          pkgs.zoxide
-          pkgs.dust
-          pkgs.ripgrep
-          pkgs.neofetch
-          pkgs.tree-sitter
-          pkgs.imagemagick
-          pkgs.imv
-          pkgs.ffmpeg
-          pkgs.yt-dlp
-          pkgs.lazygit
-
-          # wrapped
+          # Wrapped programmes
           self'.packages.qalc
-        ];
+          editor
+        ]
+        ++ (
+          with pkgs;
+          (
+            # Nix tooling
+            [
+              nil
+              nixd
+              statix
+              nixfmt-rfc-style # Nix formatter
+              manix
+              nix-inspect
+            ]
+            # General CLI tools
+            ++ [
+              git
+              wget
+              curl
+
+              fzf
+              fd
+              ripgrep
+
+              tealdeer # Very fast implementation of tldr in Rust
+              btop # System resource monitor
+              bat
+              zip
+              unzip
+              jq
+              neovim
+
+              fastfetch # Device info
+              cpufetch # CPU info
+              nix-tree # Nix storage info
+            ]
+            ++
+              # Language runtimes/compilers
+              [
+                python3
+                gcc
+                bun
+                go
+                sqlite
+                sqlite-web # sqlite web editor
+              ]
+            ++
+              # Media tools
+              [
+                imagemagick
+                imv
+                ffmpeg
+                yt-dlp
+              ]
+            ++
+              # Just cool
+              [
+                pipes
+                cmatrix
+                cava
+              ]
+          )
+        );
         env = {
-          EDITOR = "${getExe inputs.nvf-neovim.packages.${pkgs.system}.default}";
+          EDITOR = getExe editor;
         };
       };
     };

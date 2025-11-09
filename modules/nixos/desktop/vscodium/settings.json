@@ -76,9 +76,9 @@
         // By default, this entry will be read from `import <nixpkgs> { }`.
         // You can write arbitrary Nix expressions here, to produce valid "options" declaration result.
         // Tip: for flake-based configuration, utilize `builtins.getFlake`
-        "nixos": {
-          "expr": "(builtins.getFlake \"/home/ac/Documents/nixos-config\").nixosConfigurations.legion5i.options"
-        }
+        // "nixos": {
+        //   "expr": "(builtins.getFlake \"/home/.../nixconf\").nixosConfigurations.x.options"
+        // }
       }
     }
   },
@@ -114,11 +114,8 @@
   // Live server settings
   "liveServer.settings.host": "0.0.0.0",
   "liveServer.settings.useLocalIp": true,
-  "yaml.schemas": {
-    "file:///home/ac/.vscode-oss/extensions/continue.continue-1.3.22-linux-x64/config-yaml-schema.json": [
-      ".continue/**/*.yaml"
-    ]
-  },
+
+  // QML settings
   "qt-qml.doNotAskForQmllsDownload": true,
   "qt-qml.qmlls.useQmlImportPathEnvVar": true
 
