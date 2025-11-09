@@ -16,7 +16,7 @@
       cfg = config.preferences;
     in
     {
-      options.preferences = rec {
+      options.preferences = {
         enable = mkOption {
           type = types.bool;
           default = true;
@@ -24,7 +24,7 @@
 
         configDirectory = mkOption {
           type = types.str;
-          default = "/home/${user.username}/nixconf";
+          default = "/home/${cfg.user.username}/nixconf";
         };
 
         allowedUnfree = mkOption {

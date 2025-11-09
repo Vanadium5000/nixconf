@@ -69,8 +69,11 @@
 
       hjem.users.${user} = {
         files.".config/VSCodium/User/settings.json".source =
-          config.lib.file.mkOutOfStoreSymlink "${config.preferences.configDirectory}/modules/hjem/vscodium/settings.json";
+          "${config.preferences.configDirectory}/modules/hjem/vscodium/settings.json";
       };
+
+      # FIXME: "fill-labs.dependi" is UNFREE
+      preferences.allowedUnfree = [ "vscode-extension-fill-labs-dependi" ];
 
       # Persist settings & extensions
       impermanence.home.cache.directories = [
