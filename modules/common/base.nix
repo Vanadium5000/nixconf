@@ -13,6 +13,8 @@
         mkOption
         ;
 
+      inherit (self) secrets;
+
       cfg = config.preferences;
     in
     {
@@ -86,7 +88,8 @@
           ++ cfg.user.extraGroups;
           shell = self.packages.${pkgs.stdenv.hostPlatform.system}.environment;
 
-          hashedPasswordFile = "/persist/passwd";
+          # hashedPasswordFile = "/persist/passwd";
+          hashedPassword = secrets.PASSWORD_HASH;
           # initialPassword = "1234";
         };
 
