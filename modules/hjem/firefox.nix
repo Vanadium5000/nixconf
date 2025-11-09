@@ -7,7 +7,7 @@
       ...
     }:
     let
-      ext = name: "\"https://addons.mozilla.org/firefox/downloads/latest/${name}/latest.xpi\"";
+      ext = name: "https://addons.mozilla.org/firefox/downloads/latest/${name}/latest.xpi";
 
       extensions = extensionStrings: (builtins.map ext extensionStrings);
 
