@@ -16,10 +16,15 @@
       cfg = config.preferences;
     in
     {
-      options.preferences = {
+      options.preferences = rec {
         enable = mkOption {
           type = types.bool;
           default = true;
+        };
+
+        configDirectory = mkOption {
+          type = types.str;
+          default = "/home/${user.username}/nixconf";
         };
 
         allowedUnfree = mkOption {

@@ -1,0 +1,126 @@
+{
+  // Font settings
+  "chat.editor.fontFamily": "JetBrainsMono Nerd Font",
+  "chat.editor.fontSize": 17.333333333333332,
+  "debug.console.fontFamily": "JetBrainsMono Nerd Font",
+  "debug.console.fontSize": 17.333333333333332,
+  "editor.fontFamily": "JetBrainsMono Nerd Font",
+  "editor.fontSize": 17.333333333333332,
+  "editor.inlayHints.fontFamily": "JetBrainsMono Nerd Font",
+  "editor.inlineSuggest.fontFamily": "JetBrainsMono Nerd Font",
+  "editor.minimap.sectionHeaderFontSize": 11.142857142857142,
+  "markdown.preview.fontFamily": "SFProDisplay Nerd Font",
+  "markdown.preview.fontSize": 17.333333333333332,
+  "scm.inputFontFamily": "JetBrainsMono Nerd Font",
+  "scm.inputFontSize": 16.095238095238095,
+  "screencastMode.fontSize": 69.33333333333333,
+  "terminal.integrated.fontSize": 17.333333333333332,
+
+  // Editor settings
+  "editor.formatOnSave": true,
+
+  // Language-specific settings
+  "[html]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[json]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[jsonc]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[svelte]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[dockercompose]": {
+    "editor.insertSpaces": true,
+    "editor.tabSize": 2,
+    "editor.autoIndent": "advanced",
+    "editor.quickSuggestions": {
+      "other": true,
+      "comments": false,
+      "strings": true
+    },
+    "editor.defaultFormatter": "redhat.vscode-yaml"
+  },
+  "[github-actions-workflow]": {
+    "editor.defaultFormatter": "redhat.vscode-yaml"
+  },
+
+  // Nix extension settings
+  "nix.enableLanguageServer": true,
+  "nix.serverPath": "nixd", // or "nixd", or ["executable", "argument1", ...]
+  // LSP config can be passed via the ``nix.serverSettings.{lsp}`` as shown below.
+  "nix.serverSettings": {
+    // check https://github.com/oxalica/nil/blob/main/docs/configuration.md for all options available
+    "nil": {
+      // "diagnostics": {
+      //  "ignored": ["unused_binding", "unused_with"],
+      // },
+      "formatting": {
+        "command": ["nixfmt"]
+      }
+    },
+    // check https://github.com/nix-community/nixd/blob/main/nixd/docs/configuration.md for all nixd config
+    "nixd": {
+      "formatting": {
+        "command": ["nixfmt"]
+      },
+      "options": {
+        // By default, this entry will be read from `import <nixpkgs> { }`.
+        // You can write arbitrary Nix expressions here, to produce valid "options" declaration result.
+        // Tip: for flake-based configuration, utilize `builtins.getFlake`
+        "nixos": {
+          "expr": "(builtins.getFlake \"/home/ac/Documents/nixos-config\").nixosConfigurations.legion5i.options"
+        }
+      }
+    }
+  },
+
+  // Git settings
+  "git.autofetch": true,
+
+  // LLDB settings
+  "lldb.suppressUpdateNotifications": true,
+
+  // Workbench settings
+  "workbench.iconTheme": "material-icon-theme",
+  "workbench.colorTheme": "Stylix",
+
+  // Terminal settings
+  "terminal.integrated.defaultProfile.linux": "fish",
+
+  // Container settings
+  "containers.containerCommand": "podman",
+  "containers.containerClient": "com.microsoft.visualstudio.containers.podman",
+
+  // Telemetry settings
+  "telemetry.telemetryLevel": "off",
+  "telemetry.feedback.enabled": false,
+  "continue.telemetryEnabled": false,
+  "redhat.telemetry.enabled": false,
+  "gitlens.telemetry.enabled": false,
+
+  // Kilo Code settings
+  "kilo-code.allowedCommands": ["git log", "git diff", "git show"],
+  "kilo-code.deniedCommands": [],
+
+  // Live server settings
+  "liveServer.settings.host": "0.0.0.0",
+  "liveServer.settings.useLocalIp": true,
+  "yaml.schemas": {
+    "file:///home/ac/.vscode-oss/extensions/continue.continue-1.3.22-linux-x64/config-yaml-schema.json": [
+      ".continue/**/*.yaml"
+    ]
+  },
+  "qt-qml.doNotAskForQmllsDownload": true,
+  "qt-qml.qmlls.useQmlImportPathEnvVar": true
+
+  // Other...
+}

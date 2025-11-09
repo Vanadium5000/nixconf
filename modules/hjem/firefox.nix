@@ -73,6 +73,7 @@
               "tampermonkey" # Userscripts
               "private-grammar-checker-harper" # Private spellcheck
             ];
+            SearchEngines.Default = "StartPage";
           };
         };
       };
