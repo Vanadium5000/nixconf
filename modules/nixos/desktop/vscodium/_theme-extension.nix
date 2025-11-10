@@ -1,7 +1,6 @@
 {
   lib,
   stdenv,
-  jq,
   _theme ? import ./_theme.nix,
   colors,
   ...
@@ -16,51 +15,51 @@ let
   extensionName = "nix-cyberpunk-electric-dark-theme";
   extensionVersion = "1.0.0";
   publisher = "custom";
+
+  packageJson = {
+    name = extensionName;
+    displayName = "Nix Cyberpunk Electric Dark Theme";
+    description = "A custom dark theme for VS Code based on Nix Cyberpunk Electric colors";
+    version = extensionVersion;
+    publisher = publisher;
+    engines = {
+      vscode = "^1.74.0";
+    };
+    categories = [
+      "Themes"
+    ];
+    contributes = {
+      themes = [
+        {
+          label = "Nix Cyberpunk Electric Dark";
+          uiTheme = "vs-dark";
+          path = "./themes/Nix Cyberpunk Electric Dark-color-theme.json";
+        }
+      ];
+    };
+  };
 in
 
 stdenv.mkDerivation {
   pname = extensionName;
   version = extensionVersion;
 
-  vscodeExtUniqueId = "${publisher}.${extensionName}";
+  vscodeExtUniqueId = "${publisher}.${extensionName}-${extensionVersion}";
   vscodeExtPublisher = publisher;
 
   dontUnpack = true;
 
-  buildInputs = [ jq ];
-
   buildPhase = ''
-        mkdir -p $out/share/vscode/extensions/${publisher}.${extensionName}-${extensionVersion}
+    mkdir -p $out/share/vscode/extensions/${publisher}.${extensionName}-${extensionVersion}
 
-        # Create package.json
-        cat > $out/share/vscode/extensions/${publisher}.${extensionName}-${extensionVersion}/package.json << EOF
-        {
-          "name": "${extensionName}",
-          "displayName": "Nix Cyberpunk Electric Dark Theme",
-          "description": "A custom dark theme for VS Code based on Nix Cyberpunk Electric colors",
-          "version": "${extensionVersion}",
-          "publisher": "${publisher}",
-          "engines": {
-            "vscode": "^1.74.0"
-          },
-          "categories": [
-            "Themes"
-          ],
-          "contributes": {
-            "themes": [
-              {
-                "label": "Nix Cyberpunk Electric Dark",
-                "uiTheme": "vs-dark",
-                "path": "./themes/Nix Cyberpunk Electric Dark-color-theme.json"
-              }
-            ]
-          }
-        }
-        EOF
+    # Create package.json
+    cat > $out/share/vscode/extensions/${publisher}.${extensionName}-${extensionVersion}/package.json <<EOF
+    ${builtins.toJSON packageJson}
+    EOF
 
-        # Create themes directory and theme file
-        mkdir -p $out/share/vscode/extensions/${publisher}.${extensionName}-${extensionVersion}/themes
-        cat > $out/share/vscode/extensions/${publisher}.${extensionName}-${extensionVersion}/themes/Nix\ Cyberpunk\ Electric\ Dark-color-theme.json <<EOF
+    # Create themes directory and theme file
+    mkdir -p $out/share/vscode/extensions/${publisher}.${extensionName}-${extensionVersion}/themes
+    cat > $out/share/vscode/extensions/${publisher}.${extensionName}-${extensionVersion}/themes/Nix\ Cyberpunk\ Electric\ Dark-color-theme.json <<EOF
     ${builtins.toJSON {
       inherit (themeJson)
         "$schema"

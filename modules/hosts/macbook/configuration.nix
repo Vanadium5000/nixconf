@@ -144,5 +144,8 @@
 
       # No cuda - doesn't have an Nvidia GPU
       nixpkgs.config.cudaSupport = false;
+
+      # State version
+      system.stateVersion = "25.11";
     };
 }
