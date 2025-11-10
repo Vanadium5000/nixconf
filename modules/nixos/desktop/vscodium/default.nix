@@ -69,7 +69,7 @@
 
       hjem.users.${user} = {
         files.".config/VSCodium/User/settings.json".source =
-          "${config.preferences.configDirectory}/modules/hjem/vscodium/settings.json";
+          "${config.preferences.configDirectory}/modules/nixos/desktop/vscodium/settings.json";
       };
 
       # FIXME: "fill-labs.dependi" is UNFREE

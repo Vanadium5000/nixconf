@@ -21,5 +21,8 @@
 
       security.polkit.enable = true;
       hardware.enableRedistributableFirmware = true;
+
+      programs.direnv.enable = true;
+      programs.direnv.nix-direnv.enable = true;
     };
 }
