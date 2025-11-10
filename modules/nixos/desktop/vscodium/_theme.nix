@@ -4,7 +4,7 @@ colors: with colors; {
   type = "dark";
   colors = {
     "actionBar.toggledBackground" = null;
-    "activityBar.activeBackground" = base02;
+    "activityBar.activeBackground" = colors.base02;
     "activityBar.activeBorder" = base05;
     "activityBar.activeFocusBorder" = base0D;
     "activityBar.background" = base01;

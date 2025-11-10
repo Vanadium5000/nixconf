@@ -91,7 +91,7 @@
 
   // Workbench settings
   "workbench.iconTheme": "material-icon-theme",
-  "workbench.colorTheme": "Stylix",
+  "workbench.colorTheme": "Nix Cyberpunk Electric Dark",
 
   // Terminal settings
   "terminal.integrated.defaultProfile.linux": "fish",

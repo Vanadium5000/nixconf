@@ -1,3 +1,4 @@
+{ self, ... }:
 {
   flake.nixosModules.vscodium =
     {
@@ -7,12 +8,17 @@
     }:
     let
       user = config.preferences.user.username;
+
+      inherit (self) colors;
     in
     {
       environment.systemPackages = with pkgs; [
         (vscode-with-extensions.override {
           vscode = vscodium;
           vscodeExtensions = with vscode-extensions; [
+            # Custom theme
+            (callPackage ./_theme-extension.nix { inherit colors; })
+
             # Rust
             rust-lang.rust-analyzer
             vadimcn.vscode-lldb # Rust debugging
