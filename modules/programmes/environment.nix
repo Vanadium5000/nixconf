@@ -56,6 +56,8 @@
               jq
               neovim
 
+              pass # Password management
+
               fastfetch # Device info
               cpufetch # CPU info
               nix-tree # Nix storage info
@@ -89,6 +91,7 @@
         );
         env = {
           EDITOR = getExe editor;
+          PASSWORD_STORE_DIR = ".local/share/password-store";
         };
       };
     };

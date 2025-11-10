@@ -64,7 +64,7 @@
         fontWeight = 400;
         fontScale = 0.8;
         dankBarFontScale = 1;
-        notepadFontFamily = "";
+        notepadFontFamily = theme.font;
         notepadFontSize = 14;
         iconTheme = "System Default";
 
@@ -78,8 +78,8 @@
         # Weather
         useFahrenheit = false;
         showWeather = true;
-        weatherLocation = "New York, NY";
-        weatherCoordinates = "40.7128,-74.0060";
+        weatherLocation = "Hailsham, England";
+        weatherCoordinates = "50.8628229,0.2730609";
         useAutoLocation = false;
         weatherEnabled = true;
 
@@ -259,7 +259,7 @@
         dankBarGothCornerRadiusOverride = true;
         dankBarGothCornerRadiusValue = theme.rounding;
         dankBarBorderEnabled = true;
-        dankBarBorderColor = "primaryColor";
+        dankBarBorderColor = "primary";
         dankBarBorderOpacity = 1;
         dankBarBorderThickness = 1;
 
