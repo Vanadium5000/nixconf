@@ -249,7 +249,7 @@
         dankBarAutoHide = false;
         dankBarOpenOnOverview = false;
         dankBarVisible = true;
-        dankBarSpacing = 4;
+        dankBarSpacing = theme.gaps-out;
         dankBarBottomGap = 0;
         dankBarInnerPadding = 4;
         dankBarPosition = 0;

@@ -83,6 +83,20 @@ let
     in
     "rgba(${builtins.toString r},${builtins.toString g},${builtins.toString b},${builtins.toString opacity})";
 
+  hexToRgbaValues =
+    color: opacity:
+    let
+      r = extractChannel color 0;
+      g = extractChannel color 2;
+      b = extractChannel color 4;
+    in
+    [
+      r
+      g
+      b
+      opacity
+    ];
+
   stripHash =
     str:
     if builtins.substring 0 1 str == "#" then
@@ -92,6 +106,7 @@ let
 
   colorsNoHash = builtins.mapAttrs (_: v: stripHash v) colors;
   colorsRgba = builtins.mapAttrs (_: v: hexToRgba (stripHash v) theme.opacity) colors;
+  colorsRgbaValues = builtins.mapAttrs (_: v: hexToRgbaValues (stripHash v) theme.opacity) colors;
 in
 {
   flake = {
@@ -99,6 +114,7 @@ in
       colors
       colorsNoHash
       colorsRgba
+      colorsRgbaValues
       theme
       ;
   };

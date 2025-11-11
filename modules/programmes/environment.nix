@@ -91,7 +91,7 @@
         );
         env = {
           EDITOR = getExe editor;
-          PASSWORD_STORE_DIR = ".local/share/password-store";
+          PASSWORD_STORE_DIR = "$HOME/.local/share/password-store";
         };
       };
     };
