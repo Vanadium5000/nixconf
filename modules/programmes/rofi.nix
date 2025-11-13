@@ -49,12 +49,12 @@
             bg:  ${colorsRgba.background};
             bg-opaque: ${colors.background};
             fgd: ${colors.foreground};
-            cya: #${colors.base0C};
-            grn: #${colors.base0B};
-            ora: #${colors.base09};
-            pur: #${colors.base0F};
-            red: #${colors.base08};
-            yel: #${colors.base0A};
+            cya: ${colors.base0C};
+            grn: ${colors.base0B};
+            ora: ${colors.base09};
+            pur: ${colors.base0F};
+            red: ${colors.base08};
+            yel: ${colors.base0A};
             acc: ${colors.accent};
             acc-alt: ${colors.accent-alt};
 
@@ -201,7 +201,7 @@
           ];
         };
         flags = {
-          "--config" = config;
+          "-config" = config;
         };
       };
     };

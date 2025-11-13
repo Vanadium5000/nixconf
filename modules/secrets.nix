@@ -1,61 +1,63 @@
-{
-  ...
-}:
+{ ... }:
+
 let
-  secrets = [ "PASSWORD_HASH" ];
-
-  fetchAll = builtins.map (
-    name:
+  # Function: makeSecrets
+  # Args:
+  #   secrets: list of strings (secret names, e.g. [ "PASSWORD_HASH" "API_KEY" ])
+  # Returns: attrset { PASSWORD_HASH = "..."; API_KEY = "..."; }
+  # Throws: helpful error with export instructions if any are missing
+  makeSecrets =
+    secrets:
     let
-      envname = "SECRETS_${name}";
-      val = builtins.getEnv envname;
+      fetchAll = builtins.map (
+        name:
+        let
+          envname = "SECRETS_${name}";
+          val = builtins.getEnv envname;
+        in
+        {
+          inherit name envname val;
+        }
+      ) secrets;
+
+      missing = builtins.filter (s: s.val == "") fetchAll;
+      missingEnv = builtins.map (s: s.envname) missing;
+
+      missingList =
+        if builtins.length missingEnv == 0 then
+          ""
+        else
+          builtins.concatStringsSep "\n" (builtins.map (e: "  - ${e}") missingEnv);
+
+      exports =
+        if builtins.length missingEnv == 0 then
+          ""
+        else
+          builtins.concatStringsSep "\n" (builtins.map (e: "export ${e}=<your-value>") missingEnv);
+
     in
-    {
-      inherit envname name val;
-    }
-  ) secrets;
+    if builtins.length missing > 0 then
+      throw ''
+                [1;31mERROR: Missing required secrets![0m
 
-  missing = builtins.filter (s: s.val == "") fetchAll;
+                The following environment variables must be set:
+        ${missingList}
 
-  missingEnv = builtins.map (s: s.envname) missing;
+                [1mExample:[0m
+        ${exports}
 
-  missingList =
-    if builtins.length missingEnv == 0 then
-      ""
+                [1mTo build:[0m
+                  sudo nixos-rebuild switch --flake .#your-host --impure
+      ''
     else
-      builtins.concatStringsSep "\n" (builtins.map (e: "- ${e}") missingEnv);
-
-  exports =
-    if builtins.length missingEnv == 0 then
-      ""
-    else
-      builtins.concatStringsSep "\n" (builtins.map (e: "  export ${e}=value") missingEnv);
+      builtins.listToAttrs (
+        builtins.map (s: {
+          name = s.name;
+          value = s.val;
+        }) fetchAll
+      );
 
 in
-if builtins.length missing > 0 then
-  throw ''
-    ERROR: The following secrets are not set:
-
-    ${missingList}
-
-    You must export the environment variables before building, e.g.:
-
-    ${exports}
-
-    and always build with --impure:
-      sudo nixos-rebuild switch --flake .#your-host --impure
-  ''
-else
-  let
-    secretAttrs = builtins.listToAttrs (
-      builtins.map (s: {
-        name = s.name;
-        value = s.val;
-      }) fetchAll
-    );
-  in
-  {
-    flake = {
-      secrets = secretAttrs;
-    };
-  }
+{
+  flake.secrets = makeSecrets;
+}

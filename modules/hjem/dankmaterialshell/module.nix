@@ -177,13 +177,13 @@
           partOf = [ "graphical-session.target" ];
           after = [ "graphical-session.target" ];
           serviceConfig = {
-            ExecStart = "${lib.getExe self.packages.${pkgs.stdenv.hostPlatform.system}.dmsCli} run";
+            ExecStart = "${lib.getExe self.packages.${pkgs.stdenv.hostPlatform.system}.dmsCli} restart";
             Restart = "on-failure";
             Environment = "XDG_CONFIG_HOME=%h/.config";
           };
-          restartTriggers = lib.optional cfg.systemd.restartIfChanged "${
-            self.packages.${pkgs.stdenv.hostPlatform.system}.dankMaterialShell
-          }/etc/xdg/quickshell/dms";
+          # restartTriggers = lib.optional cfg.systemd.restartIfChanged "${
+          #   self.packages.${pkgs.stdenv.hostPlatform.system}.dankMaterialShell
+          # }/etc/xdg/quickshell/dms";
         };
 
         hjem.users.${user} = {
