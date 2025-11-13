@@ -1,0 +1,107 @@
+[0;34m[2025-11-13 22:42:02][0m Starting NixOS rebuild script
+[0;34m[2025-11-13 22:42:02][0m Host: macbook
+[0;34m[2025-11-13 22:42:02][0m Flake directory: /home/matrix/nixconf
+[0;34m[2025-11-13 22:42:02][0m Action: validate
+[0;34m[2025-11-13 22:42:02][0m Loading secrets from password-store...
+[0;32m[SUCCESS][0m Loaded PASSWORD_HASH from password-store
+[0;34m[2025-11-13 22:42:03][0m Checking git status...
+[0;32m[SUCCESS][0m Git working directory is clean
+[0;34m[2025-11-13 22:42:03][0m Validating flake configuration...
+[0;34m[2025-11-13 22:42:29][0m Starting NixOS rebuild script
+[0;34m[2025-11-13 22:42:29][0m Host: macbook
+[0;34m[2025-11-13 22:42:29][0m Flake directory: /home/matrix/nixconf
+[0;34m[2025-11-13 22:42:29][0m Action: validate
+[0;34m[2025-11-13 22:42:29][0m Loading secrets from password-store...
+[0;32m[SUCCESS][0m Loaded PASSWORD_HASH from password-store
+[0;34m[2025-11-13 22:42:29][0m Checking git status...
+[0;32m[SUCCESS][0m Git working directory is clean
+[0;34m[2025-11-13 22:42:29][0m Validating flake configuration...
+[0;32m[SUCCESS][0m Flake validation passed
+[0;32m[SUCCESS][0m Rebuild script completed successfully
+[0;34m[2025-11-13 22:42:30][0m Script finished
+[0;32m[SUCCESS][0m Flake validation passed
+[0;32m[SUCCESS][0m Rebuild script completed successfully
+[0;34m[2025-11-13 22:42:58][0m Script finished
+[0;34m[2025-11-13 22:43:36][0m Starting NixOS rebuild script
+[0;34m[2025-11-13 22:43:36][0m Host: macbook
+[0;34m[2025-11-13 22:43:36][0m Flake directory: /home/matrix/nixconf
+[0;34m[2025-11-13 22:43:36][0m Action: dry-run
+[0;34m[2025-11-13 22:43:36][0m Loading secrets from password-store...
+[0;32m[SUCCESS][0m Loaded PASSWORD_HASH from password-store
+[0;34m[2025-11-13 22:43:36][0m Checking git status...
+[0;32m[SUCCESS][0m Git working directory is clean
+[0;34m[2025-11-13 22:43:36][0m Validating flake configuration...
+[0;34m[2025-11-13 22:43:43][0m Starting NixOS rebuild script
+[0;34m[2025-11-13 22:43:43][0m Host: macbook
+[0;34m[2025-11-13 22:43:43][0m Flake directory: /home/matrix/nixconf
+[0;34m[2025-11-13 22:43:43][0m Action: dry-run
+[0;34m[2025-11-13 22:43:43][0m Loading secrets from password-store...
+[0;32m[SUCCESS][0m Loaded PASSWORD_HASH from password-store
+[0;34m[2025-11-13 22:43:43][0m Checking git status...
+[0;32m[SUCCESS][0m Git working directory is clean
+[0;34m[2025-11-13 22:43:43][0m Validating flake configuration...
+[0;32m[SUCCESS][0m Flake validation passed
+[0;34m[2025-11-13 22:44:12][0m Performing dry run...
+[0;32m[SUCCESS][0m Flake validation passed
+[0;34m[2025-11-13 22:44:22][0m Performing dry run...
+[0;32m[SUCCESS][0m Dry run completed successfully
+[0;32m[SUCCESS][0m Rebuild script completed successfully
+[0;34m[2025-11-13 22:45:01][0m Script finished
+[0;32m[SUCCESS][0m Dry run completed successfully
+[0;32m[SUCCESS][0m Rebuild script completed successfully
+[0;34m[2025-11-13 22:45:07][0m Script finished
+[0;34m[2025-11-13 22:45:13][0m Starting NixOS rebuild script
+[0;34m[2025-11-13 22:45:13][0m Host: macbook
+[0;34m[2025-11-13 22:45:13][0m Flake directory: /home/matrix/nixconf
+[0;34m[2025-11-13 22:45:13][0m Action: generations
+[0;34m[2025-11-13 22:45:13][0m Loading secrets from password-store...
+[0;32m[SUCCESS][0m Loaded PASSWORD_HASH from password-store
+[0;34m[2025-11-13 22:45:14][0m Checking git status...
+[0;32m[SUCCESS][0m Git working directory is clean
+[0;34m[2025-11-13 22:45:14][0m Current system generations:
+[0;32m[SUCCESS][0m Rebuild script completed successfully
+[0;34m[2025-11-13 22:45:16][0m Script finished
+[0;34m[2025-11-13 22:45:20][0m Starting NixOS rebuild script
+[0;34m[2025-11-13 22:45:20][0m Host: macbook
+[0;34m[2025-11-13 22:45:20][0m Flake directory: /home/matrix/nixconf
+[0;34m[2025-11-13 22:45:20][0m Action: generations
+[0;34m[2025-11-13 22:45:20][0m Loading secrets from password-store...
+[0;32m[SUCCESS][0m Loaded PASSWORD_HASH from password-store
+[0;34m[2025-11-13 22:45:21][0m Checking git status...
+[0;32m[SUCCESS][0m Git working directory is clean
+[0;34m[2025-11-13 22:45:21][0m Current system generations:
+[2025-11-13 22:45:21] [ERROR] Script failed with exit code 1
+[0;34m[2025-11-13 22:45:21][0m Script finished
+[0;34m[2025-11-13 22:46:29][0m Starting NixOS rebuild script
+[0;34m[2025-11-13 22:46:29][0m Host: macbook
+[0;34m[2025-11-13 22:46:29][0m Flake directory: /home/matrix/nixconf
+[0;34m[2025-11-13 22:46:29][0m Action: generations
+[0;34m[2025-11-13 22:46:29][0m Loading secrets from password-store...
+[0;32m[SUCCESS][0m Loaded PASSWORD_HASH from password-store
+[0;34m[2025-11-13 22:46:29][0m Checking git status...
+[0;32m[SUCCESS][0m Git working directory is clean
+[0;34m[2025-11-13 22:46:29][0m Current system generations:
+[2025-11-13 22:46:29] [ERROR] Script failed with exit code 1
+[0;34m[2025-11-13 22:46:29][0m Script finished
+[0;34m[2025-11-13 22:46:40][0m Starting NixOS rebuild script
+[0;34m[2025-11-13 22:46:40][0m Host: macbook
+[0;34m[2025-11-13 22:46:40][0m Flake directory: /home/matrix/nixconf
+[0;34m[2025-11-13 22:46:40][0m Action: generations
+[0;34m[2025-11-13 22:46:40][0m Loading secrets from password-store...
+[0;32m[SUCCESS][0m Loaded PASSWORD_HASH from password-store
+[0;34m[2025-11-13 22:46:40][0m Checking git status...
+[0;32m[SUCCESS][0m Git working directory is clean
+[0;34m[2025-11-13 22:46:40][0m Current system generations:
+[2025-11-13 22:46:41] [ERROR] Script failed with exit code 1
+[0;34m[2025-11-13 22:46:41][0m Script finished
+[0;34m[2025-11-13 22:46:56][0m Starting NixOS rebuild script
+[0;34m[2025-11-13 22:46:56][0m Host: macbook
+[0;34m[2025-11-13 22:46:56][0m Flake directory: /home/matrix/nixconf
+[0;34m[2025-11-13 22:46:56][0m Action: generations
+[0;34m[2025-11-13 22:46:56][0m Loading secrets from password-store...
+[0;32m[SUCCESS][0m Loaded PASSWORD_HASH from password-store
+[0;34m[2025-11-13 22:46:56][0m Checking git status...
+[0;32m[SUCCESS][0m Git working directory is clean
+[0;34m[2025-11-13 22:46:56][0m Current system generations:
+[0;32m[SUCCESS][0m Rebuild script completed successfully
+[0;34m[2025-11-13 22:46:56][0m Script finished
