@@ -18,6 +18,7 @@
         "flakes"
       ];
       nix.package = pkgs.lix;
+      nix.trustedUsers = [ config.preferences.user.username ];
       programs.nix-ld.enable = true;
       nixpkgs.config = {
         # Disable if you don't want unfree packages
