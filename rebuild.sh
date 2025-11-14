@@ -101,7 +101,7 @@ backup_system() {
     log "Creating system backup..."
     if command_exists nixos-rebuild; then
         # Create a backup of the current system closure
-        sudo nixos-rebuild build --flake "${FLAKE_DIR}#${HOST}" --impure
+        nixos-rebuild build --flake "${FLAKE_DIR}#${HOST}" --impure
         # The result is in /run/current-system, but we can create a backup reference
         success "System backup created"
     fi
@@ -140,7 +140,17 @@ dry_run() {
 # Switch to new system
 switch_system() {
     log "Switching to new system configuration..."
-    if ! sudo nixos-rebuild switch --flake "${FLAKE_DIR}#${HOST}" --impure; then
+    # Pass environment variables through sudo using sh -c
+    local env_vars=""
+    if [ -n "${SECRETS_PASSWORD_HASH:-}" ]; then
+        env_vars="SECRETS_PASSWORD_HASH='${SECRETS_PASSWORD_HASH}' "
+    fi
+    # Add other secrets here if needed
+    # if [ -n "${SECRETS_API_KEY:-}" ]; then
+    #     env_vars="${env_vars}SECRETS_API_KEY='${SECRETS_API_KEY}' "
+    # fi
+
+    if ! sudo sh -c "${env_vars}nixos-rebuild switch --flake '${FLAKE_DIR}#${HOST}' --impure"; then
         error "System switch failed"
         return 1
     fi
