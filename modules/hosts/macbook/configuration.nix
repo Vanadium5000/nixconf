@@ -35,11 +35,6 @@
           backlightDevice = "acpi_video0";
           keyboardBacklightDevice = "apple::kbd_backlight";
         };
-        keymap = {
-          "SUPER + P" = {
-            exec = "passmenu";
-          };
-        };
       };
 
       # Plymouth

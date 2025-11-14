@@ -224,13 +224,17 @@
           # "${mod},E, exec, dolphin" # Dolphin
           "${mod},B, exec, librewolf" # Librewolf
           "${mod},G, exec, xdg-open https://x.com/i/grok" # Open Grok
-          "${mod},A, exec, tpkill nwg-drawer || ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.nwg-drawer}" # Toggle nwg-drawer
+          "${mod},A, exec, tpkill nwg-drawer || ${
+            getExe self.packages.${pkgs.stdenv.hostPlatform.system}.nwg-drawer
+          }" # Toggle nwg-drawer
 
           "${mod},L, exec, dms ipc call lock lock" # Lock
 
           #"${mod},TAB, overview:toggle" # Overview (Hyprspace)
 
-          "${mod},D, exec, pkill nwg-dock || ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.nwg-dock-hyprland}" # Toggle nwg-dock-hyprland (dock)
+          "${mod},D, exec, pkill nwg-dock || ${
+            getExe self.packages.${pkgs.stdenv.hostPlatform.system}.nwg-dock-hyprland
+          }" # Toggle nwg-dock-hyprland (dock)
           "${shiftMod},D, exec, waybar-toggle" # Toggle Hyprpanel (bar)
 
           "${mod},Q, killactive," # Close window
@@ -256,8 +260,9 @@
           "${mod},C, exec, dms ipc call spotlight toggleQuery \"=\""
           "${mod},N, exec, dms ipc call notepad toggle"
           "${mod},X, exec, dms ipc call powermenu toggle"
-          "${mod},B, exec, dms ipc call processlist toggle"
+          "${mod},W, exec, dms ipc call processlist toggle"
           "${mod},S, exec, ${getExe pkgs.grim} -g \"$(${getExe pkgs.slurp})\" - | ${getExe pkgs.swappy} -f - | wl-copy"
+          "${mod},P, exec, ${getExe self.packages.${pkgs.system}.passmenu}"
 
           # Screen zooming on shiftMod + mouse_scroll
           "${mod},MINUS, exec, hyprctl keyword cursor:zoom_factor $(awk \"BEGIN {print $(hyprctl getoption cursor:zoom_factor | grep 'float:' | awk '{print $2}') - 0.1}\")"
