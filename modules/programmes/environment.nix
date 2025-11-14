@@ -56,7 +56,7 @@
               jq
               neovim
 
-              pass # Password management
+              (pass.withExtensions (exts: [ exts.pass-otp ])) # Password management
 
               fastfetch # Device info
               cpufetch # CPU info
