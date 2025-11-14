@@ -262,7 +262,7 @@
           "${mod},X, exec, dms ipc call powermenu toggle"
           "${mod},W, exec, dms ipc call processlist toggle"
           "${mod},S, exec, ${getExe pkgs.grim} -g \"$(${getExe pkgs.slurp})\" - | ${getExe pkgs.swappy} -f - | wl-copy"
-          "${mod},P, exec, ${getExe self.packages.${pkgs.system}.passmenu}"
+          "${mod},P, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.passmenu}"
 
           # Screen zooming on shiftMod + mouse_scroll
           "${mod},MINUS, exec, hyprctl keyword cursor:zoom_factor $(awk \"BEGIN {print $(hyprctl getoption cursor:zoom_factor | grep 'float:' | awk '{print $2}') - 0.1}\")"

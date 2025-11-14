@@ -50,7 +50,13 @@
         adwaita-icon-theme
       ])
       # GPU monitoring
-      ++ (lib.optional config.nixpkgs.config.cudaSupport [ pkgs.nvtopPackages.full ]);
+      ++ (lib.optional config.nixpkgs.config.cudaSupport [ pkgs.nvtopPackages.full ])
+      # Custom desktop packages
+      ++ (with self.packages.${pkgs.stdenv.hostPlatform.system}; [
+        nwg-dock-hyprland
+        nwg-drawer
+        rofi
+      ]);
 
       fonts.packages = with pkgs; [
         nerd-fonts.jetbrains-mono
