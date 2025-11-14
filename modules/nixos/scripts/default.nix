@@ -38,7 +38,7 @@
             pkgs.gnupg
             self'.packages.rofi
             pkgs.wl-clipboard
-            # pkgs.wtype
+            pkgs.wtype
             pkgs.ydotool
             pkgs.bun
 

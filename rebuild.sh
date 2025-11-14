@@ -9,6 +9,10 @@ set -euo pipefail
 # - Git integration for version tracking
 # - Modern Nix commands
 
+# Use rofi for askpass
+ROFI_CMD='rofi -dmenu -password -no-fixed-num-lines -p "Password: "'
+export SUDO_ASKPASS="$ROFI_CMD"
+
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FLAKE_DIR="${SCRIPT_DIR}"
@@ -150,7 +154,7 @@ switch_system() {
     #     env_vars="${env_vars}SECRETS_API_KEY='${SECRETS_API_KEY}' "
     # fi
 
-    if ! sudo sh -c "${env_vars}nixos-rebuild switch --flake '${FLAKE_DIR}#${HOST}' --impure"; then
+    if ! sudo -A sh -c "${env_vars}nixos-rebuild switch --flake '${FLAKE_DIR}#${HOST}' --impure"; then
         error "System switch failed"
         return 1
     fi
@@ -160,7 +164,7 @@ switch_system() {
 # Rollback system
 rollback_system() {
     log "Rolling back to previous system generation..."
-    if ! sudo nixos-rebuild --rollback switch; then
+    if ! sudo -A nixos-rebuild --rollback switch; then
         error "System rollback failed"
         return 1
     fi
@@ -170,7 +174,7 @@ rollback_system() {
 # Show generations
 show_generations() {
     log "Current system generations:"
-    sudo nix-env --list-generations --profile /nix/var/nix/profiles/system | tail -10
+    sudo -A nix-env --list-generations --profile /nix/var/nix/profiles/system | tail -10
 }
 
 # Main function
