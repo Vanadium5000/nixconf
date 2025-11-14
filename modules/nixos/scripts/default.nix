@@ -21,7 +21,15 @@
           pkgs.gnupg
           self'.packages.rofi
           pkgs.wl-clipboard
+          pkgs.wtype
           pkgs.ydotool
+          pkgs.bun
+
+          # Core utilities needed by the script
+          pkgs.coreutils
+          pkgs.findutils
+          pkgs.gnused
+          pkgs.which
         ];
         env = {
           # Ensure PATH includes all runtime inputs
@@ -30,8 +38,15 @@
             pkgs.gnupg
             self'.packages.rofi
             pkgs.wl-clipboard
+            # pkgs.wtype
             pkgs.ydotool
             pkgs.bun
+
+            # Core utilities
+            pkgs.coreutils
+            pkgs.findutils
+            pkgs.gnused
+            pkgs.which
           ];
         };
       };

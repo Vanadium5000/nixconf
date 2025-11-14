@@ -84,6 +84,7 @@
             "libvirtd"
             "podman"
             "ollama"
+            "ydotool" # Wayland automation tool
           ]
           ++ cfg.user.extraGroups;
           shell = self.packages.${pkgs.stdenv.hostPlatform.system}.environment;

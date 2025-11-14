@@ -15,27 +15,27 @@ async function commandExists(cmd: string): Promise<boolean> {
 }
 
 // Determine menu command with fallback logic
-async function getMenuCommand(): Promise<string> {
+async function getMenuCommand(): Promise<string[]> {
   const isWayland = !!process.env.WAYLAND_DISPLAY;
 
   // User prefers rofi on Wayland, so check for rofi first
   if (await commandExists("rofi")) {
-    return "rofi -dmenu";
+    return ["rofi", "-dmenu"];
   } else if (isWayland && (await commandExists("wofi"))) {
-    return "wofi --show dmenu";
+    return ["wofi", "--show", "dmenu"];
   } else {
     throw new Error("Neither rofi nor wofi found. Please install one of them.");
   }
 }
 
 // Determine copy command
-async function getCopyCommand(): Promise<string> {
+async function getCopyCommand(): Promise<string[]> {
   const isWayland = !!process.env.WAYLAND_DISPLAY;
 
   if (isWayland && (await commandExists("wl-copy"))) {
-    return "wl-copy";
+    return ["wl-copy"];
   } else if (await commandExists("xclip")) {
-    return "xclip -selection clipboard";
+    return ["xclip", "-selection", "clipboard"];
   } else {
     throw new Error(
       "Neither wl-copy nor xclip found. Please install one of them."
@@ -44,15 +44,15 @@ async function getCopyCommand(): Promise<string> {
 }
 
 // Determine type command
-async function getTypeCommand(): Promise<string> {
+async function getTypeCommand(): Promise<string[]> {
   const isWayland = !!process.env.WAYLAND_DISPLAY;
 
   if (isWayland && (await commandExists("wtype"))) {
-    return "wtype";
+    return ["wtype"];
   } else if (await commandExists("xdotool")) {
-    return "xdotool type --clearmodifiers";
+    return ["xdotool", "type", "--clearmodifiers"];
   } else if (await commandExists("ydotool")) {
-    return "ydotool type --";
+    return ["ydotool", "type", "--"];
   } else {
     throw new Error(
       "Neither wtype, xdotool, nor ydotool found. Please install one of them."
@@ -61,15 +61,15 @@ async function getTypeCommand(): Promise<string> {
 }
 
 // Determine tab key command
-async function getTabCommand(): Promise<string> {
+async function getTabCommand(): Promise<string[]> {
   const isWayland = !!process.env.WAYLAND_DISPLAY;
 
   if (isWayland && (await commandExists("wtype"))) {
-    return "wtype -k tab";
+    return ["wtype", "-k", "tab"];
   } else if (await commandExists("xdotool")) {
-    return "xdotool key Tab";
+    return ["xdotool", "key", "Tab"];
   } else if (await commandExists("ydotool")) {
-    return "ydotool key 15:1 15:0"; // Tab key code
+    return ["ydotool", "key", "15:1", "15:0"]; // Tab key code
   } else {
     throw new Error("No suitable tool found for sending tab key.");
   }
@@ -79,8 +79,8 @@ interface Options {
   autotype: boolean;
   squash: boolean;
   fileisuser: boolean;
-  copyCmd: string;
-  typeCmd: string;
+  copyCmd: string[];
+  typeCmd: string[];
 }
 
 async function main() {
@@ -89,8 +89,8 @@ async function main() {
     autotype: false,
     squash: false,
     fileisuser: false,
-    copyCmd: "",
-    typeCmd: "",
+    copyCmd: [],
+    typeCmd: [],
   };
 
   let i = 0;
@@ -107,14 +107,14 @@ async function main() {
       const nextArg = args[i];
       options.copyCmd =
         i < args.length && nextArg !== undefined && !nextArg.startsWith("-")
-          ? nextArg
+          ? nextArg.split(" ")
           : await getCopyCommand();
     } else if (arg === "-t" || arg === "--type") {
       i++;
       const nextArg = args[i];
       options.typeCmd =
         i < args.length && nextArg !== undefined && !nextArg.startsWith("-")
-          ? nextArg
+          ? nextArg.split(" ")
           : await getTypeCommand();
     } else if (arg === "-h" || arg === "--help") {
       const defaultCopyCommand = await getCopyCommand();
@@ -156,7 +156,7 @@ Detects available tools and uses appropriate commands for Wayland/X11.
 
   // Check if password store exists
   try {
-    await $`ls -la ${passDir} >/dev/null 2>&1`;
+    await $`ls -la ${passDir}`;
   } catch {
     console.error(`Password store directory not found: ${passDir}`);
     console.error(
@@ -175,7 +175,14 @@ Detects available tools and uses appropriate commands for Wayland/X11.
     process.exit(1);
   }
 
-  const entries = listOutput.trim().split("\n").filter(Boolean);
+  const entrySuffix = ".gpg";
+  const entries = listOutput
+    .trim()
+    .split("\\n")
+    .filter(Boolean)
+    .map((item) =>
+      item.endsWith(entrySuffix) ? item.slice(0, -entrySuffix.length) : item
+    );
   if (entries.length === 0) {
     console.error("No password entries found in password store.");
     process.exit(1);
@@ -187,9 +194,8 @@ Detects available tools and uses appropriate commands for Wayland/X11.
   // Show menu to select entry
   let selectEntryPrompt: string;
   try {
-    selectEntryPrompt = await $`echo -e ${entries.join(
-      "\\n"
-    )} | ${menuCommand} -p 'Select password:'`.text();
+    selectEntryPrompt =
+      await $`printf '%s\n' ${entries} | ${menuCommand} -p 'Select password:'`.text();
   } catch (error) {
     console.error("Failed to show password selection menu:", error);
     process.exit(1);
@@ -266,9 +272,8 @@ Detects available tools and uses appropriate commands for Wayland/X11.
   } else {
     let selectFieldPrompt: string;
     try {
-      selectFieldPrompt = await $`echo -e ${fieldOptions.join(
-        "\\n"
-      )} | ${menuCommand} -p 'Select field:'`.text();
+      selectFieldPrompt =
+        await $`printf '%s\n' ${fieldOptions} | ${menuCommand} -p 'Select field:'`.text();
     } catch (error) {
       console.error("Failed to show field selection menu:", error);
       process.exit(1);
@@ -300,17 +305,17 @@ Detects available tools and uses appropriate commands for Wayland/X11.
       const username = fields["username"] || "";
       if (action === "type") {
         if (username) {
-          await $`echo -n ${username} | ${actionCmd}`;
+          await $`echo -n ${username} | xargs ${actionCmd}`;
           const tabCmd = await getTabCommand();
           await $`${tabCmd}`;
         }
-        await $`echo -n ${password} | ${actionCmd}`;
+        await $`echo -n ${password} | xargs ${actionCmd}`;
       } else {
         // If copy mode, copy password (fallback)
-        await $`echo -n ${password} | ${actionCmd}`;
+        await $`echo -n ${password} | xargs ${actionCmd}`;
       }
     } else {
-      await $`echo -n ${value} | ${actionCmd}`;
+      await $`echo -n ${value} | xargs ${actionCmd}`;
     }
   } catch (error) {
     console.error(
