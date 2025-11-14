@@ -204,5 +204,14 @@
           "-config" = config;
         };
       };
+      packages.rofi-askpass = pkgs.writeShellScriptBin "rofi-askpass" ''
+        : | rofi -dmenu \
+          -sync \
+          -password \
+          -i \
+          -no-fixed-num-lines \
+          -p "Password: " \
+          2> /dev/null
+      '';
     };
 }

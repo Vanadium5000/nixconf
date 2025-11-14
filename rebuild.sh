@@ -10,8 +10,15 @@ set -euo pipefail
 # - Modern Nix commands
 
 # Use rofi for askpass
-ROFI_CMD='rofi -dmenu -password -no-fixed-num-lines -p "Password: "'
-export SUDO_ASKPASS="$ROFI_CMD"
+ROFI_CMD='rofi-askpass'
+
+# Only set SUDO_ASKPASS if the rofi-askpass command exists
+if command -v "$ROFI_CMD" &> /dev/null; then
+    export SUDO_ASKPASS="$ROFI_CMD"
+    echo "SUDO_ASKPASS set to $ROFI_CMD (rofi prompt will be used)."
+else
+    echo "Warning: $ROFI_CMD not found in PATH. Falling back to terminal sudo prompt."
+fi
 
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

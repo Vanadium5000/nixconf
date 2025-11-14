@@ -56,6 +56,7 @@
         nwg-dock-hyprland
         nwg-drawer
         rofi
+        rofi-askpass
       ]);
 
       fonts.packages = with pkgs; [
