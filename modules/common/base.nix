@@ -104,7 +104,10 @@
           enable = true;
           enableSSHSupport = true;
           # Use curses-based PIN entry for terminal-only setups (avoids GUI prompts)
-          pinentryPackage = pkgs.pinentry-curses;
+          # pinentryPackage = pkgs.pinentry-curses;
+
+          # Let pinentry auto-detect the best backend (GUI if $DISPLAY, else curses)
+          pinentryPackage = pkgs.pinentry-all;
         };
 
         # OpenSSH
