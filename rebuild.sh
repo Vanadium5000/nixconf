@@ -16,6 +16,7 @@ ROFI_CMD='rofi-askpass'
 if command -v "$ROFI_CMD" &> /dev/null; then
     export SUDO_ASKPASS="$ROFI_CMD"
     echo "SUDO_ASKPASS set to $ROFI_CMD (rofi prompt will be used)."
+    alias sudo='sudo -A'
 else
     echo "Warning: $ROFI_CMD not found in PATH. Falling back to terminal sudo prompt."
 fi
@@ -161,7 +162,7 @@ switch_system() {
     #     env_vars="${env_vars}SECRETS_API_KEY='${SECRETS_API_KEY}' "
     # fi
 
-    if ! sudo -A sh -c "${env_vars}nixos-rebuild switch --flake '${FLAKE_DIR}#${HOST}' --impure"; then
+    if ! sudo sh -c "${env_vars}nixos-rebuild switch --flake '${FLAKE_DIR}#${HOST}' --impure"; then
         error "System switch failed"
         return 1
     fi
@@ -171,7 +172,7 @@ switch_system() {
 # Rollback system
 rollback_system() {
     log "Rolling back to previous system generation..."
-    if ! sudo -A nixos-rebuild --rollback switch; then
+    if ! sudo nixos-rebuild --rollback switch; then
         error "System rollback failed"
         return 1
     fi
@@ -181,7 +182,7 @@ rollback_system() {
 # Show generations
 show_generations() {
     log "Current system generations:"
-    sudo -A nix-env --list-generations --profile /nix/var/nix/profiles/system | tail -10
+    sudo nix-env --list-generations --profile /nix/var/nix/profiles/system | tail -10
 }
 
 # Main function
