@@ -4,6 +4,7 @@
     {
       # pkgs,
       # lib,
+      config,
       ...
     }:
     let
@@ -24,5 +25,17 @@
 
       programs.direnv.enable = true;
       programs.direnv.nix-direnv.enable = true;
+
+      # Git-sync, a utility to sync folders via git
+      services.git-sync.enable = true;
+
+      # Password-store folder
+      services.git-sync.repositories = {
+        passwords = {
+          uri = "git@github.com:Vanadium5000/passwords.git";
+          path = "/home/${config.preferences.user.username}/.local/share/password-store";
+          interval = 300;
+        };
+      };
     };
 }
