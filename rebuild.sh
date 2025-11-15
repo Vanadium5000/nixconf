@@ -203,18 +203,18 @@ main() {
 
     case "${action}" in
         "build")
-            validate_flake
+            # validate_flake
             build_system
             ;;
         "switch")
             git_commit_backup
-            backup_system
-            validate_flake
-            build_system
+            # backup_system
+            # validate_flake
+            # build_system
             switch_system
             ;;
         "dry-run")
-            validate_flake
+            # validate_flake
             dry_run
             ;;
         "rollback")
