@@ -121,8 +121,8 @@ interface Options {
   autotype: boolean;
   squash: boolean;
   fileisuser: boolean;
-  copyCmd: string[];
-  typeCmd: string[];
+  copyCmd: string[] | undefined;
+  typeCmd: string[] | undefined;
 }
 
 async function main() {
@@ -131,8 +131,8 @@ async function main() {
     autotype: false,
     squash: false,
     fileisuser: false,
-    copyCmd: [],
-    typeCmd: [],
+    copyCmd: undefined,
+    typeCmd: undefined,
   };
 
   let i = 0;
@@ -188,9 +188,12 @@ Detects available tools and uses appropriate commands for Wayland/X11.
   // Determine action: prefer type if set or if autotype (since autotype requires typing)
   let action = "copy";
   let actionCmd = options.copyCmd || (await getCopyCommand());
-  if (options.typeCmd || options.autotype) {
+  if ((options.typeCmd && options.typeCmd.length > 0) || options.autotype) {
     action = "type";
-    actionCmd = options.typeCmd || (await getTypeCommand());
+    actionCmd =
+      options.typeCmd && options.typeCmd.length > 0
+        ? options.typeCmd
+        : await getTypeCommand();
   }
   logInfo(`Action mode: ${action}, command: ${actionCmd.join(" ")}`);
 
@@ -397,6 +400,11 @@ Detects available tools and uses appropriate commands for Wayland/X11.
       const username = fields["username"] || "";
       logDebug(`Autotype: username=${!!username}, password=${!!password}`);
       if (action === "type") {
+        // Also copy to clipboard when autotyping
+        const copyCmd = await getCopyCommand();
+        logDebug("Copying password to clipboard during autotype");
+        await $`echo -n ${password} | xargs ${copyCmd}`;
+
         if (username) {
           logDebug("Typing username");
           await $`echo -n ${username} | xargs ${actionCmd}`;

@@ -85,12 +85,12 @@
             ];
             SearchEngines.Default = "StartPage";
 
-            ExtensionSettings = {
-              "FirefoxColor@mozilla.com".settings = {
+            # Manage extension settings
+            "3rdparty".Extensions = {
+              "FirefoxColor@mozilla.com" = {
                 firstRunDone = true;
                 theme = {
                   title = "Stylix Librewolf";
-                  images.additional_backgrounds = [ "./bg-000.svg" ];
                   colors = {
                     toolbar = mkColor "base00";
                     toolbar_text = mkColor "base05";
@@ -130,13 +130,54 @@
                   };
                 };
               };
+
+              "uBlock0@raymondhill.net" = {
+                adminSettings = builtins.toJSON {
+                  selectedFilterLists = [
+                    "ublock-quick-fixes"
+                    "ublock-filters"
+                    "ublock-badware"
+                    "ublock-privacy"
+                    "ublock-abuse"
+                    "ublock-unbreak"
+                    "easylist"
+                    "easyprivacy"
+                    "https://example.com/custom-list.txt"
+                  ];
+                  userFilters = "! Custom filter example\n||example.com^$important";
+                  dynamicFilteringString = "* ads.example.com * block\n* * 3p-script block";
+                  advancedUserEnabled = "true";
+                  advancedSettings = [
+                    [
+                      "uiTheme"
+                      "dark"
+                    ]
+                    [
+                      "disableWebAssembly"
+                      "true"
+                    ]
+                  ];
+                };
+              };
             };
           };
         };
       };
 
-      hjem.users.${user} = {
-        files.".librewolf/librewolf.overrides.cfg".text = mkOverridesFile settings;
+      hjem.users.${user}.files = {
+        ".librewolf/librewolf.overrides.cfg".text = mkOverridesFile settings;
+        ".librewolf/profiles.ini".text = ''
+          [Profile0]
+          Name=${config.preferences.user.username}
+          IsRelative=1
+          Path=${config.preferences.user.username}.default
+          Default=1
+
+          [General]
+          StartWithLastProfile=1
+          Version=2'';
+        ".librewolf/${config.preferences.user.username}.default/permissions.sqlite".source =
+          "${config.preferences.configDirectory}/modules/nixos/desktop/firefox/permissions.sqlite";
       };
 
       impermanence.home.cache.directories = [
