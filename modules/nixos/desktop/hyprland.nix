@@ -36,6 +36,11 @@
 
       home.programs.hyprland.enable = true;
       home.programs.hyprland.settings = {
+        # unscale XWayland - fix rendering issues/blurry xwayland apps
+        xwayland = {
+          force_zero_scaling = true;
+        };
+
         monitor = [
           ",prefered,auto,auto"
         ];
@@ -340,6 +345,10 @@
           "WLR_NO_HARDWARE_CURSORS,1"
           "CLUTTER_BACKEND,wayland"
           "GSK_RENDERER,vulkan" # "ngl" | "vulkan"
+
+          # Proper cursor
+          "XCURSOR_THEME,Adwaita"
+          "XCURSOR_SIZE,16"
         ];
       };
 

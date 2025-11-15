@@ -2,7 +2,7 @@
 {
   flake.nixosModules.terminal =
     {
-      # pkgs,
+      pkgs,
       # lib,
       config,
       ...
@@ -45,5 +45,9 @@
         PASSWORD_STORE_DIR = "$HOME/.local/share/password-store";
         FLAKE = config.preferences.configDirectory; # Config Directory
       };
+
+      # Add environment packages to system packages
+      environment.systemPackages =
+        self.legacyPackages.${pkgs.stdenv.hostPlatform.system}.environmentPackages;
     };
 }

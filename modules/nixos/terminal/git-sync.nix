@@ -19,10 +19,12 @@
 
       # Function to create a systemd unit configuration for Linux
       mkUnit = name: repo: {
+        enable = true;
         description = "Git Sync ${name}"; # Service description
-        wantedBy = [ "multi-user.target" ]; # Start at multi-user target for system services
+        wantedBy = [ "default.target" ]; # Start automatically when the user logs in (graphical or console session).
+        # wantedBy = [ "multi-user.target" ]; # Start at multi-user target for system services
         serviceConfig = {
-          User = repo.user; # Run as the specified user
+          # User = repo.user; # Run as the specified user
           Environment = [
             "PATH=${
               lib.makeBinPath (
@@ -149,7 +151,8 @@
       # Module configuration
       config = mkIf cfg.enable (
         lib.mkMerge [
-          (mkIf pkgs.stdenv.isLinux { systemd.services = services; })
+          # Remove ".user." for a non user-level systemd service
+          (mkIf pkgs.stdenv.isLinux { systemd.user.services = services; })
           # (mkIf pkgs.stdenv.isDarwin { launchd.daemons = services; })
         ]
       );
