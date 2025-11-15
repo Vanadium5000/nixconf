@@ -25,6 +25,7 @@
         self.nixosModules.dankmaterialshell
         self.nixosModules.firefox
         self.nixosModules.hyprland
+        self.nixosModules.hyprsunset
         self.nixosModules.tuigreet
 
         self.nixosModules.extra_hjem
@@ -136,5 +137,8 @@
           xdg-desktop-portal-gtk
         ];
       };
+
+      # Safeeyes - A uitlity to remind the user to look away from the screen every x minutes
+      services.safeeyes.enable = true;
     };
 }

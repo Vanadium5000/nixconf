@@ -330,6 +330,10 @@
         nwg-displays # displays/outputs settings gui
         protonvpn-gui # proton vpn gui
 
+        # Utilities for eye & health protection
+        hyprshade # Blue light filter
+        safeeyes # Intervalled-reminders to look around/take a break
+
         grim
         slurp
 
