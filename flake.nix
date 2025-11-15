@@ -50,6 +50,17 @@
       url = "github:Vanadium5000/nvf-neovim";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    # Wallpaper collections
+    nixos-artwork = {
+      url = "github:nixos/nixos-artwork/63f68a917f4e8586c5d35e050cdaf1309832272d";
+      flake = false;
+    };
+
+    nixy-wallpapers = {
+      url = "github:anotherhadi/nixy-wallpapers/713754b59d42225588b3818defe7ed05238c83af";
+      flake = false;
+    };
   };
 
   nixConfig = {

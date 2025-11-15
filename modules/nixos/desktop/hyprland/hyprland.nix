@@ -24,9 +24,10 @@
     in
     {
       # Persist nwg-displays diplay settings
-      impermanence.home.files = [
+      impermanence.home.cache.files = [
         ".config/hypr/monitors.conf"
         ".config/hypr/workspaces.conf"
+        ".current_wallpaper"
       ];
 
       programs.hyprland = {
@@ -264,7 +265,7 @@
           # Menus - mainly rofi
           "${mod},SPACE, exec, rofi -show drun"
           # "${mod},Z, exec, rofi -show clipboard" # TODO: WIP
-          # "${mod},W, exec, rofi -show wallpaper" # TODO: WIP
+          "${mod},W, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.rofi-wallpaper}"
           "${mod},C, exec, rofi -show calc"
           # "${mod},X, exec, rofi -show powermenu" # TODO: WIP
           # "${mod},W, exec, rofi -show processlist" # TODO: WIP
@@ -340,6 +341,7 @@
           "NIXOS_OZONE_WL,1"
           "DISABLE_QT5_COMPAT,0"
           "GDK_BACKEND,wayland"
+          "GDK_SCALE,2" # scaling
           "WLR_DRM_NO_ATOMIC,1"
           "QT_AUTO_SCREEN_SCALE_FACTOR,1" # enables automatic scaling
           "QT_WAYLAND_DISABLE_WINDOWDECORATION,1"

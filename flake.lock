@@ -236,6 +236,23 @@
         "type": "github"
       }
     },
+    "nixos-artwork": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1731943625,
+        "narHash": "sha256-XquSEijNYtGDkW35bibT2ki18qicENCsIcDzDxrgQkM=",
+        "owner": "nixos",
+        "repo": "nixos-artwork",
+        "rev": "63f68a917f4e8586c5d35e050cdaf1309832272d",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nixos",
+        "repo": "nixos-artwork",
+        "rev": "63f68a917f4e8586c5d35e050cdaf1309832272d",
+        "type": "github"
+      }
+    },
     "nixos-hardware": {
       "locked": {
         "lastModified": 1762463231,
@@ -330,6 +347,23 @@
         "type": "github"
       }
     },
+    "nixy-wallpapers": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1733499879,
+        "narHash": "sha256-ZzA766i4o0D4DWkuVOn5J3oBqTclFcz3gigwD5Bp+FM=",
+        "owner": "anotherhadi",
+        "repo": "nixy-wallpapers",
+        "rev": "713754b59d42225588b3818defe7ed05238c83af",
+        "type": "github"
+      },
+      "original": {
+        "owner": "anotherhadi",
+        "repo": "nixy-wallpapers",
+        "rev": "713754b59d42225588b3818defe7ed05238c83af",
+        "type": "github"
+      }
+    },
     "nvf": {
       "inputs": {
         "flake-parts": "flake-parts_2",
@@ -398,8 +432,10 @@
         "import-tree": "import-tree",
         "nix-flatpak": "nix-flatpak",
         "nix-index-database": "nix-index-database",
+        "nixos-artwork": "nixos-artwork",
         "nixos-hardware": "nixos-hardware",
         "nixpkgs": "nixpkgs",
+        "nixy-wallpapers": "nixy-wallpapers",
         "nvf-neovim": "nvf-neovim",
         "persist-retro": "persist-retro",
         "wrappers": "wrappers"

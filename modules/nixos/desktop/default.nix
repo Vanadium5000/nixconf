@@ -67,6 +67,8 @@
         nwg-drawer
         rofi
         rofi-askpass
+        rofi-wallpaper
+        rofi-wallpaper-selector
       ]);
 
       services = {

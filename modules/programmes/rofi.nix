@@ -190,6 +190,42 @@
             text-color: @fgd;
         }
       '';
+
+      config-images = pkgs.writeTextFile {
+        name = "config-images.rasi";
+        text = ''
+          @import "${config}"
+
+          /* ---- Configuration ---- */
+          window {
+            width: 60%;
+          }
+
+          /* ---- Imagebox ---- */
+          imagebox {
+            orientation: vertical;
+            children:
+              [ "entry", "listbox"];
+          }
+
+          /* ---- Listview ---- */
+          listview {
+            columns: 4;
+            lines: 3;
+          }
+
+          /* ---- Element ---- */
+          element {
+            orientation: vertical;
+            padding: 0px;
+            spacing: 0px;
+          }
+
+          element-icon {
+            size: 20%;
+          }
+        '';
+      };
     in
     {
       packages.rofi = inputs.wrappers.lib.makeWrapper {
@@ -202,6 +238,18 @@
         };
         flags = {
           "-config" = config;
+        };
+      };
+      packages.rofi-images = inputs.wrappers.lib.makeWrapper {
+        inherit pkgs;
+        package = pkgs.rofi.override {
+          plugins = [
+            pkgs.rofi-emoji
+            pkgs.rofi-calc
+          ];
+        };
+        flags = {
+          "-config" = config-images;
         };
       };
       packages.rofi-askpass = pkgs.writeShellScriptBin "rofi-askpass" ''
