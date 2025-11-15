@@ -94,6 +94,9 @@
           # initialPassword = "1234";
         };
 
+        # Add the default shell to environment
+        environment.shells = [ self.packages.${pkgs.stdenv.hostPlatform.system}.environment ];
+
         # Locales
         time.timeZone = cfg.timeZone;
         i18n.defaultLocale = cfg.locale;

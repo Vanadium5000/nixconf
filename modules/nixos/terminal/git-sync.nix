@@ -10,7 +10,6 @@
     let
       inherit (lib)
         literalExpression
-        maintainers
         mkIf
         mkOption
         types
@@ -122,13 +121,6 @@
       );
     in
     {
-      # Module metadata
-      meta.maintainers = [
-        maintainers.imalison
-        maintainers.cab404
-        maintainers.ryane
-      ];
-
       # Module options
       options = {
         services.git-sync = {
@@ -158,7 +150,7 @@
       config = mkIf cfg.enable (
         lib.mkMerge [
           (mkIf pkgs.stdenv.isLinux { systemd.services = services; })
-          (mkIf pkgs.stdenv.isDarwin { launchd.daemons = services; })
+          # (mkIf pkgs.stdenv.isDarwin { launchd.daemons = services; })
         ]
       );
     };

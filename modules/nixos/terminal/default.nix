@@ -35,6 +35,7 @@
           uri = "git@github.com:Vanadium5000/passwords.git";
           path = "/home/${config.preferences.user.username}/.local/share/password-store";
           interval = 300;
+          user = config.preferences.user.username;
         };
       };
     };
