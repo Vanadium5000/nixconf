@@ -54,6 +54,12 @@
         # Disable annoying swipe gestures (alt + left/right arrow is so much easier)
         "browser.gesture.swipe.left" = "";
         "browser.gesture.swipe.right" = "";
+
+        # TODO: Swap to Firefox Colors
+        # Default Firefox dark browser theme
+        "browser.theme.content-theme" = 0;
+        "browser.theme.toolbar-theme" = 0;
+        "extensions.activeThemeID" = "firefox-compact-dark@mozilla.org";
       };
 
     in
@@ -86,6 +92,7 @@
             SearchEngines.Default = "StartPage";
 
             # Manage extension settings
+            # FIXME: This has no effect for some reason
             "3rdparty".Extensions = {
               "FirefoxColor@mozilla.com" = {
                 firstRunDone = true;
@@ -128,35 +135,6 @@
                     toolbar_field_separator = mkColor "base0D";
                     toolbar_vertical_separator = mkColor "base0D";
                   };
-                };
-              };
-
-              "uBlock0@raymondhill.net" = {
-                adminSettings = builtins.toJSON {
-                  selectedFilterLists = [
-                    "ublock-quick-fixes"
-                    "ublock-filters"
-                    "ublock-badware"
-                    "ublock-privacy"
-                    "ublock-abuse"
-                    "ublock-unbreak"
-                    "easylist"
-                    "easyprivacy"
-                    "https://example.com/custom-list.txt"
-                  ];
-                  userFilters = "! Custom filter example\n||example.com^$important";
-                  dynamicFilteringString = "* ads.example.com * block\n* * 3p-script block";
-                  advancedUserEnabled = "true";
-                  advancedSettings = [
-                    [
-                      "uiTheme"
-                      "dark"
-                    ]
-                    [
-                      "disableWebAssembly"
-                      "true"
-                    ]
-                  ];
                 };
               };
             };

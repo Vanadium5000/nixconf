@@ -106,11 +106,8 @@
         programs.gnupg.agent = {
           enable = true;
           enableSSHSupport = true;
-          # Use curses-based PIN entry for terminal-only setups (avoids GUI prompts)
-          # pinentryPackage = pkgs.pinentry-curses;
-
-          # Let pinentry auto-detect the best backend (GUI if $DISPLAY, else curses)
-          pinentryPackage = pkgs.pinentry-all;
+          # Use Gnome3 PIN entry (with a fallback to curses-based PIN entry for TTY-only setups)
+          pinentryPackage = pkgs.pinentry-gnome3;
         };
 
         # OpenSSH
