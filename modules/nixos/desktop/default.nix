@@ -22,7 +22,6 @@
         self.nixosModules.bluetooth
 
         self.nixosModules.chromium
-        self.nixosModules.dankmaterialshell
         self.nixosModules.firefox
         self.nixosModules.hyprland
         self.nixosModules.hyprsunset

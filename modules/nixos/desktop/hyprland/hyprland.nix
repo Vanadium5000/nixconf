@@ -299,21 +299,26 @@
         ];
 
         bindl = [
-          ",XF86AudioMute, exec, dms ipc call audio mute" # Toggle Mute
-          "SHIFT,XF86AudioMute, exec, dms ipc call audio micmute" # Toggle Mic Mute
+          ",XF86AudioMute, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.sound-toggle}" # Toggle Mute
           ",XF86AudioPlay, exec, ${pkgs.playerctl}/bin/playerctl play-pause" # Play/Pause Song
           ",XF86AudioNext, exec, ${pkgs.playerctl}/bin/playerctl next" # Next Song
           ",XF86AudioPrev, exec, ${pkgs.playerctl}/bin/playerctl previous" # Previous Song
 
           # Lock when closing Lid
-          ",switch:Lid Switch, exec, dms ipc call lock lock"
+          ",switch:Lid Switch, exec, hyprlock"
         ];
 
         bindle = [
-          ",XF86AudioRaiseVolume, exec, dms ipc call audio increment 5" # Sound Up
-          ",XF86AudioLowerVolume, exec, dms ipc call audio decrement 5" # Sound Down
-          "SHIFT,XF86AudioRaiseVolume, exec, dms ipc call audio increment 1" # Sound Up Small
-          "SHIFT,XF86AudioLowerVolume, exec, dms ipc call audio decrement 1" # Sound Down Small
+          ",XF86AudioRaiseVolume, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.sound-up}" # Sound Up
+          ",XF86AudioLowerVolume, exec, ${
+            getExe self.packages.${pkgs.stdenv.hostPlatform.system}.sound-down
+          }" # Sound Down
+          "SHIFT,XF86AudioRaiseVolume, exec, ${
+            getExe self.packages.${pkgs.stdenv.hostPlatform.system}.sound-up-small
+          }" # Sound Up Small
+          "SHIFT,XF86AudioLowerVolume, exec, ${
+            getExe self.packages.${pkgs.stdenv.hostPlatform.system}.sound-down-small
+          }" # Sound Down Small
 
           ",XF86MonBrightnessUp, exec, ${getExe pkgs.brightnessctl} set --device=${systemSettings.backlightDevice} 5%+" # Brightness Up
           ",XF86MonBrightnessDown, exec, ${getExe pkgs.brightnessctl} set --device=${systemSettings.backlightDevice} 5%-" # Brightness Down
