@@ -236,7 +236,7 @@
             getExe self.packages.${pkgs.stdenv.hostPlatform.system}.nwg-drawer
           }" # Toggle nwg-drawer
 
-          "${mod},L, exec, dms ipc call lock lock" # Lock
+          "${mod},L, exec, hyprlock" # Lock
 
           #"${mod},TAB, overview:toggle" # Overview (Hyprspace)
 
@@ -261,14 +261,13 @@
           ",PRINT, exec, screenshot monitor" # Screenshot monitor & copy/save
           "${shiftMod},PRINT, exec, screenshot area toText" # Screenshot area & copy as text
 
-          # Menus - mainly Dank Material Shell
-          "${mod},SPACE, exec, dms ipc call spotlight toggle"
-          "${mod},Z, exec, dms ipc call clipboard toggle"
-          "${mod},W, exec, dms ipc call dankdash wallpaper"
-          "${mod},C, exec, dms ipc call spotlight toggleQuery \"=\""
-          "${mod},N, exec, dms ipc call notepad toggle"
-          "${mod},X, exec, dms ipc call powermenu toggle"
-          "${mod},W, exec, dms ipc call processlist toggle"
+          # Menus - mainly rofi
+          "${mod},SPACE, exec, rofi -show drun"
+          # "${mod},Z, exec, rofi -show clipboard" # TODO: WIP
+          # "${mod},W, exec, rofi -show wallpaper" # TODO: WIP
+          "${mod},C, exec, rofi -show calc"
+          # "${mod},X, exec, rofi -show powermenu" # TODO: WIP
+          # "${mod},W, exec, rofi -show processlist" # TODO: WIP
           "${mod},S, exec, ${getExe pkgs.grim} -g \"$(${getExe pkgs.slurp})\" - | ${getExe pkgs.swappy} -f - | wl-copy"
           "${mod},P, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.passmenu}"
 

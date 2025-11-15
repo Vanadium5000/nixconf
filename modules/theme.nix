@@ -33,7 +33,7 @@ let
     font = "JetBrainsMono Nerd Font";
     blur = true;
     rounding = 8;
-    opacity = 0.9;
+    opacity = 1.0;
     gaps-in = 2; # between windows/buttons
     gaps-out = 3; # between windows and border of display
     border-size = 1;
