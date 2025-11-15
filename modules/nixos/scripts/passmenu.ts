@@ -4,12 +4,34 @@
 
 import { $ } from "bun";
 
+// Logging utility with timestamps
+function log(level: string, message: string, ...args: any[]) {
+  const timestamp = new Date().toISOString();
+  console.log(`[${timestamp}] [${level}] ${message}`, ...args);
+}
+
+function logInfo(message: string, ...args: any[]) {
+  log("INFO", message, ...args);
+}
+
+function logError(message: string, ...args: any[]) {
+  log("ERROR", message, ...args);
+}
+
+function logDebug(message: string, ...args: any[]) {
+  log("DEBUG", message, ...args);
+}
+
 // Utility function to check if a command exists
 async function commandExists(cmd: string): Promise<boolean> {
   try {
+    logDebug(`Checking if command exists: ${cmd}`);
     const result = await $`which ${cmd}`.quiet();
-    return result.exitCode === 0;
+    const exists = result.exitCode === 0;
+    logDebug(`Command ${cmd} ${exists ? "found" : "not found"}`);
+    return exists;
   } catch {
+    logDebug(`Command ${cmd} not found (exception)`);
     return false;
   }
 }
@@ -17,13 +39,17 @@ async function commandExists(cmd: string): Promise<boolean> {
 // Determine menu command with fallback logic
 async function getMenuCommand(): Promise<string[]> {
   const isWayland = !!process.env.WAYLAND_DISPLAY;
+  logDebug(`Detecting menu command. Wayland: ${isWayland}`);
 
   // User prefers rofi on Wayland, so check for rofi first
   if (await commandExists("rofi")) {
+    logInfo("Using rofi for menu selection");
     return ["rofi", "-dmenu"];
   } else if (isWayland && (await commandExists("wofi"))) {
+    logInfo("Using wofi for menu selection");
     return ["wofi", "--show", "dmenu"];
   } else {
+    logError("Neither rofi nor wofi found. Please install one of them.");
     throw new Error("Neither rofi nor wofi found. Please install one of them.");
   }
 }
@@ -31,12 +57,16 @@ async function getMenuCommand(): Promise<string[]> {
 // Determine copy command
 async function getCopyCommand(): Promise<string[]> {
   const isWayland = !!process.env.WAYLAND_DISPLAY;
+  logDebug(`Detecting copy command. Wayland: ${isWayland}`);
 
   if (isWayland && (await commandExists("wl-copy"))) {
+    logInfo("Using wl-copy for clipboard operations");
     return ["wl-copy"];
   } else if (await commandExists("xclip")) {
+    logInfo("Using xclip for clipboard operations");
     return ["xclip", "-selection", "clipboard"];
   } else {
+    logError("Neither wl-copy nor xclip found. Please install one of them.");
     throw new Error(
       "Neither wl-copy nor xclip found. Please install one of them."
     );
@@ -46,14 +76,21 @@ async function getCopyCommand(): Promise<string[]> {
 // Determine type command
 async function getTypeCommand(): Promise<string[]> {
   const isWayland = !!process.env.WAYLAND_DISPLAY;
+  logDebug(`Detecting type command. Wayland: ${isWayland}`);
 
   if (isWayland && (await commandExists("wtype"))) {
+    logInfo("Using wtype for typing operations");
     return ["wtype"];
   } else if (await commandExists("xdotool")) {
+    logInfo("Using xdotool for typing operations");
     return ["xdotool", "type", "--clearmodifiers"];
   } else if (await commandExists("ydotool")) {
+    logInfo("Using ydotool for typing operations");
     return ["ydotool", "type", "--"];
   } else {
+    logError(
+      "Neither wtype, xdotool, nor ydotool found. Please install one of them."
+    );
     throw new Error(
       "Neither wtype, xdotool, nor ydotool found. Please install one of them."
     );
@@ -63,14 +100,19 @@ async function getTypeCommand(): Promise<string[]> {
 // Determine tab key command
 async function getTabCommand(): Promise<string[]> {
   const isWayland = !!process.env.WAYLAND_DISPLAY;
+  logDebug(`Detecting tab command. Wayland: ${isWayland}`);
 
   if (isWayland && (await commandExists("wtype"))) {
+    logInfo("Using wtype for tab key operations");
     return ["wtype", "-k", "tab"];
   } else if (await commandExists("xdotool")) {
+    logInfo("Using xdotool for tab key operations");
     return ["xdotool", "key", "Tab"];
   } else if (await commandExists("ydotool")) {
+    logInfo("Using ydotool for tab key operations");
     return ["ydotool", "key", "15:1", "15:0"]; // Tab key code
   } else {
+    logError("No suitable tool found for sending tab key.");
     throw new Error("No suitable tool found for sending tab key.");
   }
 }
@@ -150,14 +192,18 @@ Detects available tools and uses appropriate commands for Wayland/X11.
     action = "type";
     actionCmd = options.typeCmd || (await getTypeCommand());
   }
+  logInfo(`Action mode: ${action}, command: ${actionCmd.join(" ")}`);
 
   const passDir =
     process.env.PASSWORD_STORE_DIR || `${process.env.HOME}/.password-store`;
+  logInfo(`Using password store directory: ${passDir}`);
 
   // Check if password store exists
   try {
     await $`ls -la ${passDir}`;
+    logDebug("Password store directory exists");
   } catch {
+    logError(`Password store directory not found: ${passDir}`);
     console.error(`Password store directory not found: ${passDir}`);
     console.error(
       "Please set PASSWORD_STORE_DIR or ensure ~/.password-store exists."
@@ -168,9 +214,12 @@ Detects available tools and uses appropriate commands for Wayland/X11.
   // Get list of password entries
   let listOutput: string;
   try {
+    logDebug("Listing password entries from store");
     listOutput =
       await $`find ${passDir} -type f -name '*.gpg' -printf '%P\\n' | sed 's/\\.gpg$//' | sort`.text();
+    logDebug(`Found password entries: ${listOutput.trim().split("\n").length}`);
   } catch (error) {
+    logError("Failed to list password entries", error);
     console.error("Failed to list password entries:", error);
     process.exit(1);
   }
@@ -184,31 +233,44 @@ Detects available tools and uses appropriate commands for Wayland/X11.
       item.endsWith(entrySuffix) ? item.slice(0, -entrySuffix.length) : item
     );
   if (entries.length === 0) {
+    logError("No password entries found in password store");
     console.error("No password entries found in password store.");
     process.exit(1);
   }
+  logInfo(`Found ${entries.length} password entries`);
 
   // Get menu command
   const menuCommand = await getMenuCommand();
+  logDebug(`Menu command: ${menuCommand.join(" ")}`);
 
   // Show menu to select entry
   let selectEntryPrompt: string;
   try {
+    logDebug("Showing password selection menu");
     selectEntryPrompt =
       await $`printf '%s\n' ${entries} | ${menuCommand} -p 'Select password:'`.text();
+    logDebug(`Menu output received: ${selectEntryPrompt.trim() || "(empty)"}`);
   } catch (error) {
+    logError("Failed to show password selection menu", error);
     console.error("Failed to show password selection menu:", error);
     process.exit(1);
   }
 
   const selected = selectEntryPrompt.trim();
-  if (!selected) process.exit(0);
+  if (!selected) {
+    logInfo("User cancelled password selection");
+    process.exit(0);
+  }
+  logInfo(`Selected password entry: ${selected}`);
 
   // Get password content
   let content: string;
   try {
+    logDebug(`Retrieving password content for: ${selected}`);
     content = await $`pass show ${selected}`.text();
+    logDebug("Password content retrieved successfully");
   } catch (error) {
+    logError(`Failed to retrieve password for ${selected}`, error);
     console.error(`Failed to retrieve password for ${selected}:`, error);
     process.exit(1);
   }
@@ -244,12 +306,24 @@ Detects available tools and uses appropriate commands for Wayland/X11.
   // Check for OTP support
   let hasOtp = false;
   if (hasOtpauth) {
-    hasOtp = await commandExists("pass-otp");
+    hasOtp = true; // Default to true, worst that happens is the user selects existing otp & it fails
+    // try {
+    //   logDebug("OTP auth found, checking for pass otp");
+    //   hasOtp = !(await $`pass otp`.nothrow())
+    //     .text()
+    //     .trim()
+    //     .includes("Usage: pass otp");
+    //   logDebug(`OTP support: ${hasOtp ? "available" : "unavailable"}`);
+    // } catch (e) {
+    //   logDebug(`OTP: Running pass otp failed with exception, carring on`);
+    //   logDebug(`OTP support: ${hasOtp ? "available" : "unavailable"}`);
+    // }
   }
 
   // Add username from file if needed
   if (!fields["username"] && options.fileisuser) {
     fields["username"] = selected.split("/").pop() || "";
+    logDebug(`Added username from filename: ${fields["username"]}`);
   }
 
   // Build field options
@@ -264,60 +338,91 @@ Detects available tools and uses appropriate commands for Wayland/X11.
     fieldOptions.push("autotype");
   }
   fieldOptions = [...new Set(fieldOptions)]; // Deduplicate
+  logDebug(`Available field options: ${fieldOptions.join(", ")}`);
 
   // Squash if applicable
   let selectedField = "";
   if (options.squash && fieldOptions.length === 1 && !options.autotype) {
     selectedField = "password";
+    logInfo("Squash mode: automatically selected password field");
   } else {
     let selectFieldPrompt: string;
     try {
+      logDebug(
+        `Showing field selection menu with options: ${fieldOptions.join(", ")}`
+      );
       selectFieldPrompt =
         await $`printf '%s\n' ${fieldOptions} | ${menuCommand} -p 'Select field:'`.text();
+      logDebug(`Field menu output: ${selectFieldPrompt.trim() || "(empty)"}`);
     } catch (error) {
+      logError("Failed to show field selection menu", error);
       console.error("Failed to show field selection menu:", error);
       process.exit(1);
     }
     selectedField = selectFieldPrompt.trim();
   }
-  if (!selectedField) process.exit(0);
+  if (!selectedField) {
+    logInfo("User cancelled field selection");
+    process.exit(0);
+  }
+  logInfo(`Selected field: ${selectedField}`);
 
   // Get value
   let value = "";
   if (selectedField === "password") {
     value = password;
+    logDebug("Using password value");
   } else if (selectedField === "otp") {
     try {
+      logDebug("Generating OTP for selected entry");
       value = (await $`pass otp ${selected}`.text()).trim();
+      logDebug("OTP generated successfully");
     } catch (error) {
+      logError(`Failed to generate OTP for ${selected}`, error);
       console.error(`Failed to generate OTP for ${selected}:`, error);
       process.exit(1);
     }
   } else if (selectedField === "autotype") {
     // Autotype handled below
+    logDebug("Autotype mode selected");
   } else {
     value = fields[selectedField] || "";
+    logDebug(`Using field value for: ${selectedField}`);
   }
 
   // Perform action
   try {
+    logInfo(`Performing ${action} action with field: ${selectedField}`);
     if (selectedField === "autotype") {
       const username = fields["username"] || "";
+      logDebug(`Autotype: username=${!!username}, password=${!!password}`);
       if (action === "type") {
         if (username) {
+          logDebug("Typing username");
           await $`echo -n ${username} | xargs ${actionCmd}`;
           const tabCmd = await getTabCommand();
+          logDebug("Sending tab key");
           await $`${tabCmd}`;
         }
+        logDebug("Typing password");
         await $`echo -n ${password} | xargs ${actionCmd}`;
       } else {
         // If copy mode, copy password (fallback)
+        logDebug("Copying password (autotype fallback)");
         await $`echo -n ${password} | xargs ${actionCmd}`;
       }
     } else {
+      logDebug(`Executing action command: ${actionCmd.join(" ")}`);
       await $`echo -n ${value} | xargs ${actionCmd}`;
     }
+    logInfo("Action completed successfully");
   } catch (error) {
+    logError(
+      `Failed to perform action (${action}) with command: ${actionCmd.join(
+        " "
+      )}`,
+      error
+    );
     console.error(
       `Failed to perform action (${action}) with command: ${actionCmd}`,
       error
@@ -327,7 +432,9 @@ Detects available tools and uses appropriate commands for Wayland/X11.
 }
 
 // Run main function with error handling
+logInfo("Starting passmenu script");
 main().catch((error) => {
+  logError("An unexpected error occurred", error);
   console.error("An unexpected error occurred:", error);
   process.exit(1);
 });

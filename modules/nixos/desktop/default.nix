@@ -82,6 +82,9 @@
 
       # Environment Variables
       environment.variables = {
+        # PASSWORD_STORE_DIR for stuff like passmenu
+        PASSWORD_STORE_DIR = "$HOME/.local/share/password-store";
+
         XDG_SESSION_TYPE = "wayland";
         XDG_SESSION_DESKTOP = "Hyprland";
         XDG_CURRENT_DESKTOP = "Hyprland";
