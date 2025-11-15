@@ -107,7 +107,7 @@
           enable = true;
           enableSSHSupport = true;
           # Use Gnome3 PIN entry (with a fallback to curses-based PIN entry for TTY-only setups)
-          pinentryPackage = pkgs.pinentry-gnome3;
+          pinentryPackage = pkgs.pinentry-gtk2;
         };
 
         # OpenSSH

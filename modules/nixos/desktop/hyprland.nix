@@ -29,7 +29,10 @@
         ".config/hypr/workspaces.conf"
       ];
 
-      programs.hyprland.enable = true;
+      programs.hyprland = {
+        enable = true;
+        withUWSM = true;
+      };
 
       home.programs.hyprland.enable = true;
       home.programs.hyprland.settings = {
@@ -317,6 +320,26 @@
           ",XF86KbdBrightnessDown, exec, ${getExe pkgs.brightnessctl} set --device=${systemSettings.keyboardBacklightDevice} 5%-" # Kbd Brightness Down
           "SHIFT,XF86KbdBrightnessUp, exec, exec, ${getExe pkgs.brightnessctl} set --device=${systemSettings.keyboardBacklightDevice} 1%+" # Kbd Brightness Up Small
           "SHIFT,XF86KbdBrightnessDown, exec, exec, ${getExe pkgs.brightnessctl} set --device=${systemSettings.keyboardBacklightDevice} 1%-" # Kbd Brightness Down Small
+        ];
+        # GUI-session Environment Variables
+        env = [
+          "XDG_SESSION_TYPE,wayland"
+          "XDG_SESSION_DESKTOP,Hyprland"
+          "XDG_CURRENT_DESKTOP,Hyprland"
+          "MOZ_ENABLE_WAYLAND,1"
+          "ANKI_WAYLAND,1"
+          "NIXOS_OZONE_WL,1"
+          "DISABLE_QT5_COMPAT,0"
+          "GDK_BACKEND,wayland"
+          "WLR_DRM_NO_ATOMIC,1"
+          "QT_AUTO_SCREEN_SCALE_FACTOR,1" # enables automatic scaling
+          "QT_WAYLAND_DISABLE_WINDOWDECORATION,1"
+          "QT_QPA_PLATFORM,wayland"
+          "WLR_BACKEND,vulkan"
+          "WLR_RENDERER,vulkan"
+          "WLR_NO_HARDWARE_CURSORS,1"
+          "CLUTTER_BACKEND,wayland"
+          "GSK_RENDERER,vulkan" # "ngl" | "vulkan"
         ];
       };
 

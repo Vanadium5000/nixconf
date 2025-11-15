@@ -36,10 +36,6 @@
       options.home.programs.dankMaterialShell = with lib.types; {
         enable = lib.mkEnableOption "DankMaterialShell";
 
-        systemd = {
-          enable = lib.mkEnableOption "DankMaterialShell systemd startup";
-        };
-
         enableSystemMonitoring = lib.mkOption {
           type = bool;
           default = true;
@@ -164,18 +160,6 @@
         ++ lib.optional cfg.enableAudioWavelength pkgs.cava
         ++ lib.optional cfg.enableCalendarEvents pkgs.khal
         ++ lib.optional cfg.enableSystemSound pkgs.kdePackages.qtmultimedia;
-
-        # User-level systemd service
-        systemd.user.services.dms = lib.mkIf cfg.enable {
-          description = "DankMaterialShell";
-          wantedBy = [ "graphical-session.target" ];
-          after = [ "graphical-session.target" ];
-          serviceConfig = {
-            ExecStart = "${lib.getExe self.packages.${pkgs.stdenv.hostPlatform.system}.dmsCli} start";
-            Restart = "on-failure";
-            Environment = "XDG_CONFIG_HOME=%h/.config";
-          };
-        };
 
         hjem.users.${user} = {
           # Files: quickshell config, defaults, plugins

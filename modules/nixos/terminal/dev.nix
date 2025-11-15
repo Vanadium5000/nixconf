@@ -1,12 +1,13 @@
 { ... }:
 {
   flake.nixosModules.dev =
-    { config, ... }:
+    { config, pkgs, ... }:
     {
       # MongoDB - a source-available, cross-platform, document-oriented database program
       services.mongodb.enable = true;
       preferences.allowedUnfree = [
         "mongodb"
+        "mongodb-compass"
       ];
       # Persist DB data
       impermanence.nixos.directories = [
@@ -31,5 +32,7 @@
           mode = "0700";
         }
       ];
+
+      environment.systemPackages = [ pkgs.mongodb-compass ];
     };
 }
