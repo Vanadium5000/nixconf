@@ -69,10 +69,6 @@
         rofi-askpass
       ]);
 
-      fonts.packages = with pkgs; [
-        nerd-fonts.jetbrains-mono
-      ];
-
       services = {
         # Battery tool, required by hyprpanel
         upower.enable = true;
@@ -111,6 +107,28 @@
           xdg-desktop-portal-gtk
         ];
       };
+
+      # Fonts
+      fonts.packages = with pkgs; [
+        nerd-fonts.jetbrains-mono
+        font-awesome # Icons that some apps require
+
+        roboto
+        work-sans
+        comic-neue
+        source-sans
+        comfortaa
+        inter
+        lato
+        lexend
+        jost
+        dejavu_fonts
+        noto-fonts
+        noto-fonts-cjk-sans
+        noto-fonts-color-emoji
+        openmoji-color
+        twemoji-color-font
+      ];
 
       # Safeeyes - A uitlity to remind the user to look away from the screen every x minutes
       services.safeeyes.enable = true;
