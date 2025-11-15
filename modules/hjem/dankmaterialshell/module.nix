@@ -38,11 +38,6 @@
 
         systemd = {
           enable = lib.mkEnableOption "DankMaterialShell systemd startup";
-          restartIfChanged = lib.mkOption {
-            type = bool;
-            default = true;
-            description = "Auto-restart dms.service when dankMaterialShell changes";
-          };
         };
 
         enableSystemMonitoring = lib.mkOption {
@@ -174,16 +169,12 @@
         systemd.user.services.dms = lib.mkIf cfg.enable {
           description = "DankMaterialShell";
           wantedBy = [ "graphical-session.target" ];
-          partOf = [ "graphical-session.target" ];
           after = [ "graphical-session.target" ];
           serviceConfig = {
-            ExecStart = "${lib.getExe self.packages.${pkgs.stdenv.hostPlatform.system}.dmsCli} restart";
+            ExecStart = "${lib.getExe self.packages.${pkgs.stdenv.hostPlatform.system}.dmsCli} start";
             Restart = "on-failure";
             Environment = "XDG_CONFIG_HOME=%h/.config";
           };
-          # restartTriggers = lib.optional cfg.systemd.restartIfChanged "${
-          #   self.packages.${pkgs.stdenv.hostPlatform.system}.dankMaterialShell
-          # }/etc/xdg/quickshell/dms";
         };
 
         hjem.users.${user} = {

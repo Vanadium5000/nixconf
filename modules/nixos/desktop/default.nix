@@ -146,27 +146,29 @@
       services.hypridle.enable = true;
 
       # Hypridle config
-      hjem.users.${config.preferences.user.username}.files.".config/hypr/hyprland.conf".text =
+      hjem.users.${config.preferences.user.username}.files.".config/hypr/hypridle.conf".text =
         toHyprconf
           {
-            general = {
-              ignore_dbus_inhibit = false;
-              lock_cmd = "dms ipc call lock lock || shutdown -h now"; # avoid starting multiple hyprlock instances.
-              before_sleep_cmd = "loginctl lock-session"; # lock before suspend.
-              after_sleep_cmd = "hyprctl dispatch dpms on"; # to avoid having to press a key twice to turn on the display.
+            attrs = {
+              general = {
+                ignore_dbus_inhibit = false;
+                lock_cmd = "dms ipc call lock lock || shutdown -h now"; # avoid starting multiple hyprlock instances.
+                before_sleep_cmd = "loginctl lock-session"; # lock before suspend.
+                after_sleep_cmd = "hyprctl dispatch dpms on"; # to avoid having to press a key twice to turn on the display.
+              };
+
+              listener = [
+                {
+                  timeout = 120;
+                  on-timeout = "dms ipc call lock lock || shutdown -h now"; # Lock (or shutdown on failure)
+                }
+
+                {
+                  timeout = 300;
+                  on-timeout = "systemctl suspend";
+                }
+              ];
             };
-
-            listener = [
-              {
-                timeout = 120;
-                on-timeout = "dms ipc call lock lock || shutdown -h now"; # Lock (or shutdown on failure)
-              }
-
-              {
-                timeout = 300;
-                on-timeout = "systemctl suspend";
-              }
-            ];
           };
     };
 }
