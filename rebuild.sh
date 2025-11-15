@@ -10,7 +10,8 @@ set -euo pipefail
 # - Modern Nix commands
 
 # Use rofi for askpass
-ROFI_CMD='rofi-askpass'
+# HACK: A bit non-nixy
+ROFI_CMD='/run/current-system/sw/bin/rofi-askpass'
 
 # Only set SUDO_ASKPASS if the rofi-askpass command exists
 if command -v "$ROFI_CMD" &> /dev/null; then
