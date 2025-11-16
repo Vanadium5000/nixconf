@@ -42,8 +42,8 @@
         # Hyprpaper config
         ".config/hypr/hyprpaper.conf".text = toHyprconf {
           attrs = {
-            preload = "~/.current_wallpaper";
-            wallpaper = "~/.current_wallpaper";
+            preload = "~/wallpaper/.current_wallpaper";
+            wallpaper = "~/wallpaper/.current_wallpaper";
           };
         };
       };

@@ -179,7 +179,7 @@
               hyprctl hyprpaper wallpaper ",$wallPath"
 
               # For rofi & hyprlock wallpaper
-              cp -f "$wallPath" ~/.current_wallpaper
+              cp -f "$wallPath" ~/wallpaper/.current_wallpaper
               exit 0
             fi
 
@@ -288,7 +288,7 @@
           echo "$result"
           hyprctl hyprpaper preload "$result"
           hyprctl hyprpaper wallpaper ",$result"
-          cp -f "$result" ~/.current_wallpaper # For rofi wallpaper
+          cp -f "$result" ~/wallpaper/.current_wallpaper # For rofi wallpaper
         '';
         env = {
           PATH = pkgs.lib.makeBinPath [

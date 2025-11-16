@@ -27,7 +27,11 @@
       impermanence.home.cache.files = [
         ".config/hypr/monitors.conf"
         ".config/hypr/workspaces.conf"
-        ".current_wallpaper"
+      ];
+
+      # Pesist the .current_wallpaper in wallpaper
+      impermanence.home.cache.directories = [
+        "wallpaper"
       ];
 
       programs.hyprland = {

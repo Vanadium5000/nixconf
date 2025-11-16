@@ -18,6 +18,7 @@
 
         self.nixosModules.dev
         self.nixosModules.nix
+        self.nixosModules.tailscale
       ];
 
       security.polkit.enable = true;

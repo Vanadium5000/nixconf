@@ -25,6 +25,7 @@
         self.nixosModules.firefox
         self.nixosModules.hyprland
         self.nixosModules.hyprsunset
+        self.nixosModules.syncthing
         self.nixosModules.tuigreet
 
         self.nixosModules.extra_hjem
