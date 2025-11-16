@@ -1,7 +1,7 @@
 {
   flake.diskoConfigurations.legion5i = {
     # Use with (fill in ...):
-    # nix eval .#diskoConfigurations.legion5i --pretty > /tmp/disko-config.nix
+    # nix eval .#diskoConfigurations.legion5i > /tmp/disko-config.nix
     # sudo nix run github:nix-community/disko/latest -- /tmp/disko-config.nix
     # sudo nixos-install --root /mnt --flake ...
     disko.devices = {

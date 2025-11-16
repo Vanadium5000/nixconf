@@ -1,7 +1,7 @@
 {
   flake.diskoConfigurations.ionos_vps = {
     # Use with (fill in ...):
-    # nix eval .#diskoConfigurations.ionos_vps --pretty > /tmp/disko-config.nix
+    # nix eval .#diskoConfigurations.ionos_vps > /tmp/disko-config.nix
     # sudo nix run github:nix-community/disko/latest -- /tmp/disko-config.nix
     # sudo nixos-install --root /mnt --flake ...
     disko.devices = {
