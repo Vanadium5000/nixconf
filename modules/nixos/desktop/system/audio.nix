@@ -23,6 +23,7 @@
       environment.systemPackages = with pkgs; [
         pavucontrol
         swww # Wallpaper daemon for Wayland
+        libnotify # For desktop notifications
       ];
     };
 }

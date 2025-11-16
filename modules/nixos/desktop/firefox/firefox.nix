@@ -60,6 +60,9 @@
         "browser.theme.content-theme" = 0;
         "browser.theme.toolbar-theme" = 0;
         "extensions.activeThemeID" = "firefox-compact-dark@mozilla.org";
+
+        # Disable AV1 playback as it is too graphics-intensive for non-accelerated hardware
+        # "media.av1.enabled" = false;
       };
 
     in

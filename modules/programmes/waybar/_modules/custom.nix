@@ -1,4 +1,4 @@
-pkgs: {
+pkgs: self: {
   # https://github.com/ashish-kus/waybar-minimal/blob/main/src/config.jsonc
   # Options: https://github.com/Alexays/Waybar/wiki/Configuration
   "custom/notifications" = {
@@ -44,11 +44,22 @@ pkgs: {
     exec = "colorpicker -j";
     on-click = "colorpicker";
   };
+  "custom/lid-inhibit" = {
+    format = "{}";
+    return-type = "json";
+    exec = "${self.packages.${pkgs.stdenv.hostPlatform.system}.lid-status}/bin/lid-status";
+    on-click = "${
+      self.packages.${pkgs.stdenv.hostPlatform.system}.toggle-lid-inhibit
+    }/bin/toggle-lid-inhibit";
+    interval = 2;
+    tooltip = false;
+  };
   "group/actions" = {
     orientation = "horizontal";
     modules = [
       "custom/clipboard"
       "idle_inhibitor"
+      "custom/lid-inhibit"
       "custom/nightshift"
       "custom/colorpicker"
     ];

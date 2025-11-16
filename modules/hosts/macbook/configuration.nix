@@ -9,6 +9,7 @@
   flake.nixosModules.macbookHost =
     {
       pkgs,
+      config,
       ...
     }:
     {
@@ -24,6 +25,11 @@
         # Disko
         inputs.disko.nixosModules.disko
         self.diskoConfigurations.macbook
+      ];
+
+      # Enable SSH support
+      users.users.${config.preferences.user.username}.openssh.authorizedKeys.keys = [
+        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFsIUmSPfK9/ncfGjINjeI7sz+QK7wyaYJZtLhVpiU66 thealfiecrawford@icloud.com"
       ];
 
       # Preferences

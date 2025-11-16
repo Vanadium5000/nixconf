@@ -340,5 +340,70 @@
           cp -r wallpapers $out/
         '';
       };
+
+      packages.toggle-lid-inhibit = inputs.wrappers.lib.makeWrapper {
+        inherit pkgs;
+        package = pkgs.writeShellScriptBin "toggle-lid-inhibit" ''
+          #!/usr/bin/env bash
+
+          PID_FILE="$HOME/.local/share/lid-inhibit.pid"
+          SYSTEMD_INHIBIT="${pkgs.systemd}/bin/systemd-inhibit"
+          SLEEP="${pkgs.coreutils}/bin/sleep"
+          NOTIFY_SEND="${pkgs.libnotify}/bin/notify-send"
+
+          if [ -f "$PID_FILE" ]; then
+              PID=$(cat "$PID_FILE")
+              if kill -0 "$PID" 2>/dev/null; then
+                  kill "$PID" 2>/dev/null || true
+                  rm -f "$PID_FILE"
+                  $NOTIFY_SEND "Lid Inhibit" "Suspend on lid close disabled"
+                  echo "Disabled suspend on lid close"
+              else
+                  rm -f "$PID_FILE"
+                  echo "Stale PID removed; run again to enable"
+              fi
+          else
+              mkdir -p "$(dirname "$PID_FILE")"
+              # Use exec to replace the shell process with systemd-inhibit
+              (exec $SYSTEMD_INHIBIT --what=handle-lid-switch --who=waybar-lid --why="Lid close suspend inhibited" --mode=block $SLEEP infinity) &
+              INHIBIT_PID=$!
+              echo $INHIBIT_PID > "$PID_FILE"
+              $NOTIFY_SEND "Lid Inhibit" "Suspend on lid close enabled"
+              echo "Enabled suspend on lid close (PID: $INHIBIT_PID)"
+          fi
+        '';
+        env = {
+          PATH = pkgs.lib.makeBinPath [
+            pkgs.systemd
+            pkgs.libnotify
+            pkgs.coreutils
+          ];
+        };
+      };
+
+      packages.lid-status = inputs.wrappers.lib.makeWrapper {
+        inherit pkgs;
+        package = pkgs.writeShellScriptBin "lid-status" ''
+          #!/usr/bin/env bash
+
+          PID_FILE="$HOME/.local/share/lid-inhibit.pid"
+          if [ -f "$PID_FILE" ]; then
+              PID=$(cat "$PID_FILE")
+              if kill -0 "$PID" 2>/dev/null; then
+                  echo '{"text": "🔓", "class": "active"}'
+              else
+                  rm -f "$PID_FILE"
+                  echo '{"text": "��", "class": "inactive"}'
+              fi
+          else
+              echo '{"text": "🔒", "class": "inactive"}'
+          fi
+        '';
+        env = {
+          PATH = pkgs.lib.makeBinPath [
+            pkgs.coreutils
+          ];
+        };
+      };
     };
 }
