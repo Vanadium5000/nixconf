@@ -17,6 +17,16 @@ function logError(message: string, ...args: any[]) {
 function logDebug(message: string, ...args: any[]) {
   log("DEBUG", message, ...args);
 }
+// Notification utility
+async function notify(message: string, title: string = "passmenu") {
+  console.log(`[${title}] ${message}`);
+  try {
+    await $`notify-send -t 3000 "${title}" "${message}"`.quiet();
+  } catch {
+    // Log error
+    logError(`ERROR SENDING NOTIFICATION: [${title}] ${message}`);
+  }
+}
 // Utility to check if a command exists
 async function commandExists(cmd: string): Promise<boolean> {
   try {
@@ -39,7 +49,7 @@ async function getMenuCommand(): Promise<string[]> {
 // Get copy command
 async function getCopyCommand(): Promise<string[]> {
   if (!!process.env.WAYLAND_DISPLAY && (await commandExists("wl-copy"))) {
-    return ["wl-copy"];
+    return ["xargs", "wl-copy"];
   } else if (await commandExists("xclip")) {
     return ["xclip", "-selection", "clipboard"];
   } else {
@@ -219,20 +229,29 @@ async function generateCredential(
   const path = (
     await $`echo -n | ${menuCommand} -p 'Enter path for new entry (e.g., personal/site/account):'`.text()
   ).trim();
-  if (!path) return;
+  if (!path) {
+    await notify("No path entered", "passmenu");
+    return;
+  }
   // Select field
   const fields = ["password", "username", "full name", "email"];
   const selectedField = (
     await $`printf '%s\n' ${fields} | ${menuCommand} -p 'Select credential to generate:'`.text()
   ).trim();
-  if (!selectedField) return;
+  if (!selectedField) {
+    await notify("No field selected", "passmenu");
+    return;
+  }
   let value: string;
   if (selectedField === "email") {
     // Ask temp or fake
     const emailType = (
       await $`printf 'Temporary (real)\nFake (generated)\n' | ${menuCommand} -p 'Email type:'`.text()
     ).trim();
-    if (!emailType) return;
+    if (!emailType) {
+      await notify("No email type selected", "passmenu");
+      return;
+    }
     if (emailType === "Temporary (real)") {
       try {
         const { email, tempPass } = await createTempEmail();
@@ -257,21 +276,24 @@ async function generateCredential(
     value = generator();
   }
   // Preview and confirm
-  console.log(`Generated ${selectedField}: ${value}`);
+  await notify(`Generated ${selectedField}: ${value}`, "passmenu");
   const confirm = (
     await $`printf 'Yes\nNo\n' | ${menuCommand} -p 'Store and perform action?'`.text()
   ).trim();
-  if (confirm !== "Yes") return;
+  if (confirm !== "Yes") {
+    await notify("Action cancelled", "passmenu");
+    return;
+  }
   // Append to path
   await appendToPass(path, selectedField, value);
   logInfo(`Appended ${selectedField} to ${path}`);
   // Perform action (copy/type)
   if (action === "copy") {
     await $`echo -n ${value} | ${actionCmd}`;
-    logInfo("Copied to clipboard");
+    await notify("Copied to clipboard", "passmenu");
   } else {
     await $`echo -n ${value} | ${actionCmd}`;
-    logInfo("Typed value");
+    await notify("Typed value", "passmenu");
   }
 }
 // Handle managing temp emails (browse addresses, view messages)
@@ -288,14 +310,17 @@ async function manageTempEmails(menuCommand: string[], entries: string[]) {
       return str; // Return unchanged if no match
     });
   if (tempEmails.length === 0) {
-    console.log("No temp emails found.");
+    await notify("No temporary emails found", "passmenu");
     return;
   }
   // Select email
   const selectedEmail = (
     await $`printf '%s\n' ${tempEmails} | ${menuCommand} -p 'Select email:'`.text()
   ).trim();
-  if (!selectedEmail) return;
+  if (!selectedEmail) {
+    await notify("No email selected", "passmenu");
+    return;
+  }
   // Get creds
   const creds = await $`pass show ${tempPrefix}${selectedEmail}`.text();
   const password = creds
@@ -313,7 +338,7 @@ async function manageTempEmails(menuCommand: string[], entries: string[]) {
     logInfo(`Fetching messages for ${selectedEmail}`);
     const messages = await fetchMessages(token);
     if (messages.length === 0) {
-      console.log(`No messages for ${selectedEmail}.`);
+      await notify(`No messages for ${selectedEmail}`, "passmenu");
       return;
     }
     // Select message
@@ -324,14 +349,22 @@ async function manageTempEmails(menuCommand: string[], entries: string[]) {
       await $`printf '%s\n' ${msgOptions} | ${menuCommand} -p 'Select message:'`.text()
     ).trim();
     const selectedIndex = msgOptions.indexOf(selectedMsgStr);
-    if (selectedIndex === -1) return;
+    if (selectedIndex === -1) {
+      await notify("No message selected", "passmenu");
+      return;
+    }
     // Fetch and display
     const msg = await fetchMessage(token, messages[selectedIndex].id);
-    console.log(`From: ${msg.from.address}`);
-    console.log(`Subject: ${msg.subject}`);
-    console.log(`Date: ${new Date(msg.createdAt).toLocaleString()}`);
-    console.log("Body:");
-    console.log(msg.text || msg.html?.replace(/<[^>]*>/g, "") || "No body.");
+    const messageData = `From: ${msg.from.address}\nSubject: ${
+      msg.subject
+    }\nDate: ${new Date(msg.createdAt).toLocaleString()}\nBody:\n${
+      msg.text || msg.html?.replace(/<[^>]*>/g, "") || "No body."
+    }`;
+    console.log(messageData); // Keep console for display
+    // Copy message data to clipboard
+    const copyCmd = await getCopyCommand();
+    await $`echo -n ${messageData} | ${copyCmd}`;
+    await notify("Message copied to clipboard", "passmenu");
   } catch (error) {
     logError("Failed to manage email", error);
     console.error("Failed to manage email:", error);
@@ -395,9 +428,19 @@ Options:
   const passDir =
     process.env.PASSWORD_STORE_DIR || `${process.env.HOME}/.password-store`;
   // List entries
+  const suffix = ".gpg";
   const listOutput =
     await $`find ${passDir} -type f -name '*.gpg' -printf '%P\n' | sed 's/\\.gpg$//' | sort`.text();
-  const entries = listOutput.trim().split("\n").filter(Boolean);
+  const entries = listOutput
+    .trim()
+    .split("\n")
+    .filter(Boolean)
+    .map((str) => {
+      if (str.endsWith(suffix)) {
+        return str.slice(0, -suffix.length);
+      }
+      return str; // Return unchanged if no match
+    });
   // Special entries
   const specialEntries = ["Generate Credential", "Manage Temp Emails"];
   const displayEntries = [...specialEntries, ...entries];
@@ -406,7 +449,10 @@ Options:
   const selected = (
     await $`printf '%s\n' ${displayEntries} | ${menuCommand} -p 'Select:'`.text()
   ).trim();
-  if (!selected) process.exit(0);
+  if (!selected) {
+    await notify("No selection made", "passmenu");
+    process.exit(0);
+  }
   // Handle special
   if (selected === "Generate Credential") {
     await generateCredential(menuCommand, passDir, action, actionCmd);
@@ -445,7 +491,10 @@ Options:
       await $`printf '%s\n' ${fieldOptions} | ${menuCommand} -p 'Select field:'`.text()
     ).trim();
   }
-  if (!selectedField) process.exit(0);
+  if (!selectedField) {
+    await notify("No field selected", "passmenu");
+    process.exit(0);
+  }
   let value = "";
   if (selectedField === "password") {
     value = password;
@@ -454,17 +503,21 @@ Options:
   } else if (selectedField === "autotype") {
     // Autotype
     const username = fields["username"] || "";
+    const copyCmd = await getCopyCommand();
+    await $`echo -n ${password} | ${copyCmd}`; // Always copy password to clipboard
     if (action === "type") {
-      const copyCmd = await getCopyCommand();
-      await $`echo -n ${password} | ${copyCmd}`;
       if (username) {
         await $`echo -n ${username} | ${actionCmd}`;
         const tabCmd = await getTabCommand();
         await $`${tabCmd}`;
       }
       await $`echo -n ${password} | ${actionCmd}`;
+      await notify(
+        "Autotyped username and password (password copied to clipboard)",
+        "passmenu"
+      );
     } else {
-      await $`echo -n ${password} | ${actionCmd}`;
+      await notify("Password copied to clipboard", "passmenu");
     }
     process.exit(0);
   } else {
@@ -472,9 +525,15 @@ Options:
   }
   // Perform action
   await $`echo -n ${value} | ${actionCmd}`;
+  if (action === "copy") {
+    await notify("Copied to clipboard", "passmenu");
+  } else {
+    await notify("Typed value", "passmenu");
+  }
   process.exit(0);
 }
-main().catch((error) => {
+main().catch(async (error) => {
   console.error("Error:", error);
+  await notify("An error occurred", "passmenu");
   process.exit(1);
 });
