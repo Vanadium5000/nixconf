@@ -1,23 +1,20 @@
 #!/usr/bin/env bun
-
 // passmenu.ts - Bun.js TypeScript script for browsing and selecting passwords from password-store using rofi or wofi
-
 import { $ } from "bun";
+import { faker } from "@faker-js/faker";
+import crypto from "node:crypto";
 
 // Logging utility with timestamps
 function log(level: string, message: string, ...args: any[]) {
   const timestamp = new Date().toISOString();
   console.log(`[${timestamp}] [${level}] ${message}`, ...args);
 }
-
 function logInfo(message: string, ...args: any[]) {
   log("INFO", message, ...args);
 }
-
 function logError(message: string, ...args: any[]) {
   log("ERROR", message, ...args);
 }
-
 function logDebug(message: string, ...args: any[]) {
   log("DEBUG", message, ...args);
 }
@@ -40,7 +37,6 @@ async function commandExists(cmd: string): Promise<boolean> {
 async function getMenuCommand(): Promise<string[]> {
   const isWayland = !!process.env.WAYLAND_DISPLAY;
   logDebug(`Detecting menu command. Wayland: ${isWayland}`);
-
   // User prefers rofi on Wayland, so check for rofi first
   if (await commandExists("rofi")) {
     logInfo("Using rofi for menu selection");
@@ -58,7 +54,6 @@ async function getMenuCommand(): Promise<string[]> {
 async function getCopyCommand(): Promise<string[]> {
   const isWayland = !!process.env.WAYLAND_DISPLAY;
   logDebug(`Detecting copy command. Wayland: ${isWayland}`);
-
   if (isWayland && (await commandExists("wl-copy"))) {
     logInfo("Using wl-copy for clipboard operations");
     return ["wl-copy"];
@@ -77,7 +72,6 @@ async function getCopyCommand(): Promise<string[]> {
 async function getTypeCommand(): Promise<string[]> {
   const isWayland = !!process.env.WAYLAND_DISPLAY;
   logDebug(`Detecting type command. Wayland: ${isWayland}`);
-
   if (isWayland && (await commandExists("wtype"))) {
     logInfo("Using wtype for typing operations");
     return ["wtype"];
@@ -101,7 +95,6 @@ async function getTypeCommand(): Promise<string[]> {
 async function getTabCommand(): Promise<string[]> {
   const isWayland = !!process.env.WAYLAND_DISPLAY;
   logDebug(`Detecting tab command. Wayland: ${isWayland}`);
-
   if (isWayland && (await commandExists("wtype"))) {
     logInfo("Using wtype for tab key operations");
     return ["wtype", "-k", "tab"];
@@ -125,6 +118,225 @@ interface Options {
   typeCmd: string[] | undefined;
 }
 
+// Function to generate fake signup data
+function generateFakeData() {
+  const username = faker.internet.username();
+  const fullName = faker.person.fullName();
+  const password = crypto.randomBytes(32).toString("base64");
+  return { username, fullName, password };
+}
+
+// Function to create a temporary email using mail.tm API
+async function createTempEmail(): Promise<{ email: string; tempPass: string }> {
+  const domainsRes = await fetch("https://api.mail.tm/domains");
+  if (!domainsRes.ok) throw new Error("Failed to fetch domains");
+  const domainsData = (await domainsRes.json()) as any;
+  const domains = domainsData.data.map((d: any) => d.domain);
+  if (domains.length === 0) throw new Error("No domains available");
+  const domain = domains[Math.floor(Math.random() * domains.length)];
+  const randomName = crypto.randomBytes(8).toString("hex");
+  const email = `${randomName}@${domain}`;
+  const tempPass = crypto.randomBytes(16).toString("hex");
+  const createRes = await fetch("https://api.mail.tm/accounts", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ address: email, password: tempPass }),
+  });
+  if (!createRes.ok) throw new Error("Failed to create email account");
+  return { email, tempPass };
+}
+
+// Function to fetch mail.tm token
+async function getMailTmToken(
+  email: string,
+  password: string
+): Promise<string> {
+  const tokenRes = await fetch("https://api.mail.tm/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ address: email, password }),
+  });
+  if (!tokenRes.ok) throw new Error("Failed to get token");
+  const tokenData = (await tokenRes.json()) as any;
+  return tokenData.token;
+}
+
+// Function to fetch messages for an email
+async function fetchMessages(token: string): Promise<any[]> {
+  const messagesRes = await fetch(
+    "https://api.mail.tm/messages?page=1&limit=50",
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    }
+  );
+  if (!messagesRes.ok) throw new Error("Failed to fetch messages");
+  const messagesData = (await messagesRes.json()) as any;
+  return messagesData.data;
+}
+
+// Function to fetch a single message
+async function fetchMessage(token: string, messageId: string): Promise<any> {
+  const msgRes = await fetch(`https://api.mail.tm/messages/${messageId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!msgRes.ok) throw new Error("Failed to fetch message");
+  return await msgRes.json();
+}
+
+// Function to handle generating fake account
+async function generateFakeAccount(
+  menuCommand: string[],
+  passDir: string,
+  action: string,
+  actionCmd: string[]
+) {
+  try {
+    // Prompt for path
+    const pathPrompt = (
+      await $`echo -n | ${menuCommand} -p 'Enter path for new entry (e.g., personal/site/account):'`.text()
+    ).trim();
+    if (!pathPrompt) {
+      logInfo("User cancelled path entry");
+      return;
+    }
+
+    // Generate fake data
+    const { username, fullName, password } = generateFakeData();
+    let content = `${password}\nusername: ${username}\nname: ${fullName}\n`;
+
+    // Prompt for temp email
+    let email = "";
+    let tempPass = "";
+    const genEmailPrompt = (
+      await $`printf 'Yes\nNo\n' | ${menuCommand} -p 'Generate temporary email? '`.text()
+    ).trim();
+    if (genEmailPrompt === "Yes") {
+      try {
+        const tempEmailData = await createTempEmail();
+        email = tempEmailData.email;
+        tempPass = tempEmailData.tempPass;
+        content += `email: ${email}\n`;
+        // Store temp email credentials with association
+        const tempContent = `password: ${tempPass}\nassociated: ${pathPrompt}\n`;
+        await $`echo -n ${tempContent} | pass insert --multiline --force emails/temp/${email}`;
+        logInfo(`Stored temp email credentials for ${email}`);
+      } catch (error) {
+        logError("Failed to generate and store temp email", error);
+        console.error("Failed to generate temp email. Continuing without it.");
+      }
+    }
+
+    // Preview generated data
+    console.log("Generated data:");
+    console.log(content);
+
+    // Confirm storage
+    const confirmPrompt = (
+      await $`printf 'Yes\nNo\n' | ${menuCommand} -p 'Store this in password-store? '`.text()
+    ).trim();
+    if (confirmPrompt === "Yes") {
+      await $`echo -n ${content} | pass insert --multiline --force ${pathPrompt}`;
+      logInfo(`Stored new entry at ${pathPrompt}`);
+      if (email) {
+        logInfo(`Associated temp email: ${email}`);
+      }
+      // Optionally perform action on password (e.g., copy)
+      if (action === "copy") {
+        await $`echo -n ${password} | xargs ${actionCmd}`;
+        logInfo("Copied generated password to clipboard");
+      }
+    } else {
+      logInfo("Cancelled storing new entry");
+    }
+  } catch (error) {
+    logError("Error in generateFakeAccount", error);
+    console.error("Failed to generate fake account:", error);
+  }
+}
+
+// Function to handle managing temp emails
+async function manageTempEmails(menuCommand: string[], entries: string[]) {
+  try {
+    const tempPrefix = "emails/temp/";
+    const tempEmails = entries
+      .filter((e) => e.startsWith(tempPrefix))
+      .map((e) => e.slice(tempPrefix.length));
+
+    if (tempEmails.length === 0) {
+      console.log("No temporary emails found in password-store.");
+      return;
+    }
+
+    // Select email
+    const selectEmailPrompt = (
+      await $`printf '%s\n' ${tempEmails} | ${menuCommand} -p 'Select email to view:'`.text()
+    ).trim();
+    if (!selectEmailPrompt) {
+      logInfo("User cancelled email selection");
+      return;
+    }
+    const selectedEmail = selectEmailPrompt;
+
+    // Get credentials
+    const credsContent =
+      await $`pass show ${tempPrefix}${selectedEmail}`.text();
+    const credsLines = credsContent.trim().split("\n");
+    const passwordLine = credsLines.find((l) => l.startsWith("password:"));
+    const credsPassword = passwordLine
+      ? (passwordLine.split(":")[1] as string).trim()
+      : "";
+    if (!credsPassword) {
+      throw new Error("No password found for selected email");
+    }
+
+    // Get token
+    const token = await getMailTmToken(selectedEmail, credsPassword);
+
+    // Fetch messages
+    const messages = await fetchMessages(token);
+    if (messages.length === 0) {
+      console.log(`No messages found for ${selectedEmail}.`);
+      return;
+    }
+
+    // Select message
+    const messageOptions = messages.map(
+      (m: any) => `${m.from.address}: ${m.subject.slice(0, 50)}`
+    );
+    const selectMsgPrompt = (
+      await $`printf '%s\n' ${messageOptions} | ${menuCommand} -p 'Select message:'`.text()
+    ).trim();
+    if (!selectMsgPrompt) {
+      logInfo("User cancelled message selection");
+      return;
+    }
+    const selectedIndex = messageOptions.indexOf(selectMsgPrompt);
+    if (selectedIndex === -1) {
+      throw new Error("Invalid message selection");
+    }
+    const selectedMsg = messages[selectedIndex];
+
+    // Fetch and display message
+    const msg = await fetchMessage(token, selectedMsg.id);
+    console.log("Message Details:");
+    console.log(`From: ${msg.from.address}`);
+    console.log(`Subject: ${msg.subject}`);
+    console.log(`Date: ${new Date(msg.createdAt).toLocaleString()}`);
+    console.log("Body:");
+    if (msg.text) {
+      console.log(msg.text);
+    } else if (msg.html) {
+      console.log("HTML body (displaying as plain text):");
+      console.log(msg.html.replace(/<[^>]*>/g, "")); // Basic strip for display
+    } else {
+      console.log("No body content available.");
+    }
+  } catch (error) {
+    logError("Error in manageTempEmails", error);
+    console.error("Failed to manage temp emails:", error);
+  }
+}
+
 async function main() {
   let args = Bun.argv.slice(2);
   let options: Options = {
@@ -134,7 +346,6 @@ async function main() {
     copyCmd: undefined,
     typeCmd: undefined,
   };
-
   let i = 0;
   while (i < args.length) {
     const arg = args[i];
@@ -163,19 +374,17 @@ async function main() {
       const defaultTypeCommand = await getTypeCommand();
       console.log(`
 Usage: passmenu [options]
-
 Options:
-  -a, --autotype     Enable autotype option (username <tab> password)
-  -c, --copy [cmd]   Copy to clipboard (default: ${defaultCopyCommand})
-  -f, --fileisuser   Use password file name as username if not specified
-  -s, --squash       Skip field selection if only password is present
-  -t, --type [cmd]   Type the selection (default: ${defaultTypeCommand})
-  -h, --help         Show this help message
-
+  -a, --autotype Enable autotype option (username <tab> password)
+  -c, --copy [cmd] Copy to clipboard (default: ${defaultCopyCommand})
+  -f, --fileisuser Use password file name as username if not specified
+  -s, --squash Skip field selection if only password is present
+  -t, --type [cmd] Type the selection (default: ${defaultTypeCommand})
+  -h, --help Show this help message
 Supports PASSWORD_STORE_DIR environment variable.
 Supports OTP if pass-otp is installed and entry has otpauth://.
 Detects available tools and uses appropriate commands for Wayland/X11.
-      `);
+`);
       process.exit(0);
     } else {
       console.error(`Unknown option: ${arg}`);
@@ -219,7 +428,7 @@ Detects available tools and uses appropriate commands for Wayland/X11.
   try {
     logDebug("Listing password entries from store");
     listOutput =
-      await $`find ${passDir} -type f -name '*.gpg' -printf '%P\\n' | sed 's/\\.gpg$//' | sort`.text();
+      await $`find ${passDir} -type f -name '*.gpg' -printf '%P\n' | sed 's/\\.gpg$//' | sort`.text();
     logDebug(`Found password entries: ${listOutput.trim().split("\n").length}`);
   } catch (error) {
     logError("Failed to list password entries", error);
@@ -230,17 +439,24 @@ Detects available tools and uses appropriate commands for Wayland/X11.
   const entrySuffix = ".gpg";
   const entries = listOutput
     .trim()
-    .split("\\n")
+    .split("\n")
     .filter(Boolean)
     .map((item) =>
       item.endsWith(entrySuffix) ? item.slice(0, -entrySuffix.length) : item
     );
+
   if (entries.length === 0) {
     logError("No password entries found in password store");
     console.error("No password entries found in password store.");
-    process.exit(1);
   }
   logInfo(`Found ${entries.length} password entries`);
+
+  // Add special entries for new functionalities
+  const specialEntries = [
+    "New: Generate fake account",
+    "Emails: Manage temp emails",
+  ];
+  const displayEntries = [...specialEntries, ...entries];
 
   // Get menu command
   const menuCommand = await getMenuCommand();
@@ -251,7 +467,7 @@ Detects available tools and uses appropriate commands for Wayland/X11.
   try {
     logDebug("Showing password selection menu");
     selectEntryPrompt =
-      await $`printf '%s\n' ${entries} | ${menuCommand} -p 'Select password:'`.text();
+      await $`printf '%s\n' ${displayEntries} | ${menuCommand} -p 'Select password:'`.text();
     logDebug(`Menu output received: ${selectEntryPrompt.trim() || "(empty)"}`);
   } catch (error) {
     logError("Failed to show password selection menu", error);
@@ -264,6 +480,19 @@ Detects available tools and uses appropriate commands for Wayland/X11.
     logInfo("User cancelled password selection");
     process.exit(0);
   }
+  logInfo(`Selected: ${selected}`);
+
+  // Handle special entries
+  if (specialEntries.includes(selected)) {
+    if (selected === "New: Generate fake account") {
+      await generateFakeAccount(menuCommand, passDir, action, actionCmd);
+    } else if (selected === "Emails: Manage temp emails") {
+      await manageTempEmails(menuCommand, entries);
+    }
+    process.exit(0);
+  }
+
+  // Proceed with regular password handling
   logInfo(`Selected password entry: ${selected}`);
 
   // Get password content
@@ -310,17 +539,6 @@ Detects available tools and uses appropriate commands for Wayland/X11.
   let hasOtp = false;
   if (hasOtpauth) {
     hasOtp = true; // Default to true, worst that happens is the user selects existing otp & it fails
-    // try {
-    //   logDebug("OTP auth found, checking for pass otp");
-    //   hasOtp = !(await $`pass otp`.nothrow())
-    //     .text()
-    //     .trim()
-    //     .includes("Usage: pass otp");
-    //   logDebug(`OTP support: ${hasOtp ? "available" : "unavailable"}`);
-    // } catch (e) {
-    //   logDebug(`OTP: Running pass otp failed with exception, carring on`);
-    //   logDebug(`OTP support: ${hasOtp ? "available" : "unavailable"}`);
-    // }
   }
 
   // Add username from file if needed
@@ -364,6 +582,7 @@ Detects available tools and uses appropriate commands for Wayland/X11.
     }
     selectedField = selectFieldPrompt.trim();
   }
+
   if (!selectedField) {
     logInfo("User cancelled field selection");
     process.exit(0);
@@ -404,7 +623,6 @@ Detects available tools and uses appropriate commands for Wayland/X11.
         const copyCmd = await getCopyCommand();
         logDebug("Copying password to clipboard during autotype");
         await $`echo -n ${password} | xargs ${copyCmd}`;
-
         if (username) {
           logDebug("Typing username");
           await $`echo -n ${username} | xargs ${actionCmd}`;
