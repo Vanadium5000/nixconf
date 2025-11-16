@@ -45,6 +45,9 @@
         # Utils
         swaynotificationcenter
 
+        # Video player
+        vlc
+
         # GUIs
         nautilus # File Manager
         kitty # Terminal Emulator

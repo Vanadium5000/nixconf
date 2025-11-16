@@ -41,6 +41,8 @@
             wget
             curl
 
+            sshfs # SSH filesystem tool
+
             fzf
             fd
             ripgrep
@@ -73,7 +75,6 @@
             # Media tools
             [
               imagemagick
-              imv
               ffmpeg
               yt-dlp
             ]

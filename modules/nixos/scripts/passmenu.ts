@@ -88,24 +88,42 @@ const credentialGenerators: Record<string, () => string> = {
 function generateFakeEmail(): string {
   return faker.internet.email();
 }
+// Helper to fetch and parse Hydra collections from mail.tm API
+async function fetchHydraCollection(
+  url: string,
+  options?: RequestInit
+): Promise<any[]> {
+  logDebug(`Fetching Hydra collection from ${url}`);
+  const res = await fetch(url, options);
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(`Failed to fetch ${url}: ${res.statusText} - ${errorText}`);
+  }
+  const data = (await res.json()) as any;
+  logDebug(`Fetched ${data["hydra:totalItems"]} items from ${url}`);
+  return data["hydra:member"];
+}
 // Create temporary email using mail.tm API with error handling
 async function createTempEmail(): Promise<{ email: string; tempPass: string }> {
   try {
-    const domainsRes = await fetch("https://api.mail.tm/domains");
-    if (!domainsRes.ok) {
-      throw new Error(`Failed to fetch domains: ${domainsRes.statusText}`);
+    // Fetch available domains
+    const domainsData = await fetchHydraCollection(
+      "https://api.mail.tm/domains"
+    );
+    const activeDomains = domainsData
+      .filter((d: any) => d.isActive && !d.isPrivate)
+      .map((d: any) => d.domain);
+    if (activeDomains.length === 0) {
+      throw new Error("No active public domains available");
     }
-    const domainsData = (await domainsRes.json()) as {
-      data: { domain: string }[];
-    };
-    const domains = domainsData.data.map((d) => d.domain);
-    if (domains.length === 0) {
-      throw new Error("No domains available");
-    }
-    const domain = domains[Math.floor(Math.random() * domains.length)];
+    const domain =
+      activeDomains[Math.floor(Math.random() * activeDomains.length)];
+    logInfo(`Selected domain: ${domain}`);
     const randomName = crypto.randomBytes(8).toString("hex");
     const email = `${randomName}@${domain}`;
     const tempPass = crypto.randomBytes(16).toString("hex");
+    // Create account
+    logInfo(`Creating account for ${email}`);
     const createRes = await fetch("https://api.mail.tm/accounts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -117,6 +135,7 @@ async function createTempEmail(): Promise<{ email: string; tempPass: string }> {
         `Failed to create email account: ${createRes.statusText} - ${errorText}`
       );
     }
+    logInfo(`Account created successfully for ${email}`);
     return { email, tempPass };
   } catch (error) {
     logError("Temp email creation failed", error);
@@ -128,40 +147,45 @@ async function getMailTmToken(
   email: string,
   password: string
 ): Promise<string> {
+  logDebug(`Fetching token for ${email}`);
   const tokenRes = await fetch("https://api.mail.tm/token", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ address: email, password }),
   });
   if (!tokenRes.ok) {
-    throw new Error(`Failed to get token: ${tokenRes.statusText}`);
+    const errorText = await tokenRes.text();
+    throw new Error(
+      `Failed to get token: ${tokenRes.statusText} - ${errorText}`
+    );
   }
   const tokenData = (await tokenRes.json()) as { token: string };
+  logInfo(`Token fetched successfully for ${email}`);
   return tokenData.token;
 }
-// Fetch messages
+// Fetch messages (first page)
 async function fetchMessages(token: string): Promise<any[]> {
-  const messagesRes = await fetch(
-    "https://api.mail.tm/messages?page=1&limit=50",
-    {
-      headers: { Authorization: `Bearer ${token}` },
-    }
-  );
-  if (!messagesRes.ok) {
-    throw new Error(`Failed to fetch messages: ${messagesRes.statusText}`);
-  }
-  const messagesData = (await messagesRes.json()) as { data: any[] };
-  return messagesData.data;
+  const url = "https://api.mail.tm/messages?page=1";
+  return await fetchHydraCollection(url, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
 }
 // Fetch single message
 async function fetchMessage(token: string, messageId: string): Promise<any> {
-  const msgRes = await fetch(`https://api.mail.tm/messages/${messageId}`, {
+  logDebug(`Fetching message ${messageId}`);
+  const url = `https://api.mail.tm/messages/${messageId}`;
+  const msgRes = await fetch(url, {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!msgRes.ok) {
-    throw new Error(`Failed to fetch message: ${msgRes.statusText}`);
+    const errorText = await msgRes.text();
+    throw new Error(
+      `Failed to fetch message: ${msgRes.statusText} - ${errorText}`
+    );
   }
-  return await msgRes.json();
+  const msg = await msgRes.json();
+  logInfo(`Message ${messageId} fetched successfully`);
+  return msg;
 }
 // Append field to pass entry (create if not exists)
 async function appendToPass(
@@ -253,9 +277,16 @@ async function generateCredential(
 // Handle managing temp emails (browse addresses, view messages)
 async function manageTempEmails(menuCommand: string[], entries: string[]) {
   const tempPrefix = "emails/temp/";
+  const tempSuffix = ".gpg";
   const tempEmails = entries
     .filter((e) => e.startsWith(tempPrefix))
-    .map((e) => e.slice(tempPrefix.length));
+    .map((e) => e.slice(tempPrefix.length))
+    .map((str) => {
+      if (str.endsWith(tempSuffix)) {
+        return str.slice(0, -tempSuffix.length);
+      }
+      return str; // Return unchanged if no match
+    });
   if (tempEmails.length === 0) {
     console.log("No temp emails found.");
     return;
@@ -279,6 +310,7 @@ async function manageTempEmails(menuCommand: string[], entries: string[]) {
   // Get token and messages
   try {
     const token = await getMailTmToken(selectedEmail, password);
+    logInfo(`Fetching messages for ${selectedEmail}`);
     const messages = await fetchMessages(token);
     if (messages.length === 0) {
       console.log(`No messages for ${selectedEmail}.`);
@@ -301,6 +333,7 @@ async function manageTempEmails(menuCommand: string[], entries: string[]) {
     console.log("Body:");
     console.log(msg.text || msg.html?.replace(/<[^>]*>/g, "") || "No body.");
   } catch (error) {
+    logError("Failed to manage email", error);
     console.error("Failed to manage email:", error);
   }
 }
