@@ -20,6 +20,7 @@
       rawPackages = [
         # Wrapped programmes
         self'.packages.qalc
+        self'.packages.monero-wallet
         editor
       ]
       ++ (
@@ -82,6 +83,11 @@
               pipes
               cmatrix
               cava
+            ]
+          ++
+            # Cryptocurrency tools
+            [
+              monero-cli
             ]
         )
       );

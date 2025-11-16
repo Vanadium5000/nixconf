@@ -24,6 +24,9 @@
             # Setup GPG_TTY for GPG-support on Fish
             set -gx GPG_TTY (tty)
 
+            # Clears screen + scrollback
+            alias c="printf '\\033[2J\\033[3J\\033[1;1H'"
+
             # init starship
             ${self'.packages.starship}/bin/starship init fish | source
           '';

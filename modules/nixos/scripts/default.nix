@@ -405,5 +405,37 @@
           ];
         };
       };
+      packages.monero-wallet = inputs.wrappers.lib.makeWrapper {
+        inherit pkgs;
+        package = pkgs.writeShellScriptBin "monero-wallet" ''
+          #!/usr/bin/env bash
+
+          # Default configuration - can be overridden with environment variables
+          DAEMON_ADDRESS=''${MONERO_DAEMON_ADDRESS:-"https://xmr.cryptostorm.is:18081"}
+          WALLET_FILE=''${MONERO_WALLET_FILE:-"$HOME/Documents/MainWallet"}
+          PASSWORD_STORE_PATH=''${MONERO_PASSWORD_STORE_PATH:-"monero/main_password"}
+
+          # Get password from pass
+          if ! PASSWORD=$(pass "$PASSWORD_STORE_PATH" 2>/dev/null); then
+              echo "Error: Could not retrieve password from pass store at '$PASSWORD_STORE_PATH'"
+              echo "Make sure the password store entry exists and is accessible"
+              exit 1
+          fi
+
+          # Launch monero-wallet-cli with proper arguments
+          exec ${pkgs.monero-cli}/bin/monero-wallet-cli \
+              --daemon-address "$DAEMON_ADDRESS" \
+              --password "$PASSWORD" \
+              --wallet-file "$WALLET_FILE" \
+              "$@"
+        '';
+        env = {
+          PATH = pkgs.lib.makeBinPath [
+            (pkgs.pass.withExtensions (exts: [ exts.pass-otp ])) # Password management
+            pkgs.monero-cli
+            pkgs.coreutils
+          ];
+        };
+      };
     };
 }
