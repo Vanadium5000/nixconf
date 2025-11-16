@@ -1,13 +1,13 @@
 {
-  flake.diskoConfigurations.macbook = {
+  flake.diskoConfigurations.ionos_vps = {
     # Use with (fill in ...):
-    # nix eval .#diskoConfigurations.macbook --pretty > /tmp/disko-config.nix
+    # nix eval .#diskoConfigurations.ionos_vps --pretty > /tmp/disko-config.nix
     # sudo nix run github:nix-community/disko/latest -- /tmp/disko-config.nix
     # sudo nixos-install --root /mnt --flake ...
     disko.devices = {
       disk = {
         main = {
-          device = "/dev/nvme0n1";
+          device = "/dev/vda";
           type = "disk";
           content = {
             type = "gpt";
@@ -28,7 +28,7 @@
                 };
               };
               swap = {
-                size = "16G";
+                size = "8G";
                 content = {
                   type = "swap";
                   resumeDevice = true;

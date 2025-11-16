@@ -27,6 +27,12 @@
             # Clears screen + scrollback
             alias c="printf '\\033[2J\\033[3J\\033[1;1H'"
 
+            # System actions
+            alias suspend "systemctl suspend"
+            alias reboot "systemctl reboot"
+            alias logout "hyprctl dispatch exit"
+            alias poweroff "systemctl poweroff"
+
             # init starship
             ${self'.packages.starship}/bin/starship init fish | source
           '';

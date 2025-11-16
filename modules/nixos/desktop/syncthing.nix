@@ -2,7 +2,7 @@
 {
   flake.nixosModules.syncthing =
     {
-      pkgs,
+      config,
       ...
     }:
     {
@@ -10,14 +10,19 @@
       services.syncthing = {
         enable = true;
         openDefaultPorts = true; # Open ports in the firewall for Syncthing. (NOTE: this will not open syncthing gui port)
+
+        # Set the dataDir to home
+        dataDir = "/home/${config.preferences.user.username}";
+        user = config.preferences.user.username;
       };
 
-      environment.systemPackages = with pkgs; [ syncthing ];
+      # environment.systemPackages = with pkgs; [ syncthing ];
 
       # Persist necessary config files
       impermanence.home.directories = [
         # "Shared" # Shared directory
-        ".local/state/syncthing" # Syncthing state/config
+        ".local/state/syncthing" # Syncthing state
+        ".config/syncthing" # Syncthing config
       ];
 
       impermanence.home.files = [

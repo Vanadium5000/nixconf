@@ -22,9 +22,19 @@
         uninstallUnused = true; # Automatically clean up stale packages
 
         packages = [
-          # An improved version of Thunderbird
-          # Open source email, newsfeed, chat, and calendaring client
-          "eu.betterbird.Betterbird"
+          # Monitoring
+          "io.missioncenter.MissionCenter" # System monitoring
+          "net.nokyan.Resources" # System monitoring
+
+          # Configuration software
+          "com.github.wwmm.easyeffects" # Pipewire/audio effects Manager
+          "com.github.tchx84.Flatseal" # Review & modify permissions of Flatpaks
+          "io.github.nokse22.inspector" # View lots of system information
+
+          "io.gitlab.adhami3310.Impression" # Creates bootable drives
+          "org.libreoffice.LibreOffice" # LibeOffice suite
+          "org.gimp.GIMP" # GIMP - Image Editor
+          "org.inkscape.Inkscape" # Inkscape - Vector Graphics Editor
         ];
       };
 
