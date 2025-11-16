@@ -27,17 +27,8 @@
                   mountpoint = "/boot";
                 };
               };
-              swap = {
-                size = "16G";
-                content = {
-                  type = "swap";
-                  resumeDevice = true;
-                  randomEncryption = true;
-                  priority = 100; # Prefer to encrypt as long as we have space for it
-                };
-              };
               luks = {
-                size = "100%FREE";
+                size = "100%";
                 content = {
                   type = "luks";
                   name = "crypted";
@@ -88,6 +79,11 @@
                           "noatime"
                         ];
                         mountpoint = "/nix";
+                      };
+
+                      "/swap" = {
+                        mountpoint = "/.swapvol";
+                        swap.swapfile.size = "16G";
                       };
                     };
                   };
