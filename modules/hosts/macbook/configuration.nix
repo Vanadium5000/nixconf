@@ -22,6 +22,9 @@
         inputs.nixos-hardware.nixosModules.common-hidpi
         inputs.nixos-hardware.nixosModules.common-pc-ssd
 
+        # TLP (increased battery-life on laptops)
+        self.nixosModules.tlp
+
         # Disko
         inputs.disko.nixosModules.disko
         self.diskoConfigurations.macbook

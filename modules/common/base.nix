@@ -13,7 +13,7 @@
         mkOption
         ;
 
-      inherit (self) secrets;
+      # inherit (self) secrets;
 
       cfg = config.preferences;
     in
