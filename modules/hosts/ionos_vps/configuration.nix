@@ -15,6 +15,8 @@
     }:
     {
       imports = [
+        self.nixosModules.terminal
+
         # Disko
         inputs.disko.nixosModules.disko
         self.diskoConfigurations.ionos_vps
