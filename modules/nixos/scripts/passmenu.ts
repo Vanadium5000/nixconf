@@ -51,7 +51,7 @@ async function getCopyCommand(): Promise<string[]> {
   if (!!process.env.WAYLAND_DISPLAY && (await commandExists("wl-copy"))) {
     return ["xargs", "wl-copy"];
   } else if (await commandExists("xclip")) {
-    return ["xclip", "-selection", "clipboard"];
+    return ["xargs", "xclip", "-selection", "clipboard"];
   } else {
     throw new Error("Neither wl-copy nor xclip found.");
   }

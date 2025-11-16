@@ -275,6 +275,7 @@
           # "${mod},W, exec, rofi -show processlist" # TODO: WIP
           "${mod},S, exec, ${getExe pkgs.grim} -g \"$(${getExe pkgs.slurp})\" - | ${getExe pkgs.swappy} -f - | wl-copy"
           "${mod},P, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.passmenu}"
+          "${shiftMod},P, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.passmenu} -a"
 
           # Screen zooming on shiftMod + mouse_scroll
           "${mod},MINUS, exec, hyprctl keyword cursor:zoom_factor $(awk \"BEGIN {print $(hyprctl getoption cursor:zoom_factor | grep 'float:' | awk '{print $2}') - 0.1}\")"

@@ -17,21 +17,23 @@
         '';
         env = {
           # Ensure PATH includes all runtime inputs
-          # PATH = pkgs.lib.makeBinPath [
-          #   (pkgs.pass.withExtensions (exts: [ exts.pass-otp ])) # Password management
-          #   pkgs.gnupg
-          #   self'.packages.rofi
-          #   pkgs.wl-clipboard
-          #   pkgs.wtype
-          #   pkgs.ydotool
-          #   pkgs.bun
+          PATH = pkgs.lib.makeBinPath [
+            (pkgs.pass.withExtensions (exts: [ exts.pass-otp ])) # Password management
+            pkgs.gnupg
+            self'.packages.rofi
+            pkgs.wl-clipboard
+            # pkgs.xclip
+            # pkgs.wtype
+            pkgs.ydotool
+            pkgs.bun
+            pkgs.libnotify
 
-          #   # Core utilities
-          #   pkgs.coreutils
-          #   pkgs.findutils
-          #   pkgs.gnused
-          #   pkgs.which
-          # ];
+            # Core utilities
+            pkgs.coreutils
+            pkgs.findutils
+            pkgs.gnused
+            pkgs.which
+          ];
         };
       };
 
