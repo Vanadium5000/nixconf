@@ -89,8 +89,8 @@
           ++ cfg.user.extraGroups;
           shell = self.packages.${pkgs.stdenv.hostPlatform.system}.environment;
 
-          # hashedPasswordFile = "/persist/passwd";
-          hashedPassword = (secrets [ "PASSWORD_HASH" ]).PASSWORD_HASH;
+          hashedPasswordFile = "/persist/passwd";
+          # hashedPassword = (secrets [ "PASSWORD_HASH" ]).PASSWORD_HASH;
           # initialPassword = "1234";
         };
 
