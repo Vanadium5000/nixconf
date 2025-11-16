@@ -356,8 +356,8 @@
               if kill -0 "$PID" 2>/dev/null; then
                   kill "$PID" 2>/dev/null || true
                   rm -f "$PID_FILE"
-                  $NOTIFY_SEND "Lid Inhibit" "Suspend on lid close disabled"
-                  echo "Disabled suspend on lid close"
+                  $NOTIFY_SEND "Lid Inhibit" "Suspend inhibitator on lid close disabled"
+                  echo "Disabled suspend inhibitator on lid close"
               else
                   rm -f "$PID_FILE"
                   echo "Stale PID removed; run again to enable"
@@ -368,8 +368,8 @@
               (exec $SYSTEMD_INHIBIT --what=handle-lid-switch --who=waybar-lid --why="Lid close suspend inhibited" --mode=block $SLEEP infinity) &
               INHIBIT_PID=$!
               echo $INHIBIT_PID > "$PID_FILE"
-              $NOTIFY_SEND "Lid Inhibit" "Suspend on lid close enabled"
-              echo "Enabled suspend on lid close (PID: $INHIBIT_PID)"
+              $NOTIFY_SEND "Lid Inhibit" "Suspend inhibitator on lid close enabled"
+              echo "Enabled suspend inhibitator on lid close (PID: $INHIBIT_PID)"
           fi
         '';
         env = {
