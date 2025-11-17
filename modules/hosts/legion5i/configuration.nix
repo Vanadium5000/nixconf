@@ -14,7 +14,7 @@
     }:
     {
       imports = [
-        self.nixosModules.desktop
+        self.nixosModules.terminal
 
         # Drivers and settings, https://github.com/NixOS/nixos-hardware/blob/master/flake.nix
         inputs.nixos-hardware.nixosModules.common-cpu-intel
