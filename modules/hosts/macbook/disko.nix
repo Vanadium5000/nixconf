@@ -27,69 +27,82 @@
                   mountpoint = "/boot";
                 };
               };
-              swap = {
-                size = "16G";
-                content = {
-                  type = "swap";
-                  resumeDevice = true;
-                  randomEncryption = true;
-                  priority = 100; # Prefer to encrypt as long as we have space for it
-                };
-              };
+              # LUKS-LVM
+              # https://github.com/nix-community/disko/blob/master/example/luks-lvm.nix
               luks = {
                 size = "100%";
                 content = {
                   type = "luks";
                   name = "crypted";
-
-                  # Disable settings.keyFile if you want to use interactive password entry
-                  #passwordFile = "/tmp/secret.key"; # Interactive
+                  extraOpenArgs = [ ];
                   settings = {
-                    allowDiscards = true;
+                    # if you want to use the key for interactive login be sure there is no trailing newline
+                    # for example use `echo -n "password" > /tmp/secret.key`
                     # keyFile = "/tmp/secret.key";
+                    allowDiscards = true;
+                  };
+                  # additionalKeyFiles = [ "/tmp/additionalSecret.key" ];
+                  content = {
+                    type = "lvm_pv";
+                    vg = "pool";
+                  };
+                };
+              };
+            };
+          };
+        };
+      };
+      lvm_vg = {
+        pool = {
+          type = "lvm_vg";
+          lvs = {
+            root = {
+              size = "100%";
+              content = {
+                type = "btrfs";
+                extraArgs = [ "-f" ]; # Override existing partition
+
+                # Subvolumes must set a mountpoint in order to be mounted,
+                # unless their parent is mounted
+                subvolumes = {
+                  # Subvolume name is different from mountpoint
+                  "/root" = {
+                    mountOptions = [
+                      "compress=zstd"
+                    ];
+                    mountpoint = "/";
                   };
 
-                  content = {
-                    type = "btrfs";
-                    extraArgs = [ "-f" ]; # Override existing partition
-                    # Subvolumes must set a mountpoint in order to be mounted,
-                    # unless their parent is mounted
-                    subvolumes = {
-                      # Subvolume name is different from mountpoint
-                      "/root" = {
-                        mountOptions = [
-                          "compress=zstd"
-                        ];
-                        mountpoint = "/";
-                      };
+                  # Parent is not mounted so the mountpoint must be set
+                  "/persist" = {
+                    mountOptions = [
+                      "compress=zstd"
+                    ];
+                    mountpoint = "/persist";
+                  };
 
-                      # Parent is not mounted so the mountpoint must be set
-                      "/persist" = {
-                        mountOptions = [
-                          "compress=zstd"
-                        ];
-                        mountpoint = "/persist";
-                      };
+                  # Parent is not mounted so the mountpoint must be set
+                  "/old_roots" = {
+                    mountOptions = [
+                      "compress=zstd"
+                    ];
+                    mountpoint = "/old_roots";
+                  };
 
-                      # Parent is not mounted so the mountpoint must be set
-                      "/old_roots" = {
-                        mountOptions = [
-                          "compress=zstd"
-                        ];
-                        mountpoint = "/old_roots";
-                      };
+                  # Parent is not mounted so the mountpoint must be set
+                  # "noatime" disables the updating of access time for both files and directories
+                  # so that reading a file does not update their access time, improves performance
+                  "/nix" = {
+                    mountOptions = [
+                      "compress=zstd"
+                      "noatime"
+                    ];
+                    mountpoint = "/nix";
+                  };
 
-                      # Parent is not mounted so the mountpoint must be set
-                      # "noatime" disables the updating of access time for both files and directories
-                      # so that reading a file does not update their access time, improves performance
-                      "/nix" = {
-                        mountOptions = [
-                          "compress=zstd"
-                          "noatime"
-                        ];
-                        mountpoint = "/nix";
-                      };
-                    };
+                  "/swap" = {
+                    mountpoint = "/.swapvol";
+                    swap.swapfile.size = "16G";
                   };
                 };
               };

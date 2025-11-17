@@ -48,74 +48,61 @@
                   };
                 };
               };
-              lvm_vg = {
-                pool = {
-                  type = "lvm_vg";
-                  lvs = {
-                    root = {
-                      size = "100%FREE";
-                      content = {
-                        type = "luks";
-                        name = "crypted";
+            };
+          };
+        };
+      };
+      lvm_vg = {
+        pool = {
+          type = "lvm_vg";
+          lvs = {
+            root = {
+              size = "100%";
+              content = {
+                type = "btrfs";
+                extraArgs = [ "-f" ]; # Override existing partition
 
-                        # Disable settings.keyFile if you want to use interactive password entry
-                        #passwordFile = "/tmp/secret.key"; # Interactive
-                        settings = {
-                          allowDiscards = true;
-                          # keyFile = "/tmp/secret.key";
-                        };
+                # Subvolumes must set a mountpoint in order to be mounted,
+                # unless their parent is mounted
+                subvolumes = {
+                  # Subvolume name is different from mountpoint
+                  "/root" = {
+                    mountOptions = [
+                      "compress=zstd"
+                    ];
+                    mountpoint = "/";
+                  };
 
-                        content = {
-                          type = "btrfs";
-                          extraArgs = [ "-f" ]; # Override existing partition
-                          # Subvolumes must set a mountpoint in order to be mounted,
-                          # unless their parent is mounted
-                          subvolumes = {
-                            # Subvolume name is different from mountpoint
-                            "/root" = {
-                              mountOptions = [
-                                "compress=zstd"
-                              ];
-                              mountpoint = "/";
-                            };
+                  # Parent is not mounted so the mountpoint must be set
+                  "/persist" = {
+                    mountOptions = [
+                      "compress=zstd"
+                    ];
+                    mountpoint = "/persist";
+                  };
 
-                            # Parent is not mounted so the mountpoint must be set
-                            "/persist" = {
-                              mountOptions = [
-                                "compress=zstd"
-                              ];
-                              mountpoint = "/persist";
-                            };
+                  # Parent is not mounted so the mountpoint must be set
+                  "/old_roots" = {
+                    mountOptions = [
+                      "compress=zstd"
+                    ];
+                    mountpoint = "/old_roots";
+                  };
 
-                            # Parent is not mounted so the mountpoint must be set
-                            "/old_roots" = {
-                              mountOptions = [
-                                "compress=zstd"
-                              ];
-                              mountpoint = "/old_roots";
-                            };
+                  # Parent is not mounted so the mountpoint must be set
+                  # "noatime" disables the updating of access time for both files and directories
+                  # so that reading a file does not update their access time, improves performance
+                  "/nix" = {
+                    mountOptions = [
+                      "compress=zstd"
+                      "noatime"
+                    ];
+                    mountpoint = "/nix";
+                  };
 
-                            # Parent is not mounted so the mountpoint must be set
-                            # "noatime" disables the updating of access time for both files and directories
-                            # so that reading a file does not update their access time, improves performance
-                            "/nix" = {
-                              mountOptions = [
-                                "compress=zstd"
-                                "noatime"
-                              ];
-                              mountpoint = "/nix";
-                            };
-
-                            "/swap" = {
-                              mountpoint = "/.swapvol";
-                              swap.swapfile.size = "8G";
-                            };
-                          };
-
-                          mountpoint = "/partition-root";
-                        };
-                      };
-                    };
+                  "/swap" = {
+                    mountpoint = "/.swapvol";
+                    swap.swapfile.size = "8G";
                   };
                 };
               };
