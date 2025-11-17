@@ -105,6 +105,8 @@
                     swap.swapfile.size = "8G";
                   };
                 };
+
+                mountpoint = "/partition-root";
               };
             };
           };
