@@ -91,7 +91,7 @@
 
           hashedPasswordFile = "/persist/passwd";
           # hashedPassword = (secrets [ "PASSWORD_HASH" ]).PASSWORD_HASH;
-          # initialPassword = "1234";
+          initialPassword = "1234";
         };
 
         # Add the default shell to environment

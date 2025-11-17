@@ -15,7 +15,7 @@ fi
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FLAKE_DIR="${SCRIPT_DIR}"
-HOST="${HOST:-macbook}"
+HOST="${HOST:-}"
 
 # Colors for output
 RED='\033[0;31m'
@@ -38,6 +38,12 @@ log() {
     else
         echo -e "${BLUE}[$(date '+%Y-%m-%d %H:%M:%S')]${NC} $msg"
     fi
+}
+
+# Enhanced logging for commands
+log_command() {
+    local cmd="$*"
+    log "Executing: $cmd"
 }
 
 error() {
@@ -136,53 +142,63 @@ validate_flake() {
 
 # Build system
 build_system() {
-    log "Building system configuration..."
-    if ! nixos-rebuild build --flake "${FLAKE_DIR}#${HOST}" --impure; then
-        error "System build failed"
+    log "Building system configuration for host: ${HOST}"
+    local cmd="nixos-rebuild build --flake '${FLAKE_DIR}#${HOST}' --impure"
+    log_command "$cmd"
+    if ! eval "$cmd"; then
+        error "System build failed for host: ${HOST}"
         return 1
     fi
-    success "System built successfully"
+    success "System built successfully for host: ${HOST}"
 }
 
 # Dry run
 dry_run() {
-    log "Performing dry run..."
-    if ! nixos-rebuild dry-run --flake "${FLAKE_DIR}#${HOST}" --impure; then
-        error "Dry run failed"
+    log "Performing dry run for host: ${HOST}"
+    local cmd="nixos-rebuild dry-run --flake '${FLAKE_DIR}#${HOST}' --impure"
+    log_command "$cmd"
+    if ! eval "$cmd"; then
+        error "Dry run failed for host: ${HOST}"
         return 1
     fi
-    success "Dry run completed successfully"
+    success "Dry run completed successfully for host: ${HOST}"
 }
 
 # Switch to new system
 switch_system() {
-    log "Switching to new system configuration..."
+    log "Switching to new system configuration for host: ${HOST}"
     local env_vars=""
     if [ -n "${SECRETS_PASSWORD_HASH:-}" ]; then
         env_vars="SECRETS_PASSWORD_HASH='${SECRETS_PASSWORD_HASH}' "
     fi
 
-    if ! sudo sh -c "${env_vars}nixos-rebuild switch --flake '${FLAKE_DIR}#${HOST}' --impure"; then
-        error "System switch failed"
+    local cmd="${env_vars}sudo nixos-rebuild switch --flake '${FLAKE_DIR}#${HOST}' --impure"
+    log_command "$cmd"
+    if ! eval "$cmd"; then
+        error "System switch failed for host: ${HOST}"
         return 1
     fi
-    success "System switched successfully"
+    success "System switched successfully for host: ${HOST}"
 }
 
 # Rollback system
 rollback_system() {
-    log "Rolling back to previous system generation..."
-    if ! sudo nixos-rebuild --rollback switch; then
-        error "System rollback failed"
+    log "Rolling back to previous system generation for host: ${HOST}"
+    local cmd="sudo nixos-rebuild --rollback switch"
+    log_command "$cmd"
+    if ! eval "$cmd"; then
+        error "System rollback failed for host: ${HOST}"
         return 1
     fi
-    success "System rolled back successfully"
+    success "System rolled back successfully for host: ${HOST}"
 }
 
 # Show generations
 show_generations() {
-    log "Current system generations:"
-    sudo nix-env --list-generations --profile /nix/var/nix/profiles/system | tail -10
+    log "Current system generations for host: ${HOST}"
+    local cmd="sudo nix-env --list-generations --profile /nix/var/nix/profiles/system | tail -10"
+    log_command "$cmd"
+    eval "$cmd"
 }
 
 # Parse command-line options
@@ -191,15 +207,23 @@ parse_options() {
         case $1 in
             --help)
                 cat << EOF
-Usage: $0 [OPTIONS] [ACTION]
+Usage: HOST=<host> $0 [OPTIONS] [ACTION] [ARGS]
+
+Environment Variables:
+  HOST        Target host configuration (required)
+
+Arguments:
+  ACTION      Action to perform (default: switch)
+  ARGS        Additional arguments for deploy action
 
 Actions:
-  switch     Switch to new system configuration (default)
-  build      Build system configuration without switching
-  dry-run    Perform dry run
-  rollback   Rollback to previous generation
-  generations Show system generations
-  validate   Validate flake configuration
+  switch       Switch to new system configuration (default)
+  build        Build system configuration without switching
+  dry-run      Perform dry run
+  rollback     Rollback to previous generation
+  generations  Show system generations
+  validate     Validate flake configuration
+  deploy       Deploy to remote host (requires TARGET_HOST argument)
 
 Options:
   --log-file    Enable logging to file
@@ -207,6 +231,12 @@ Options:
   --validate    Enable flake validation
   --backup      Enable system backup before switch
   --help        Show this help message
+
+Examples:
+  HOST=macbook $0 switch                    # Switch local macbook system
+  HOST=macbook $0 build                     # Build macbook configuration
+  HOST=macbook $0 deploy root@192.168.1.100 # Deploy to remote host
+  HOST=legion5i $0 --validate switch        # Validate before switching legion5i
 EOF
                 exit 0
                 ;;
@@ -240,24 +270,73 @@ EOF
     echo "$@"
 }
 
+# Deploy to remote host
+deploy_system() {
+    local target_host="$1"
+    if [ -z "$target_host" ]; then
+        error "deploy action requires TARGET_HOST argument"
+        echo "Usage: $0 <host> deploy <target_host>"
+        exit 1
+    fi
+
+    log "Deploying system configuration for host '${HOST}' to remote target: ${target_host}"
+    local env_vars=""
+    if [ -n "${SECRETS_PASSWORD_HASH:-}" ]; then
+        env_vars="SECRETS_PASSWORD_HASH='${SECRETS_PASSWORD_HASH}' "
+    fi
+
+    local cmd="${env_vars}nixos-rebuild switch --target-host '${target_host}' --flake '${FLAKE_DIR}#${HOST}' --impure"
+    log_command "$cmd"
+    if ! eval "$cmd"; then
+        error "System deployment failed for host '${HOST}' to target: ${target_host}"
+        return 1
+    fi
+    success "System deployed successfully for host '${HOST}' to target: ${target_host}"
+}
+
 # Main function
 main() {
-    # Parse options first
-    parse_options "$@"
+    # Check for --help first
+    for arg in "$@"; do
+        if [ "$arg" = "--help" ]; then
+            parse_options "$@"
+        fi
+    done
 
-    # Get remaining arguments after options
+    # Parse options first
+    local remaining_args
+    remaining_args=$(parse_options "$@")
+
+    # Extract action and deploy target from remaining arguments
     local action=""
+    local deploy_target=""
+
+    # Parse remaining arguments: [action] [args]
+    set -- $remaining_args
     while [[ $# -gt 0 ]]; do
         case $1 in
             --*)
+                # Skip options that were already parsed
                 shift
                 ;;
             *)
-                action="$1"
-                break
+                if [ -z "$action" ]; then
+                    action="$1"
+                else
+                    deploy_target="$1"
+                fi
+                shift
                 ;;
         esac
     done
+
+    # Validate required HOST environment variable
+    if [ -z "$HOST" ]; then
+        error "HOST environment variable is required"
+        echo "Usage: HOST=<host> $0 [OPTIONS] [ACTION] [ARGS]"
+        echo "Use --help for more information"
+        exit 1
+    fi
 
     action="${action:-switch}"
 
@@ -308,9 +387,18 @@ main() {
         "validate")
             validate_flake
             ;;
+        "deploy")
+            if [ "$GIT_BACKUP" = true ]; then
+                git_commit_backup
+            fi
+            if [ "$VALIDATE" = true ]; then
+                validate_flake
+            fi
+            deploy_system "$deploy_target"
+            ;;
         *)
             error "Unknown action: ${action}"
-            echo "Usage: $0 [OPTIONS] {switch|build|dry-run|rollback|generations|validate}"
+            echo "Usage: HOST=<host> $0 [OPTIONS] {switch|build|dry-run|rollback|generations|validate|deploy}"
             echo "Use --help for more information"
             exit 1
             ;;

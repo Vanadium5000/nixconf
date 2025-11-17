@@ -21,6 +21,7 @@
         # Wrapped programmes
         self'.packages.qalc
         self'.packages.monero-wallet
+        self'.packages.starship
         editor
       ]
       ++ (
