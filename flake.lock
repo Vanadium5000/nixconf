@@ -239,17 +239,16 @@
     "nixos-artwork": {
       "flake": false,
       "locked": {
-        "lastModified": 1731943625,
-        "narHash": "sha256-XquSEijNYtGDkW35bibT2ki18qicENCsIcDzDxrgQkM=",
+        "lastModified": 1751141820,
+        "narHash": "sha256-//4BiRF1W5W2rEbw6MupiyDOjvcveqGtYjJ1mZfck9U=",
         "owner": "nixos",
         "repo": "nixos-artwork",
-        "rev": "63f68a917f4e8586c5d35e050cdaf1309832272d",
+        "rev": "9d2cdedd73d64a068214482902adea3d02783ba8",
         "type": "github"
       },
       "original": {
         "owner": "nixos",
         "repo": "nixos-artwork",
-        "rev": "63f68a917f4e8586c5d35e050cdaf1309832272d",
         "type": "github"
       }
     },
@@ -350,17 +349,16 @@
     "nixy-wallpapers": {
       "flake": false,
       "locked": {
-        "lastModified": 1733499879,
-        "narHash": "sha256-ZzA766i4o0D4DWkuVOn5J3oBqTclFcz3gigwD5Bp+FM=",
+        "lastModified": 1743083495,
+        "narHash": "sha256-g2gmh74woPA1LNv4ETF9jdXbrtOe3C74EIpQBXftoDk=",
         "owner": "anotherhadi",
         "repo": "nixy-wallpapers",
-        "rev": "713754b59d42225588b3818defe7ed05238c83af",
+        "rev": "e1f2cb6208450b88cc6dfbdd39c0a01981991768",
         "type": "github"
       },
       "original": {
         "owner": "anotherhadi",
         "repo": "nixy-wallpapers",
-        "rev": "713754b59d42225588b3818defe7ed05238c83af",
         "type": "github"
       }
     },

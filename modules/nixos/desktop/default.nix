@@ -100,16 +100,16 @@
       };
 
       # XDG Portal
-      # xdg.portal = {
-      #   enable = true;
-      #   config.common.default = "hyprland";
-      #   xdgOpenUsePortal = true;
+      xdg.portal = {
+        enable = true;
+        config.common.default = "hyprland";
+        xdgOpenUsePortal = true;
 
-      #   extraPortals = with pkgs; [
-      #     # Already added by hyprland
-      #     #xdg-desktop-portal-hyprland
-      #   ];
-      # };
+        extraPortals = with pkgs; [
+          # Already added by hyprland
+          #xdg-desktop-portal-hyprland
+        ];
+      };
 
       # Fonts
       fonts.packages = with pkgs; [
