@@ -81,6 +81,7 @@ command_exists() {
 declare -A SECRETS_MAP=(
     ["SECRETS_PASSWORD_HASH"]="system/matrix/hashedPassword"
     ["SECRETS_MY_WEBSITE_ENV"]="my_website/env_file"
+    ["SECRETS_MONGODB_PASSWORD"]="system/mongodb_password"
     # Example additional secrets (uncomment and modify as needed):
     # ["SECRETS_API_KEY"]="services/api/key"
     # ["SECRETS_DATABASE_PASSWORD"]="database/prod/password"

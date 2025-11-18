@@ -1,10 +1,24 @@
-{ ... }:
+{ self, ... }:
+let
+  inherit (self) secrets;
+in
 {
   flake.nixosModules.dev =
     { config, pkgs, ... }:
     {
       # MongoDB - a source-available, cross-platform, document-oriented database program
-      services.mongodb.enable = true;
+      services.mongodb = {
+        enable = true;
+        bind_ip = "0.0.0.0"; # ← This exposes it publicly
+        enableAuth = true;
+
+        # Very strong root password (do NOT hardcode)
+        initialRootPasswordFile =
+          pkgs.writeText "mongodb-password"
+            (secrets [ "MONGODB_PASSWORD" ]).MONGODB_PASSWORD;
+      };
+      networking.firewall.allowedTCPPorts = [ 27017 ];
+
       preferences.allowedUnfree = [
         "mongodb"
         "mongodb-compass"
