@@ -6,10 +6,12 @@
       secrets' = self.secrets [
         "MY_WEBSITE_ENV"
         "MONGODB_PASSWORD"
+        "MONGO_EXPRESS_PASSWORD"
       ];
       envText = secrets'.MY_WEBSITE_ENV;
       mongodbPassword = secrets'.MONGODB_PASSWORD;
-      mongodbPasswordFile = pkgs.writeText "mongodb-password" mongodbPassword;
+      mongoExpressPassword = secrets'.MONGO_EXPRESS_PASSWORD;
+      mongoExpressPasswordFile = pkgs.writeText "mongo-express-password" mongoExpressPassword;
     in
     {
       imports = [
@@ -25,24 +27,28 @@
       # Run mongo-express in a container (isolated & easy)
       virtualisation.oci-containers.containers.mongo-express = {
         autoStart = true;
-        image = "mongoexpress/mongo-express:latest";
+        image = "mongo-express:latest";
         ports = [ "127.0.0.1:8081:8081" ]; # Only localhost
         environment = {
-          ME_CONFIG_MONGODB_SERVER = "localhost";
+          # These are used AFTER the initial health-check
+          ME_CONFIG_MONGODB_SERVER = "127.0.0.1";
           ME_CONFIG_MONGODB_PORT = "27017";
           ME_CONFIG_MONGODB_ENABLE_ADMIN = "true";
+          ME_CONFIG_MONGODB_AUTH_DATABASE = "admin";
           ME_CONFIG_MONGODB_ADMINUSERNAME = "root";
           ME_CONFIG_BASICAUTH_USERNAME = "admin";
+
+          # This overrides the hard-coded "mongo" host
+          # ME_CONFIG_MONGODB_URL = "mongodb://root:${mongodbPassword}@127.0.0.1:27017/?authSource=admin";
+          # No password?
+          ME_CONFIG_MONGODB_URL = "mongodb://127.0.0.1:27017/?authSource=admin";
         };
         environmentFiles = [
           (pkgs.writeText "mongo-express-env" ''
-            ME_CONFIG_MONGODB_ADMINPASSWORD=${mongodbPassword}
-            ME_CONFIG_BASICAUTH_PASSWORD=${mongodbPassword}
+            ME_CONFIG_BASICAUTH_PASSWORD=${mongoExpressPassword}
           '')
         ];
-        extraOptions = [
-          "--network=pasta" # NixOS 25.05+ default, resolves host.containers.internal
-        ];
+        extraOptions = [ "--network=host" ]; # Allows localhost access; use "pasta" + host.containers.internal if isolation needed
       };
 
       # Nginx setup
@@ -87,7 +93,7 @@
             proxyPass = "http://127.0.0.1:8081/";
             extraConfig = ''
               auth_basic "MongoDB Admin";
-              auth_basic_user_file ${mongodbPasswordFile};
+              auth_basic_user_file ${mongoExpressPasswordFile};
             '';
           };
         };

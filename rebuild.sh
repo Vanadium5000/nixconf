@@ -82,6 +82,7 @@ declare -A SECRETS_MAP=(
     ["SECRETS_PASSWORD_HASH"]="system/matrix/hashedPassword"
     ["SECRETS_MY_WEBSITE_ENV"]="my_website/env_file"
     ["SECRETS_MONGODB_PASSWORD"]="system/mongodb_password"
+    ["SECRETS_MONGO_EXPRESS_PASSWORD"]="system/mongo_express_password"
     # Example additional secrets (uncomment and modify as needed):
     # ["SECRETS_API_KEY"]="services/api/key"
     # ["SECRETS_DATABASE_PASSWORD"]="database/prod/password"
