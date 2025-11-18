@@ -80,7 +80,7 @@ command_exists() {
 # Format: ["env_var_name"]="password_store_path"
 declare -A SECRETS_MAP=(
     ["SECRETS_PASSWORD_HASH"]="system/matrix/hashedPassword"
-    ["MY_WEBSITE_ENV"]="my_website/env_file"
+    ["SECRETS_MY_WEBSITE_ENV"]="my_website/env_file"
     # Example additional secrets (uncomment and modify as needed):
     # ["SECRETS_API_KEY"]="services/api/key"
     # ["SECRETS_DATABASE_PASSWORD"]="database/prod/password"
@@ -100,7 +100,7 @@ load_secret() {
     fi
 
     local secret_value
-    if secret_value=$(pass "$pass_path" 2>/dev/null); then
+    if secret_value=$(pass "$pass_path"); then
         export "$env_var"="$secret_value"
         success "Loaded $env_var from password-store"
         return 0
@@ -113,6 +113,7 @@ load_secret() {
 # Load all secrets from password-store
 load_secrets() {
     log "Loading secrets from password-store..."
+    log "Attempting to load ${#SECRETS_MAP[@]} secrets"
 
     if ! command_exists pass; then
         error "password-store (pass) is not installed. Please install it first."
@@ -121,17 +122,26 @@ load_secrets() {
 
     local loaded_count=0
     local failed_count=0
+    local failed_secrets=()
 
     for env_var in "${!SECRETS_MAP[@]}"; do
         local pass_path="${SECRETS_MAP[$env_var]}"
+        log "Loading secret for $env_var from $pass_path"
         if load_secret "$env_var" "$pass_path"; then
-            ((loaded_count++))
+            loaded_count=$((loaded_count + 1))
         else
-            ((failed_count++))
+            failed_count=$((failed_count + 1))
+            failed_secrets+=("$env_var ($pass_path)")
         fi
     done
 
     log "Secrets loading complete: $loaded_count loaded, $failed_count failed"
+    if [ "$failed_count" -gt 0 ]; then
+        warn "Failed to load the following secrets:"
+        for failed in "${failed_secrets[@]}"; do
+            warn "  - $failed"
+        done
+    fi
     return $((failed_count > 0 ? 1 : 0))
 }
 
@@ -333,7 +343,7 @@ deploy_system() {
     local env_vars
     env_vars=$(build_env_vars)
 
-    local cmd="${env_vars}nixos-rebuild switch --target-host '${target_host}' --flake '${FLAKE_DIR}#${HOST}' --impure"
+    local cmd="${env_vars}nixos-rebuild switch --target-host '${target_host}' --use-remote-sudo  --flake '${FLAKE_DIR}#${HOST}' --impure"
     log_command "$cmd"
     if ! eval "$cmd"; then
         error "System deployment failed for host '${HOST}' to target: ${target_host}"

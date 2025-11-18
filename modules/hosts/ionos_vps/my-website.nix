@@ -1,7 +1,7 @@
-{ self, ... }:
+{ self, inputs, ... }:
 {
   flake.nixosModules.ionos_vpsHost =
-    { pkgs, inputs, ... }:
+    { pkgs, ... }:
     let
       inherit (self) secrets;
 

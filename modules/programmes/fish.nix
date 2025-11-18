@@ -41,6 +41,11 @@
       packages.fish = inputs.wrappers.lib.makeWrapper {
         inherit pkgs;
         package = pkgs.fish;
+        runtimeInputs = with pkgs.fishPlugins; [
+          # sponge # do not add failed commands to history
+          done # send notification once long-running commands finish
+          fzf-fish # fzf for fish
+        ];
         flags = {
           "-C" = "source ${fishConf}";
         };

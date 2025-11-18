@@ -56,11 +56,14 @@
       url = "github:nixos/nixos-artwork";
       flake = false;
     };
-
     nixy-wallpapers = {
       url = "github:anotherhadi/nixy-wallpapers";
       flake = false;
     };
+
+    # My Website
+    my-website-frontend.url = "github:Vanadium5000/my-website-frontend";
+    my-website-backend.url = "github:Vanadium5000/my-website-backend";
   };
 
   nixConfig = {
