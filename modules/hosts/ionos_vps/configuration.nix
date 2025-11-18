@@ -22,6 +22,9 @@
         self.diskoConfigurations.ionos_vps
       ];
 
+      # Declare the HOST as an environment variable for use in scripts, etc.
+      environment.variables.HOST = "ionos_vps";
+
       # Enable SSH support
       users.users.${config.preferences.user.username}.openssh.authorizedKeys.keys = [
         "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFsIUmSPfK9/ncfGjINjeI7sz+QK7wyaYJZtLhVpiU66 thealfiecrawford@icloud.com"

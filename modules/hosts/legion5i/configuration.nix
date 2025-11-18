@@ -14,7 +14,7 @@
     }:
     {
       imports = [
-        self.nixosModules.desktop
+        self.nixosModules.terminal
 
         # Drivers and settings, https://github.com/NixOS/nixos-hardware/blob/master/flake.nix
         inputs.nixos-hardware.nixosModules.common-cpu-intel
@@ -29,6 +29,9 @@
         inputs.disko.nixosModules.disko
         self.diskoConfigurations.legion5i
       ];
+
+      # Declare the HOST as an environment variable for use in scripts, etc.
+      environment.variables.HOST = "legion5i";
 
       # Enable SSH support
       users.users.${config.preferences.user.username}.openssh.authorizedKeys.keys = [
