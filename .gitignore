@@ -6,3 +6,6 @@ target
 .direnv
 .vscode
 *.qcow2
+
+# Secrets
+secrets.nix

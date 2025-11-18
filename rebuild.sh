@@ -76,7 +76,41 @@ command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
-# Load secrets from password-store
+# Secrets configuration - easily extensible associative array
+# Format: ["env_var_name"]="password_store_path"
+declare -A SECRETS_MAP=(
+    ["SECRETS_PASSWORD_HASH"]="system/matrix/hashedPassword"
+    ["MY_WEBSITE_ENV"]="my_website/env_file"
+    # Example additional secrets (uncomment and modify as needed):
+    # ["SECRETS_API_KEY"]="services/api/key"
+    # ["SECRETS_DATABASE_PASSWORD"]="database/prod/password"
+    # ["SECRETS_SSH_PRIVATE_KEY"]="ssh/private_key"
+    # ["SECRETS_WIFI_PASSWORD"]="network/wifi/home"
+    # ["SECRETS_EMAIL_PASSWORD"]="email/personal"
+)
+
+# Load a single secret from password-store
+load_secret() {
+    local env_var="$1"
+    local pass_path="$2"
+
+    if [ -z "$env_var" ] || [ -z "$pass_path" ]; then
+        error "Invalid secret configuration: env_var='$env_var', pass_path='$pass_path'"
+        return 1
+    fi
+
+    local secret_value
+    if secret_value=$(pass "$pass_path" 2>/dev/null); then
+        export "$env_var"="$secret_value"
+        success "Loaded $env_var from password-store"
+        return 0
+    else
+        warn "Could not load $env_var from password-store path: $pass_path. Using environment variable if set."
+        return 1
+    fi
+}
+
+# Load all secrets from password-store
 load_secrets() {
     log "Loading secrets from password-store..."
 
@@ -85,15 +119,20 @@ load_secrets() {
         return 1
     fi
 
-    # Load password hash
-    if PASSWORD_HASH=$(pass "system/matrix/hashedPassword" 2>/dev/null); then
-        export SECRETS_PASSWORD_HASH="${PASSWORD_HASH}"
-        success "Loaded PASSWORD_HASH from password-store"
-    else
-        warn "Could not load PASSWORD_HASH from password-store. Using environment variable if set."
-    fi
+    local loaded_count=0
+    local failed_count=0
 
-    # Add more secrets here as needed
+    for env_var in "${!SECRETS_MAP[@]}"; do
+        local pass_path="${SECRETS_MAP[$env_var]}"
+        if load_secret "$env_var" "$pass_path"; then
+            ((loaded_count++))
+        else
+            ((failed_count++))
+        fi
+    done
+
+    log "Secrets loading complete: $loaded_count loaded, $failed_count failed"
+    return $((failed_count > 0 ? 1 : 0))
 }
 
 # Git operations (optional)
@@ -164,13 +203,24 @@ dry_run() {
     success "Dry run completed successfully for host: ${HOST}"
 }
 
+# Build environment variables string from loaded secrets
+build_env_vars() {
+    local env_vars=""
+    for env_var in "${!SECRETS_MAP[@]}"; do
+        local var_name="$env_var"
+        local var_value="${!var_name:-}"
+        if [ -n "$var_value" ]; then
+            env_vars="${env_vars}${var_name}='${var_value}' "
+        fi
+    done
+    echo "$env_vars"
+}
+
 # Switch to new system
 switch_system() {
     log "Switching to new system configuration for host: ${HOST}"
-    local env_vars=""
-    if [ -n "${SECRETS_PASSWORD_HASH:-}" ]; then
-        env_vars="SECRETS_PASSWORD_HASH='${SECRETS_PASSWORD_HASH}' "
-    fi
+    local env_vars
+    env_vars=$(build_env_vars)
 
     local cmd="${env_vars}sudo nixos-rebuild switch --flake '${FLAKE_DIR}#${HOST}' --impure"
     log_command "$cmd"
@@ -280,10 +330,8 @@ deploy_system() {
     fi
 
     log "Deploying system configuration for host '${HOST}' to remote target: ${target_host}"
-    local env_vars=""
-    if [ -n "${SECRETS_PASSWORD_HASH:-}" ]; then
-        env_vars="SECRETS_PASSWORD_HASH='${SECRETS_PASSWORD_HASH}' "
-    fi
+    local env_vars
+    env_vars=$(build_env_vars)
 
     local cmd="${env_vars}nixos-rebuild switch --target-host '${target_host}' --flake '${FLAKE_DIR}#${HOST}' --impure"
     log_command "$cmd"
