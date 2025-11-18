@@ -9,9 +9,9 @@
         "MONGO_EXPRESS_PASSWORD"
       ];
       envText = secrets'.MY_WEBSITE_ENV;
-      mongodbPassword = secrets'.MONGODB_PASSWORD;
+      # mongodbPassword = secrets'.MONGODB_PASSWORD;
       mongoExpressPassword = secrets'.MONGO_EXPRESS_PASSWORD;
-      mongoExpressPasswordFile = pkgs.writeText "mongo-express-password" mongoExpressPassword;
+      # mongoExpressPasswordFile = pkgs.writeText "mongo-express-password" mongoExpressPassword;
     in
     {
       imports = [
@@ -35,7 +35,7 @@
           ME_CONFIG_MONGODB_PORT = "27017";
           ME_CONFIG_MONGODB_ENABLE_ADMIN = "true";
           ME_CONFIG_MONGODB_AUTH_DATABASE = "admin";
-          ME_CONFIG_MONGODB_ADMINUSERNAME = "root";
+          # ME_CONFIG_MONGODB_ADMINUSERNAME = "root";
           ME_CONFIG_BASICAUTH_USERNAME = "admin";
 
           # This overrides the hard-coded "mongo" host
@@ -87,14 +87,21 @@
         };
 
         virtualHosts."mongo.my-website.space" = {
-          forceSSL = true;
-          enableACME = true;
+          forceSSL = true; # Redirect HTTP to HTTPS
+          enableACME = true; # Auto Let's Encrypt
           locations."/" = {
             proxyPass = "http://127.0.0.1:8081/";
-            extraConfig = ''
-              auth_basic "MongoDB Admin";
-              auth_basic_user_file ${mongoExpressPasswordFile};
-            '';
+            extraConfig =
+              let
+                htpasswdFile = pkgs.runCommand "htpasswd" { } ''
+                  ${pkgs.apacheHttpd}/bin/htpasswd -cbB -C 12 \
+                    $out admin "${mongoExpressPassword}"
+                '';
+              in
+              ''
+                auth_basic "MongoDB Admin";
+                auth_basic_user_file ${htpasswdFile};
+              '';
           };
         };
       };
