@@ -106,6 +106,13 @@
         };
       };
 
+      # FORCE NEW CERTIFICATE FOR "MONGO" SUBDOMAIN
+      # security.acme.certs."mongo.my-website.space" = {
+      #   domain = "mongo.my-website.space"; # forces cert creation
+      #   email = "vanadium5000@gmail.com"; # your email
+      #   group = "nginx"; # makes nginx able to read it
+      # };
+
       # ACME (Let's Encrypt) setup
       security.acme = {
         acceptTerms = true;
