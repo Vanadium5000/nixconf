@@ -124,8 +124,5 @@
         80
         443
       ];
-
-      # Additional security: Enable fail2ban for brute-force protection
-      services.fail2ban.enable = true;
     };
 }
