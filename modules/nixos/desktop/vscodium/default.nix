@@ -58,7 +58,8 @@
             mkhl.direnv # Direnv for VSCodium
 
             # AI
-            kilocode.kilo-code # Kilo Code - Open Source AI coding assistant for planning, building, and fixing code
+            # kilocode.kilo-code # Kilo Code - Open Source AI coding assistant for planning, building, and fixing code
+            rooveterinaryinc.roo-cline # Similar to Cline/Kilo Code
             # amazonwebservices.amazon-q-vscode # Amazon Q - Autocomplete mainly
             # continue.continue
             # saoudrizwan.claude-dev # Cline - Autonomous AI coding agent
