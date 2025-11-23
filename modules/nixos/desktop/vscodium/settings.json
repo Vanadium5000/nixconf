@@ -117,7 +117,10 @@
 
   // QML settings
   "qt-qml.doNotAskForQmllsDownload": true,
-  "qt-qml.qmlls.useQmlImportPathEnvVar": true
+  "qt-qml.qmlls.useQmlImportPathEnvVar": true,
+  "[javascript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  }
 
   // Other...
 }

@@ -345,7 +345,8 @@ deploy_system() {
     local env_vars
     env_vars=$(build_env_vars)
 
-    local cmd="${env_vars}nixos-rebuild switch --target-host '${target_host}' --ask-sudo-password  --flake '${FLAKE_DIR}#${HOST}' --impure"
+    # Deploy on target host using the target host to build packages, etc, using sudo (on normal user rather than root)
+    local cmd="${env_vars}nixos-rebuild switch --target-host '${target_host}' --build-host '${target_host}' --ask-sudo-password  --flake '${FLAKE_DIR}#${HOST}' --impure"
     log_command "$cmd"
     if ! eval "$cmd"; then
         error "System deployment failed for host '${HOST}' to target: ${target_host}"
