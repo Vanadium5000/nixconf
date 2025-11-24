@@ -236,11 +236,11 @@
         "nixpkgs": "nixpkgs_2"
       },
       "locked": {
-        "lastModified": 1763940004,
-        "narHash": "sha256-MIU5Sbd5HBFAMd49I5FJNcE6uy25WhO6Tg1k8J+9TqE=",
+        "lastModified": 1764022860,
+        "narHash": "sha256-UXR6Z0iJp3KCN+Ss2Yok1IwEssOhOrsk3mtuLR/BX/4=",
         "owner": "Vanadium5000",
         "repo": "my-website-backend",
-        "rev": "fef94db8824b9ffb609d8008fe95b3597ab20363",
+        "rev": "d90ad4de12815bc3112d4dc7bb09803bbd73c98c",
         "type": "github"
       },
       "original": {
