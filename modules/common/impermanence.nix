@@ -135,7 +135,7 @@
           # HACK: The /partition-root depends on the device config
           PARTITION="/partition-root"
           if [[ -e $PARTITION ]]; then
-              mkdir -p /btrfs_tmp/old_roots
+              mkdir -p $PARTITION/old_roots
               timestamp=$(date --date="@$(stat -c %Y $PARTITION/root)" "+%Y-%m-%-d_%H:%M:%S")
               mv $PARTITION/root "$PARTITION/old_roots/$timestamp"
           fi
