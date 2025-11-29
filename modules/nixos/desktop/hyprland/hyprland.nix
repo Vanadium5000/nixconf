@@ -34,6 +34,12 @@
         "wallpaper"
       ];
 
+      # Autostart cliphist - a clipboard manager programme
+      preferences.autostart = [
+        "wl-paste --type text --watch ${pkgs.cliphist}/bin/cliphist store" # Stores only text data
+        "wl-paste --type image --watch ${pkgs.cliphist}/bin/cliphist store" # Stores only image data
+      ];
+
       programs.hyprland = {
         enable = true;
         withUWSM = true;
@@ -268,14 +274,18 @@
 
           # Menus - mainly rofi
           "${mod},SPACE, exec, rofi -show drun"
-          # "${mod},Z, exec, rofi -show clipboard" # TODO: WIP
+          "${mod},Z, exec, ${pkgs.cliphist}/bin/cliphist list | rofi -dmenu -display-columns 2 | ${pkgs.cliphist}/bin/cliphist decode | wl-copy" # Clipboard manager
           "${mod},W, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.rofi-wallpaper}"
           "${mod},C, exec, rofi -show calc"
-          # "${mod},X, exec, rofi -show powermenu" # TODO: WIP
-          # "${mod},W, exec, rofi -show processlist" # TODO: WIP
-          "${mod},S, exec, ${getExe pkgs.grim} -g \"$(${getExe pkgs.slurp})\" - | ${getExe pkgs.swappy} -f - | wl-copy"
           "${mod},P, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.passmenu}"
-          "${shiftMod},P, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.passmenu} -a"
+          "${shiftMod},P, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.passmenu} -a" # With autotype
+          "${mod},X, exec, rofi -show power-menu"
+          # "${mod},W, exec, rofi -show processlist" # TODO: WIP
+
+          # Recordings
+          "${mod},S, exec, ${getExe pkgs.grim} -g \"$(${getExe pkgs.slurp})\" - | ${getExe pkgs.swappy} -f - | wl-copy"
+          "${mod}, R, exec, {getExe pkgs.wf-recorder} -g \"({getExe pkgs.slurp})\" -f ~/Videos/rec_(date +'%Y-%m-%d_%H-%M-%S').mp4" # Start video recording
+          "${mod} SHIFT, R, exec, pkill -SIGINT wf-recorder" # End video recording
 
           # Screen zooming on shiftMod + mouse_scroll
           "${mod},MINUS, exec, hyprctl keyword cursor:zoom_factor $(awk \"BEGIN {print $(hyprctl getoption cursor:zoom_factor | grep 'float:' | awk '{print $2}') - 0.1}\")"
@@ -365,6 +375,7 @@
 
       environment.systemPackages = with pkgs; [
         wl-clipboard
+        cliphist # Clipboard manager
         brightnessctl
         dconf # user-prefs
 
@@ -377,8 +388,11 @@
         hyprshade # Blue light filter
         safeeyes # Intervalled-reminders to look around/take a break
 
+        # Recordings
         grim
         slurp
+        wf-recorder
+        swappy
 
         networkmanagerapplet
       ];

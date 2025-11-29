@@ -2,7 +2,6 @@
 {
   flake.nixosModules.firefox =
     {
-      pkgs,
       lib,
       config,
       ...
@@ -67,9 +66,8 @@
 
     in
     {
-      environment.systemPackages = [
-        pkgs.stable.librewolf
-      ];
+      # Add Librewolf as a flatpak for better security & a more reliable installation
+      services.flatpak.packages = [ "io.gitlab.librewolf-community" ];
 
       # Add extra Librewolf policies
       environment.etc."librewolf/policies.json".text = builtins.toJSON {

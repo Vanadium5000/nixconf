@@ -246,6 +246,7 @@
           plugins = [
             pkgs.rofi-emoji
             pkgs.rofi-calc
+            pkgs.rofi-power-menu
           ];
         };
         flags = {

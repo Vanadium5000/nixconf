@@ -21,7 +21,6 @@
         self.nixosModules.audio
         self.nixosModules.bluetooth
 
-        self.nixosModules.chromium
         self.nixosModules.firefox
         self.nixosModules.hyprland
         self.nixosModules.hyprsunset
