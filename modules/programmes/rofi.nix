@@ -17,20 +17,21 @@
         configuration {
           drun-display-format: "{icon} {name}";
           font: "${theme.font} Bold ${toString theme.system.font-size}";
-          modi: "window,run,drun,emoji,calc,";
+          modi: "window,run,drun,emoji,calc,nerdy,";
           show-icons: true;
           //icon-theme: "Rose Pine";
           sort: true;
-          case-sensitivity: false; 
+          case-sensitivity: false;
           sorting-method: "fzf";
           hide-scrollbar: false;
           terminal: "kitty";
-          display-drun: "   Apps ";
-          display-run: "   Run ";
+          display-drun: "  Apps ";
+          display-run: "  Run ";
           display-window: "  Window";
-          display-Network: " 󰤨  Network";
-          display-emoji: "  Emoji  ";
-          display-calc: "  Calc";
+          display-Network: " 󰤨 Network";
+          display-emoji: "  Emoji ";
+          display-calc: " Calc";
+          display-nerdy: " Icons";
           sidebar-mode: true;
           hover-select: true;
 
@@ -43,10 +44,8 @@
           }
         }
 
-
-
         * {
-            bg:  ${colorsRgba.background};
+            bg: ${colorsRgba.background};
             bg-opaque: ${colors.background};
             fgd: ${colors.foreground};
             cya: ${colors.base0C};
@@ -83,110 +82,110 @@
 
         #window {
             background-color: @background;
-            border:           ${toString theme.border-size};
+            border: ${toString theme.border-size};
             border-radius: ${toString theme.rounding};
             border-color: @bordercolor;
-            padding:          5;
+            padding: 5;
         }
         #mainbox {
-            border:  0;
+            border: 0;
             padding: 5;
         }
         #message {
-            border:       ${toString theme.border-size}px dash 0px 0px ;
+            border: ${toString theme.border-size}px dash 0px 0px;
             border-color: @separatorcolor;
-            padding:      1px ;
+            padding: 1px;
         }
         #textbox {
             text-color: @foreground;
         }
         #listview {
             fixed-height: 0;
-            border:       ${toString theme.border-size}px dash 0px 0px ;
+            border: ${toString theme.border-size}px dash 0px 0px;
             border-color: @bordercolor;
-            spacing:      2px ;
-            scrollbar:    false;
-            padding:      2px 0px 0px ;
+            spacing: 2px;
+            scrollbar: false;
+            padding: 2px 0px 0px;
         }
         #element {
-            border:  0;
-            padding: 1px ;
+            border: 0;
+            padding: 1px;
         }
         /* Get rid of @background (use transparent instead) for elements to avoid double opacity bad-looking ui */
         #element.normal.normal {
             background-color: transparent;
-            text-color:       @foreground;
+            text-color: @foreground;
         }
         #element.normal.urgent {
             background-color: @urgent-background;
-            text-color:       @urgent-foreground;
+            text-color: @urgent-foreground;
         }
         #element.normal.active {
             background-color: @active-background;
-            text-color:       @background-opaque;
+            text-color: @background-opaque;
         }
         #element.selected.normal {
             background-color: @selected-background;
-            text-color:       @background-opaque;
+            text-color: @background-opaque;
         }
         #element.selected.urgent {
             background-color: @selected-urgent-background;
-            text-color:       @foreground;
+            text-color: @foreground;
         }
         #element.selected.active {
             background-color: @selected-active-background;
-            text-color:       @background-opaque;
+            text-color: @background-opaque;
         }
         #element.alternate.normal {
             background-color: transparent;
-            text-color:       @foreground;
+            text-color: @foreground;
         }
         #element.alternate.urgent {
             background-color: @urgent-background;
-            text-color:       @foreground;
+            text-color: @foreground;
         }
         #element.alternate.active {
             background-color: @active-background;
-            text-color:       @foreground;
+            text-color: @foreground;
         }
         #scrollbar {
-            width:        2px ;
-            border:       0;
-            handle-width: 8px ;
-            padding:      0;
+            width: 2px;
+            border: 0;
+            handle-width: 8px;
+            padding: 0;
         }
         #sidebar {
-            border:       ${toString theme.border-size}px dash 0px 0px ;
+            border: ${toString theme.border-size}px dash 0px 0px;
             border-color: @separatorcolor;
         }
         #button.selected {
             background-color: @selected-background;
-            text-color:       @background-opaque;
+            text-color: @background-opaque;
         }
         #inputbar {
-            spacing:    0;
+            spacing: 0;
             text-color: @foreground;
-            padding:    1px ;
+            padding: 1px;
         }
         #case-indicator {
-            spacing:    0;
+            spacing: 0;
             text-color: @foreground;
         }
         #entry {
-            spacing:    0;
+            spacing: 0;
             text-color: @cya;
         }
         #prompt {
-            spacing:    0;
+            spacing: 0;
             text-color: @fgd;
         }
         #inputbar {
-            children:   [ prompt,textbox-prompt-colon,entry,case-indicator ];
+            children: [ prompt,textbox-prompt-colon,entry,case-indicator ];
         }
         #textbox-prompt-colon {
-            expand:     false;
-            str:        ":";
-            margin:     0px 0.3em 0em 0em ;
+            expand: false;
+            str: ":";
+            margin: 0px 0.3em 0em 0em;
             text-color: @fgd;
         }
       '';
@@ -234,6 +233,7 @@
           plugins = [
             pkgs.rofi-emoji
             pkgs.rofi-calc
+            pkgs.rofi-nerdy
           ];
         };
         flags = {
@@ -246,12 +246,14 @@
           plugins = [
             pkgs.rofi-emoji
             pkgs.rofi-calc
+            pkgs.rofi-nerdy
           ];
         };
         flags = {
           "-config" = config-images;
         };
       };
+
       packages.rofi-askpass = pkgs.writeShellScriptBin "rofi-askpass" ''
         : | rofi -dmenu \
           -sync \
