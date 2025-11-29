@@ -48,6 +48,12 @@
     # https://github.com/gmodena/nix-flatpak
     nix-flatpak.url = "github:gmodena/nix-flatpak/?ref=v0.6.0";
 
+    # Automatically updated extensions - no more being months or years & missing extensions for VSCodium
+    nix4vscode = {
+      url = "github:nix-community/nix4vscode";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     # My Neovim config using NVF
     nvf-neovim = {
       url = "github:Vanadium5000/nvf-neovim";

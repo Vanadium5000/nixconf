@@ -70,6 +70,7 @@
         nwg-drawer
         rofi
         rofi-askpass
+        rofi-powermenu
         rofi-wallpaper
         rofi-wallpaper-selector
       ]);

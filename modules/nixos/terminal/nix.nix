@@ -91,6 +91,7 @@
             system = final.system;
           };
         })
+        inputs.nix4vscode.overlays.default
       ];
 
       environment.systemPackages = with pkgs; [

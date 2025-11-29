@@ -279,7 +279,7 @@
           "${mod},C, exec, rofi -show calc"
           "${mod},P, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.passmenu}"
           "${shiftMod},P, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.passmenu} -a" # With autotype
-          "${mod},X, exec, rofi -show power-menu"
+          "${mod},X, exec, rofi-powermenu"
           # "${mod},W, exec, rofi -show processlist" # TODO: WIP
 
           # Recordings

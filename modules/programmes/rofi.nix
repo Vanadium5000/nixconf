@@ -246,7 +246,6 @@
           plugins = [
             pkgs.rofi-emoji
             pkgs.rofi-calc
-            pkgs.rofi-power-menu
           ];
         };
         flags = {
@@ -261,6 +260,37 @@
           -no-fixed-num-lines \
           -p "Password: " \
           2> /dev/null
+      '';
+      packages.rofi-powermenu = pkgs.writeShellScriptBin "rofi-powermenu" ''
+        options=(
+          "󰌾 Lock"
+          "󰍃 Logout"
+          " Suspend"
+          "󰑐 Reboot"
+          "󰿅 Shutdown"
+        )
+
+        selected=$(printf '%s\n' "''${options[@]}" | rofi -dmenu)
+
+        selected=''${selected:2}
+
+        case $selected in
+          "Lock")
+            ${pkgs.hyprlock}/bin/hyprlock
+            ;;
+          "Logout")
+            hyprctl dispatch exit
+            ;;
+          "Suspend")
+            systemctl suspend
+            ;;
+          "Reboot")
+            systemctl reboot
+            ;;
+          "Shutdown")
+            systemctl poweroff
+            ;;
+        esac
       '';
     };
 }

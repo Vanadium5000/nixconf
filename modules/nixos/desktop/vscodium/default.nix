@@ -9,61 +9,70 @@
     let
       user = config.preferences.user.username;
 
+      vscodeExtensions =
+        with pkgs.vscode-extensions;
+        [
+          # Custom theme
+          (pkgs.callPackage ./_theme-extension.nix { inherit colors; })
+
+          # Rust
+          # rust-lang.rust-analyzer
+          # vadimcn.vscode-lldb # Rust debugging
+
+          # TOML
+          tamasfe.even-better-toml # Support for Cargo.toml
+
+          # YAML
+          redhat.vscode-yaml
+
+          # Python
+          # ms-python.python
+          # ms-python.debugpy
+          # ms-python.black-formatter
+          # ms-python.mypy-type-checker
+          # ms-python.pylint
+
+          # Web dev
+          bradlc.vscode-tailwindcss
+          esbenp.prettier-vscode
+          # svelte.svelte-vscode # Svelte
+
+          # Go
+          # golang.go
+
+          # Nix
+          jnoortheen.nix-ide
+
+          # General
+          eamodio.gitlens
+          ms-azuretools.vscode-containers
+          pkief.material-icon-theme
+          # usernamehw.errorlens # Improves error highlighting
+          fill-labs.dependi # Helps manage dependencies
+          #streetsidesoftware.code-spell-checker
+          gruntfuggly.todo-tree # Show TODOs, FIXMEs, etc. comment tags in a tree view
+          mkhl.direnv # Direnv for VSCodium
+        ]
+        # Fetch extensions less declaritively for any not in nixpkgs or that need to be kept up to date
+        ++ (pkgs.nix4vscode.forVscode [
+          # AI
+          "kilocode.kilo-code" # Kilo Code - Open Source AI coding assistant for planning, building, and fixing code
+          # "rooveterinaryinc.roo-cline" # Similar to Cline/Kilo Code
+          # "amazonwebservices.amazon-q-vscode" # Amazon Q - Autocomplete mainly
+          # "continue.continue"
+          # "saoudrizwan.claude-dev" # Cline - Autonomous AI coding agent
+
+          # BunJS
+          "oven.bun-vscode"
+        ]);
+
       inherit (self) colors;
     in
     {
       environment.systemPackages = with pkgs; [
         (vscode-with-extensions.override {
           vscode = vscodium;
-          vscodeExtensions = with vscode-extensions; [
-            # Custom theme
-            (callPackage ./_theme-extension.nix { inherit colors; })
-
-            # Rust
-            rust-lang.rust-analyzer
-            vadimcn.vscode-lldb # Rust debugging
-
-            # TOML
-            tamasfe.even-better-toml # Support for Cargo.toml
-
-            # YAML
-            redhat.vscode-yaml
-
-            # Python
-            ms-python.python
-            ms-python.debugpy
-            ms-python.black-formatter
-            ms-python.mypy-type-checker
-            ms-python.pylint
-
-            # Web dev
-            bradlc.vscode-tailwindcss
-            esbenp.prettier-vscode
-            # svelte.svelte-vscode # Svelte
-
-            # Go
-            golang.go
-
-            # Nix
-            jnoortheen.nix-ide
-
-            # General
-            eamodio.gitlens
-            ms-azuretools.vscode-containers
-            pkief.material-icon-theme
-            # usernamehw.errorlens # Improves error highlighting
-            fill-labs.dependi # Helps manage dependencies
-            #streetsidesoftware.code-spell-checker
-            gruntfuggly.todo-tree # Show TODOs, FIXMEs, etc. comment tags in a tree view
-            mkhl.direnv # Direnv for VSCodium
-
-            # AI
-            # kilocode.kilo-code # Kilo Code - Open Source AI coding assistant for planning, building, and fixing code
-            rooveterinaryinc.roo-cline # Similar to Cline/Kilo Code
-            # amazonwebservices.amazon-q-vscode # Amazon Q - Autocomplete mainly
-            # continue.continue
-            # saoudrizwan.claude-dev # Cline - Autonomous AI coding agent
-          ];
+          inherit vscodeExtensions;
         })
 
         # LSPs/Dependencies
