@@ -55,6 +55,9 @@
         "browser.gesture.swipe.left" = "";
         "browser.gesture.swipe.right" = "";
 
+        # Dark theme for websites
+        "layout.css.prefers-color-scheme.content-override" = 0;
+
         # TODO: Swap to Firefox Colors
         # Default Firefox dark browser theme
         "browser.theme.content-theme" = 0;
@@ -71,6 +74,7 @@
       environment.systemPackages = [
         (pkgs.stable.librewolf.override {
           extraPolicies = {
+            Preferences = settings;
             Extensions.Install = extensions [
               # Ad-block
               "ublock-origin"
@@ -162,7 +166,7 @@
       };
 
       impermanence.home.cache.directories = [
-        ".mozilla"
+        # ".mozilla"
         ".librewolf"
       ];
     };

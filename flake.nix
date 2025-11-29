@@ -6,7 +6,7 @@
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
 
     # Fallback Nix package repository providing stable channel packages
-    nixpkgs-stable.url = "github:nixos/nixpkgs/nixos-24.11";
+    nixpkgs-stable.url = "github:nixos/nixpkgs/nixos-25.11";
 
     # Hardware configs/drivers
     nixos-hardware.url = "github:NixOS/nixos-hardware/master";

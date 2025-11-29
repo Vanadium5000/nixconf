@@ -34,6 +34,13 @@
           default = true;
         };
 
+        volumeGroup = mkOption {
+          default = "pool";
+          description = ''
+            Btrfs volume group name
+          '';
+        };
+
         nixos = {
           directories = persistOption "System directories to persist";
           files = persistOption "System files to persist";
@@ -132,34 +139,35 @@
         };
 
         boot.initrd.postResumeCommands = lib.mkAfter ''
-          # HACK: The /partition-root depends on the device config
-          PARTITION="/partition-root"
-          if [[ -e $PARTITION ]]; then
-              mkdir -p $PARTITION/old_roots
-              timestamp=$(date --date="@$(stat -c %Y $PARTITION/root)" "+%Y-%m-%-d_%H:%M:%S")
-              mv $PARTITION/root "$PARTITION/old_roots/$timestamp"
+          mkdir /btrfs_tmp
+          mount /dev/${cfg.volumeGroup}/root /btrfs_tmp
+          if [[ -e /btrfs_tmp/root ]]; then
+              mkdir -p /btrfs_tmp/old_roots
+              timestamp=$(date --date="@$(stat -c %Y /btrfs_tmp/root)" "+%Y-%m-%-d_%H:%M:%S")
+              mv /btrfs_tmp/root "/btrfs_tmp/old_roots/$timestamp"
           fi
 
           delete_subvolume_recursively() {
               IFS=$'\n'
 
               # If we accidentally end up with a file or directory under old_roots,
-              # the code will enumerate all sub-volumes under the main volume.
+              # the code will enumerate all subvolumes under the main volume.
               # We don't want to remove everything under true main volume. Only
               # proceed if this path is a btrfs subvolume (inode=256).
               if [ $(stat -c %i "$1") -ne 256 ]; then return; fi
 
               for i in $(btrfs subvolume list -o "$1" | cut -f 9- -d ' '); do
-                  delete_subvolume_recursively "$PARTITION/$i"
+                  delete_subvolume_recursively "/btrfs_tmp/$i"
               done
               btrfs subvolume delete "$1"
           }
 
-          for i in $(find $PARTITION/old_roots/ -maxdepth 1 -mtime +30); do
+          for i in $(find /btrfs_tmp/old_roots/ -maxdepth 1 -mtime +30); do
               delete_subvolume_recursively "$i"
           done
 
-          btrfs subvolume create $PARTITION/root
+          btrfs subvolume create /btrfs_tmp/root
+          umount /btrfs_tmp
         '';
       };
     };
