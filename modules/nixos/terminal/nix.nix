@@ -84,6 +84,15 @@
           );
       };
 
+      # Add overlays
+      nixpkgs.overlays = [
+        (final: prev: {
+          stable = import inputs.nixpkgs-stable {
+            system = final.system;
+          };
+        })
+      ];
+
       environment.systemPackages = with pkgs; [
         # Nix tooling
         nil

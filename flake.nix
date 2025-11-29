@@ -5,6 +5,9 @@
     # Main Nix package repository providing unstable channel packages
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
 
+    # Fallback Nix package repository providing stable channel packages
+    nixpkgs-stable.url = "github:nixos/nixpkgs/nixos-24.11";
+
     # Hardware configs/drivers
     nixos-hardware.url = "github:NixOS/nixos-hardware/master";
 
@@ -86,5 +89,9 @@
   };
 
   # Define flake outputs using flake-parts and import-tree for modular configuration
-  outputs = inputs: inputs.flake-parts.lib.mkFlake { inherit inputs; } (inputs.import-tree ./modules);
+  outputs =
+    inputs:
+    inputs.flake-parts.lib.mkFlake {
+      inherit inputs;
+    } (inputs.import-tree ./modules);
 }

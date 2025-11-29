@@ -105,10 +105,11 @@
         config.common.default = "hyprland";
         xdgOpenUsePortal = true;
 
-        extraPortals = with pkgs; [
-          # Already added by hyprland
-          #xdg-desktop-portal-hyprland
-        ];
+        extraPortals = # with pkgs;
+          [
+            # Already added by hyprland
+            #xdg-desktop-portal-hyprland
+          ];
       };
 
       # Fonts

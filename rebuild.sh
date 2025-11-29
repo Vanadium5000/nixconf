@@ -234,7 +234,7 @@ switch_system() {
     local env_vars
     env_vars=$(build_env_vars)
 
-    local cmd="${env_vars}sudo nixos-rebuild switch --flake '${FLAKE_DIR}#${HOST}' --impure"
+    local cmd="sudo ${env_vars}nixos-rebuild switch --flake '${FLAKE_DIR}#${HOST}' --impure"
     log_command "$cmd"
     if ! eval "$cmd"; then
         error "System switch failed for host: ${HOST}"
