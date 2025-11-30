@@ -60,9 +60,9 @@ pkgs: {
   };
   "custom/recording" = {
     return-type = "json";
-    format = "{icon}{}";
+    format = "{icon} {text}";
     format-icons = {
-      active = "󰻃 Recording";
+      active = "󰻃";
       # You can remove the comment below if you want it visible even when not recording
       # inactive = "󰑊 ";
     };
@@ -71,15 +71,32 @@ pkgs: {
     exec = "${pkgs.writeScript "waybar-is-recording" ''
       #!${pkgs.bash}/bin/bash
       while true; do
-        if pgrep -x wf-recorder >/dev/null || pgrep -x ffmpeg >/dev/null && \
-           ps -p $(pgrep -x ffmpeg) -o args= | grep -E '(x11grab|vaapi|nvenc|h264|hevc)' >/dev/null; then
-          echo '{"alt": "active", "class": "active", "text": ""}'
+        # Check wf-recorder
+        if pgrep -x wf-recorder >/dev/null; then
+          echo '{"alt":"active","class":"active","text":"Recording"}'
+        
+        # Check ffmpeg AND ensure it uses screen-recording encoders
+        elif pids=$(pgrep -x ffmpeg); then
+          # For each PID, check its command line safely
+          active=false
+          for pid in $pids; do
+            if ps -p "$pid" -o args= | grep -Eq '(x11grab|vaapi|nvenc|h264|hevc)'; then
+              active=true
+              break
+            fi
+          done
+
+          if $active; then
+            echo '{"alt":"active","class":"active","text":"Recording"}'
+          else
+            echo '{"text":""}'
+          fi
+
+        # Nothing active
         else
-          # Hide completely when not recording (recommended)
-          echo '{"text": ""}'
-          # Alternative: show inactive icon
-          # echo '{"alt": "inactive", "class": "inactive", "text": ""}'
+          echo '{"text":""}'
         fi
+
         sleep 1
       done
     ''}";

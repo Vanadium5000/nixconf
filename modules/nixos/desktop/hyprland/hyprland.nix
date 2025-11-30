@@ -253,7 +253,9 @@
           "${mod},D, exec, pkill nwg-dock || ${
             getExe self.packages.${pkgs.stdenv.hostPlatform.system}.nwg-dock-hyprland
           }" # Toggle nwg-dock-hyprland (dock)
-          "${shiftMod},D, exec, waybar-toggle" # Toggle Hyprpanel (bar)
+          "${shiftMod},D, exec, pkill waybar || ${
+            getExe self.packages.${pkgs.stdenv.hostPlatform.system}.waybar
+          }" # Toggle Hyprpanel (bar)
 
           "${mod},Q, killactive," # Close window
           "${mod},T, togglefloating," # Toggle Floating
@@ -303,14 +305,14 @@
             in
             [
               "${mod},code:1${toString i}, workspace, ${toString ws}"
-              "${mod} SHIFT,code:1${toString i}, movetoworkspace, ${toString ws}"
+              "${shiftMod},code:1${toString i}, movetoworkspace, ${toString ws}"
             ]
           ) 9
         ));
 
         bindm = [
           # Move/resize windows with mainMod + LMB/RMB and dragging
-          "${mod}, mouse:273, resizewindow"
+          "${mod},mouse:273, resizewindow"
           "${mod},mouse:272, movewindow" # Move Window (mouse)
           "${mod},R, resizewindow" # Resize Window (mouse)
         ];

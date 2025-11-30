@@ -4,6 +4,7 @@
   ...
 }:
 
+# NOTE: Waybar needs to be restarted (with hyprctl dispatch exec) each time to see changes
 {
   perSystem =
     {
@@ -232,7 +233,7 @@
 
         /* Using steps() instead of linear as a timing function to limit cpu usage */
         /* Urgent red styling for critical battery or active recording */
-        #battery.critical:not(.charging), #custom-recording.recording-active {
+        #battery.critical:not(.charging), #custom-recording {
             background-color: #cc241d;
             color: ${colors.foreground};
             animation-name: blink;
