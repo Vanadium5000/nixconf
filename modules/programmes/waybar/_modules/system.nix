@@ -60,14 +60,38 @@ pkgs: {
   };
   "custom/recording" = {
     return-type = "json";
-    format = "{icon}{text}";
+    format = "{icon}{}";
     format-icons = {
-      recording-active = "󰻃 ";
-      #recording-inactive = "󰑊 ";
+      active = "󰻃 Recording";
+      # You can remove the comment below if you want it visible even when not recording
+      # inactive = "󰑊 ";
     };
+    escape = true;
     hide-empty-text = true;
-    exec-if = "which waybar-is-recording";
-    exec = "waybar-is-recording";
-    on-click = "stop-recording";
+    exec = "${pkgs.writeScript "waybar-is-recording" ''
+      #!${pkgs.bash}/bin/bash
+      while true; do
+        if pgrep -x wf-recorder >/dev/null || pgrep -x ffmpeg >/dev/null && \
+           ps -p $(pgrep -x ffmpeg) -o args= | grep -E '(x11grab|vaapi|nvenc|h264|hevc)' >/dev/null; then
+          echo '{"alt": "active", "class": "active", "text": ""}'
+        else
+          # Hide completely when not recording (recommended)
+          echo '{"text": ""}'
+          # Alternative: show inactive icon
+          # echo '{"alt": "inactive", "class": "inactive", "text": ""}'
+        fi
+        sleep 1
+      done
+    ''}";
+    on-click = "${pkgs.writeScript "stop-recording" ''
+      #!${pkgs.bash}/bin/bash
+      if pgrep -x wf-recorder >/dev/null; then
+        pkill -INT wf-recorder
+        notify-send "wf-recorder" "Recording stopped"
+      elif pgrep -x ffmpeg >/dev/null; then
+        pkill -INT ffmpeg
+        notify-send "ffmpeg" "Screen recording stopped"
+      fi
+    ''}";
   };
 }

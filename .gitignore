@@ -8,4 +8,5 @@ target
 *.qcow2
 
 # Secrets
+secrets/
 secrets.nix

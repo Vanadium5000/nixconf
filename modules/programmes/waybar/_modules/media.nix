@@ -7,7 +7,7 @@ let
     OUTPUT_FILE="/tmp/cover.jpeg"
 
     # Get the current album art URL
-    album_art=$(playerctl metadata mpris:artUrl 2>/dev/null)
+    album_art=$(${pkgs.playerctl}/bin/playerctl metadata mpris:artUrl 2>/dev/null)
 
     # Exit if no URL is found
     if [[ -z "$album_art" ]]; then
@@ -54,7 +54,6 @@ in
     };
   };
   # Waybar lyrics
-  # FIXME: HIGH CPU USAGE
   "custom/lyrics" = {
     return-type = "json";
     format = "{icon} {0}";

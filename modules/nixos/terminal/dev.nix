@@ -11,9 +11,7 @@ in
         enable = true;
 
         # Very strong root password (do NOT hardcode)
-        initialRootPasswordFile =
-          pkgs.writeText "mongodb-password"
-            (secrets [ "MONGODB_PASSWORD" ]).MONGODB_PASSWORD;
+        initialRootPasswordFile = pkgs.writeText "mongodb-password" (secrets.MONGODB_PASSWORD);
       };
 
       preferences.allowedUnfree = [

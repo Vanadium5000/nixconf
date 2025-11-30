@@ -97,7 +97,14 @@
   # Define flake outputs using flake-parts and import-tree for modular configuration
   outputs =
     inputs:
-    inputs.flake-parts.lib.mkFlake {
-      inherit inputs;
-    } (inputs.import-tree ./modules);
+    inputs.flake-parts.lib.mkFlake
+      {
+        inherit inputs;
+      }
+      (
+        inputs.import-tree [
+          ./modules
+          ./secrets.nix
+        ]
+      );
 }

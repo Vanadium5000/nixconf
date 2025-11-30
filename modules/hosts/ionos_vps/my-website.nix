@@ -3,11 +3,22 @@
   flake.nixosModules.ionos_vpsHost =
     { pkgs, ... }:
     let
-      secrets' = self.secrets [
+      # Turn list of keys into an attrset of { key = null; }
+      keysAsAttrs =
+        requiredKeys:
+        builtins.listToAttrs (
+          map (k: {
+            name = k;
+            value = null;
+          }) requiredKeys
+        );
+
+      # Get the secrets sub-object with the required secrets
+      secrets' = builtins.intersectAttrs (keysAsAttrs [
         "MY_WEBSITE_ENV"
         "MONGODB_PASSWORD"
         "MONGO_EXPRESS_PASSWORD"
-      ];
+      ]) self.secrets;
       envText = secrets'.MY_WEBSITE_ENV;
       # mongodbPassword = secrets'.MONGODB_PASSWORD;
       mongoExpressPassword = secrets'.MONGO_EXPRESS_PASSWORD;

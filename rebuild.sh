@@ -79,16 +79,16 @@ command_exists() {
 # Secrets configuration - easily extensible associative array
 # Format: ["env_var_name"]="password_store_path"
 declare -A SECRETS_MAP=(
-    ["SECRETS_PASSWORD_HASH"]="system/matrix/hashedPassword"
-    ["SECRETS_MY_WEBSITE_ENV"]="my_website/env_file"
-    ["SECRETS_MONGODB_PASSWORD"]="system/mongodb_password"
-    ["SECRETS_MONGO_EXPRESS_PASSWORD"]="system/mongo_express_password"
+    ["PASSWORD_HASH"]="system/matrix/hashedPassword"
+    ["MY_WEBSITE_ENV"]="my_website/env_file"
+    ["MONGODB_PASSWORD"]="system/mongodb_password"
+    ["MONGO_EXPRESS_PASSWORD"]="system/mongo_express_password"
     # Example additional secrets (uncomment and modify as needed):
-    # ["SECRETS_API_KEY"]="services/api/key"
-    # ["SECRETS_DATABASE_PASSWORD"]="database/prod/password"
-    # ["SECRETS_SSH_PRIVATE_KEY"]="ssh/private_key"
-    # ["SECRETS_WIFI_PASSWORD"]="network/wifi/home"
-    # ["SECRETS_EMAIL_PASSWORD"]="email/personal"
+    # ["API_KEY"]="services/api/key"
+    # ["DATABASE_PASSWORD"]="database/prod/password"
+    # ["SSH_PRIVATE_KEY"]="ssh/private_key"
+    # ["WIFI_PASSWORD"]="network/wifi/home"
+    # ["EMAIL_PASSWORD"]="email/personal"
 )
 
 # Load a single secret from password-store
@@ -110,6 +110,28 @@ load_secret() {
         warn "Could not load $env_var from password-store path: $pass_path. Using environment variable if set."
         return 1
     fi
+}
+
+# Function to write secrets into secrets.nix
+write_secrets_nix() {
+    local secrets_file="${FLAKE_DIR}/secrets.nix"
+    log "Writing secrets to ${secrets_file} as a Nix object (flake.secrets)"
+
+    {
+        echo "{ flake.secrets = {"
+        for env_var in "${!SECRETS_MAP[@]}"; do
+            local var_name="$env_var"
+            local var_value="${!var_name:-}"
+            if [ -n "$var_value" ]; then
+                # Escape double quotes and backslashes for Nix
+                escaped_value=$(printf '%s' "$var_value" | sed 's/\\/\\\\/g; s/"/\\"/g')
+                echo "  ${var_name} = \"${escaped_value}\";"
+            fi
+        done
+        echo "}; }"
+    } > "$secrets_file"
+
+    success "Secrets written to ${secrets_file}"
 }
 
 # Load all secrets from password-store
@@ -144,6 +166,9 @@ load_secrets() {
             warn "  - $failed"
         done
     fi
+
+    write_secrets_nix
+
     return $((failed_count > 0 ? 1 : 0))
 }
 
@@ -176,7 +201,7 @@ git_commit_backup() {
 backup_system() {
     log "Creating system backup..."
     if command_exists nixos-rebuild; then
-        nixos-rebuild build --flake "${FLAKE_DIR}#${HOST}" --impure
+        nixos-rebuild build --flake "path:${FLAKE_DIR}#${HOST}" --impure
         success "System backup created"
     fi
 }
@@ -184,7 +209,7 @@ backup_system() {
 # Validate flake (optional)
 validate_flake() {
     log "Validating flake configuration..."
-    if ! nix flake check "${FLAKE_DIR}" --impure; then
+    if ! nix flake check "path:${FLAKE_DIR}" --impure; then
         error "Flake validation failed"
         return 1
     fi
@@ -194,7 +219,7 @@ validate_flake() {
 # Build system
 build_system() {
     log "Building system configuration for host: ${HOST}"
-    local cmd="nixos-rebuild build --flake '${FLAKE_DIR}#${HOST}' --impure"
+    local cmd="nixos-rebuild build --flake 'path:${FLAKE_DIR}#${HOST}' --impure"
     log_command "$cmd"
     if ! eval "$cmd"; then
         error "System build failed for host: ${HOST}"
@@ -206,7 +231,7 @@ build_system() {
 # Dry run
 dry_run() {
     log "Performing dry run for host: ${HOST}"
-    local cmd="nixos-rebuild dry-run --flake '${FLAKE_DIR}#${HOST}' --impure"
+    local cmd="nixos-rebuild dry-run --flake 'path:${FLAKE_DIR}#${HOST}' --impure"
     log_command "$cmd"
     if ! eval "$cmd"; then
         error "Dry run failed for host: ${HOST}"
@@ -231,10 +256,9 @@ build_env_vars() {
 # Switch to new system
 switch_system() {
     log "Switching to new system configuration for host: ${HOST}"
-    local env_vars
-    env_vars=$(build_env_vars)
+    write_secrets_nix
 
-    local cmd="sudo ${env_vars}nixos-rebuild switch --flake '${FLAKE_DIR}#${HOST}' --impure"
+    local cmd="sudo nixos-rebuild switch --flake 'path:${FLAKE_DIR}#${HOST}' --impure"
     log_command "$cmd"
     if ! eval "$cmd"; then
         error "System switch failed for host: ${HOST}"
@@ -286,6 +310,7 @@ Actions:
   generations  Show system generations
   validate     Validate flake configuration
   deploy       Deploy to remote host (requires TARGET_HOST argument)
+  install      Install to remote host using nixos-anywhere (requires TARGET_HOST argument)
 
 Options:
   --log-file    Enable logging to file
@@ -295,10 +320,11 @@ Options:
   --help        Show this help message
 
 Examples:
-  HOST=macbook $0 switch                    # Switch local macbook system
-  HOST=macbook $0 build                     # Build macbook configuration
-  HOST=macbook $0 deploy root@192.168.1.100 # Deploy to remote host
-  HOST=legion5i $0 --validate switch        # Validate before switching legion5i
+  HOST=macbook $0 switch                     # Switch local macbook system
+  HOST=macbook $0 build                      # Build macbook configuration
+  HOST=macbook $0 deploy root@192.168.1.100  # Deploy to remote host
+  HOST=macbook $0 install root@192.168.1.100 # Install to remote host using nixos-anywhere
+  HOST=legion5i $0 --validate switch         # Validate before switching legion5i
 EOF
                 exit 0
                 ;;
@@ -342,17 +368,38 @@ deploy_system() {
     fi
 
     log "Deploying system configuration for host '${HOST}' to remote target: ${target_host}"
-    local env_vars
-    env_vars=$(build_env_vars)
+    write_secrets_nix
 
     # Deploy on target host using the target host to build packages, etc, using sudo (on normal user rather than root)
-    local cmd="${env_vars}nixos-rebuild switch --target-host '${target_host}' --build-host '${target_host}' --ask-sudo-password  --flake '${FLAKE_DIR}#${HOST}' --impure"
+    local cmd="nixos-rebuild switch --target-host '${target_host}' --build-host '${target_host}' --ask-sudo-password  --flake 'path:${FLAKE_DIR}#${HOST}' --impure"
     log_command "$cmd"
     if ! eval "$cmd"; then
         error "System deployment failed for host '${HOST}' to target: ${target_host}"
         return 1
     fi
     success "System deployed successfully for host '${HOST}' to target: ${target_host}"
+}
+
+# Install on remote host using nixos-anywhere
+install_system() {
+    local target_host="$1"
+    if [ -z "$target_host" ]; then
+        error "install action requires TARGET_HOST argument"
+        echo "Usage: $0 <host> install <target_host>"
+        exit 1
+    fi
+
+    log "Installing system configuration using nixos-anywhere for host '${HOST}' to remote target: ${target_host}"
+    write_secrets_nix
+
+    # Install on target host using the using nixos-anywhere
+    local cmd="nix run github:nix-community/nixos-anywhere -- --flake 'path:${FLAKE_DIR}#${HOST}' --target-host '${target_host}'"
+    log_command "$cmd"
+    if ! eval "$cmd"; then
+        error "System installment using nixos-anywhere failed for host '${HOST}' to target: ${target_host}"
+        return 1
+    fi
+    success "System installed using nixos-anywhere successfully for host '${HOST}' to target: ${target_host}"
 }
 
 # Main function
@@ -457,9 +504,18 @@ main() {
             fi
             deploy_system "$deploy_target"
             ;;
+        "install")
+            if [ "$GIT_BACKUP" = true ]; then
+                git_commit_backup
+            fi
+            if [ "$VALIDATE" = true ]; then
+                validate_flake
+            fi
+            install_system "$deploy_target"
+            ;;
         *)
             error "Unknown action: ${action}"
-            echo "Usage: HOST=<host> $0 [OPTIONS] {switch|build|dry-run|rollback|generations|validate|deploy}"
+            echo "Usage: HOST=<host> $0 [OPTIONS] {switch|build|dry-run|rollback|generations|validate|deploy|install}"
             echo "Use --help for more information"
             exit 1
             ;;

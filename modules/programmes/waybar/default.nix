@@ -293,7 +293,7 @@
                 #"cava"
               ];
               modules-right = [
-                # "custom/recording"
+                "custom/recording"
                 "group/media"
                 #"hyprland/window"
                 "group/system"
