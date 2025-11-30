@@ -1,24 +1,51 @@
 pkgs:
 let
   powerdraw = pkgs.writeShellScriptBin "powerdraw" ''
-    # Find the battery file (BAT0 or BAT1 etc.)
-    bat_path=$(echo /sys/class/power_supply/BAT*/power_now)
+    #!/usr/bin/env bash
 
-    powerDraw=""
-    if [ -f "$bat_path" ]; then
-      # Read µW, convert to W (integer division)
-      micro_watts=$(cat "$bat_path")
-      watts=$(( micro_watts / 1000000 ))
-      powerDraw="''${watts}w"
-    fi
-
-    # Check if empty or numerically zero
-    if [ -z "$powerDraw" ] || [ "$watts" -eq 0 ]; then
-      echo "{\"text\":\"\", \"tooltip\":\"power Draw 󱐥 ''${powerDraw}\"}"
+    bat_dir=$(dirname /sys/class/power_supply/BAT*/power_now 2>/dev/null)
+    if [ ! -d "$bat_dir" ]; then
+      echo "{\"text\":\"\", \"tooltip\":\"No battery detected\"}"
       exit 0
     fi
 
-    echo "{\"text\":\"󱐥 ''${powerDraw}\", \"tooltip\":\"power Draw 󱐥 ''${powerDraw}\"}"
+    read -r micro_watts < "$bat_dir/power_now"
+    read -r micro_wh_now < "$bat_dir/energy_now"
+    read -r micro_wh_full < "$bat_dir/energy_full"
+    read -r status < "$bat_dir/status"
+
+    # convert
+    watts=$(( micro_watts / 1000000 ))
+    wh_now=$(( micro_wh_now / 1000000 ))
+    wh_full=$(( micro_wh_full / 1000000 ))
+
+    # protection for 0 division
+    if [ "$watts" -le 0 ]; then
+      time_str="N/A"
+    else
+      if [ "$status" = "Discharging" ]; then
+        minutes_left=$(( wh_now * 60 / watts ))
+        time_str="$(printf '%dh %02dm left' $((minutes_left/60)) $((minutes_left%60)))"
+      elif [ "$status" = "Charging" ]; then
+        wh_needed=$(( wh_full - wh_now ))
+        minutes_full=$(( wh_needed * 60 / watts ))
+        time_str="$(printf '%dh %02dm to full' $((minutes_full/60)) $((minutes_full%60)))"
+      else
+        time_str="Fully charged"
+      fi
+    fi
+
+    # Build tooltip
+    tooltip="Status: $status\nPower: ''${watts}W\nBattery: ''${wh_now}Wh / ''${wh_full}Wh\nTime: $time_str"
+
+    # Hide when on AC and battery is full and draw is 0
+    if [[ "$status" = "Full" || "$status" = "Not charging" ]] && [ "$watts" -eq 0 ]; then
+      echo "{\"text\":\"\", \"tooltip\":\"$tooltip\"}"
+      exit 0
+    fi
+
+    # Otherwise show watts
+    echo "{\"text\":\"󱐥 ''${watts}W\", \"tooltip\":\"$tooltip\"}"
   '';
 in
 
