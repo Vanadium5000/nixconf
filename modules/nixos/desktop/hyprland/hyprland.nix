@@ -388,7 +388,7 @@
         protonvpn-gui # proton vpn gui
 
         # Utilities for eye & health protection
-        hyprshade # Blue light filter
+        hyprsunset # Blue light filter
         safeeyes # Intervalled-reminders to look around/take a break
 
         # Recordings
