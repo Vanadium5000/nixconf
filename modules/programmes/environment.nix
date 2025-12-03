@@ -15,6 +15,11 @@
         getExe
         ;
 
+      # # Unstable pkgs
+      # unstable = import inputs.nixpkgs-unstable {
+      #   system = pkgs.stdenv.hostPlatform.system;
+      # };
+
       editor = inputs.nvf-neovim.packages.${pkgs.stdenv.hostPlatform.system}.default;
 
       rawPackages = [
@@ -67,7 +72,7 @@
             [
               python3
               gcc
-              bun
+              unstable.bun
               go
               sqlite
               sqlite-web # sqlite web editor

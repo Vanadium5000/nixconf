@@ -72,7 +72,7 @@
     {
       # Add the Librewolf package
       environment.systemPackages = [
-        (pkgs.stable.librewolf.override {
+        (pkgs.librewolf.override {
           extraPolicies = {
             Preferences = settings;
             Extensions.Install = extensions [

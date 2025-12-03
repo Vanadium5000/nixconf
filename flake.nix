@@ -2,11 +2,11 @@
   description = "NixOS configuration flake for system setup and modules";
 
   inputs = {
-    # Main Nix package repository providing unstable channel packages
-    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+    # Main Nix package repository providing stable channel packages
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-25.11";
 
-    # Fallback Nix package repository providing stable channel packages
-    nixpkgs-stable.url = "github:nixos/nixpkgs/nixos-25.11";
+    # Fallback Nix package repository providing unstable channel packages
+    nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable";
 
     # Hardware configs/drivers
     nixos-hardware.url = "github:NixOS/nixos-hardware/master";
