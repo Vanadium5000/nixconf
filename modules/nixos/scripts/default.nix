@@ -26,6 +26,7 @@
             # pkgs.wtype
             pkgs.ydotool
             pkgs.bun
+            pkgs.nodejs_latest
             pkgs.libnotify
 
             # Core utilities

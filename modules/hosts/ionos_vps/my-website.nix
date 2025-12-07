@@ -84,6 +84,12 @@
             proxyWebsockets = true; # If needed for WS
           };
 
+          # Proxy backend (adjust path if needed)
+          locations."/backend/drfrost-solver/" = {
+            proxyPass = "http://127.0.0.1:3020/";
+            proxyWebsockets = true; # If needed for WS
+          };
+
           # New auth proxy (preserves /auth/api/ path)
           locations."/auth/api/" = {
             proxyPass = "http://127.0.0.1:3000"; # No trailing / to preserve path

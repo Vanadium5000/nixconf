@@ -68,6 +68,7 @@
               python3
               gcc
               bun
+              nodejs_latest
               go
               sqlite
               sqlite-web # sqlite web editor
