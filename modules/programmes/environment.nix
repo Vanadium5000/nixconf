@@ -15,6 +15,11 @@
         getExe
         ;
 
+      # # Unstable pkgs
+      # unstable = import inputs.nixpkgs-unstable {
+      #   system = pkgs.stdenv.hostPlatform.system;
+      # };
+
       editor = inputs.nvf-neovim.packages.${pkgs.stdenv.hostPlatform.system}.default;
 
       rawPackages = [

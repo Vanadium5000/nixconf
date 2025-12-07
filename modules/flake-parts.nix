@@ -1,4 +1,8 @@
-{ lib, ... }:
+{
+  lib,
+  inputs,
+  ...
+}:
 {
   # Supported systems for your flake packages, shell, etc.
   config.systems = [
@@ -24,4 +28,18 @@
     );
     default = { };
   };
+
+  # Add the unstable pkgs to the global pkgs overlay
+  config.perSystem =
+    { system, ... }:
+    {
+      _module.args.pkgs = import inputs.nixpkgs {
+        inherit system;
+        overlays = [
+          (final: prev: {
+            unstable = import inputs.nixpkgs-unstable { inherit system; };
+          })
+        ];
+      };
+    };
 }

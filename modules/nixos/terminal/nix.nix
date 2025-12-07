@@ -87,7 +87,7 @@
       # Add overlays
       nixpkgs.overlays = [
         (final: prev: {
-          stable = import inputs.nixpkgs-stable {
+          unstable = import inputs.nixpkgs-unstable {
             system = final.system;
           };
         })
