@@ -80,6 +80,44 @@ async function getTabCommand(): Promise<string[]> {
     throw new Error("No tool found for tab key.");
   }
 }
+// Helper to perform copy or type action
+async function performAction(
+  value: string,
+  action: "copy" | "type",
+  actionCmd: string[]
+) {
+  if (action === "copy") {
+    await $`echo -n ${value} | ${actionCmd}`;
+  } else {
+    await $`echo -n ${value} | ${actionCmd}`;
+  }
+}
+// Helper to select from menu
+async function selectOption(
+  menuCommand: string[],
+  options: string[],
+  prompt: string
+): Promise<string> {
+  if (options.length === 0) return "";
+  const selected = (
+    await $`printf '%s\n' ${options} | ${menuCommand} -p ${prompt}`.text()
+  ).trim();
+  return selected;
+}
+// Helper to parse password from pass content
+function parsePassword(content: string): string {
+  return content.split("\n")[0]?.trim() || "";
+}
+// Helper to parse field from pass content
+function parseField(content: string, field: string): string {
+  const lines = content.split("\n");
+  for (const line of lines) {
+    if (line.startsWith(`${field}: `)) {
+      return line.slice(`${field}: `.length).trim();
+    }
+  }
+  return "";
+}
 interface Options {
   autotype: boolean;
   squash: boolean;
@@ -257,9 +295,10 @@ async function generateCredential(
         const { email, tempPass } = await createTempEmail();
         value = email;
         // Store temp creds
+        const tempPath = `temp_emails/${path}/${email}`;
         const tempContent = `password: ${tempPass}\nassociated: ${path}\n`;
-        await $`echo ${tempContent} | pass insert --multiline --force emails/temp/${email}`;
-        logInfo(`Stored temp email creds for ${email}`);
+        await $`echo ${tempContent} | pass insert --multiline --force ${tempPath}`;
+        logInfo(`Stored temp email creds for ${email} under ${tempPath}`);
       } catch (error) {
         console.error("Failed to generate temp email.");
         return;
@@ -296,78 +335,167 @@ async function generateCredential(
     await notify("Typed value", "passmenu");
   }
 }
-// Handle managing temp emails (browse addresses, view messages)
-async function manageTempEmails(menuCommand: string[], entries: string[]) {
-  const tempPrefix = "emails/temp/";
-  const tempSuffix = ".gpg";
-  const tempEmails = entries
-    .filter((e) => e.startsWith(tempPrefix))
-    .map((e) => e.slice(tempPrefix.length))
-    .map((str) => {
-      if (str.endsWith(tempSuffix)) {
-        return str.slice(0, -tempSuffix.length);
-      }
-      return str; // Return unchanged if no match
-    });
+// Handle managing temp emails with new structure and enhanced options
+async function manageTempEmails(menuCommand: string[], passDir: string) {
+  // List temp emails from new structure
+  const tempListOutput =
+    await $`find ${passDir} -type f -name '*.gpg' -path '*/temp_emails/*' -printf '%P\n' | sort`.text();
+  const tempEntries = tempListOutput
+    .trim()
+    .split("\n")
+    .filter(Boolean)
+    .map((p) => p.replace(/\.gpg$/, ""));
+
+  const tempEmails = tempEntries.map((path) => {
+    const parts = path.split("/");
+    const email = parts.pop()!;
+    const associated = parts.slice(1).join("/"); // skip 'temp_emails'
+    return { path, email, associated, display: `${email} - ${associated}` };
+  });
+
   if (tempEmails.length === 0) {
     await notify("No temporary emails found", "passmenu");
     return;
   }
+
   // Select email
-  const selectedEmail = (
-    await $`printf '%s\n' ${tempEmails} | ${menuCommand} -p 'Select email:'`.text()
-  ).trim();
-  if (!selectedEmail) {
+  const displayOptions = tempEmails.map((te) => te.display);
+  const selectedDisplay = await selectOption(
+    menuCommand,
+    displayOptions,
+    "Select email:"
+  );
+  if (!selectedDisplay) {
     await notify("No email selected", "passmenu");
     return;
   }
-  // Get creds
-  const creds = await $`pass show ${tempPrefix}${selectedEmail}`.text();
-  const password = creds
-    .split("\n")
-    .find((l) => l.startsWith("password:"))
-    ?.split(":")[1]
-    ?.trim();
-  if (!password) {
-    console.error("No password for email.");
+
+  const selected = tempEmails.find((te) => te.display === selectedDisplay)!;
+
+  // Choose action
+  const actions = [
+    "Copy Email",
+    "Copy Password",
+    "View Messages",
+    "Delete Email",
+  ];
+  const action = await selectOption(menuCommand, actions, "Choose action:");
+  if (!action) {
+    await notify("No action selected", "passmenu");
     return;
   }
-  // Get token and messages
+
   try {
-    const token = await getMailTmToken(selectedEmail, password);
-    logInfo(`Fetching messages for ${selectedEmail}`);
+    switch (action) {
+      case "Copy Email":
+        await performAction(selected.email, "copy", await getCopyCommand());
+        await notify("Email copied to clipboard", "passmenu");
+        break;
+
+      case "Copy Password":
+        const content = await $`pass show ${selected.path}`.text();
+        const password = parseField(content, "password");
+        if (!password) {
+          await notify("No password found", "passmenu");
+          return;
+        }
+        await performAction(password, "copy", await getCopyCommand());
+        await notify("Password copied to clipboard", "passmenu");
+        break;
+
+      case "View Messages":
+        await handleViewMessages(menuCommand, selected.email, selected.path);
+        break;
+
+      case "Delete Email":
+        await $`pass rm ${selected.path}`;
+        await notify("Temp email deleted", "passmenu");
+        break;
+    }
+  } catch (error) {
+    logError("Failed to perform action", error);
+    console.error("Failed to perform action:", error);
+  }
+}
+
+// Handle viewing messages for a temp email
+async function handleViewMessages(
+  menuCommand: string[],
+  email: string,
+  path: string
+) {
+  const content = await $`pass show ${path}`.text();
+  const password = parseField(content, "password");
+  if (!password) {
+    await notify("No password found", "passmenu");
+    return;
+  }
+
+  try {
+    const token = await getMailTmToken(email, password);
+    logInfo(`Fetching messages for ${email}`);
     const messages = await fetchMessages(token);
     if (messages.length === 0) {
-      await notify(`No messages for ${selectedEmail}`, "passmenu");
+      await notify(`No messages for ${email}`, "passmenu");
       return;
     }
+
     // Select message
     const msgOptions = messages.map(
       (m) => `${m.from.address}: ${m.subject.slice(0, 50)}`
     );
-    const selectedMsgStr = (
-      await $`printf '%s\n' ${msgOptions} | ${menuCommand} -p 'Select message:'`.text()
-    ).trim();
+    const selectedMsgStr = await selectOption(
+      menuCommand,
+      msgOptions,
+      "Select message:"
+    );
     const selectedIndex = msgOptions.indexOf(selectedMsgStr);
     if (selectedIndex === -1) {
       await notify("No message selected", "passmenu");
       return;
     }
-    // Fetch and display
+
+    // Fetch message
     const msg = await fetchMessage(token, messages[selectedIndex].id);
-    const messageData = `From: ${msg.from.address}\nSubject: ${
-      msg.subject
-    }\nDate: ${new Date(msg.createdAt).toLocaleString()}\nBody:\n${
-      msg.text || msg.html?.replace(/<[^>]*>/g, "") || "No body."
-    }`;
-    console.log(messageData); // Keep console for display
-    // Copy message data to clipboard
-    const copyCmd = await getCopyCommand();
-    await $`echo -n ${messageData} | ${copyCmd}`;
-    await notify("Message copied to clipboard", "passmenu");
+    const body = msg.text || msg.html?.replace(/<[^>]*>/g, "") || "No body.";
+    const links: string[] = body.match(/https?:\/\/[^\s]+/g) || [];
+
+    // Build options
+    const linkOptions = links.flatMap((l) => [
+      `Copy Link: ${l}`,
+      `Autotype Link: ${l}`,
+    ]);
+    const messageOptions = ["Copy Full Message", ...linkOptions];
+
+    const messageAction = await selectOption(
+      menuCommand,
+      messageOptions,
+      "Choose action for message:"
+    );
+    if (!messageAction) {
+      await notify("No action selected", "passmenu");
+      return;
+    }
+
+    if (messageAction === "Copy Full Message") {
+      const fullMessage = `From: ${msg.from.address}\nSubject: ${
+        msg.subject
+      }\nDate: ${new Date(msg.createdAt).toLocaleString()}\nBody:\n${body}`;
+      console.log(fullMessage); // Keep console for display
+      await performAction(fullMessage, "copy", await getCopyCommand());
+      await notify("Message copied to clipboard", "passmenu");
+    } else if (messageAction.startsWith("Copy Link: ")) {
+      const link = messageAction.slice("Copy Link: ".length);
+      await performAction(link, "copy", await getCopyCommand());
+      await notify("Link copied to clipboard", "passmenu");
+    } else if (messageAction.startsWith("Autotype Link: ")) {
+      const link = messageAction.slice("Autotype Link: ".length);
+      await performAction(link, "type", await getTypeCommand());
+      await notify("Link autotyped", "passmenu");
+    }
   } catch (error) {
-    logError("Failed to manage email", error);
-    console.error("Failed to manage email:", error);
+    logError("Failed to view messages", error);
+    console.error("Failed to view messages:", error);
   }
 }
 async function main() {
@@ -440,7 +568,8 @@ Options:
         return str.slice(0, -suffix.length);
       }
       return str; // Return unchanged if no match
-    });
+    })
+    .filter((e) => !e.startsWith("temp_emails/"));
   // Special entries
   const specialEntries = ["Generate Credential", "Manage Temp Emails"];
   const displayEntries = [...specialEntries, ...entries];
@@ -458,22 +587,47 @@ Options:
     await generateCredential(menuCommand, passDir, action, actionCmd);
     process.exit(0);
   } else if (selected === "Manage Temp Emails") {
-    await manageTempEmails(menuCommand, entries);
+    await manageTempEmails(menuCommand, passDir);
     process.exit(0);
   }
-  // Regular pass handling (unchanged for brevity, but integrated)
+  // Regular pass handling
   const content = await $`pass show ${selected}`.text();
   const lines = content.trim().split("\n");
-  const password = lines[0]?.trim() || "";
+  let password = "";
   let fields: Record<string, string> = {};
   let hasOtpauth = false;
-  for (let j = 1; j < lines.length; j++) {
-    const line = lines[j]?.trim() || "";
-    if (line.startsWith("otpauth://")) {
-      hasOtpauth = true;
-    } else if (line.includes(":")) {
-      const [key, ...val] = line.split(":");
-      fields[(key as string).trim().toLowerCase()] = val.join(":").trim();
+
+  if (lines[0] && lines[0].includes(":")) {
+    // Parse all lines as key: value pairs
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (trimmed.startsWith("otpauth://")) {
+        hasOtpauth = true;
+      } else if (trimmed.includes(":")) {
+        const parts = trimmed.split(":");
+        const key = parts.shift();
+        if (key) {
+          const k = key.trim().toLowerCase();
+          const v = parts.join(":").trim();
+          if (k === "password") {
+            password = v;
+          } else {
+            fields[k] = v;
+          }
+        }
+      }
+    }
+  } else {
+    // Standard pass format: first line is password, rest are key: value
+    password = lines[0]?.trim() || "";
+    for (let j = 1; j < lines.length; j++) {
+      const line = lines[j]?.trim() || "";
+      if (line.startsWith("otpauth://")) {
+        hasOtpauth = true;
+      } else if (line.includes(":")) {
+        const [key, ...val] = line.split(":");
+        fields[(key as string).trim().toLowerCase()] = val.join(":").trim();
+      }
     }
   }
   if (!fields["username"] && options.fileisuser) {

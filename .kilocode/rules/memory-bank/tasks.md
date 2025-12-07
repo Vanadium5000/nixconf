@@ -24,6 +24,31 @@
 - All major components documented: Hyprland, DankMaterialShell, VSCodium, impermanence, etc.
 - Ready for ongoing development and maintenance
 
+## Redesign Temp Emails System
+
+**Last performed:** 2025-12-07
+**Status:** Completed
+**Files modified:**
+
+- `modules/nixos/scripts/passmenu.ts` - Complete redesign of temp emails functionality
+
+**Steps followed:**
+
+1. Changed storage from emails/temp/${email} to temp_emails/${associated_account}/${email}
+2. Excluded temp_emails from main credential selection
+3. Displayed temp emails as "email - associated_account"
+4. Added management options: Copy Email, Copy Password, View Messages, Delete Email
+5. Enhanced message viewing with link extraction and copy/autotype options
+6. Created helper functions for code maintainability
+7. Updated logging and notifications
+
+**Important notes:**
+
+- New structure organizes temp emails by associated account
+- Improved user experience with granular actions
+- Maintains backward compatibility where possible
+- Code quality prioritized with reduced duplication
+
 ## Next Steps
 
 - Verify flake check passes
