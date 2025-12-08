@@ -10,9 +10,9 @@
       ...
     }:
     {
-      packages.passmenu = inputs.wrappers.lib.makeWrapper {
+      packages.rofi-passmenu = inputs.wrappers.lib.makeWrapper {
         inherit pkgs;
-        package = pkgs.writeShellScriptBin "passmenu" ''
+        package = pkgs.writeShellScriptBin "rofi-passmenu" ''
           exec ${pkgs.bun}/bin/bun run ${./passmenu.ts} "$@"
         '';
         env = {

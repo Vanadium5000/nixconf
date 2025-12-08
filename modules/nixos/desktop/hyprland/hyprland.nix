@@ -280,8 +280,8 @@
           "${mod},Z, exec, ${pkgs.cliphist}/bin/cliphist list | rofi -dmenu -display-columns 2 | ${pkgs.cliphist}/bin/cliphist decode | wl-copy" # Clipboard manager
           "${mod},W, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.rofi-wallpaper}"
           "${mod},C, exec, rofi -show calc"
-          "${mod},P, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.passmenu}"
-          "${shiftMod},P, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.passmenu} -a" # With autotype
+          "${mod},P, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.rofi-passmenu}"
+          "${shiftMod},P, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.rofi-passmenu} -a" # With autotype
           "${mod},X, exec, rofi-powermenu"
           # "${mod},W, exec, rofi -show processlist" # TODO: WIP
 
