@@ -336,7 +336,11 @@ async function generateCredential(
   }
 }
 // Handle managing temp emails with new structure and enhanced options
-async function manageTempEmails(menuCommand: string[], passDir: string) {
+async function manageTempEmails(
+  menuCommand: string[],
+  passDir: string,
+  options: Options
+) {
   // List temp emails from new structure
   const tempListOutput =
     await $`find ${passDir} -type f -name '*.gpg' -path '*/temp_emails/*' -printf '%P\n' | sort`.text();
@@ -404,7 +408,12 @@ async function manageTempEmails(menuCommand: string[], passDir: string) {
         break;
 
       case "View Messages":
-        await handleViewMessages(menuCommand, selected.email, selected.path);
+        await handleViewMessages(
+          menuCommand,
+          selected.email,
+          selected.path,
+          options
+        );
         break;
 
       case "Delete Email":
@@ -422,7 +431,8 @@ async function manageTempEmails(menuCommand: string[], passDir: string) {
 async function handleViewMessages(
   menuCommand: string[],
   email: string,
-  path: string
+  path: string,
+  options: Options
 ) {
   const content = await $`pass show ${path}`.text();
   const password = parseField(content, "password");
@@ -461,10 +471,13 @@ async function handleViewMessages(
     const links: string[] = body.match(/https?:\/\/[^\s]+/g) || [];
 
     // Build options
-    const linkOptions = links.flatMap((l) => [
-      `Copy Link: ${l}`,
-      `Autotype Link: ${l}`,
-    ]);
+    const linkOptions: string[] = [];
+    for (const l of links) {
+      linkOptions.push(`Copy Link: ${l}`);
+      if (options.autotype) {
+        linkOptions.push(`Autotype Link: ${l}`);
+      }
+    }
     const messageOptions = ["Copy Full Message", ...linkOptions];
 
     const messageAction = await selectOption(
@@ -587,7 +600,7 @@ Options:
     await generateCredential(menuCommand, passDir, action, actionCmd);
     process.exit(0);
   } else if (selected === "Manage Temp Emails") {
-    await manageTempEmails(menuCommand, passDir);
+    await manageTempEmails(menuCommand, passDir, options);
     process.exit(0);
   }
   // Regular pass handling
