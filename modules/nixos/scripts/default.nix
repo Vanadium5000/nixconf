@@ -38,6 +38,28 @@
         };
       };
 
+      packages.rofi-checklist = inputs.wrappers.lib.makeWrapper {
+        inherit pkgs;
+        package = pkgs.writeShellScriptBin "rofi-checklist" ''
+          exec ${pkgs.bun}/bin/bun run ${./checklist.ts} "$@"
+        '';
+        env = {
+          # Ensure PATH includes all runtime inputs
+          PATH = pkgs.lib.makeBinPath [
+            self'.packages.rofi
+            pkgs.bun
+            pkgs.nodejs_latest
+            pkgs.libnotify
+
+            # Core utilities
+            pkgs.coreutils
+            pkgs.findutils
+            pkgs.gnused
+            pkgs.which
+          ];
+        };
+      };
+
       packages.sound-change = inputs.wrappers.lib.makeWrapper {
         inherit pkgs;
         package = pkgs.writeShellScriptBin "sound-change" ''

@@ -282,6 +282,7 @@
           "${mod},C, exec, rofi -show calc"
           "${mod},P, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.rofi-passmenu}"
           "${shiftMod},P, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.rofi-passmenu} -a" # With autotype
+          "${mod},C, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.rofi-checklist}"
           "${mod},X, exec, rofi-powermenu"
           # "${mod},W, exec, rofi -show processlist" # TODO: WIP
 
@@ -373,6 +374,9 @@
           # Proper cursor
           "XCURSOR_THEME,Adwaita"
           "XCURSOR_SIZE,16"
+
+          # Checklist directory
+          "CHECKLIST_DIR,/home/${config.preferences.user.username}/Shared/Checklist"
         ];
       };
 

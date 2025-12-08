@@ -265,7 +265,7 @@ async function generateCredential(
 ) {
   // Prompt for path
   const path = (
-    await $`echo -n | ${menuCommand} -p 'Enter path for new entry (e.g., personal/site/account):'`.text()
+    await $`echo -n | ${menuCommand} -p 'Enter path for new entry (e.g., personal/site/account)'`.text()
   ).trim();
   if (!path) {
     await notify("No path entered", "passmenu");
@@ -274,7 +274,7 @@ async function generateCredential(
   // Select field
   const fields = ["password", "username", "full name", "email"];
   const selectedField = (
-    await $`printf '%s\n' ${fields} | ${menuCommand} -p 'Select credential to generate:'`.text()
+    await $`printf '%s\n' ${fields} | ${menuCommand} -p 'Select credential to generate'`.text()
   ).trim();
   if (!selectedField) {
     await notify("No field selected", "passmenu");
@@ -284,7 +284,7 @@ async function generateCredential(
   if (selectedField === "email") {
     // Ask temp or fake
     const emailType = (
-      await $`printf 'Temporary (real)\nFake (generated)\n' | ${menuCommand} -p 'Email type:'`.text()
+      await $`printf 'Temporary (real)\nFake (generated)\n' | ${menuCommand} -p 'Email type'`.text()
     ).trim();
     if (!emailType) {
       await notify("No email type selected", "passmenu");
@@ -589,7 +589,7 @@ Options:
   // Menu
   const menuCommand = await getMenuCommand();
   const selected = (
-    await $`printf '%s\n' ${displayEntries} | ${menuCommand} -p 'Select:'`.text()
+    await $`printf '%s\n' ${displayEntries} | ${menuCommand} -p 'Select'`.text()
   ).trim();
   if (!selected) {
     await notify("No selection made", "passmenu");
@@ -655,7 +655,7 @@ Options:
     selectedField = "password";
   } else {
     selectedField = (
-      await $`printf '%s\n' ${fieldOptions} | ${menuCommand} -p 'Select field:'`.text()
+      await $`printf '%s\n' ${fieldOptions} | ${menuCommand} -p 'Select field'`.text()
     ).trim();
   }
   if (!selectedField) {
