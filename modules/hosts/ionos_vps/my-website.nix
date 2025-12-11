@@ -78,15 +78,15 @@
           # Serve frontend static files
           root = "${inputs.my-website-frontend.packages.${pkgs.system}.default}";
 
-          # Proxy backend (adjust path if needed)
-          locations."/backend/" = {
-            proxyPass = "http://127.0.0.1:3000/";
+          # Proxy backend for drfrost-solver (adjust path if needed)
+          locations."/backend/drfrost-solver/" = {
+            proxyPass = "http://127.0.0.1:3020/";
             proxyWebsockets = true; # If needed for WS
           };
 
           # Proxy backend (adjust path if needed)
-          locations."/backend/drfrost-solver/" = {
-            proxyPass = "http://127.0.0.1:3020/";
+          locations."/backend/" = {
+            proxyPass = "http://127.0.0.1:3000/";
             proxyWebsockets = true; # If needed for WS
           };
 
