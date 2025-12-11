@@ -16,6 +16,7 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FLAKE_DIR="${SCRIPT_DIR}"
 HOST="${HOST:-}"
+ARGS="${ARGS:-}"
 
 # Colors for output
 RED='\033[0;31m'
@@ -201,7 +202,7 @@ git_commit_backup() {
 backup_system() {
     log "Creating system backup..."
     if command_exists nixos-rebuild; then
-        nixos-rebuild build --flake "path:${FLAKE_DIR}#${HOST}" --impure
+        nixos-rebuild build --flake "path:${FLAKE_DIR}#${HOST}" --impure $ARGS
         success "System backup created"
     fi
 }
@@ -209,7 +210,7 @@ backup_system() {
 # Validate flake (optional)
 validate_flake() {
     log "Validating flake configuration..."
-    if ! nix flake check "path:${FLAKE_DIR}" --impure; then
+    if ! nix flake check "path:${FLAKE_DIR}" --impure $ARGS; then
         error "Flake validation failed"
         return 1
     fi
@@ -219,7 +220,7 @@ validate_flake() {
 # Build system
 build_system() {
     log "Building system configuration for host: ${HOST}"
-    local cmd="nixos-rebuild build --flake 'path:${FLAKE_DIR}#${HOST}' --impure"
+    local cmd="nixos-rebuild build --flake 'path:${FLAKE_DIR}#${HOST}' --impure $ARGS"
     log_command "$cmd"
     if ! eval "$cmd"; then
         error "System build failed for host: ${HOST}"
@@ -231,7 +232,7 @@ build_system() {
 # Dry run
 dry_run() {
     log "Performing dry run for host: ${HOST}"
-    local cmd="nixos-rebuild dry-run --flake 'path:${FLAKE_DIR}#${HOST}' --impure"
+    local cmd="nixos-rebuild dry-run --flake 'path:${FLAKE_DIR}#${HOST}' --impure $ARGS"
     log_command "$cmd"
     if ! eval "$cmd"; then
         error "Dry run failed for host: ${HOST}"
@@ -258,7 +259,7 @@ switch_system() {
     log "Switching to new system configuration for host: ${HOST}"
     write_secrets_nix
 
-    local cmd="sudo nixos-rebuild switch --flake 'path:${FLAKE_DIR}#${HOST}' --impure"
+    local cmd="sudo nixos-rebuild switch --flake 'path:${FLAKE_DIR}#${HOST}' --impure $ARGS"
     log_command "$cmd"
     if ! eval "$cmd"; then
         error "System switch failed for host: ${HOST}"
@@ -270,7 +271,7 @@ switch_system() {
 # Rollback system
 rollback_system() {
     log "Rolling back to previous system generation for host: ${HOST}"
-    local cmd="sudo nixos-rebuild --rollback switch"
+    local cmd="sudo nixos-rebuild --rollback switch $ARGS"
     log_command "$cmd"
     if ! eval "$cmd"; then
         error "System rollback failed for host: ${HOST}"
@@ -293,14 +294,14 @@ parse_options() {
         case $1 in
             --help)
                 cat << EOF
-Usage: HOST=<host> $0 [OPTIONS] [ACTION] [ARGS]
+Usage: HOST=<host> ARGS="..." $0 [OPTIONS] [ACTION]
 
 Environment Variables:
   HOST        Target host configuration (required)
+  ARGS        Additional arguments for all nix commands (e.g., "--fallback --etc")
 
 Arguments:
   ACTION      Action to perform (default: switch)
-  ARGS        Additional arguments for deploy action
 
 Actions:
   switch       Switch to new system configuration (default)
@@ -371,7 +372,7 @@ deploy_system() {
     write_secrets_nix
 
     # Deploy on target host using the target host to build packages, etc, using sudo (on normal user rather than root)
-    local cmd="nixos-rebuild switch --target-host '${target_host}' --build-host '${target_host}' --ask-sudo-password  --flake 'path:${FLAKE_DIR}#${HOST}' --impure"
+    local cmd="nixos-rebuild switch --target-host '${target_host}' --build-host '${target_host}' --ask-sudo-password  --flake 'path:${FLAKE_DIR}#${HOST}' --impure $ARGS"
     log_command "$cmd"
     if ! eval "$cmd"; then
         error "System deployment failed for host '${HOST}' to target: ${target_host}"
@@ -393,7 +394,7 @@ install_system() {
     write_secrets_nix
 
     # Install on target host using the using nixos-anywhere
-    local cmd="nix run github:nix-community/nixos-anywhere -- --flake 'path:${FLAKE_DIR}#${HOST}' --target-host '${target_host}'"
+    local cmd="nix run $ARGS github:nix-community/nixos-anywhere -- --flake 'path:${FLAKE_DIR}#${HOST}' --target-host '${target_host}'"
     log_command "$cmd"
     if ! eval "$cmd"; then
         error "System installment using nixos-anywhere failed for host '${HOST}' to target: ${target_host}"
@@ -452,6 +453,9 @@ main() {
     log "Host: ${HOST}"
     log "Flake directory: ${FLAKE_DIR}"
     log "Action: ${action}"
+    if [ -n "$ARGS" ]; then
+        log "Additional nix args: ${ARGS}"
+    fi
 
     # Load secrets (core functionality)
     load_secrets
