@@ -86,11 +86,12 @@ async function performAction(
   action: "copy" | "type",
   actionCmd: string[]
 ) {
-  if (action === "copy") {
-    await $`echo -n ${value} | ${actionCmd}`;
-  } else {
-    await $`echo -n ${value} | ${actionCmd}`;
-  }
+  const proc = Bun.spawn(actionCmd, {
+    stdin: "pipe",
+  });
+  proc.stdin.write(value);
+  proc.stdin.end();
+  await proc.exited;
 }
 // Helper to select from menu
 async function selectOption(
@@ -130,6 +131,8 @@ const credentialGenerators: Record<string, () => string> = {
   password: () => crypto.randomBytes(32).toString("base64"),
   username: () => faker.internet.username(),
   "full name": () => faker.person.fullName(),
+  "phone number": () => faker.phone.number({ style: "international" }),
+  "lorem ipsum": () => faker.lorem.paragraph(),
   // Add more as needed
 };
 // Generate fake email (non-temporary)
@@ -260,19 +263,18 @@ async function appendToPass(
 async function generateCredential(
   menuCommand: string[],
   passDir: string,
-  action: string,
+  action: "copy" | "type",
   actionCmd: string[]
 ) {
-  // Prompt for path
-  const path = (
-    await $`echo -n | ${menuCommand} -p 'Enter path for new entry (e.g., personal/site/account)'`.text()
-  ).trim();
-  if (!path) {
-    await notify("No path entered", "passmenu");
-    return;
-  }
   // Select field
-  const fields = ["password", "username", "full name", "email"];
+  const fields = [
+    "email",
+    "password",
+    "username",
+    "full name",
+    "phone number",
+    "lorem ipsum",
+  ];
   const selectedField = (
     await $`printf '%s\n' ${fields} | ${menuCommand} -p 'Select credential to generate'`.text()
   ).trim();
@@ -281,6 +283,7 @@ async function generateCredential(
     return;
   }
   let value: string;
+  let isTempEmail = false;
   if (selectedField === "email") {
     // Ask temp or fake
     const emailType = (
@@ -291,6 +294,14 @@ async function generateCredential(
       return;
     }
     if (emailType === "Temporary (real)") {
+      // Prompt for path for temp email association
+      const path = (
+        await $`echo -n | ${menuCommand} -p 'Enter associated path for temp email (e.g., personal/site/account)'`.text()
+      ).trim();
+      if (!path) {
+        await notify("No path entered", "passmenu");
+        return;
+      }
       try {
         const { email, tempPass } = await createTempEmail();
         value = email;
@@ -299,6 +310,7 @@ async function generateCredential(
         const tempContent = `password: ${tempPass}\nassociated: ${path}\n`;
         await $`echo ${tempContent} | pass insert --multiline --force ${tempPath}`;
         logInfo(`Stored temp email creds for ${email} under ${tempPath}`);
+        isTempEmail = true;
       } catch (error) {
         console.error("Failed to generate temp email.");
         return;
@@ -314,25 +326,24 @@ async function generateCredential(
     }
     value = generator();
   }
-  // Preview and confirm
-  await notify(`Generated ${selectedField}: ${value}`, "passmenu");
-  const confirm = (
-    await $`printf 'Yes\nNo\n' | ${menuCommand} -p 'Store and perform action?'`.text()
-  ).trim();
-  if (confirm !== "Yes") {
-    await notify("Action cancelled", "passmenu");
-    return;
-  }
-  // Append to path
-  await appendToPass(path, selectedField, value);
-  logInfo(`Appended ${selectedField} to ${path}`);
-  // Perform action (copy/type)
+  // Perform action (copy/type) before prompting for save path
+  await performAction(value, action, actionCmd);
   if (action === "copy") {
-    await $`echo -n ${value} | ${actionCmd}`;
     await notify("Copied to clipboard", "passmenu");
   } else {
-    await $`echo -n ${value} | ${actionCmd}`;
     await notify("Typed value", "passmenu");
+  }
+  // If not temp email, prompt for path and save
+  if (!isTempEmail) {
+    const path = (
+      await $`echo -n | ${menuCommand} -p 'Enter path to save credential (e.g., personal/site/account)'`.text()
+    ).trim();
+    if (!path) {
+      await notify("No path entered", "passmenu");
+      return;
+    }
+    await appendToPass(path, selectedField, value);
+    logInfo(`Appended ${selectedField} to ${path}`);
   }
 }
 // Handle managing temp emails with new structure and enhanced options
@@ -560,7 +571,7 @@ Options:
     i++;
   }
   // Determine action
-  let action = "copy";
+  let action: "copy" | "type" = "copy";
   let actionCmd = options.copyCmd || (await getCopyCommand());
   if (options.typeCmd || options.autotype) {
     action = "type";
@@ -671,14 +682,14 @@ Options:
     // Autotype
     const username = fields["username"] || "";
     const copyCmd = await getCopyCommand();
-    await $`echo -n ${password} | ${copyCmd}`; // Always copy password to clipboard
+    await performAction(password, "copy", copyCmd); // Always copy password to clipboard
     if (action === "type") {
       if (username) {
-        await $`echo -n ${username} | ${actionCmd}`;
+        await performAction(username, "type", actionCmd);
         const tabCmd = await getTabCommand();
         await $`${tabCmd}`;
       }
-      await $`echo -n ${password} | ${actionCmd}`;
+      await performAction(password, "type", actionCmd);
       await notify(
         "Autotyped username and password (password copied to clipboard)",
         "passmenu"
@@ -691,7 +702,7 @@ Options:
     value = fields[selectedField] || "";
   }
   // Perform action
-  await $`echo -n ${value} | ${actionCmd}`;
+  await performAction(value, action, actionCmd);
   if (action === "copy") {
     await notify("Copied to clipboard", "passmenu");
   } else {
