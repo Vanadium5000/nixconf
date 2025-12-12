@@ -241,8 +241,10 @@
         bind = [
           "${mod},RETURN, exec, ${getExe terminal}"
           "${mod},B, exec, librewolf" # Librewolf
+          "${shiftMod},B, exec, kitty -c btop" # btop - system resources
           "${mod},G, exec, xdg-open https://x.com/i/grok" # Open Grok
-          "${mod},A, exec, tpkill nwg-drawer || ${
+          "${mod},M, exec, xdg-open https://music.youtube.com" # Open YouTube Music
+          "${mod},A, exec, pkill nwg-drawer || ${
             getExe self.packages.${pkgs.stdenv.hostPlatform.system}.nwg-drawer
           }" # Toggle nwg-drawer
 
@@ -288,7 +290,7 @@
 
           # Recordings
           "${mod},S, exec, ${getExe pkgs.grim} -g \"$(${getExe pkgs.slurp} -d)\" - | ${getExe pkgs.swappy} -f - | wl-copy"
-          "${mod},R, exec, ${getExe pkgs.wf-recorder} -g \"$(${getExe pkgs.slurp})\" -f ~/Videos/rec_$(date +'%Y-%m-%d_%H-%M-%S').mp4" # Start video recording
+          "${mod},R, exec, mkdir -p ~/Videos && ${getExe pkgs.wf-recorder} -g \"$(${getExe pkgs.slurp} -d)\" -f ~/Videos/rec_$(date +'%Y-%m-%d_%H-%M-%S').mp4" # Start video recording
           "${shiftMod},R, exec, pkill -SIGINT wf-recorder" # End video recording
 
           # Screen zooming on shiftMod + mouse_scroll

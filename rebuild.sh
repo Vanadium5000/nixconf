@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+shopt -s expand_aliases
 
 # Simplified NixOS Rebuild Script
 # Core features: Secret loading, colored logging, basic rebuild actions

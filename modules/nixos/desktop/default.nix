@@ -44,8 +44,12 @@
         # Utils
         swaynotificationcenter
 
-        # Video player
+        # Tools
+        localsend
+
+        # Video players
         vlc
+        mpv
 
         # GUIs
         nautilus # File Manager
