@@ -35,6 +35,8 @@
           "org.libreoffice.LibreOffice" # LibeOffice suite
           "org.gimp.GIMP" # GIMP - Image Editor
           "org.inkscape.Inkscape" # Inkscape - Vector Graphics Editor
+
+          "org.vinegarhq.Sober" # Sober
         ];
       };
 

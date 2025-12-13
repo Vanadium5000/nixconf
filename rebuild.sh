@@ -373,7 +373,8 @@ deploy_system() {
     write_secrets_nix
 
     # Deploy on target host using the target host to build packages, etc, using sudo (on normal user rather than root)
-    local cmd="nixos-rebuild switch --target-host '${target_host}' --build-host '${target_host}' --ask-sudo-password  --flake 'path:${FLAKE_DIR}#${HOST}' --impure $ARGS"
+    # Use --build-host '${target_host}' to also build on target
+    local cmd="nixos-rebuild switch --target-host '${target_host}' --ask-sudo-password  --flake 'path:${FLAKE_DIR}#${HOST}' --impure $ARGS"
     log_command "$cmd"
     if ! eval "$cmd"; then
         error "System deployment failed for host '${HOST}' to target: ${target_host}"

@@ -388,6 +388,8 @@
         brightnessctl
         dconf # user-prefs
 
+        quickshell # panels, widgets, etc
+
         hyprpicker # color picker
 
         nwg-displays # displays/outputs settings gui
