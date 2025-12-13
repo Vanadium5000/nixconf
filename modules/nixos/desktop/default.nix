@@ -77,6 +77,8 @@
         rofi-powermenu
         rofi-wallpaper
         rofi-wallpaper-selector
+        toggle-crosshair
+        rofi-tools
       ]);
 
       services = {

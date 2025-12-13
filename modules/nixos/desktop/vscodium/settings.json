@@ -18,6 +18,7 @@
 
   // Editor settings
   "editor.formatOnSave": true,
+  "explorer.confirmDelete": false,
 
   // Language-specific settings
   "[html]": {
@@ -27,6 +28,9 @@
     "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
   "[jsonc]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[javascript]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
   "[typescriptreact]": {
@@ -118,10 +122,7 @@
   // QML settings
   "qt-qml.doNotAskForQmllsDownload": true,
   "qt-qml.qmlls.useQmlImportPathEnvVar": true,
+  "qt-qml.qmlls.customExePath": "/run/current-system/sw/bin/qmlls"
 
   // Other...
-  "[javascript]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
-  },
-  "explorer.confirmDelete": false
 }

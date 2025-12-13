@@ -67,6 +67,7 @@
 
           # QML - Quickshell
           "theqtcompany.qt-qml"
+          "theqtcompany.qt-core"
         ]);
 
       inherit (self) colors;
@@ -84,6 +85,8 @@
         nixfmt-rfc-style # Nixfmt
         nixfmt-tree # Nixfmt-tree
         alejandra
+
+        kdePackages.qtdeclarative # Provides qmlls - language server for QML
       ];
 
       hjem.users.${user} = {
