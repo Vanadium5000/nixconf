@@ -64,6 +64,9 @@
 
           # BunJS
           "oven.bun-vscode"
+
+          # QML - Quickshell
+          "theqtcompany.qt-qml"
         ]);
 
       inherit (self) colors;

@@ -286,6 +286,7 @@
           "${shiftMod},P, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.rofi-passmenu} -a" # With autotype
           "${mod},C, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.rofi-checklist}"
           "${mod},X, exec, rofi-powermenu"
+          "${mod},V, exec, rofi-tools"
           # "${mod},W, exec, rofi -show processlist" # TODO: WIP
 
           # Recordings

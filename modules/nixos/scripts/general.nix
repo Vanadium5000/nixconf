@@ -18,19 +18,19 @@
 
           case "$1" in
             mute)
-              wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle
+              ${pkgs.wireplumber}/bin/wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle
               ;;
             up)
               increment=''${2:-$increments}
-              wpctl set-volume @DEFAULT_AUDIO_SINK@ ''${increment}%+
+              ${pkgs.wireplumber}/bin/wpctl set-volume @DEFAULT_AUDIO_SINK@ ''${increment}%+
               ;;
             down)
               increment=''${2:-$increments}
-              wpctl set-volume @DEFAULT_AUDIO_SINK@ ''${increment}%-
+              ${pkgs.wireplumber}/bin/wpctl set-volume @DEFAULT_AUDIO_SINK@ ''${increment}%-
               ;;
             set)
               volume=''${2:-100}
-              wpctl set-volume @DEFAULT_AUDIO_SINK@ ''${volume}%
+              ${pkgs.wireplumber}/bin/wpctl set-volume @DEFAULT_AUDIO_SINK@ ''${volume}%
               ;;
             *)
               echo "Usage: $0 {mute|up [increment]|down [increment]|set [volume]}"
@@ -38,11 +38,6 @@
               ;;
           esac
         '';
-        env = {
-          PATH = pkgs.lib.makeBinPath [
-            pkgs.wireplumber # Provides wpctl
-          ];
-        };
       };
 
       packages.sound-up = inputs.wrappers.lib.makeWrapper {
@@ -50,11 +45,6 @@
         package = pkgs.writeShellScriptBin "sound-up" ''
           exec ${self'.packages.sound-change}/bin/sound-change up 5
         '';
-        env = {
-          PATH = pkgs.lib.makeBinPath [
-            self'.packages.sound-change
-          ];
-        };
       };
 
       packages.sound-up-small = inputs.wrappers.lib.makeWrapper {
@@ -62,11 +52,6 @@
         package = pkgs.writeShellScriptBin "sound-up-small" ''
           exec ${self'.packages.sound-change}/bin/sound-change up 1
         '';
-        env = {
-          PATH = pkgs.lib.makeBinPath [
-            self'.packages.sound-change
-          ];
-        };
       };
 
       packages.sound-down = inputs.wrappers.lib.makeWrapper {
@@ -74,11 +59,6 @@
         package = pkgs.writeShellScriptBin "sound-down" ''
           exec ${self'.packages.sound-change}/bin/sound-change down 5
         '';
-        env = {
-          PATH = pkgs.lib.makeBinPath [
-            self'.packages.sound-change
-          ];
-        };
       };
 
       packages.sound-down-small = inputs.wrappers.lib.makeWrapper {
@@ -86,11 +66,6 @@
         package = pkgs.writeShellScriptBin "sound-down-small" ''
           exec ${self'.packages.sound-change}/bin/sound-change down 1
         '';
-        env = {
-          PATH = pkgs.lib.makeBinPath [
-            self'.packages.sound-change
-          ];
-        };
       };
 
       packages.sound-toggle = inputs.wrappers.lib.makeWrapper {
@@ -98,11 +73,6 @@
         package = pkgs.writeShellScriptBin "sound-toggle" ''
           exec ${self'.packages.sound-change}/bin/sound-change mute
         '';
-        env = {
-          PATH = pkgs.lib.makeBinPath [
-            self'.packages.sound-change
-          ];
-        };
       };
 
       packages.sound-set = inputs.wrappers.lib.makeWrapper {
@@ -110,11 +80,29 @@
         package = pkgs.writeShellScriptBin "sound-set" ''
           exec ${self'.packages.sound-change}/bin/sound-change set "$1"
         '';
-        env = {
-          PATH = pkgs.lib.makeBinPath [
-            self'.packages.sound-change
-          ];
-        };
+      };
+
+      packages.rofi-tools = inputs.wrappers.lib.makeWrapper {
+        inherit pkgs;
+        package = pkgs.writeShellScriptBin "rofi-tools" ''
+          #!/usr/bin/env bash
+          set -euo pipefail
+
+          # Rofi menu options
+          options=(
+            "Toggle Crosshair"
+          )
+
+          # Show menu
+          choice=$(printf "%s\n" "''${options[@]}" | rofi -dmenu -p "Select Action")
+
+          # Execute commands based on choice
+          case "$choice" in
+            "Toggle Crosshair")
+              ${self'.packages.toggle-crosshair}/bin/toggle-crosshair
+              ;;
+          esac
+        '';
       };
 
       packages.rofi-wallpaper = inputs.wrappers.lib.makeWrapper {
@@ -135,7 +123,7 @@
             result=$(echo "${
               builtins.concatStringsSep "\n" (builtins.attrNames wallpaperSources ++ [ "Choose a file..." ])
             }" | \
-            rofi -dmenu)
+            ${self'.packages.rofi}/bin/rofi -dmenu)
 
             echo $result
 
@@ -147,7 +135,7 @@
 
             if [[ $result == "Choose a file..." ]];then
               echo "Choosing a specific file"
-              wallPath=$(echo $(rofi -run-command "echo {cmd}" -show filebrowser) | sed 's/^xdg-open //')
+              wallPath=$(echo $(${self'.packages.rofi}/bin/rofi -run-command "echo {cmd}" -show filebrowser) | sed 's/^xdg-open //')
 
               echo "$wallPath"
               hyprctl hyprpaper preload "$wallPath"
@@ -167,15 +155,6 @@
 
             exit 0
           '';
-        env = {
-          PATH = pkgs.lib.makeBinPath [
-            self'.packages.rofi-wallpaper-selector
-            self'.packages.rofi
-            pkgs.hyprland
-            pkgs.coreutils
-            pkgs.gnused
-          ];
-        };
       };
 
       packages.rofi-wallpaper-selector = inputs.wrappers.lib.makeWrapper {
@@ -197,7 +176,7 @@
           RANDOM_PIC_NAME=". random"
 
           # Rofi command
-          rofi_command="rofi -dmenu -p 'Select Wallpaper'"
+          rofi_command="${self'.packages.rofi-images}/bin/rofi -dmenu -p 'Select Wallpaper'"
 
           # Sorting Wallpapers
           menu() {
@@ -265,15 +244,6 @@
           hyprctl hyprpaper wallpaper ",$result"
           cp -f "$result" ~/wallpaper/.current_wallpaper # For rofi wallpaper
         '';
-        env = {
-          PATH = pkgs.lib.makeBinPath [
-            self'.packages.rofi-images
-            pkgs.hyprland
-            pkgs.coreutils
-            pkgs.findutils
-            pkgs.gnused
-          ];
-        };
       };
 
       packages.nixos-wallpapers = pkgs.stdenv.mkDerivation {
@@ -347,13 +317,6 @@
               echo "Enabled suspend inhibitator on lid close (PID: $INHIBIT_PID)"
           fi
         '';
-        env = {
-          PATH = pkgs.lib.makeBinPath [
-            pkgs.systemd
-            pkgs.libnotify
-            pkgs.coreutils
-          ];
-        };
       };
 
       packages.lid-status = inputs.wrappers.lib.makeWrapper {
@@ -374,11 +337,6 @@
               echo '{"text": "🔒", "class": "inactive"}'
           fi
         '';
-        env = {
-          PATH = pkgs.lib.makeBinPath [
-            pkgs.coreutils
-          ];
-        };
       };
       packages.monero-wallet = inputs.wrappers.lib.makeWrapper {
         inherit pkgs;
@@ -391,7 +349,9 @@
           PASSWORD_STORE_PATH=''${MONERO_PASSWORD_STORE_PATH:-"monero/main_password"}
 
           # Get password from pass
-          if ! PASSWORD=$(pass "$PASSWORD_STORE_PATH" 2>/dev/null); then
+          if ! PASSWORD=$(${
+            (pkgs.pass.withExtensions (exts: [ exts.pass-otp ]))
+          }/bin/pass "$PASSWORD_STORE_PATH" 2>/dev/null); then
               echo "Error: Could not retrieve password from pass store at '$PASSWORD_STORE_PATH'"
               echo "Make sure the password store entry exists and is accessible"
               exit 1
@@ -404,13 +364,6 @@
               --wallet-file "$WALLET_FILE" \
               "$@"
         '';
-        env = {
-          PATH = pkgs.lib.makeBinPath [
-            (pkgs.pass.withExtensions (exts: [ exts.pass-otp ])) # Password management
-            pkgs.monero-cli
-            pkgs.coreutils
-          ];
-        };
       };
     };
 }
