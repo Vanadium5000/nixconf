@@ -386,8 +386,13 @@
 
           CONFIG_FILE="/dev/shm/autoclicker_config"
           PID_FILE="/dev/shm/autoclicker_daemon_pid"
+          PAUSED_FILE="/dev/shm/autoclicker_paused"
 
           while true; do
+            if [ -f "$PAUSED_FILE" ]; then
+              sleep 0.1
+              continue
+            fi
             if [ -f "$CONFIG_FILE" ]; then
               mapfile -t points < "$CONFIG_FILE"
               num_points=''${#points[@]}
@@ -448,7 +453,6 @@
 
           DAEMON_PID_FILE="/dev/shm/autoclicker_daemon_pid"
           CONFIG_FILE="/dev/shm/autoclicker_config"
-          PAUSED_FILE="/dev/shm/autoclicker_paused"
 
           # Kill daemon
           if [ -f "$DAEMON_PID_FILE" ]; then
@@ -456,11 +460,11 @@
             rm -f "$DAEMON_PID_FILE"
           fi
 
-          # Kill all overlays - repeat multiple times
-          for i in {1..10}; do ${pkgs.quickshell}/bin/qs kill -p ${./quickshell/point.qml}; done
+          # Remove config
+          rm -f "$CONFIG_FILE"
 
-          # Remove config and paused flag
-          rm -f "$CONFIG_FILE" "$PAUSED_FILE"
+          # Kill all overlays - repeat multiple times - can fail, so leave at end
+          for i in {1..10}; do ${pkgs.quickshell}/bin/qs kill -p ${./quickshell/point.qml}; done
         '';
       };
 
@@ -470,24 +474,14 @@
           #!/usr/bin/env bash
           set -euo pipefail
 
-          DAEMON_PID_FILE="/dev/shm/autoclicker_daemon_pid"
           PAUSED_FILE="/dev/shm/autoclicker_paused"
-
-          if [ ! -f "$DAEMON_PID_FILE" ]; then
-            echo "No autoclicker daemon running"
-            exit 1
-          fi
-
-          DAEMON_PID=$(cat "$DAEMON_PID_FILE")
 
           if [ -f "$PAUSED_FILE" ]; then
             # Resume
-            kill -CONT "$DAEMON_PID" 2>/dev/null || true
             rm -f "$PAUSED_FILE"
             echo "Autoclickers resumed"
           else
             # Pause
-            kill -STOP "$DAEMON_PID" 2>/dev/null || true
             touch "$PAUSED_FILE"
             echo "Autoclickers paused"
           fi
