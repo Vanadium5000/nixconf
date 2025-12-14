@@ -19,6 +19,7 @@
 
       mod = "SUPER";
       shiftMod = "SUPER_SHIFT";
+      altMod = "ALT";
       terminal = self.packages.${pkgs.stdenv.hostPlatform.system}.terminal;
       systemSettings = config.preferences.system;
     in
@@ -288,7 +289,7 @@
           "${mod},X, exec, rofi-powermenu"
           "${mod},V, exec, rofi-tools"
           "${shiftMod},V, exec, stop-autoclickers" # Autoclicker Safety
-          "ALT,SUPER,V, exec, ${
+          "${altMod},V, exec, ${
             getExe self.packages.${pkgs.stdenv.hostPlatform.system}.toggle-pause-autoclickers
           }"
           # "${mod},W, exec, rofi -show processlist" # TODO: WIP

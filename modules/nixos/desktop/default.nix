@@ -81,6 +81,7 @@
         rofi-tools
         create-autoclicker
         stop-autoclickers
+        toggle-pause-autoclickers
       ]);
 
       services = {

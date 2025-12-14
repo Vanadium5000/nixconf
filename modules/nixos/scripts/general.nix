@@ -92,6 +92,7 @@
           options=(
             "Toggle Crosshair"
             "Create Autoclicker"
+            "Toggle Pause Autoclickers"
             "Stop All Autoclickers"
           )
 
@@ -105,6 +106,9 @@
               ;;
             "Create Autoclicker")
               ${self'.packages.create-autoclicker}/bin/create-autoclicker
+              ;;
+            "Toggle Pause Autoclickers")
+              ${self'.packages.toggle-pause-autoclickers}/bin/toggle-pause-autoclickers
               ;;
             "Stop All Autoclickers")
               ${self'.packages.stop-autoclickers}/bin/stop-autoclickers
@@ -422,7 +426,7 @@
           echo "$x $y" >> "$CONFIG_FILE"
 
           # Spawn red point overlay
-          hyprctl dispatch exec "X=$x Y=$y COLOR=#ff0000 ${pkgs.quickshell}/bin/qs -p ${../quickshell/point.qml}"
+          hyprctl dispatch exec "X=$x Y=$y COLOR=#ff0000 ${pkgs.quickshell}/bin/qs -p ${./quickshell/point.qml}"
 
           # Start daemon if not running
           if [ ! -f "$DAEMON_PID_FILE" ] || ! kill -0 "$(cat "$DAEMON_PID_FILE")" 2>/dev/null; then
@@ -452,8 +456,8 @@
             rm -f "$DAEMON_PID_FILE"
           fi
 
-          # Kill all overlays
-          ${pkgs.quickshell}/bin/qs kill -p ${../quickshell/point.qml}
+          # Kill all overlays - repeat multiple times
+          for i in {1..10}; do ${pkgs.quickshell}/bin/qs kill -p ${./quickshell/point.qml}; done
 
           # Remove config and paused flag
           rm -f "$CONFIG_FILE" "$PAUSED_FILE"
