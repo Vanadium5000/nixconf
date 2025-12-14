@@ -287,6 +287,7 @@
           "${mod},C, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.rofi-checklist}"
           "${mod},X, exec, rofi-powermenu"
           "${mod},V, exec, rofi-tools"
+          "${shiftMod},V, exec, stop-autoclickers" # Autoclicker Safety
           # "${mod},W, exec, rofi -show processlist" # TODO: WIP
 
           # Recordings
@@ -390,6 +391,7 @@
         dconf # user-prefs
 
         quickshell # panels, widgets, etc
+        wlrctl # wayland tools, e.g. autoclicking
 
         hyprpicker # color picker
 

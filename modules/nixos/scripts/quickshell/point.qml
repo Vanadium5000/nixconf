@@ -3,11 +3,13 @@ import Quickshell.Wayland
 import QtQuick 2.15
 
 PanelWindow {
+    id: root
     WlrLayershell.layer: WlrLayer.Overlay
 
     // Read margins as environment variable strings
     property int marginLeft: parseInt(Quickshell.env("X") ?? "0")
     property int marginTop: parseInt(Quickshell.env("Y") ?? "0")
+    property string inputColor: Quickshell.env("COLOR") ?? "#ffffff"
 
     implicitWidth: 20
     implicitHeight: 20
@@ -18,6 +20,8 @@ PanelWindow {
     anchors.left: true
     anchors.top: true
 
+    mask: Region {}  // Empty = ignore all mouse input
+
     // x, y position
     margins.left: marginLeft - 20 / 2
     margins.top: marginTop - 20 / 2
@@ -26,8 +30,8 @@ PanelWindow {
     Rectangle {
         implicitWidth: 20     // shorter line for precise crosshair
         implicitHeight: 1      // thinner
-        color: "#FF0000"   // red with slight transparency
-        opacity: 0.7
+        color: root.inputColor
+        opacity: 0.6
         anchors.centerIn: parent
     }
 
@@ -35,8 +39,8 @@ PanelWindow {
     Rectangle {
         implicitWidth: 1       // thinner
         implicitHeight: 20     // shorter
-        color: "#FF0000"   // same color
-        opacity: 0.7
+        color: root.inputColor
+        opacity: 0.6
         anchors.centerIn: parent
     }
 }

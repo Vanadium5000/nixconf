@@ -91,6 +91,8 @@
           # Rofi menu options
           options=(
             "Toggle Crosshair"
+            "Create Autoclicker"
+            "Stop All Autoclickers"
           )
 
           # Show menu
@@ -100,6 +102,12 @@
           case "$choice" in
             "Toggle Crosshair")
               ${self'.packages.toggle-crosshair}/bin/toggle-crosshair
+              ;;
+            "Create Autoclicker")
+              ${self'.packages.create-autoclicker}/bin/create-autoclicker
+              ;;
+            "Stop All Autoclickers")
+              ${self'.packages.stop-autoclickers}/bin/stop-autoclickers
               ;;
           esac
         '';
@@ -363,6 +371,92 @@
               --password "$PASSWORD" \
               --wallet-file "$WALLET_FILE" \
               "$@"
+        '';
+      };
+
+      packages.autoclicker-daemon = inputs.wrappers.lib.makeWrapper {
+        inherit pkgs;
+        package = pkgs.writeShellScriptBin "autoclicker-daemon" ''
+          #!/usr/bin/env bash
+          set -euo pipefail
+
+          CONFIG_FILE="$HOME/.autoclicker_config"
+          PID_FILE="$HOME/.autoclicker_daemon_pid"
+
+          while true; do
+            if [ -f "$CONFIG_FILE" ]; then
+              mapfile -t points < "$CONFIG_FILE"
+              num_points=''${#points[@]}
+              if [ $num_points -gt 0 ]; then
+                sleep_time=$(echo "scale=5; 0.05 / $num_points" | ${pkgs.bc}/bin/bc)
+                for point in "''${points[@]}"; do
+                  IFS=' ' read -r x y <<< "$point"
+                  hyprctl dispatch movecursor "$x" "$y"
+                  ${pkgs.wlrctl}/bin/wlrctl pointer click left
+                  sleep "$sleep_time"
+                done
+              else
+                sleep 0.1
+              fi
+            else
+              sleep 0.1
+            fi
+          done
+        '';
+      };
+
+      packages.create-autoclicker = inputs.wrappers.lib.makeWrapper {
+        inherit pkgs;
+        package = pkgs.writeShellScriptBin "create-autoclicker" ''
+          #!/usr/bin/env bash
+          set -euo pipefail
+
+          CONFIG_FILE="$HOME/.autoclicker_config"
+          DAEMON_PID_FILE="$HOME/.autoclicker_daemon_pid"
+
+          # Select point with slurp
+          point=$(${pkgs.slurp}/bin/slurp -p)
+          IFS=',' read -r x y _ <<< "''${point// 1x1/}"
+
+          # Append to config
+          mkdir -p "$(dirname "$CONFIG_FILE")"
+          echo "$x $y" >> "$CONFIG_FILE"
+
+          # Spawn red point overlay
+          hyprctl dispatch exec "X=$x Y=$y COLOR=#ff0000 ${pkgs.quickshell}/bin/qs -p ${./quickshell/point.qml}"
+
+          # Start daemon if not running
+          if [ ! -f "$DAEMON_PID_FILE" ] || ! kill -0 "$(cat "$DAEMON_PID_FILE")" 2>/dev/null; then
+            hyprctl dispatch exec "${self'.packages.autoclicker-daemon}/bin/autoclicker-daemon"
+            # Wait a brief moment for the process to start
+            sleep 0.1
+            # Find the PID using pgrep (assuming the daemon process name is unique)
+            DAEMON_PID=$(pgrep -f "autoclicker-daemon")
+            echo "$DAEMON_PID" > "$DAEMON_PID_FILE"
+          fi
+        '';
+      };
+
+      packages.stop-autoclickers = inputs.wrappers.lib.makeWrapper {
+        inherit pkgs;
+        package = pkgs.writeShellScriptBin "stop-autoclickers" ''
+          #!/usr/bin/env bash
+          set -euo pipefail
+
+          DAEMON_PID_FILE="$HOME/.autoclicker_daemon_pid"
+          CONFIG_FILE="$HOME/.autoclicker_config"
+
+          # Kill daemon
+          if [ -f "$DAEMON_PID_FILE" ]; then
+            kill "$(cat "$DAEMON_PID_FILE")" 2>/dev/null || true
+            rm -f "$DAEMON_PID_FILE"
+          fi
+
+          # Kill all overlays
+          ${pkgs.quickshell}/bin/qs kill -p ${./quickshell/point.qml}
+
+          # Remove config
+          rm -f "$CONFIG_FILE"
         '';
       };
     };

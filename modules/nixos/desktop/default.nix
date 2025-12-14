@@ -79,6 +79,8 @@
         rofi-wallpaper-selector
         toggle-crosshair
         rofi-tools
+        create-autoclicker
+        stop-autoclickers
       ]);
 
       services = {
