@@ -242,7 +242,7 @@
         bind = [
           "${mod},RETURN, exec, ${getExe terminal}"
           "${mod},B, exec, librewolf" # Librewolf
-          "${shiftMod},B, exec, kitty -c btop" # btop - system resources
+          "${shiftMod},B, exec, kitty btop" # btop - system resources
           "${mod},G, exec, xdg-open https://x.com/i/grok" # Open Grok
           "${mod},M, exec, xdg-open https://music.youtube.com" # Open YouTube Music
           "${mod},A, exec, pkill nwg-drawer || ${
