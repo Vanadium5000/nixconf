@@ -380,8 +380,8 @@
           #!/usr/bin/env bash
           set -euo pipefail
 
-          CONFIG_FILE="$HOME/.autoclicker_config"
-          PID_FILE="$HOME/.autoclicker_daemon_pid"
+          CONFIG_FILE="/dev/shm/autoclicker_config"
+          PID_FILE="/dev/shm/autoclicker_daemon_pid"
 
           while true; do
             if [ -f "$CONFIG_FILE" ]; then
@@ -411,19 +411,18 @@
           #!/usr/bin/env bash
           set -euo pipefail
 
-          CONFIG_FILE="$HOME/.autoclicker_config"
-          DAEMON_PID_FILE="$HOME/.autoclicker_daemon_pid"
+          CONFIG_FILE="/dev/shm/autoclicker_config"
+          DAEMON_PID_FILE="/dev/shm/autoclicker_daemon_pid"
 
           # Select point with slurp
           point=$(${pkgs.slurp}/bin/slurp -p)
           IFS=',' read -r x y _ <<< "''${point// 1x1/}"
 
           # Append to config
-          mkdir -p "$(dirname "$CONFIG_FILE")"
           echo "$x $y" >> "$CONFIG_FILE"
 
           # Spawn red point overlay
-          hyprctl dispatch exec "X=$x Y=$y COLOR=#ff0000 ${pkgs.quickshell}/bin/qs -p ${./quickshell/point.qml}"
+          hyprctl dispatch exec "X=$x Y=$y COLOR=#ff0000 ${pkgs.quickshell}/bin/qs -p ${../quickshell/point.qml}"
 
           # Start daemon if not running
           if [ ! -f "$DAEMON_PID_FILE" ] || ! kill -0 "$(cat "$DAEMON_PID_FILE")" 2>/dev/null; then
@@ -443,8 +442,9 @@
           #!/usr/bin/env bash
           set -euo pipefail
 
-          DAEMON_PID_FILE="$HOME/.autoclicker_daemon_pid"
-          CONFIG_FILE="$HOME/.autoclicker_config"
+          DAEMON_PID_FILE="/dev/shm/autoclicker_daemon_pid"
+          CONFIG_FILE="/dev/shm/autoclicker_config"
+          PAUSED_FILE="/dev/shm/autoclicker_paused"
 
           # Kill daemon
           if [ -f "$DAEMON_PID_FILE" ]; then
@@ -453,10 +453,40 @@
           fi
 
           # Kill all overlays
-          ${pkgs.quickshell}/bin/qs kill -p ${./quickshell/point.qml}
+          ${pkgs.quickshell}/bin/qs kill -p ${../quickshell/point.qml}
 
-          # Remove config
-          rm -f "$CONFIG_FILE"
+          # Remove config and paused flag
+          rm -f "$CONFIG_FILE" "$PAUSED_FILE"
+        '';
+      };
+
+      packages.toggle-pause-autoclickers = inputs.wrappers.lib.makeWrapper {
+        inherit pkgs;
+        package = pkgs.writeShellScriptBin "toggle-pause-autoclickers" ''
+          #!/usr/bin/env bash
+          set -euo pipefail
+
+          DAEMON_PID_FILE="/dev/shm/autoclicker_daemon_pid"
+          PAUSED_FILE="/dev/shm/autoclicker_paused"
+
+          if [ ! -f "$DAEMON_PID_FILE" ]; then
+            echo "No autoclicker daemon running"
+            exit 1
+          fi
+
+          DAEMON_PID=$(cat "$DAEMON_PID_FILE")
+
+          if [ -f "$PAUSED_FILE" ]; then
+            # Resume
+            kill -CONT "$DAEMON_PID" 2>/dev/null || true
+            rm -f "$PAUSED_FILE"
+            echo "Autoclickers resumed"
+          else
+            # Pause
+            kill -STOP "$DAEMON_PID" 2>/dev/null || true
+            touch "$PAUSED_FILE"
+            echo "Autoclickers paused"
+          fi
         '';
       };
     };

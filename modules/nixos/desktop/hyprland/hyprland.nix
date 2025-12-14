@@ -288,6 +288,9 @@
           "${mod},X, exec, rofi-powermenu"
           "${mod},V, exec, rofi-tools"
           "${shiftMod},V, exec, stop-autoclickers" # Autoclicker Safety
+          "ALT,SUPER,V, exec, ${
+            getExe self.packages.${pkgs.stdenv.hostPlatform.system}.toggle-pause-autoclickers
+          }"
           # "${mod},W, exec, rofi -show processlist" # TODO: WIP
 
           # Recordings
