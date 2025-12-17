@@ -45,6 +45,11 @@
         "widget.gtk.overlay-scrollbars.enabled" = false; # Always show scrollbars
         "layout.css.always_underline_links" = true;
 
+        # Firefox Sync
+        "identity.fxaccounts.enabled" = true; # Enable Firefox Sync for Bookmarks & Account Containers
+        "services.sync.declinedEngines" =
+          "prefs,passwords,tabs,addons,addresses,creditcards,forms,history"; # Don't sync these
+
         # Don't suggest stuff in the urlbar
         "browser.urlbar.suggest.history" = false;
 
@@ -81,7 +86,7 @@
 
               # Bookmarks & tabs sync across browsers any WebDAV or Git service,
               # via local file, Nextcloud, or Google Drive
-              "floccus"
+              # "floccus"
 
               # Dark mode for every website
               "darkreader"
@@ -95,6 +100,8 @@
               "private-grammar-checker-harper" # Private spellcheck
 
               "firefox-color" # Base 16 theming
+
+              "multi-account-containers" # Firefox Multi-account Containers
             ];
             SearchEngines.Default = "StartPage";
 

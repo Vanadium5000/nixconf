@@ -396,6 +396,8 @@
 
         quickshell # panels, widgets, etc
         wlrctl # wayland tools, e.g. autoclicking
+        zbar # read qr codes
+        tesseract5 # read text
 
         hyprpicker # color picker
 

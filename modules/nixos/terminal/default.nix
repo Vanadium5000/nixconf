@@ -33,7 +33,7 @@
       # Password-store folder
       services.git-sync.repositories = {
         passwords = {
-          uri = "git@github.com:Vanadium5000/passwords.git";
+          uri = "github.com:Vanadium5000/passwords.git";
           path = "/home/${config.preferences.user.username}/.local/share/password-store";
           interval = 300;
           user = config.preferences.user.username;
