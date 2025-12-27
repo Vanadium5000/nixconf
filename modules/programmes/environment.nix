@@ -15,11 +15,6 @@
         getExe
         ;
 
-      # # Unstable pkgs
-      # unstable = import inputs.nixpkgs-unstable {
-      #   system = pkgs.stdenv.hostPlatform.system;
-      # };
-
       editor = inputs.nvf-neovim.packages.${pkgs.stdenv.hostPlatform.system}.default;
 
       rawPackages = [
@@ -66,6 +61,7 @@
             fastfetch # Device info
             cpufetch # CPU info
             nix-tree # Nix storage info
+            speedtest-go # Internet speed test using speedtest.net
           ]
           ++
             # Language runtimes/compilers
@@ -77,6 +73,7 @@
               go
               sqlite
               sqlite-web # sqlite web editor
+              lua # Lua
             ]
           ++
             # Media tools

@@ -42,7 +42,10 @@ in
         }
       ];
 
-      environment.systemPackages = [ pkgs.mongodb-compass ];
+      environment.systemPackages = [
+        pkgs.mongodb-compass
+        pkgs.openssl # encryption
+      ];
 
       # Virtualisation
       virtualisation = {

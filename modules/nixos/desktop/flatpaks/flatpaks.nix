@@ -68,12 +68,14 @@
           "org.gimp.GIMP" # GIMP - Image Editor
           "org.inkscape.Inkscape" # Inkscape - Vector Graphics Editor
 
-          "org.vinegarhq.Sober" # Sober
+          # "org.vinegarhq.Sober" # Sober
         ];
       };
 
       # Add the run-flatpak-instance script to packages
-      environment.systemPackages = [ run-flatpak-instance ];
+      environment.systemPackages = [
+        # run-flatpak-instance
+      ];
 
       # Persist flatpak apps
       impermanence.nixos.cache.directories = [ "/var/lib/flatpak" ];

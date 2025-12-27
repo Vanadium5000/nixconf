@@ -101,7 +101,13 @@ async function main() {
     const defaultTasks = [
       "Brush teeth in morning",
       "Brush teeth in evening",
-      "Go to the gym",
+      "Gym/pull-up bar",
+      "Running",
+      "Shower",
+      "Wear cologne",
+      "Productive day - got stuff done",
+      "Free from distactions - no gaming, doom-scrolling, etc.",
+      "Watched latest update videos - e.g. Everything Elon Musk Said Today",
     ];
     fs.writeFileSync(dailyTasksPath, JSON.stringify(defaultTasks, null, 2));
     logInfo("Initialized daily_tasks.json with default tasks");

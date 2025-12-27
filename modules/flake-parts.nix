@@ -38,6 +38,10 @@
         overlays = [
           (final: prev: {
             unstable = import inputs.nixpkgs-unstable { inherit system; };
+            nur = import inputs.nur {
+              nurpkgs = prev;
+              pkgs = prev;
+            };
           })
         ];
       };

@@ -36,6 +36,9 @@
         "swaync"
       ];
 
+      # Enable Localsend, a utility to share data with local devices
+      programs.localsend.enable = true;
+
       environment.systemPackages = [
         selfpkgs.terminal
         selfpkgs.waybar

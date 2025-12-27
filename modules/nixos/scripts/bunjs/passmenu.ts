@@ -128,7 +128,7 @@ interface Options {
 }
 // Credential generators
 const credentialGenerators: Record<string, () => string> = {
-  password: () => crypto.randomBytes(32).toString("base64"),
+  password: () => crypto.randomBytes(15).toString("base64"), // 20 characters
   username: () => faker.internet.username(),
   "full name": () => faker.person.fullName(),
   "phone number": () => faker.phone.number({ style: "international" }),
@@ -480,6 +480,8 @@ async function handleViewMessages(
     const msg = await fetchMessage(token, messages[selectedIndex].id);
     const body = msg.text || msg.html?.replace(/<[^>]*>/g, "") || "No body.";
     const links: string[] = body.match(/https?:\/\/[^\s]+/g) || [];
+    const codes: string[] =
+      body.match(/(?:^|[<>\s])(\d{4,8})(?:$|[<>\s])/g) || []; // 4-8 digit codes next to whitespace or angular brackets
 
     // Build options
     const linkOptions: string[] = [];
@@ -489,7 +491,18 @@ async function handleViewMessages(
         linkOptions.push(`Autotype Link: ${l}`);
       }
     }
-    const messageOptions = ["Copy Full Message", ...linkOptions];
+    const codeOptions: string[] = [];
+    for (const c of codes) {
+      codeOptions.push(`Copy Code: ${c}`);
+      if (options.autotype) {
+        codeOptions.push(`Autotype Code: ${c}`);
+      }
+    }
+    const messageOptions = [
+      "Copy Full Message",
+      ...linkOptions,
+      ...codeOptions,
+    ];
 
     const messageAction = await selectOption(
       menuCommand,

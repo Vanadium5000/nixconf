@@ -68,6 +68,9 @@
           # QML - Quickshell
           "theqtcompany.qt-qml"
           "theqtcompany.qt-core"
+
+          # Lua
+          "sumneko.lua"
         ]);
 
       inherit (self) colors;

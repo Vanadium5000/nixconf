@@ -92,6 +92,10 @@
           unstable = import inputs.nixpkgs-unstable {
             system = final.system;
           };
+          nur = import inputs.nur {
+            nurpkgs = prev;
+            pkgs = prev;
+          };
         })
         inputs.nix4vscode.overlays.default
       ];

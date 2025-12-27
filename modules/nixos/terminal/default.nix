@@ -19,6 +19,7 @@
         self.nixosModules.dev
         self.nixosModules.nix
         self.nixosModules.tailscale
+        self.nixosModules.virtualisation
       ];
 
       security.polkit.enable = true;

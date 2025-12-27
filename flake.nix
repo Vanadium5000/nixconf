@@ -8,6 +8,12 @@
     # Fallback Nix package repository providing unstable channel packages
     nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable";
 
+    # NUR - extra user-created packages for NixOS
+    nur = {
+      url = "github:nix-community/NUR";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     # Hardware configs/drivers
     nixos-hardware.url = "github:NixOS/nixos-hardware/master";
 
