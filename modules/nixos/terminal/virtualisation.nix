@@ -58,5 +58,22 @@
       ];
 
       virtualisation.waydroid.enable = true;
+
+      # Pesist the waydroid data
+      impermanence.home.cache.directories = [
+        ".local/share/waydroid"
+
+        # Podman & other VM Data
+        ".local/share/containers"
+        ".config/libvirt"
+      ];
+      impermanence.nixos.cache.directories = [
+        "/var/lib/waydroid"
+
+        # Podman & other VM Data
+        "/var/lib/containers"
+        "/var/lib/libvirt"
+        "/etc/libvirt/qemu"
+      ];
     };
 }

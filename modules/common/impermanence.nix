@@ -25,6 +25,9 @@
     {
       imports = [
         inputs.impermanence.nixosModules.impermanence
+
+        # Tool for retroactive persistence in NixOS configurations
+        inputs.persist-retro.nixosModules.persist-retro
       ];
 
       options.impermanence = {
@@ -97,6 +100,7 @@
               directories = [
                 "Media"
                 "Documents"
+                "Downloads"
                 "Shared"
                 "nixconf"
 

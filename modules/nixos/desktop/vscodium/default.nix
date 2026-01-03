@@ -43,6 +43,9 @@
           # Nix
           jnoortheen.nix-ide
 
+          # Lua
+          sumneko.lua
+
           # General
           eamodio.gitlens
           ms-azuretools.vscode-containers
@@ -69,8 +72,6 @@
           "theqtcompany.qt-qml"
           "theqtcompany.qt-core"
 
-          # Lua
-          "sumneko.lua"
         ]);
 
       inherit (self) colors;
