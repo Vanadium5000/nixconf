@@ -48,7 +48,7 @@
 
           # General
           eamodio.gitlens
-          ms-azuretools.vscode-containers
+          # ms-azuretools.vscode-containers
           pkief.material-icon-theme
           # usernamehw.errorlens # Improves error highlighting
           fill-labs.dependi # Helps manage dependencies
@@ -71,7 +71,6 @@
           # QML - Quickshell
           "theqtcompany.qt-qml"
           "theqtcompany.qt-core"
-
         ]);
 
       inherit (self) colors;
@@ -116,7 +115,7 @@
       # Persist settings & extensions
       impermanence.home.cache.directories = [
         ".config/VSCodium"
-        ".vscode-oss/extensions"
+        ".config/Antigravity"
       ];
     };
 }

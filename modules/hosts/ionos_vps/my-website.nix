@@ -76,7 +76,7 @@
           enableACME = true; # Auto Let's Encrypt
 
           # Serve frontend static files
-          root = "${inputs.my-website-frontend.packages.${pkgs.system}.default}";
+          root = "${inputs.my-website-frontend.packages.${pkgs.stdenv.hostPlatform.system}.default}";
 
           # Proxy backend for drfrost-solver (adjust path if needed)
           locations."/backend/drfrost-solver/" = {
