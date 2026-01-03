@@ -83,7 +83,7 @@
           inherit vscodeExtensions;
         })
         (vscode-with-extensions.override {
-          vscode = antigravity;
+          vscode = unstable.antigravity;
           inherit vscodeExtensions;
         })
 
@@ -105,7 +105,13 @@
       };
 
       # FIXME: "fill-labs.dependi" is UNFREE
-      preferences.allowedUnfree = [ "vscode-extension-fill-labs-dependi" ];
+      preferences.allowedUnfree = [
+        "vscode-extension-fill-labs-dependi"
+
+        # Google Antigravity
+        "antigravity"
+        "antigravity-with-extensions"
+      ];
 
       # Persist settings & extensions
       impermanence.home.cache.directories = [

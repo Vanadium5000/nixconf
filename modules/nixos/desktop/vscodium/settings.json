@@ -122,7 +122,8 @@
   // QML settings
   "qt-qml.doNotAskForQmllsDownload": true,
   "qt-qml.qmlls.useQmlImportPathEnvVar": true,
-  "qt-qml.qmlls.customExePath": "/run/current-system/sw/bin/qmlls"
+  "qt-qml.qmlls.customExePath": "/run/current-system/sw/bin/qmlls",
 
   // Other...
+  "json.schemaDownload.enable": true
 }
