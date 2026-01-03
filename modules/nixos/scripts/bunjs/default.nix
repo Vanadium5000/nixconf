@@ -59,5 +59,36 @@
           ];
         };
       };
+
+      packages.btrfs-backup = inputs.wrappers.lib.makeWrapper {
+        inherit pkgs;
+        package = pkgs.writeShellScriptBin "btrfs-backup" ''
+          # Ensure we're running as root
+          if [ "$(id -u)" -ne 0 ]; then
+            exec ${pkgs.polkit}/bin/pkexec ${pkgs.bun}/bin/bun run ${./btrfs-backup.ts} "$@"
+          else
+            exec ${pkgs.bun}/bin/bun run ${./btrfs-backup.ts} "$@"
+          fi
+        '';
+        env = {
+          # Ensure PATH includes all runtime inputs
+          PATH = pkgs.lib.makeBinPath [
+            self'.packages.rofi
+            pkgs.bun
+            pkgs.nodejs_latest
+            pkgs.libnotify
+
+            # BTRFS and mount utilities
+            pkgs.btrfs-progs
+            pkgs.util-linux
+
+            # Core utilities
+            pkgs.coreutils
+            pkgs.findutils
+            pkgs.gnused
+            pkgs.which
+          ];
+        };
+      };
     };
 }
