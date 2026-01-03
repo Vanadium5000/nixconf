@@ -225,6 +225,22 @@
           }
         '';
       };
+
+      rofi-wrapper = pkgs.writeShellScriptBin "rofi-wrapper" ''
+        # The full command from Rofi
+        cmd="$@"
+
+        echo "Running command: $cmd"
+
+        # Check if it's Roblox (adjust based on exact command, e.g., contains "Roblox" or specific path/exec)
+        if [[ "$cmd" == *"Roblox"* || "$cmd" == *"roblox"* ]]; then
+            # Run with NVIDIA offload
+            ${if (pkgs.config.cudaSupport or false) then "nvidia-offload " else ""}exec $cmd
+        else
+            # Run normally for other apps
+            exec $cmd
+        fi
+      '';
     in
     {
       packages.rofi = inputs.wrappers.lib.makeWrapper {
@@ -238,6 +254,7 @@
         };
         flags = {
           "-config" = config;
+          "-run-command" = "${rofi-wrapper}/bin/rofi-wrapper {cmd}";
         };
       };
       packages.rofi-images = inputs.wrappers.lib.makeWrapper {
@@ -251,6 +268,7 @@
         };
         flags = {
           "-config" = config-images;
+          "-run-command" = "${rofi-wrapper}/bin/rofi-wrapper {cmd}";
         };
       };
 

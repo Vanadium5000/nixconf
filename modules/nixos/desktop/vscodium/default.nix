@@ -82,6 +82,10 @@
           vscode = vscodium;
           inherit vscodeExtensions;
         })
+        (vscode-with-extensions.override {
+          vscode = antigravity;
+          inherit vscodeExtensions;
+        })
 
         # LSPs/Dependencies
         nixd
@@ -95,6 +99,8 @@
 
       hjem.users.${user} = {
         files.".config/VSCodium/User/settings.json".source =
+          "${config.preferences.configDirectory}/modules/nixos/desktop/vscodium/settings.json";
+        files.".config/Antigravity/User/settings.json".source =
           "${config.preferences.configDirectory}/modules/nixos/desktop/vscodium/settings.json";
       };
 
