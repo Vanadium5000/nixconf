@@ -217,6 +217,9 @@
             alias logout="hyprctl dispatch exit"
             alias poweroff="systemctl poweroff"
 
+            # Utils
+            alias ports="sudo ss -ltnup"
+
             # Better defaults with colors
             alias ls="ls --color=auto"
             alias ll="ls -lah --color=auto"

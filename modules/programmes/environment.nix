@@ -44,6 +44,8 @@
 
             sshfs # SSH filesystem tool
 
+            hey # HTTP benchmarking tool
+
             fzf
             fd
             ripgrep
