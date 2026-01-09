@@ -104,7 +104,7 @@
 
       packages.environment = inputs.wrappers.lib.makeWrapper {
         inherit pkgs;
-        package = self'.packages.fish;
+        package = self'.packages.zsh;
         runtimeInputs = rawPackages;
         env = {
           EDITOR = getExe editor;

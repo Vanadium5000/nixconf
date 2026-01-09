@@ -98,7 +98,7 @@
   "workbench.colorTheme": "Nix Cyberpunk Electric Dark",
 
   // Terminal settings
-  "terminal.integrated.defaultProfile.linux": "fish",
+  "terminal.integrated.defaultProfile.linux": "zsh",
 
   // Container settings
   "containers.containerCommand": "podman",
