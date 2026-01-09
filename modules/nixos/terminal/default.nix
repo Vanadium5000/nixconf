@@ -51,5 +51,8 @@
       # Add environment packages to system packages
       environment.systemPackages =
         self.legacyPackages.${pkgs.stdenv.hostPlatform.system}.environmentPackages;
+
+      # Declare the HOST as an environment variable for use in scripts, etc.
+      environment.variables.HOST = config.preferences.hostName;
     };
 }

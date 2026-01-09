@@ -13,7 +13,7 @@
     {
       config = lib.mkIf cfg.enable {
         networking = {
-          hostName = ""; # No hostname is better anonymity
+          hostName = config.environment.variables.HOST;
 
           # CLI/TUI for connecting to networks
           networkmanager = {
@@ -23,12 +23,26 @@
             dns = "systemd-resolved";
 
             wifi = {
-              macAddress = "random"; # Randomize MAC for Wi-Fi connections (stable per SSID)
+              macAddress = "random"; # Randomize MAC for Wi-Fi connections
               scanRandMacAddress = true; # Also randomize during Wi-Fi scans for extra privacy
             };
 
+            # Also randomize ethernet
+            ethernet.macAddress = "random";
+
+            # Global defaults for all new + existing connections for better privacy
+            extraConfig = ''
+              [connection]
+              # Very important: prevents sending your real hostname to every network
+              dhcp-send-hostname=false
+
+              # Bonus: strong IPv6 privacy
+              ipv6.ip6-privacy=2
+            '';
+
             plugins = with pkgs; [
               networkmanager-openvpn # This provides the org.freedesktop.NetworkManager.openvpn plugin
+              networkmanager-ssh # SSH VPN integration for NetworkManager
             ];
           };
 

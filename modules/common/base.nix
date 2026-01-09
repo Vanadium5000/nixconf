@@ -29,6 +29,10 @@
           default = "/home/${cfg.user.username}/nixconf";
         };
 
+        hostName = mkOption {
+          type = types.str;
+        };
+
         allowedUnfree = mkOption {
           type = types.listOf (types.str);
           default = [ ];
