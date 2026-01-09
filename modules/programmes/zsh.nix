@@ -27,9 +27,28 @@
             setopt HIST_IGNORE_ALL_DUPS   # Remove older duplicate from history
             setopt HIST_FIND_NO_DUPS      # Don't show duplicates in search
             setopt HIST_REDUCE_BLANKS     # Remove superfluous blanks
-            setopt SHARE_HISTORY          # Share history between sessions
+            # setopt SHARE_HISTORY          # Disabled to handle manually
             setopt EXTENDED_HISTORY       # Add timestamps to history
-            setopt INC_APPEND_HISTORY     # Append immediately, not on shell exit
+            # setopt INC_APPEND_HISTORY     # Disabled to handle manually
+            setopt APPEND_HISTORY         # Append to history file
+
+            # Manually manage history to prevent failed commands from being saved
+            zmodload zsh/parameter
+            autoload -Uz add-zsh-hook
+
+            function history_manage_precmd() {
+              local exit_status=$?
+              if [[ $exit_status -ne 0 ]]; then
+                # Remove failed command from memory
+                unset "history[$HISTCMD]"
+              else
+                # Append successful command to history file
+                fc -AI
+              fi
+              # Read new history from file (sync with other sessions)
+              fc -RI
+            }
+            add-zsh-hook precmd history_manage_precmd
             setopt HIST_VERIFY            # Don't execute immediately on history expansion
 
             # ══════════════════════════════════════════════════════════════════
@@ -169,8 +188,8 @@
             zstyle ':completion:*:descriptions' format '[%d]'
             # Preview directory's content with ls when completing cd
             zstyle ':fzf-tab:complete:cd:*' fzf-preview 'ls -la --color=always $realpath'
-            # Preview file content with bat
-            zstyle ':fzf-tab:complete:*:*' fzf-preview 'bat --style=numbers --color=always $realpath 2>/dev/null || ls -la --color=always $realpath 2>/dev/null'
+            # Preview file content with bat or icat for images
+            zstyle ':fzf-tab:complete:*:*' fzf-preview 'mime=""; if [ -n "$realpath" ] && [ -f "$realpath" ]; then mime=$(file --mime-type -b $realpath 2>/dev/null); fi; if [[ $mime == image/* ]]; then kitty +kitten icat --clear --transfer-mode=memory --stdin=no $realpath; else kitty +kitten icat --clear --stdin=no --silent --transfer-mode=memory; bat --style=numbers --color=always $realpath 2>/dev/null || ls -la --color=always $realpath 2>/dev/null; fi'
             # Switch group using `,` and `.`
             zstyle ':fzf-tab:*' switch-group ',' '.'
             # Use tmux popup if available (optional)
@@ -245,6 +264,7 @@
           fzf
           fd
           bat
+          file
           kitty # For icat image preview
         ];
         env = {
