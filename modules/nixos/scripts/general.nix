@@ -431,7 +431,7 @@
           echo "$x $y" >> "$CONFIG_FILE"
 
           # Spawn red point overlay
-          hyprctl dispatch exec "X=$x Y=$y COLOR=#ff0000 ${pkgs.quickshell}/bin/qs -p ${./quickshell/point.qml}"
+          hyprctl dispatch exec "X=$x Y=$y COLOR=#ff0000 ${pkgs.quickshell}/bin/qs -p ${./quickshell/autoclicker.qml}"
 
           # Start daemon if not running
           if [ ! -f "$DAEMON_PID_FILE" ] || ! kill -0 "$(cat "$DAEMON_PID_FILE")" 2>/dev/null; then
@@ -464,7 +464,7 @@
           rm -f "$CONFIG_FILE"
 
           # Kill all overlays - repeat multiple times - can fail, so leave at end
-          for i in {1..10}; do ${pkgs.quickshell}/bin/qs kill -p ${./quickshell/point.qml}; done
+          for i in {1..10}; do ${pkgs.quickshell}/bin/qs kill -p ${./quickshell/autoclicker.qml}; done
         '';
       };
 

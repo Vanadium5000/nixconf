@@ -49,6 +49,34 @@
               fc -RI
             }
             add-zsh-hook precmd history_manage_precmd
+
+            # ══════════════════════════════════════════════════════════════════
+            # Long Command Notifications
+            # ══════════════════════════════════════════════════════════════════
+            # Timer for long commands (5s+)
+            function notify_long_command_preexec() {
+              command_start_time=$SECONDS
+              last_command=$1
+            }
+
+            function notify_long_command_precmd() {
+              if [[ -n $command_start_time ]]; then
+                local elapsed=$(( SECONDS - command_start_time ))
+                if [[ $elapsed -ge 5 ]]; then
+                  # Truncate command if it's too long for notification
+                  local cmd_display=$last_command
+                  if [[ ''${#cmd_display} -gt 50 ]]; then
+                    cmd_display="''${cmd_display:0:47}..."
+                  fi
+                  notify-send "Task Completed" "$cmd_display\nDuration: $elapsed seconds" -i utilities-terminal
+                fi
+                unset command_start_time
+              fi
+            }
+
+            add-zsh-hook preexec notify_long_command_preexec
+            add-zsh-hook precmd notify_long_command_precmd
+
             setopt HIST_VERIFY            # Don't execute immediately on history expansion
 
             # ══════════════════════════════════════════════════════════════════
@@ -268,6 +296,7 @@
           fd
           bat
           file
+          libnotify # For notifications
           kitty # For icat image preview
         ];
         env = {

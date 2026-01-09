@@ -12,9 +12,9 @@
       packages.toggle-crosshair = inputs.wrappers.lib.makeWrapper {
         inherit pkgs;
         package = pkgs.writeShellScriptBin "toggle-crosshair" ''
-          # Toggle QuickShell for point.qml with slurp selection, using hyprctl dispatch exec to spawn
+          # Toggle QuickShell for crosshair.qml with slurp selection, using hyprctl dispatch exec to spawn
 
-          QML_FILE="${./point.qml}"
+          QML_FILE="${./crosshair.qml}"
           QS_BIN="${pkgs.quickshell}/bin/qs"
 
           # Try to kill existing instance (toggling)
@@ -52,6 +52,7 @@
               center_y=$(( y + h / 2 ))
 
               # Launch QuickShell via hyprctl dispatch exec
+              # Uses QML_FILE, passing X and Y coordinates. Color can be overridden by env variable if needed.
               hyprctl dispatch exec "X=$center_x Y=$center_y \"$QS_BIN\" -p \"$QML_FILE\""
           fi
         '';

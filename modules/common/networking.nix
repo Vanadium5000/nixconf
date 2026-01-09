@@ -31,14 +31,13 @@
             ethernet.macAddress = "random";
 
             # Global defaults for all new + existing connections for better privacy
-            extraConfig = ''
-              [connection]
+            settings = {
               # Very important: prevents sending your real hostname to every network
-              dhcp-send-hostname=false
+              connection.dhcp-send-hostname = false;
 
               # Bonus: strong IPv6 privacy
-              ipv6.ip6-privacy=2
-            '';
+              ipv6.ip6-privacy = 2;
+            };
 
             plugins = with pkgs; [
               networkmanager-openvpn # This provides the org.freedesktop.NetworkManager.openvpn plugin

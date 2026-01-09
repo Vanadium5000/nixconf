@@ -31,6 +31,8 @@ LOG_FILE=""
 GIT_BACKUP=false
 VALIDATE=false
 BACKUP=false
+NOTIFY=true
+NOTIFIED_ERROR=false
 
 # Logging functions
 log() {
@@ -39,6 +41,24 @@ log() {
         echo -e "${BLUE}[$(date '+%Y-%m-%d %H:%M:%S')]${NC} $msg" | tee -a "$LOG_FILE"
     else
         echo -e "${BLUE}[$(date '+%Y-%m-%d %H:%M:%S')]${NC} $msg"
+    fi
+}
+
+send_notification() {
+    local level="$1"
+    local title="$2"
+    local msg="$3"
+    if [ "$NOTIFY" = true ] && command_exists notify-send; then
+        local icon="dialog-information"
+        case "$level" in
+            "error") icon="dialog-error" ;;
+            "warning") icon="dialog-warning" ;;
+            "success") icon="emblem-success" ;;
+        esac
+        # Determine if we are in a graphical environment
+        if [ -n "$DISPLAY" ] || [ -n "$WAYLAND_DISPLAY" ]; then
+            notify-send -u normal -i "$icon" "$title" "$msg"
+        fi
     fi
 }
 
@@ -53,6 +73,8 @@ error() {
     if [ -n "$LOG_FILE" ]; then
         echo "[$(date '+%Y-%m-%d %H:%M:%S')] [ERROR] $*" >> "$LOG_FILE"
     fi
+    send_notification "error" "NixOS Rebuild Error" "$*"
+    NOTIFIED_ERROR=true
 }
 
 success() {
@@ -319,6 +341,7 @@ Options:
   --git-backup  Enable automatic git backup commits
   --validate    Enable flake validation
   --backup      Enable system backup before switch
+  --no-notify   Disable desktop notifications
   --help        Show this help message
 
 Examples:
@@ -344,6 +367,10 @@ EOF
                 ;;
             --backup)
                 BACKUP=true
+                shift
+                ;;
+            --no-notify)
+                NOTIFY=false
                 shift
                 ;;
             -*)
@@ -450,6 +477,7 @@ main() {
     fi
 
     action="${action:-switch}"
+    send_notification "info" "NixOS Rebuild" "Starting ${action} for ${HOST}..."
 
     log "Starting NixOS rebuild script"
     log "Host: ${HOST}"
@@ -528,13 +556,17 @@ main() {
     esac
 
     success "Rebuild script completed successfully"
+    send_notification "success" "NixOS Rebuild" "${action^} completed successfully for ${HOST}"
 }
 
 # Cleanup on exit
 cleanup() {
     local exit_code=$?
     if [ ${exit_code} -ne 0 ]; then
-        error "Script failed with exit code ${exit_code}"
+        if [ "$NOTIFIED_ERROR" = false ]; then
+            send_notification "error" "NixOS Rebuild Failed" "Script exited with code ${exit_code}"
+        fi
+        log "Script failed with exit code ${exit_code}"
     fi
     log "Script finished"
 }
