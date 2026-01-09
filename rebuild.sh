@@ -57,7 +57,7 @@ send_notification() {
         esac
         # Determine if we are in a graphical environment
         if [ -n "$DISPLAY" ] || [ -n "$WAYLAND_DISPLAY" ]; then
-            notify-send -u normal -i "$icon" "$title" "$msg"
+            notify-send -t 3000 -u normal -i "$icon" "$title" "$msg"
         fi
     fi
 }

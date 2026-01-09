@@ -27,28 +27,12 @@
             setopt HIST_IGNORE_ALL_DUPS   # Remove older duplicate from history
             setopt HIST_FIND_NO_DUPS      # Don't show duplicates in search
             setopt HIST_REDUCE_BLANKS     # Remove superfluous blanks
-            # setopt SHARE_HISTORY          # Disabled to handle manually
-            setopt EXTENDED_HISTORY       # Add timestamps to history
-            # setopt INC_APPEND_HISTORY     # Disabled to handle manually
+            setopt INC_APPEND_HISTORY     # Add commands as they are typed, don't wait until exit
+            setopt SHARE_HISTORY          # Share history between all sessions
             setopt APPEND_HISTORY         # Append to history file
 
-            # Manually manage history to prevent failed commands from being saved
             zmodload zsh/parameter
             autoload -Uz add-zsh-hook
-
-            function history_manage_precmd() {
-              local exit_status=$?
-              if [[ $exit_status -ne 0 ]]; then
-                # Remove failed command from memory
-                unset "history[$HISTCMD]"
-              else
-                # Append successful command to history file
-                fc -AI
-              fi
-              # Read new history from file (sync with other sessions)
-              fc -RI
-            }
-            add-zsh-hook precmd history_manage_precmd
 
             # ══════════════════════════════════════════════════════════════════
             # Long Command Notifications
@@ -122,33 +106,7 @@
             zstyle ':completion:*:*:kill:*:processes' list-colors '=(#b) #([0-9]#)*=0=01;31'
             zstyle ':completion:*:kill:*' command 'ps -u $USER -o pid,%cpu,tty,cputime,cmd'
 
-            # ══════════════════════════════════════════════════════════════════
-            # Key Bindings
-            # ══════════════════════════════════════════════════════════════════
-            # Use emacs keybindings (like bash/fish defaults)
-            bindkey -e
 
-            # History substring search bindings
-            bindkey '^[[A' history-substring-search-up
-            bindkey '^[[B' history-substring-search-down
-            bindkey '^P' history-substring-search-up
-            bindkey '^N' history-substring-search-down
-
-            # Word navigation
-            bindkey '^[[1;5C' forward-word      # Ctrl+Right
-            bindkey '^[[1;5D' backward-word     # Ctrl+Left
-
-            # Delete word
-            bindkey '^H' backward-kill-word     # Ctrl+Backspace
-
-            # Home/End keys
-            bindkey '^[[H' beginning-of-line
-            bindkey '^[[F' end-of-line
-            bindkey '^[[1~' beginning-of-line
-            bindkey '^[[4~' end-of-line
-
-            # Delete key
-            bindkey '^[[3~' delete-char
 
             # ══════════════════════════════════════════════════════════════════
             # FZF Configuration
@@ -226,12 +184,42 @@
             zstyle ':fzf-tab:*' continuous-trigger '/'
 
             source ${pkgs.zsh-autosuggestions}/share/zsh-autosuggestions/zsh-autosuggestions.zsh
-            source ${pkgs.zsh-syntax-highlighting}/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
             source ${pkgs.zsh-history-substring-search}/share/zsh-history-substring-search/zsh-history-substring-search.zsh
 
             # FZF shell integration
             source ${pkgs.fzf}/share/fzf/completion.zsh
             source ${pkgs.fzf}/share/fzf/key-bindings.zsh
+
+            # ══════════════════════════════════════════════════════════════════
+            # Key Bindings
+            # ══════════════════════════════════════════════════════════════════
+            # Use emacs keybindings (like bash/fish defaults)
+            bindkey -e
+
+            # History substring search bindings
+            bindkey '^[[A' history-substring-search-up
+            bindkey '^[[B' history-substring-search-down
+            bindkey '^P' history-substring-search-up
+            bindkey '^N' history-substring-search-down
+
+            # Word navigation
+            bindkey '^[[1;5C' forward-word      # Ctrl+Right
+            bindkey '^[[1;5D' backward-word     # Ctrl+Left
+
+            # Delete word
+            bindkey '^H' backward-kill-word     # Ctrl+Backspace
+
+            # Home/End keys
+            bindkey '^[[H' beginning-of-line
+            bindkey '^[[F' end-of-line
+            bindkey '^[[1~' beginning-of-line
+            bindkey '^[[4~' end-of-line
+
+            # Delete key
+            bindkey '^[[3~' delete-char
+
+            # Syntax highlighting (must be loaded last)
+            source ${pkgs.zsh-syntax-highlighting}/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 
             # ══════════════════════════════════════════════════════════════════
             # Aliases
