@@ -79,17 +79,15 @@
         ]);
 
       inherit (self) colors;
+
+      extensionsJson = pkgs.writeText "extensions.json" (
+        pkgs.vscode-utils.toExtensionJson vscodeExtensions
+      );
     in
     {
       environment.systemPackages = with pkgs; [
-        (vscode-with-extensions.override {
-          vscode = vscodium.fhs;
-          inherit vscodeExtensions;
-        })
-        (vscode-with-extensions.override {
-          vscode = unstable.antigravity.fhs;
-          inherit vscodeExtensions;
-        })
+        vscodium.fhs
+        unstable.antigravity.fhs
 
         # LSPs/Dependencies
         nixd
@@ -97,9 +95,53 @@
         nixfmt-rfc-style # Nixfmt
         nixfmt-tree # Nixfmt-tree
         alejandra
+        jq
 
         kdePackages.qtdeclarative # Provides qmlls - language server for QML
       ];
+
+      system.activationScripts.vscodium-extensions = {
+        text = ''
+          # Cleanup and setup extension directories
+          for dir in "/home/${user}/.vscode-oss/extensions" "/home/${user}/.antigravity/extensions"; do
+            mkdir -p "$dir"
+            chown ${user}:users "$dir"
+            
+            # Link extensions
+            for ext in ${toString vscodeExtensions}; do
+              if [ -d "$ext/share/vscode/extensions" ]; then
+                find "$ext/share/vscode/extensions" -mindepth 1 -maxdepth 1 -print0 | while IFS= read -r -d "" ext_source; do
+                  ext_name=$(basename "$ext_source")
+                  target="$dir/$ext_name"
+                  
+                  # Force replace key extensions
+                  if [ -e "$target" ] || [ -h "$target" ]; then
+                    rm -rf "$target"
+                  fi
+                  ln -sf "$ext_source" "$target"
+                done
+              fi
+            done
+            
+            # Update extensions.json
+            # Prepare new extensions JSON with mutable paths
+            ${pkgs.jq}/bin/jq --arg dir "$dir" 'map(.location.path = ($dir + "/" + (.location.path | split("/") | last)) | .location.fsPath = ($dir + "/" + (.location.fsPath | split("/") | last)))' "${extensionsJson}" > "$dir/new_extensions.json"
+
+            # Update extensions.json
+            if [ -f "$dir/extensions.json" ]; then
+               # Merge existing with new (new wins for same ID, user extensions kept)
+               ${pkgs.jq}/bin/jq -s '.[1] as $new | (.[0] | map(select(.identifier.id as $id | $new | map(.identifier.id) | index($id) | not))) + $new' "$dir/extensions.json" "$dir/new_extensions.json" > "$dir/extensions.json.tmp" && mv "$dir/extensions.json.tmp" "$dir/extensions.json"
+            else
+               mv "$dir/new_extensions.json" "$dir/extensions.json"
+            fi
+            rm -f "$dir/new_extensions.json"
+            chown ${user}:users "$dir/extensions.json"
+            
+            chown -R ${user}:users "$dir" --no-dereference
+          done
+        '';
+        deps = [ "users" ];
+      };
 
       hjem.users.${user} = {
         files.".config/VSCodium/User/settings.json".source =
@@ -121,6 +163,8 @@
       impermanence.home.cache.directories = [
         ".config/VSCodium"
         ".config/Antigravity"
+        ".vscode-oss"
+        ".antigravity"
       ];
     };
 }
