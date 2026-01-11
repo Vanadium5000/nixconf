@@ -43,9 +43,6 @@
           # Nix
           jnoortheen.nix-ide
 
-          # Lua
-          sumneko.lua
-
           # General
           eamodio.gitlens
           # ms-azuretools.vscode-containers
@@ -71,6 +68,14 @@
           # QML - Quickshell
           "theqtcompany.qt-qml"
           "theqtcompany.qt-core"
+
+          # Luau
+          "nightrains.robloxlsp"
+          "johnnymorganz.luau-lsp"
+          "johnnymorganz.stylua"
+
+          # Markdown
+          "davidanson.vscode-markdownlint"
         ]);
 
       inherit (self) colors;
@@ -78,11 +83,11 @@
     {
       environment.systemPackages = with pkgs; [
         (vscode-with-extensions.override {
-          vscode = vscodium;
+          vscode = vscodium.fhs;
           inherit vscodeExtensions;
         })
         (vscode-with-extensions.override {
-          vscode = unstable.antigravity;
+          vscode = unstable.antigravity.fhs;
           inherit vscodeExtensions;
         })
 

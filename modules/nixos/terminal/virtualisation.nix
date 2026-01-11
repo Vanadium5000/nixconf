@@ -62,6 +62,7 @@
       # Pesist the waydroid data
       impermanence.home.cache.directories = [
         ".local/share/waydroid"
+        ".cache/waydroid-script"
 
         # Podman & other VM Data
         ".local/share/containers"
