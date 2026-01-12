@@ -50,12 +50,12 @@
         # Systemd User Service for continuous sync using file monitoring
         # User services inherit the user's environment (including SSH_AUTH_SOCK from GPG agent)
         systemd.user.services.unison-sync = lib.mkIf (remoteDetails != null) {
-          Description = "Unison Background Synchronization between ${config.preferences.hostName} and ${remoteDetails.name}";
-          After = [ "network-online.target" ];
-          Wants = [ "network-online.target" ];
-          WantedBy = [ "default.target" ];
+          description = "Unison Background Synchronization between ${config.preferences.hostName} and ${remoteDetails.name}";
+          # Note: User services usually don't wait for network-online.target as they start in user session.
+          # We rely on Restart=always to handle initial connectivity issues.
+          wantedBy = [ "default.target" ];
 
-          Service = {
+          serviceConfig = {
             Type = "simple";
             # -batch: run without user interaction
             # -repeat watch: use file monitoring to sync immediately on change
