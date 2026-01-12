@@ -17,7 +17,7 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FLAKE_DIR="${SCRIPT_DIR}"
 HOST="${HOST:-}"
-ARGS="${ARGS:-}"
+ARGS="${ARGS:-} --accept-flake-config"
 
 # Colors for output
 RED='\033[0;31m'
