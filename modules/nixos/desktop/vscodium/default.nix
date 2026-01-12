@@ -70,7 +70,7 @@
           "theqtcompany.qt-core"
 
           # Luau
-          "nightrains.robloxlsp"
+          # "nightrains.robloxlsp"
           "johnnymorganz.luau-lsp"
           "johnnymorganz.stylua"
 
@@ -118,7 +118,8 @@
                   if [ -e "$target" ] || [ -h "$target" ]; then
                     rm -rf "$target"
                   fi
-                  ln -sf "$ext_source" "$target"
+                  # Copy instead of symlink to allow write access (fixes EROFS for some extensions like Roblox LSP)
+                  cp -Lr --no-preserve=mode "$ext_source" "$target"
                 done
               fi
             done
