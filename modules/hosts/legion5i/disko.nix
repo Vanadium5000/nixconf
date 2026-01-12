@@ -1,9 +1,9 @@
 {
   flake.diskoConfigurations.legion5i = {
     # Use with (fill in ...):
-    # nix eval .#diskoConfigurations.legion5i > /tmp/disko-config.nix
-    # sudo nix run github:nix-community/disko/latest -- /tmp/disko-config.nix
-    # sudo nixos-install --root /mnt --flake ...
+    # nix eval path:.#diskoConfigurations.legion5i > /tmp/disko-config.nix
+    # sudo nix run github:nix-community/disko/latest -- --mode destroy,format,mount /tmp/disko-config.nix
+    # sudo nixos-install --root /mnt --flake path:
     disko.devices = {
       disk = {
         main = {

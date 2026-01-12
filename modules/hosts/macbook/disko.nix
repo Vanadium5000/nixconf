@@ -1,9 +1,9 @@
 {
   flake.diskoConfigurations.macbook = {
     # Use with (fill in ...):
-    # nix eval .#diskoConfigurations.macbook > /tmp/disko-config.nix
-    # sudo nix run github:nix-community/disko/latest -- /tmp/disko-config.nix
-    # sudo nixos-install --root /mnt --flake ...
+    # nix eval path:.#diskoConfigurations.macbook > /tmp/disko-config.nix
+    # sudo nix run github:nix-community/disko/latest -- --mode destroy,format,mount /tmp/disko-config.nix
+    # sudo nixos-install --root /mnt --flake path:.#macbook
     disko.devices = {
       disk = {
         main = {
