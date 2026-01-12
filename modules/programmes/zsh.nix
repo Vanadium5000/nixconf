@@ -257,6 +257,7 @@
             # ══════════════════════════════════════════════════════════════════
             # Setup GPG_TTY for GPG-support
             export GPG_TTY=$(tty)
+            gpg-connect-agent updatestartuptty /bye
 
             # ══════════════════════════════════════════════════════════════════
             # Starship Prompt
