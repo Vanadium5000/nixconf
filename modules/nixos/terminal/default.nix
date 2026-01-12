@@ -20,6 +20,7 @@
         self.nixosModules.nix
         self.nixosModules.tailscale
         self.nixosModules.virtualisation
+        self.nixosModules.unison
       ];
 
       security.polkit.enable = true;
@@ -59,6 +60,9 @@
           user = config.preferences.user.username;
         };
       };
+
+      # Enable Unison synchronization
+      services.unison-sync.enable = true;
 
       # Environment Variables
       environment.variables = {
