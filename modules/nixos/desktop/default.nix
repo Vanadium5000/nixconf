@@ -77,14 +77,6 @@
         nwg-drawer
         rofi
         rofi-askpass
-        rofi-powermenu
-        rofi-wallpaper
-        rofi-wallpaper-selector
-        toggle-crosshair
-        rofi-tools
-        create-autoclicker
-        stop-autoclickers
-        toggle-pause-autoclickers
       ]);
 
       services = {
