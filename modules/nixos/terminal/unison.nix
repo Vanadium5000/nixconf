@@ -59,8 +59,7 @@
             Type = "simple";
             # -batch: run without user interaction
             # -repeat watch: use file monitoring to sync immediately on change
-            # -contactmethod pipe: use SSH for transport
-            ExecStart = "${pkgs.unison}/bin/unison -batch -repeat watch -contactmethod pipe default";
+            ExecStart = "${pkgs.unison}/bin/unison -batch -repeat watch default";
             Restart = "always";
             RestartSec = "10s";
             Environment = [
