@@ -94,7 +94,7 @@
             ]
           ++
             # Scripts & tools from the nixconf
-            self.legacyPackages.${pkgs.stdenv.hostPlatform.system}.environmentPackages
+            self.legacyPackages.${pkgs.stdenv.hostPlatform.system}.scripts
         )
       );
     in

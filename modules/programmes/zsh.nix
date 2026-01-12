@@ -257,7 +257,7 @@
             # ══════════════════════════════════════════════════════════════════
             # Setup GPG_TTY for GPG-support
             export GPG_TTY=$(tty)
-            gpg-connect-agent updatestartuptty /bye
+            gpg-connect-agent updatestartuptty /bye >/dev/null 2>&1 # Silent
 
             # Kitty shell integration
             if [[ -n "$KITTY_INSTALLATION_DIR" ]]; then

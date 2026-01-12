@@ -39,6 +39,8 @@
       preferences.autostart = [
         "wl-paste --type text --watch ${pkgs.cliphist}/bin/cliphist store" # Stores only text data
         "wl-paste --type image --watch ${pkgs.cliphist}/bin/cliphist store" # Stores only image data
+
+        "systemctl --user start hyprpolkitagent" # Hyprland Polkit agent
       ];
 
       programs.hyprland = {
@@ -393,6 +395,8 @@
         cliphist # Clipboard manager
         brightnessctl
         dconf # user-prefs
+
+        hyprpolkitagent # Hyprland Polkit agent
 
         quickshell # panels, widgets, etc
         wlrctl # wayland tools, e.g. autoclicking

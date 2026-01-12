@@ -23,6 +23,25 @@
       ];
 
       security.polkit.enable = true;
+
+      security.wrappers.pkexec = {
+        # Enable the setuid bit → this is the critical part that makes pkexec actually work
+        # Without this you get the famous "pkexec must be setuid root" error
+        setuid = true;
+
+        # The owner must be root – this is required for setuid to have any meaning
+        owner = "root";
+
+        # Group is traditionally also root (very common convention for setuid wrappers)
+        # Changing it rarely makes sense unless you have very special requirements
+        group = "root";
+
+        # Source path: where the real (non-wrapped) pkexec binary lives
+        # ${pkgs.polkit} expands to the current polkit package in your nixpkgs version
+        # This line basically says: "wrap this particular binary and give it the s-bit"
+        source = "${pkgs.polkit}/bin/pkexec";
+      };
+
       hardware.enableRedistributableFirmware = true;
 
       programs.direnv.enable = true;
