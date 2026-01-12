@@ -487,5 +487,28 @@
           fi
         '';
       };
+      legacyPackages.scripts = with self'.packages; [
+        sound-change
+        sound-up
+        sound-up-small
+        sound-down
+        sound-down-small
+        sound-toggle
+        sound-set
+        rofi-tools
+        rofi-wallpaper
+        rofi-wallpaper-selector
+        toggle-lid-inhibit
+        lid-status
+        monero-wallet
+        autoclicker-daemon
+        create-autoclicker
+        stop-autoclickers
+        toggle-pause-autoclickers
+        toggle-crosshair
+        rofi-passmenu
+        rofi-checklist
+        btrfs-backup
+      ];
     };
 }

@@ -295,7 +295,7 @@
           # "${mod},W, exec, rofi -show processlist" # TODO: WIP
 
           # Recordings
-          "${mod},S, exec, ${getExe pkgs.grim} -g \"$(${getExe pkgs.slurp} -d)\" - | ${getExe pkgs.swappy} -f - | wl-copy"
+          "${mod},S, exec, ${getExe pkgs.grim} -g \"$(${getExe pkgs.slurp} -d)\" - | ${getExe pkgs.swappy} -f -"
           "${mod},R, exec, mkdir -p ~/Videos && ${getExe pkgs.wf-recorder} -g \"$(${getExe pkgs.slurp} -d)\" -f ~/Videos/rec_$(date +'%Y-%m-%d_%H-%M-%S').mp4" # Start video recording
           "${shiftMod},R, exec, pkill -SIGINT wf-recorder" # End video recording
 
