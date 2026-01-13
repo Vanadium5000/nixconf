@@ -401,6 +401,7 @@
         pkgs.kdePackages.polkit-kde-agent-1 # KDE Polkit agent
 
         mpc # music player controller
+        playerctl # audio player controller
 
         quickshell # panels, widgets, etc
         wlrctl # wayland tools, e.g. autoclicking
