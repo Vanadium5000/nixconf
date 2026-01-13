@@ -346,21 +346,41 @@ async function downloadAndPlay(items: MediaItem[]) {
     await notify(`Starting batch download of ${items.length} tracks...`);
   }
 
+  let successCount = 0;
+  let failCount = 0;
+
   for (const [i, item] of items.entries()) {
     const progressPrefix =
       items.length > 1 ? `[${i + 1}/${items.length}] ` : "";
     console.log(`${progressPrefix}Processing: ${item.title}`);
 
-    // Define filename template (standardized)
-    // using %(id)s avoids conflicts with similar titles
     const outputTemplate = join(MUSIC_DIR, "%(title)s [%(id)s].%(ext)s");
 
     await notify(`${progressPrefix}Downloading: ${item.title}`);
 
-    try {
-      // Optimize: Only download audio
-      await $`yt-dlp -x --audio-format mp3 --audio-quality 0 --embed-thumbnail --add-metadata -o ${outputTemplate} --no-playlist ${item.url}`.quiet();
+    // Download Video
+    // Use nothrow() to handle errors manually
+    const dlProc =
+      await $`yt-dlp -x --audio-format mp3 --audio-quality 0 --embed-thumbnail --add-metadata --ignore-errors -o ${outputTemplate} --no-playlist ${item.url}`
+        .nothrow()
+        .quiet();
 
+    if (dlProc.exitCode !== 0) {
+      console.error(
+        `${progressPrefix}Failed to download: ${item.title} (Exit Code: ${dlProc.exitCode})`
+      );
+      // Try to read stderr if available to show reason
+      const stderr = dlProc.stderr.toString().trim();
+      if (stderr) console.error(stderr.split("\n")[0]); // Just first line
+
+      await notify(`Skipped: ${item.title}`, "Download Failed");
+      failCount++;
+      continue;
+    }
+
+    // Get filename for MPD
+    // If download worked, getting filename should usually work
+    try {
       let filename =
         await $`yt-dlp --get-filename -x --audio-format mp3 -o ${outputTemplate} --no-playlist ${item.url}`.text();
       filename = filename.trim();
@@ -370,13 +390,20 @@ async function downloadAndPlay(items: MediaItem[]) {
       }
 
       await addToMpd(filename);
+      successCount++;
     } catch (e) {
-      console.error(`Failed to download ${item.title}`, e);
-      await notify(`Failed: ${item.title}`, "Download Error");
+      console.error(`Failed to get filename for ${item.title}`, e);
+      failCount++;
     }
   }
 
-  await notify("All downloads completed.");
+  if (failCount > 0) {
+    await notify(
+      `Batch finished. ${successCount} succeeded, ${failCount} failed.`
+    );
+  } else {
+    await notify("All downloads completed.");
+  }
 }
 
 async function addToMpd(fullPath: string) {
