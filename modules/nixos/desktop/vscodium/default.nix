@@ -98,7 +98,15 @@
         jq
 
         kdePackages.qtdeclarative # Provides qmlls - language server for QML
+
+        # Fix VSCode keyring
+        gnome.gnome-keyring
+        libsecret # contains secret-tool + provides the org.freedesktop.secrets service
+        seahorse # optional GUI to see/manage keyrings (very useful for debugging)
       ];
+
+      # Enable Gnome keyring
+      services.gnome.gnome-keyring.enable = true;
 
       system.activationScripts.vscodium-extensions = {
         text = ''

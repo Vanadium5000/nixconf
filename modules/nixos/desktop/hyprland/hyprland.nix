@@ -419,6 +419,14 @@
         swappy
 
         networkmanagerapplet
+
+        # Keyring
+        pkgs.gnome.gnome-keyring
+        pkgs.libsecret # contains secret-tool + provides the org.freedesktop.secrets service
+        pkgs.seahorse # optional GUI to see/manage keyrings (very useful for debugging)
       ];
+
+      # Enable Gnome Keyring
+      services.gnome.gnome-keyring.enable = true;
     };
 }
