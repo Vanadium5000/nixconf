@@ -245,7 +245,7 @@
           "${mod},B, exec, librewolf" # Librewolf
           "${shiftMod},B, exec, kitty btop" # btop - system resources
           "${mod},G, exec, xdg-open https://x.com/i/grok" # Open Grok
-          "${mod},M, exec, xdg-open https://music.youtube.com" # Open YouTube Music
+          "${shiftMod},M, exec, xdg-open https://music.youtube.com" # Open YouTube Music
           "${mod},A, exec, pkill nwg-drawer || ${
             getExe self.packages.${pkgs.stdenv.hostPlatform.system}.nwg-drawer
           }" # Toggle nwg-drawer
@@ -286,6 +286,7 @@
           "${mod},C, exec, rofi -show calc"
           "${mod},P, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.rofi-passmenu}"
           "${shiftMod},P, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.rofi-passmenu} -a" # With autotype
+          "${mod},M, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.rofi-music-search}"
           "${mod},C, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.rofi-checklist}"
           "${mod},X, exec, rofi-powermenu"
           "${mod},V, exec, rofi-tools"

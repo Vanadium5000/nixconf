@@ -91,6 +91,7 @@
       packages.rofi-music-search = inputs.wrappers.lib.makeWrapper {
         inherit pkgs;
         package = pkgs.writeShellScriptBin "rofi-music-search" ''
+          export ROFI_IMAGES="${self'.packages.rofi-images}/bin/rofi"
           exec ${pkgs.bun}/bin/bun run ${./music-search.ts} "$@"
         '';
 

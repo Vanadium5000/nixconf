@@ -67,18 +67,54 @@ async function fetchThumbnails(results: SearchResult[]) {
     const file = Bun.file(thumbPath);
 
     if (await file.exists()) {
-      res.localThumbnail = thumbPath;
-      return;
+      // Check for zero-byte or small corrupted files
+      if (file.size > 0) {
+        res.localThumbnail = thumbPath;
+        return;
+      } else {
+        // Invalid, delete it
+        await $`rm ${thumbPath}`.nothrow();
+      }
     }
 
     try {
+      // Use yt-dlp to get the thumbnail because it handles various formats better,
+      // or just download and convert with ffmpeg.
+      // Simple fetch + ffmpeg convert is best.
+
+      const tempThumb = thumbPath + ".temp";
       const response = await fetch(res.thumbnail);
       if (response.ok) {
-        await Bun.write(thumbPath, response);
-        res.localThumbnail = thumbPath;
+        await Bun.write(tempThumb, response);
+        // Convert to jpg using ffmpeg to ensure rofi compatibility
+        // -y to overwrite, -i input, output
+        // Capture result to check success
+        // Force pixel format for compatibility
+        const convertProc =
+          await $`ffmpeg -y -v error -i ${tempThumb} -pix_fmt yuvj420p ${thumbPath}`.nothrow();
+
+        // Clean up temp
+        await $`rm ${tempThumb}`.nothrow();
+
+        if (convertProc.exitCode === 0) {
+          res.localThumbnail = thumbPath;
+        } else {
+          console.error(
+            `Failed to convert thumbnail for ${res.id}, exit code: ${convertProc.exitCode}`
+          );
+          // Verify if file exists and remove it if it's 0 bytes or bad
+          try {
+            const stat = await Bun.file(thumbPath).stat();
+            if (stat.size === 0) {
+              await $`rm ${thumbPath}`.nothrow();
+            }
+          } catch {
+            // File might not exist, ignore
+          }
+        }
       }
     } catch (e) {
-      console.error(`Failed to download thumb for ${res.id}`, e);
+      console.error(`Failed to download/convert thumb for ${res.id}`, e);
     }
   });
 
@@ -103,15 +139,43 @@ async function showRofiMenu(
   }
 
   try {
-    // Bun $ allows piping input via stdin
-    // We can interpret stdout as text directly
-    // Note: rofi exits with 1 if cancelled, so we need to catch partial failures/exits if we want to handle cancel gracefully?
-    // Actually bun shell throws on non-zero exit by default.
-    const selection =
-      await $`echo ${inputString} | rofi -dmenu -i -p "Select Track" -show-icons -markup-rows`.text();
-    return map.get(selection.trim()) || null;
+    const rofiCmd = process.env.ROFI_IMAGES || "rofi";
+
+    // Use Bun.spawn to safely pipe input with null bytes
+    const proc = Bun.spawn(
+      [
+        rofiCmd,
+        "-dmenu",
+        "-i",
+        "-p",
+        "Select Track",
+        "-show-icons",
+        "-markup-rows",
+      ],
+      {
+        stdin: "pipe",
+        stdout: "pipe",
+      }
+    );
+
+    if (proc.stdin) {
+      proc.stdin.write(inputString);
+      proc.stdin.flush();
+      proc.stdin.end();
+    }
+
+    const output = await new Response(proc.stdout).text();
+    const exitCode = await proc.exited;
+
+    if (exitCode !== 0) {
+      return null;
+    }
+
+    const selection = output.trim();
+    if (!selection) return null;
+
+    return map.get(selection) || null;
   } catch (e) {
-    // Rofi returns 1 on cancel usually.
     return null;
   }
 }
@@ -120,11 +184,10 @@ async function downloadTrack(result: SearchResult): Promise<string> {
   await notify(`Downloading: ${result.title}`);
   const outputTemplate = join(MUSIC_DIR, "%(title)s.%(ext)s");
 
-  // High quality audio
+  // High quality audio with metadata and thumbnail
   // Just run it.
-  await $`yt-dlp -x --audio-format mp3 --audio-quality 0 -o ${outputTemplate} --no-playlist ${result.id}`;
+  await $`yt-dlp -x --audio-format mp3 --audio-quality 0 --embed-thumbnail --add-metadata -o ${outputTemplate} --no-playlist ${result.id}`;
 
-  // Get filename
   // Get filename
   let filename =
     await $`yt-dlp --get-filename -x --audio-format mp3 -o ${outputTemplate} --no-playlist ${result.id}`.text();
@@ -183,7 +246,10 @@ async function main() {
 
   if (!query) {
     try {
-      query = (await $`rofi -dmenu -p "Search Music" -lines 0`.text()).trim();
+      // Use a minimal theme for the search bar: no listview, just input
+      query = (
+        await $`rofi -dmenu -p "Search Music" -lines 0 -theme-str 'window {width: 30em;} listview {enabled: false;} mainbox {children: [inputbar];}'`.text()
+      ).trim();
     } catch {
       return; // Cancelled
     }
