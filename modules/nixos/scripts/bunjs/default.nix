@@ -87,5 +87,30 @@
           pkgs.which
         ];
       };
+
+      packages.rofi-music-search = inputs.wrappers.lib.makeWrapper {
+        inherit pkgs;
+        package = pkgs.writeShellScriptBin "rofi-music-search" ''
+          exec ${pkgs.bun}/bin/bun run ${./music-search.ts} "$@"
+        '';
+
+        # Ensure PATH includes all runtime inputs
+        runtimeInputs = [
+          self'.packages.rofi
+          pkgs.bun
+          pkgs.nodejs_latest
+          pkgs.libnotify
+          pkgs.yt-dlp
+          pkgs.mpc
+          pkgs.curl
+          pkgs.ffmpeg # for yt-dlp audio conversion usually
+
+          # Core utilities
+          pkgs.coreutils
+          pkgs.findutils
+          pkgs.gnused
+          pkgs.which
+        ];
+      };
     };
 }

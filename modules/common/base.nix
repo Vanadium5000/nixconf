@@ -99,6 +99,11 @@
         # Add the default shell to environment
         environment.shells = [ self.packages.${pkgs.stdenv.hostPlatform.system}.environment ];
 
+        # Pesist Tealdeer (a TLDR alternative) cache data
+        impermanence.home.cache.directories = [
+          ".cache/tealdeer"
+        ];
+
         # Locales
         time.timeZone = cfg.timeZone;
         i18n.defaultLocale = cfg.locale;

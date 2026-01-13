@@ -20,20 +20,29 @@
         wireplumber.enable = true;
 
         # If you want to use JACK applications, uncomment this
-        #jack.enable = true;
+        jack.enable = true;
       };
 
       environment.systemPackages = with pkgs; [
         pavucontrol
         libnotify # For desktop notifications
+        mpc # MPD CLI client
       ];
 
       # Music Player Daemon
       services.mpd = {
         enable = true;
+        user = user; # Required so the musicDirectory can be accessed
         musicDirectory = "/home/${user}/Shared/Music";
         # Make MPD only start when something actually tries to connect to it
         startWhenNeeded = true;
+
+        extraConfig = ''
+          audio_output {
+            type "pipewire"
+            name "My PipeWire Output"
+          }
+        '';
       };
     };
 }

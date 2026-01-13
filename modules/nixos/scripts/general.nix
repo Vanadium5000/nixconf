@@ -508,6 +508,7 @@
         toggle-crosshair
         rofi-passmenu
         rofi-checklist
+        rofi-music-search
         btrfs-backup
       ];
     };
