@@ -15,27 +15,26 @@
         package = pkgs.writeShellScriptBin "rofi-passmenu" ''
           exec ${pkgs.bun}/bin/bun run ${./passmenu.ts} "$@"
         '';
-        env = {
-          # Ensure PATH includes all runtime inputs
-          PATH = pkgs.lib.makeBinPath [
-            (pkgs.pass.withExtensions (exts: [ exts.pass-otp ])) # Password management
-            pkgs.gnupg
-            self'.packages.rofi
-            pkgs.wl-clipboard
-            # pkgs.xclip
-            # pkgs.wtype
-            pkgs.ydotool
-            pkgs.bun
-            pkgs.nodejs_latest
-            pkgs.libnotify
 
-            # Core utilities
-            pkgs.coreutils
-            pkgs.findutils
-            pkgs.gnused
-            pkgs.which
-          ];
-        };
+        # Ensure PATH includes all runtime inputs
+        runtimeInputs = [
+          (pkgs.pass.withExtensions (exts: [ exts.pass-otp ])) # Password management
+          pkgs.gnupg
+          self'.packages.rofi
+          pkgs.wl-clipboard
+          # pkgs.xclip
+          # pkgs.wtype
+          pkgs.ydotool
+          pkgs.bun
+          pkgs.nodejs_latest
+          pkgs.libnotify
+
+          # Core utilities
+          pkgs.coreutils
+          pkgs.findutils
+          pkgs.gnused
+          pkgs.which
+        ];
       };
 
       packages.rofi-checklist = inputs.wrappers.lib.makeWrapper {
@@ -43,21 +42,20 @@
         package = pkgs.writeShellScriptBin "rofi-checklist" ''
           exec ${pkgs.bun}/bin/bun run ${./checklist.ts} "$@"
         '';
-        env = {
-          # Ensure PATH includes all runtime inputs
-          PATH = pkgs.lib.makeBinPath [
-            self'.packages.rofi
-            pkgs.bun
-            pkgs.nodejs_latest
-            pkgs.libnotify
 
-            # Core utilities
-            pkgs.coreutils
-            pkgs.findutils
-            pkgs.gnused
-            pkgs.which
-          ];
-        };
+        # Ensure PATH includes all runtime inputs
+        runtimeInputs = [
+          self'.packages.rofi
+          pkgs.bun
+          pkgs.nodejs_latest
+          pkgs.libnotify
+
+          # Core utilities
+          pkgs.coreutils
+          pkgs.findutils
+          pkgs.gnused
+          pkgs.which
+        ];
       };
 
       packages.btrfs-backup = inputs.wrappers.lib.makeWrapper {
@@ -65,30 +63,29 @@
         package = pkgs.writeShellScriptBin "btrfs-backup" ''
           # Ensure we're running as root
           if [ "$(id -u)" -ne 0 ]; then
-            exec ${pkgs.polkit}/bin/pkexec ${pkgs.bun}/bin/bun run ${./btrfs-backup.ts} "$@"
+            exec pkexec env HOST="$HOST" ${pkgs.bun}/bin/bun run ${./btrfs-backup.ts} "$@"
           else
             exec ${pkgs.bun}/bin/bun run ${./btrfs-backup.ts} "$@"
           fi
         '';
-        env = {
-          # Ensure PATH includes all runtime inputs
-          PATH = pkgs.lib.makeBinPath [
-            self'.packages.rofi
-            pkgs.bun
-            pkgs.nodejs_latest
-            pkgs.libnotify
 
-            # BTRFS and mount utilities
-            pkgs.btrfs-progs
-            pkgs.util-linux
+        # Ensure PATH includes all runtime inputs
+        runtimeInputs = [
+          self'.packages.rofi
+          pkgs.bun
+          pkgs.nodejs_latest
+          pkgs.libnotify
 
-            # Core utilities
-            pkgs.coreutils
-            pkgs.findutils
-            pkgs.gnused
-            pkgs.which
-          ];
-        };
+          # BTRFS and mount utilities
+          pkgs.btrfs-progs
+          pkgs.util-linux
+
+          # Core utilities
+          pkgs.coreutils
+          pkgs.findutils
+          pkgs.gnused
+          pkgs.which
+        ];
       };
     };
 }
