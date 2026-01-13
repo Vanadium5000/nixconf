@@ -100,7 +100,7 @@
         kdePackages.qtdeclarative # Provides qmlls - language server for QML
 
         # Fix VSCode keyring
-        gnome.gnome-keyring
+        gnome-keyring
         libsecret # contains secret-tool + provides the org.freedesktop.secrets service
         seahorse # optional GUI to see/manage keyrings (very useful for debugging)
       ];

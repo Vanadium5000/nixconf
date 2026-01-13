@@ -108,8 +108,8 @@
         programs.gnupg.agent = {
           enable = true;
           enableSSHSupport = true;
-          # Use Gnome3 PIN entry (with a fallback to curses-based PIN entry for TTY-only setups)
-          pinentryPackage = pkgs.pinentry-gtk2;
+          # Use Pinentry Qt
+          pinentryPackage = pkgs.pinentry-qt;
         };
 
         # OpenSSH

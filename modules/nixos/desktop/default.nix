@@ -27,6 +27,8 @@
         self.nixosModules.tuigreet
 
         self.nixosModules.extra_hjem
+
+        self.nixosModules.qt
       ];
 
       # Automatically start waybar & swaync
@@ -54,7 +56,11 @@
         mpv
 
         # GUIs
-        nautilus # File Manager
+        kdePackages.dolphin # File Manager
+        kdePackages.plasma-systemmonitor # System Monitor
+        kdePackages.ark # Archive Manager
+        kdePackages.okular # Document Viewer
+        kdePackages.gwenview # Image Viewer
         kitty # Terminal Emulator
 
         # CLIs
@@ -65,8 +71,8 @@
         btdu # Disk usage
 
         # GTK icon themes
-        morewaita-icon-theme
-        adwaita-icon-theme
+        # morewaita-icon-theme - Removed
+        # adwaita-icon-theme - Removed
       ])
       # GPU monitoring
       ++ (lib.optional config.nixpkgs.config.cudaSupport pkgs.nvtopPackages.full)
