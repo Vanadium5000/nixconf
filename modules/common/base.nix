@@ -89,9 +89,11 @@
             "podman"
             "ollama"
             "ydotool" # Wayland automation tool
+            "pipewire"
           ]
           ++ cfg.user.extraGroups;
           shell = self.packages.${pkgs.stdenv.hostPlatform.system}.environment;
+          uid = 1000; # Set explicitly
 
           hashedPassword = secrets.PASSWORD_HASH;
         };
