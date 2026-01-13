@@ -10,40 +10,38 @@
     let
       user = config.preferences.user.username;
 
-      qt5ctConf = lib.generators.toINI {
-        Appearance = {
+      hyprqt6engineConf = lib.generators.toINI { } {
+        theme = {
           style = "Oxygen";
           icon_theme = "oxygen";
-          custom_palette = true;
-          color_scheme_path = "${pkgs.kdePackages.qt6ct}/share/qt6ct/colors/darker.conf";
-          standard_dialogs = "default";
+          color_scheme = "${pkgs.kdePackages.qt6ct}/share/qt6ct/colors/darker.conf";
+          font = "JetBrainsMono Nerd Font";
+          font_size = 11;
+          font_fixed = "JetBrainsMono Nerd Font";
+          font_fixed_size = 11;
         };
-        Troubleshooting = {
-          ignored_applications = "@Invalid()";
+        misc = {
+          single_click_activate = true;
+          menus_have_icons = true;
         };
       };
     in
     {
-      qt = {
-        enable = true;
-        platformTheme = "qt5ct";
-      };
+      qt.enable = true;
 
       environment.variables = {
         QT_QPA_PLATFORM = "wayland";
-        QT_QPA_PLATFORMTHEME = "qt5ct";
+        QT_QPA_PLATFORMTHEME = "hyprqt6engine";
       };
 
       environment.systemPackages = with pkgs; [
         kdePackages.oxygen
         kdePackages.oxygen-icons
-        kdePackages.qt6ct
-        libsForQt5.qt5ct
+        hyprqt6engine
       ];
 
       hjem.users.${user} = {
-        files.".config/qt5ct/qt5ct.conf".text = qt5ctConf;
-        files.".config/qt6ct/qt6ct.conf".text = qt5ctConf;
+        files.".config/hypr/hyprqt6engine.conf".text = hyprqt6engineConf;
       };
     };
 }
