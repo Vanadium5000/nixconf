@@ -1,6 +1,9 @@
 {
   flake.nixosModules.audio =
-    { pkgs, ... }:
+    { pkgs, config, ... }:
+    let
+      user = config.preferences.user.username;
+    in
     {
       # rtkit is optional but recommended
       security.rtkit.enable = true;
@@ -24,5 +27,13 @@
         pavucontrol
         libnotify # For desktop notifications
       ];
+
+      # Music Player Daemon
+      services.mpd = {
+        enable = true;
+        musicDirectory = "/home/${user}/Shared/Music";
+        # Make MPD only start when something actually tries to connect to it
+        startWhenNeeded = true;
+      };
     };
 }

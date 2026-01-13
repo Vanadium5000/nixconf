@@ -1,4 +1,4 @@
-{ ... }:
+{ inputs, ... }:
 {
   flake.nixosModules.qt =
     {
@@ -37,7 +37,7 @@
       environment.systemPackages = with pkgs; [
         kdePackages.oxygen
         kdePackages.oxygen-icons
-        hyprqt6engine
+        inputs.hyprqt6engine.packages.${pkgs.stdenv.hostPlatform.system}.default
       ];
 
       hjem.users.${user} = {
