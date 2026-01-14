@@ -31,6 +31,9 @@
         self.nixosModules.qt
       ];
 
+      # Wireshark - QT Version for Desktop
+      programs.wireshark.package = lib.mkForce pkgs.wireshark;
+
       # Automatically start waybar & swaync
       preferences.autostart = [
         "waybar"
@@ -69,9 +72,6 @@
 
         # BTRFS
         btdu # Disk usage
-
-        # Wireshark
-        wireshark-qt
 
         # GTK icon themes
         # morewaita-icon-theme - Removed

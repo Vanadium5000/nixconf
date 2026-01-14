@@ -16,9 +16,9 @@
           icon_theme = "oxygen";
           color_scheme = "${pkgs.kdePackages.qt6ct}/share/qt6ct/colors/darker.conf";
           font = "JetBrainsMono Nerd Font";
-          font_size = 11;
+          font_size = 12;
           font_fixed = "JetBrainsMono Nerd Font";
-          font_fixed_size = 11;
+          font_fixed_size = 12;
         };
         misc = {
           single_click_activate = true;

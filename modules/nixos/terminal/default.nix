@@ -67,6 +67,7 @@
       # Wireshark - Powerful network protocol analyzer
       programs.wireshark = {
         enable = true;
+        package = pkgs.wireshark-cli; # CLI only for terminal environments
         dumpcap = {
           enable = true; # ← gives cap_net_raw/cap_net_admin to dumpcap wrapper
         };
