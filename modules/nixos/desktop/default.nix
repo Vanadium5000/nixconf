@@ -141,6 +141,8 @@
         noto-fonts-color-emoji
         openmoji-color
         twemoji-color-font
+
+        wireshark # Security analysis tool for networks (QT Gui)
       ];
 
       # Safeeyes - A uitlity to remind the user to look away from the screen every x minutes

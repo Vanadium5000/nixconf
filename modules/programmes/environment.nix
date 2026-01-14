@@ -65,6 +65,9 @@
             cpufetch # CPU info
             nix-tree # Nix storage info
             speedtest-go # Internet speed test using speedtest.net
+
+            # Requires wireshark
+            termshark # Terminal UI for wireshark-cli, inspired by Wireshark
           ]
           ++
             # Language runtimes/compilers

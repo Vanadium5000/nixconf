@@ -27,32 +27,32 @@
         pavucontrol
         libnotify # For desktop notifications
         mpc # MPD CLI client
-        mpd-mpris # MPD MPRIS (MPD ALTERNATIVE)
+        mpd-mpris # MPD MPRIS - Implementation of the MPRIS protocol for MPD
       ];
 
       preferences.autostart = [
         "${pkgs.mpd-mpris}/bin/mpd-mpris"
       ];
 
-      # # Music Player Daemon - fuck this
-      # services.mpd = {
-      #   enable = true;
-      #   user = user; # Required so the musicDirectory can be accessed
-      #   musicDirectory = "/home/${user}/Shared/Music";
-      #   # Make MPD only start when something actually tries to connect to it
-      #   startWhenNeeded = true;
+      # Music Player Daemon
+      services.mpd = {
+        enable = true;
+        user = user; # Required so the musicDirectory can be accessed
+        musicDirectory = "/home/${user}/Shared/Music";
+        # Make MPD only start when something actually tries to connect to it
+        startWhenNeeded = true;
 
-      #   extraConfig = ''
-      #     audio_output {
-      #       type "pipewire"
-      #       name "My PipeWire Output"
-      #     }
-      #   '';
-      # };
+        extraConfig = ''
+          audio_output {
+            type "pipewire"
+            name "My PipeWire Output"
+          }
+        '';
+      };
 
-      # systemd.services.mpd.environment = {
-      #   # https://gitlab.freedesktop.org/pipewire/pipewire/-/issues/609
-      #   XDG_RUNTIME_DIR = "/run/user/${toString config.users.users.${user}.uid}"; # User-id must match above user. MPD will look inside this directory for the PipeWire socket.
-      # };
+      systemd.services.mpd.environment = {
+        # https://gitlab.freedesktop.org/pipewire/pipewire/-/issues/609
+        XDG_RUNTIME_DIR = "/run/user/${toString config.users.users.${user}.uid}"; # User-id must match above user. MPD will look inside this directory for the PipeWire socket.
+      };
     };
 }

@@ -64,6 +64,14 @@
       # Enable Unison synchronization
       services.unison-sync.enable = true;
 
+      # Wireshark - Powerful network protocol analyzer
+      programs.wireshark = {
+        enable = true;
+        dumpcap = {
+          enable = true; # ← gives cap_net_raw/cap_net_admin to dumpcap wrapper
+        };
+      };
+
       # Environment Variables
       environment.variables = {
         # PASSWORD_STORE_DIR for stuff like rofi-passmenu
