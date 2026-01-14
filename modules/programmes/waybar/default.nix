@@ -266,6 +266,26 @@
           border-radius: 8px;
           background-color: #2096C0;
         }
+        #custom-pomodoro.inactive {
+            color: #969696;
+        }
+
+        #custom-pomodoro.pomodoro {
+            color: #ff6b6b;
+        }
+
+        #custom-pomodoro.short-break {
+            color: #7eca9c;
+        }
+
+        #custom-pomodoro.long-break {
+            color: #89b4fa;
+        }
+
+        #custom-pomodoro.paused {
+            color: #f5c2e7;
+            font-style: italic;
+        }
       '';
       config = pkgs.writeText "config.json" (
         builtins.toJSON (
@@ -308,6 +328,7 @@
             (import ./_modules/hyprland.nix pkgs)
             (import ./_modules/media.nix pkgs)
             (import ./_modules/networking.nix pkgs)
+            (import ./_modules/pomodoro.nix pkgs)
             (import ./_modules/resources.nix pkgs)
             (import ./_modules/system.nix pkgs)
           ]
