@@ -337,6 +337,7 @@
 
           # Lock when closing Lid
           ",switch:Lid Switch, exec, hyprlock"
+          ",switch:Lid Switch, exec, wpctl set-volume @DEFAULT_AUDIO_SINK@ 0" # Also set volume to 0
         ];
 
         bindle = [

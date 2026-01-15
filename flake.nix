@@ -56,7 +56,8 @@
 
     # Automatically updated extensions - no more being months or years & missing extensions for VSCodium
     nix4vscode = {
-      url = "github:nix-community/nix4vscode";
+      # nix4vscode is broken for latest versions
+      url = "github:nix-community/nix4vscode/ab49bc2edcd5d130f8737f2f1087e8280b9ce759";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 

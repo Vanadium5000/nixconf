@@ -46,9 +46,8 @@
         "layout.css.always_underline_links" = true;
 
         # Firefox Sync
-        "identity.fxaccounts.enabled" = true; # Enable Firefox Sync for Bookmarks & Account Containers
-        "services.sync.declinedEngines" =
-          "prefs,passwords,tabs,addons,addresses,creditcards,forms,history"; # Don't sync these
+        "identity.fxaccounts.enabled" = true; # Enable Firefox Sync for Bookmarks & Account Containers (requires syncing addons)
+        "services.sync.declinedEngines" = "prefs,passwords,tabs,addresses,creditcards,forms,history"; # Don't sync these
 
         # Don't suggest stuff in the urlbar
         "browser.urlbar.suggest.history" = false;
@@ -62,6 +61,9 @@
 
         # Dark theme for websites
         "layout.css.prefers-color-scheme.content-override" = 0;
+
+        # Fix the annoying preview on links on long press
+        "browser.ml.linkPreview.longPress" = false;
 
         # TODO: Swap to Firefox Colors
         # Default Firefox dark browser theme
