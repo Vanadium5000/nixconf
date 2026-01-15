@@ -131,5 +131,20 @@
           pkgs.coreutils
         ];
       };
+      packages.pomodoro = inputs.wrappers.lib.makeWrapper {
+        inherit pkgs;
+        package = pkgs.writeShellScriptBin "pomodoro" ''
+          exec ${pkgs.bun}/bin/bun run ${./pomodoro.ts} "$@"
+        '';
+
+        # Ensure PATH includes all runtime inputs
+        runtimeInputs = [
+          pkgs.bun
+          pkgs.libnotify
+          pkgs.libcanberra-gtk3
+          pkgs.curl
+          pkgs.coreutils
+        ];
+      };
     };
 }

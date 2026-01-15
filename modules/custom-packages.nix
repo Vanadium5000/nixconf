@@ -1,13 +1,9 @@
 { ... }:
-{
-  flake.overlays.customPackages =
-    final: prev:
-
-    # basically import-tree but not failing when explicitly told to use _pkgs/
+let
+  getPackages =
+    callPackage:
     let
-      inherit (final) callPackage;
-
-      # All .nix files in ./_pkgs/ except default.nix
+      # All .nix files and directories in ./_pkgs/ except default.nix
       files = builtins.attrNames (builtins.removeAttrs (builtins.readDir ./_pkgs) [ "default.nix" ]);
 
       # Turn filename.nix → name = callPackage ./filename.nix {};
@@ -17,4 +13,13 @@
 
     in
     builtins.foldl' (acc: filename: acc // (toPackage filename)) { } files;
+in
+{
+  flake.overlays.customPackages = final: prev: getPackages final.callPackage;
+
+  perSystem =
+    { pkgs, ... }:
+    {
+      packages = getPackages pkgs.callPackage;
+    };
 }

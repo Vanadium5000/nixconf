@@ -34,10 +34,11 @@
       # Wireshark - QT Version for Desktop
       programs.wireshark.package = lib.mkForce pkgs.wireshark;
 
-      # Automatically start waybar & swaync
+      # Automatically start waybar & swaync & niri-screen-time daemon
       preferences.autostart = [
         "waybar"
         "swaync"
+        "niri-screen-time --daemon"
       ];
 
       # Enable Localsend, a utility to share data with local devices
@@ -85,6 +86,7 @@
         nwg-drawer
         rofi
         rofi-askpass
+        niri-screen-time
       ]);
 
       services = {
@@ -147,6 +149,7 @@
       ];
 
       # Safeeyes - A uitlity to remind the user to look away from the screen every x minutes
-      services.safeeyes.enable = true;
+      # NOTE: Quite annoying tho
+      # services.safeeyes.enable = true;
     };
 }
