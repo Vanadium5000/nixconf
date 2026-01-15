@@ -186,7 +186,7 @@
               [
                 # user.js
                 {
-                  "${profileDir}/librewolf.overrides.cfg".text = mkUserJs finalPrefs profile.extraConfig;
+                  "${profileDir}/user.js".text = mkUserJs finalPrefs profile.extraConfig;
                 }
 
                 # Extensions installation (symlink)
@@ -334,6 +334,7 @@
             firstRunDone = true;
             theme = {
               title = "Stylix Librewolf";
+              images.additional_backgrounds = [ "./bg-000.svg" ];
               colors = {
                 toolbar = mkColor "base00";
                 toolbar_text = mkColor "base05";
