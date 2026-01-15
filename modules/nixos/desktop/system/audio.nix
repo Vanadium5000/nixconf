@@ -27,11 +27,11 @@
         pavucontrol
         libnotify # For desktop notifications
         mpc # MPD CLI client
-        mpd-mpris # MPD MPRIS - Implementation of the MPRIS protocol for MPD
+        mpdris2 # MPD MPRIS - Implementation of the MPRIS protocol for MPD
       ];
 
       preferences.autostart = [
-        "${pkgs.mpd-mpris}/bin/mpd-mpris"
+        "${pkgs.mpdris2}/bin/mpdris2 --musicDirectory ${config.services.mpd.musicDirectory}"
       ];
 
       # Music Player Daemon

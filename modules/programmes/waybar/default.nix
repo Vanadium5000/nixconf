@@ -328,7 +328,7 @@
             (import ./_modules/custom.nix pkgs self)
             (import ./_modules/general.nix pkgs theme)
             (import ./_modules/hyprland.nix pkgs)
-            (import ./_modules/media.nix pkgs)
+            (import ./_modules/media.nix pkgs self)
             (import ./_modules/networking.nix pkgs)
             (import ./_modules/pomodoro.nix pkgs)
             (import ./_modules/resources.nix pkgs)

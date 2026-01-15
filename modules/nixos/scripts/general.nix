@@ -510,6 +510,7 @@
         rofi-checklist
         rofi-music-search
         btrfs-backup
+        synced-lyrics
       ];
     };
 }

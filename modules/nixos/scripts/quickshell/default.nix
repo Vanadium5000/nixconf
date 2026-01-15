@@ -57,5 +57,46 @@
           fi
         '';
       };
+
+      packages.toggle-lyrics-overlay = inputs.wrappers.lib.makeWrapper {
+        inherit pkgs;
+        package = pkgs.writeShellScriptBin "toggle-lyrics-overlay" ''
+          # Toggle QuickShell lyrics overlay
+
+          QML_FILE="${./lyrics-overlay.qml}"
+          QS_BIN="${pkgs.quickshell}/bin/qs"
+
+          case "''${1:-toggle}" in
+            show)
+              # Kill existing instance first
+              "$QS_BIN" kill -p "$QML_FILE" 2>/dev/null || true
+              # Launch with environment configuration
+              LYRICS_LINES="''${LYRICS_LINES:-3}" \
+              LYRICS_POSITION="''${LYRICS_POSITION:-bottom}" \
+              LYRICS_FONT_SIZE="''${LYRICS_FONT_SIZE:-28}" \
+              LYRICS_COLOR="''${LYRICS_COLOR:-#ffffff}" \
+              LYRICS_OPACITY="''${LYRICS_OPACITY:-0.95}" \
+              "$QS_BIN" -p "$QML_FILE" &
+              ;;
+            hide)
+              "$QS_BIN" kill -p "$QML_FILE"
+              ;;
+            *)  # toggle
+              if ! "$QS_BIN" kill -p "$QML_FILE" 2>/dev/null; then
+                LYRICS_LINES="''${LYRICS_LINES:-3}" \
+                LYRICS_POSITION="''${LYRICS_POSITION:-bottom}" \
+                LYRICS_FONT_SIZE="''${LYRICS_FONT_SIZE:-28}" \
+                LYRICS_COLOR="''${LYRICS_COLOR:-#ffffff}" \
+                LYRICS_OPACITY="''${LYRICS_OPACITY:-0.95}" \
+                "$QS_BIN" -p "$QML_FILE" &
+              fi
+              ;;
+          esac
+        '';
+
+        runtimeInputs = [
+          pkgs.quickshell
+        ];
+      };
     };
 }

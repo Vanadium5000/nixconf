@@ -1,4 +1,4 @@
-pkgs:
+pkgs: self:
 let
   album_art = pkgs.writeShellScriptBin "album_art" ''
     # File to store the last URL
@@ -53,22 +53,27 @@ in
       paused = "󰏤";
     };
   };
-  # Waybar lyrics
+  # Waybar lyrics with synced-lyrics (LRCLIB API)
   "custom/lyrics" = {
     return-type = "json";
     format = "{icon} {0}";
     hide-empty-text = true;
     format-icons = {
-      playing = "";
-      paused = "";
-      lyric = "";
-      music = "󰝚";
+      playing = "";
+      paused = "";
+      no-lyrics = "󰝚";
+      stopped = "";
     };
-    exec = "${pkgs.waybar-lyric}/bin/waybar-lyric --quiet -m50";
-    on-click = "${pkgs.waybar-lyric}/bin/waybar-lyric --toggle";
+    exec = "${
+      self.packages.${pkgs.stdenv.hostPlatform.system}.synced-lyrics
+    }/bin/synced-lyrics watch --json --quiet";
+    on-click = "${
+      self.packages.${pkgs.stdenv.hostPlatform.system}.synced-lyrics
+    }/bin/synced-lyrics toggle";
+    on-click-right = "${pkgs.playerctl}/bin/playerctl play-pause";
 
     # Restart interval (secs) - only with continuous scripts
-    restart-interval = 2;
+    restart-interval = 5;
   };
   "image#album-art" = {
     exec = "${album_art}/bin/album_art";

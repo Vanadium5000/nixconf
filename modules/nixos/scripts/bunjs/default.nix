@@ -113,5 +113,23 @@
           pkgs.which
         ];
       };
+
+      packages.synced-lyrics = inputs.wrappers.lib.makeWrapper {
+        inherit pkgs;
+        package = pkgs.writeShellScriptBin "synced-lyrics" ''
+          exec ${pkgs.bun}/bin/bun run ${./synced-lyrics.ts} "$@"
+        '';
+
+        # Ensure PATH includes all runtime inputs
+        runtimeInputs = [
+          pkgs.bun
+          pkgs.nodejs_latest
+          pkgs.playerctl
+          self'.packages.toggle-lyrics-overlay
+
+          # Core utilities
+          pkgs.coreutils
+        ];
+      };
     };
 }
