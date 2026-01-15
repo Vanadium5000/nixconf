@@ -66,11 +66,11 @@ in
     };
     exec = "${
       self.packages.${pkgs.stdenv.hostPlatform.system}.synced-lyrics
-    }/bin/synced-lyrics watch --json --quiet";
+    }/bin/synced-lyrics watch --json --progress --quiet";
     on-click = "${
       self.packages.${pkgs.stdenv.hostPlatform.system}.synced-lyrics
     }/bin/synced-lyrics toggle";
-    on-click-right = "${pkgs.playerctl}/bin/playerctl play-pause";
+    on-click-right = "${pkgs.playerctl}/bin/playerctl --player=mpd,%any play-pause";
 
     # Restart interval (secs) - only with continuous scripts
     restart-interval = 5;

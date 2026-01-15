@@ -175,12 +175,20 @@ PanelWindow {
         command: ["synced-lyrics", "current", "--json", "--lines", root.numLines.toString()]
         running: false
 
-        onExited: function (exitCode, exitStatus) {
-            if (exitCode === 0) {
-                root.parseLyricsOutput(lyricsProcess.stdout);
+        stdout: StdioCollector {
+            id: stdoutCollector
+            onStreamFinished: {
+                root.parseLyricsOutput(stdoutCollector.text);
+                // Schedule next update
+                updateTimer.start();
             }
-            // Schedule next update
-            updateTimer.start();
+        }
+
+        onExited: function (exitCode, exitStatus) {
+            // If process exits without streamFinished (error case), still schedule next update
+            if (exitCode !== 0) {
+                updateTimer.start();
+            }
         }
     }
 
