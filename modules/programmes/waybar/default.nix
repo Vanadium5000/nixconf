@@ -148,6 +148,7 @@
         #actions, /* group */
         #system, /* group */
         #custom-notifications,
+        #custom-pomodoro,
         #custom-recording,
         #tray,
         #network,

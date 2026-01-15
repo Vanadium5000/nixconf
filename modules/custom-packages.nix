@@ -1,8 +1,9 @@
-{ inputs, ... }:
+{ ... }:
 {
   flake.overlays.customPackages =
     final: prev:
 
+    # basically import-tree but not failing when explicitly told to use _pkgs/
     let
       inherit (final) callPackage;
 
