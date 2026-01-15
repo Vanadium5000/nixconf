@@ -81,7 +81,6 @@ in
       "image#album-art"
       #"mpris"
       "custom/lyrics"
-      "custom/pomodoro"
     ];
   };
 }

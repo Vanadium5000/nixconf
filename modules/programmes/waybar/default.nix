@@ -316,6 +316,7 @@
               modules-right = [
                 "custom/recording"
                 "group/media"
+                "custom/pomodoro"
                 #"hyprland/window"
                 "group/system"
                 "custom/notifications"
