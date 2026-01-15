@@ -173,7 +173,8 @@
         ".config/VSCodium"
         ".config/Antigravity"
         ".vscode-oss"
-        ".antigravity"
+        ".antigravity" # Editor data, e.g. extensions
+        ".gemini" # AI data, e.g. convos
       ];
     };
 }
