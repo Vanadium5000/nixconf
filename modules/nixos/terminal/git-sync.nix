@@ -42,7 +42,9 @@
             "GIT_SYNC_INTERVAL=${toString repo.interval}"
           ];
           ExecStart = "${cfg.package}/bin/git-sync-on-inotify";
-          Restart = "on-abort";
+          Restart = "always";
+          RestartSec = "3min";
+          StartLimitIntervalSec = 0;
           WorkingDirectory = repo.path; # Set working directory to the repo path
         };
       };
