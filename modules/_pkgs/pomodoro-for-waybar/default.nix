@@ -15,7 +15,7 @@ stdenv.mkDerivation {
     owner = "Tejas242";
     repo = "pomodoro-for-waybar";
     rev = "master";
-    hash = "sha256-1dn6d34hm5v369v3lyc38r53145lv1l607wys2dkbsaq4hmsdqf1";
+    hash = "";
   };
 
   nativeBuildInputs = [ makeWrapper ];

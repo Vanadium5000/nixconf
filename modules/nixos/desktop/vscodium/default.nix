@@ -86,8 +86,8 @@
     in
     {
       environment.systemPackages = with pkgs; [
-        vscodium.fhs
-        unstable.antigravity.fhs
+        vscodium
+        unstable.antigravity
 
         # LSPs/Dependencies
         nixd

@@ -36,14 +36,15 @@
       _module.args.pkgs = import inputs.nixpkgs {
         inherit system;
         overlays = [
-          inputs.self.overlays.customPackages
           (final: prev: {
+            customPackages = inputs.self.overlays.customPackages final prev;
             unstable = import inputs.nixpkgs-unstable { inherit system; };
             nur = import inputs.nur {
               nurpkgs = prev;
               pkgs = prev;
             };
           })
+          inputs.nix4vscode.overlays.default
         ];
       };
     };
