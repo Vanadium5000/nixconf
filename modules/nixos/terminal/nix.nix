@@ -53,6 +53,9 @@
             "root"
             "@wheel"
           ];
+
+          # Speed
+          http-connections = 128; # default is only 25(!) – signifficant speedup
         };
       };
       programs.nix-ld.enable = true;
