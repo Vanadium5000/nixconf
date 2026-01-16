@@ -98,15 +98,6 @@ let
       hash = "sha256-UiiJzLo8fJLMoCjh389v1P0Q4Nc36S8Po+fvm/j0gxo=";
     };
 
-    flutter-development = fetchSkill {
-      name = "flutter-development";
-      owner = "aj-geddes";
-      repo = "useful-ai-prompts";
-      rev = "ce8c39c22df0e0e64c853817a7f8d79f0ea331e2";
-      path = "skills/flutter-development/SKILL.md";
-      hash = "sha256-BCvO+P2URoTiUOSV8PTq62ckyxXLEHtIml0EkZGRbK8=";
-    };
-
     writing-documentation = fetchSkillDir {
       name = "writing-documentation";
       owner = "dhruvbaldawa";
@@ -114,15 +105,6 @@ let
       rev = "451b604718d39fcc2c008d22e550bdf60c7115da";
       basePath = "essentials/skills/writing-documentation";
       hash = "sha256-7V1xG2FmzqWdnWmVV6WWKBAvY6QHWo+UKzh0Uu/Xg/w=";
-    };
-
-    rust-engineer = fetchSkill {
-      name = "rust-engineer";
-      owner = "sammcj";
-      repo = "agentic-coding";
-      rev = "f2ee2fb7138b78856b68c9b874d6e3d406a2a8a4";
-      path = "Claude/skills_disabled/rust-engineer/SKILL.md";
-      hash = "sha256-vQpInoUbctAwT/eL/27Gr6UkuNH3Au8By2PCXM5z9AQ=";
     };
   };
 

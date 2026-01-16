@@ -16,6 +16,9 @@
         # Requirements
         self.nixosModules.common
 
+        # Opencode
+        self.nixosModules.opencode
+
         self.nixosModules.dev
         self.nixosModules.nix
         self.nixosModules.tailscale
