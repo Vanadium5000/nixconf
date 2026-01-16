@@ -76,6 +76,9 @@
 
           # Markdown
           "davidanson.vscode-markdownlint"
+
+          # Opencode
+          "sst-dev.opencode"
         ]);
 
       inherit (self) colors;

@@ -88,6 +88,7 @@
         rofi
         rofi-askpass
         niri-screen-time
+        sideloader # Sideloader (iOS) - SideStore for Linux
       ]);
 
       services = {
