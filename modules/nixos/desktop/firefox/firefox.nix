@@ -237,34 +237,12 @@
 
         system.activationScripts.firefox-permissions = {
           text = ''
-            USER_HOME="/home/${user}"
-            SHARED_DATA_DIR="$USER_HOME/Shared/Data"
-            PERMISSIONS_SQLITE="$SHARED_DATA_DIR/permissions.sqlite"
-            FIREFOX_DIR="$USER_HOME/.librewolf/${user}.default"
-            SOURCE_FILE="${config.preferences.configDirectory}/modules/nixos/desktop/firefox/permissions.sqlite"
-
-            mkdir -p "$SHARED_DATA_DIR"
-            chown ${user}:users "$SHARED_DATA_DIR"
-
-            if [ ! -f "$PERMISSIONS_SQLITE" ]; then
-              cp "$SOURCE_FILE" "$PERMISSIONS_SQLITE"
-              chown ${user}:users "$PERMISSIONS_SQLITE"
-              chmod 644 "$PERMISSIONS_SQLITE"
-            fi
-
-            mkdir -p "$FIREFOX_DIR"
-            chown ${user}:users "$FIREFOX_DIR"
-
-            # Create symlink
-            TARGET_LINK="$FIREFOX_DIR/permissions.sqlite"
-            if [ -L "$TARGET_LINK" ]; then
-              rm "$TARGET_LINK"
-            elif [ -f "$TARGET_LINK" ]; then
-              # If it's a regular file (not a symlink), we back it up just in case
-              mv "$TARGET_LINK" "$TARGET_LINK.bak"
-            fi
-            ln -sf "$PERMISSIONS_SQLITE" "$TARGET_LINK"
-            chown -h ${user}:users "$TARGET_LINK"
+            ${(import ../../_lib/persistence.nix { inherit lib; }).mkPersistentFileScript {
+              inherit user;
+              fileName = "permissions.sqlite";
+              targetFile = "/home/${user}/.librewolf/${user}.default/permissions.sqlite";
+              defaultContent = "";
+            }}
           '';
           deps = [ "users" ];
         };

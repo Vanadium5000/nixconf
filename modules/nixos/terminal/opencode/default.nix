@@ -4,6 +4,7 @@
     {
       pkgs,
       config,
+      lib,
       ...
     }:
     let
@@ -48,6 +49,18 @@
       environment.systemPackages = [
         opencodeWrapped
       ];
+
+      system.activationScripts.opencode-persistence = {
+        text = ''
+          ${(import ../../_lib/persistence.nix { inherit lib; }).mkPersistentFileScript {
+            inherit user;
+            fileName = "antigravity-accounts.json";
+            targetFile = "/home/${config.preferences.user.username}/.config/opencode/antigravity-accounts.json";
+            defaultContent = "{}";
+          }}
+        '';
+        deps = [ "users" ];
+      };
       hjem.users.${user}.files = {
         "${configFile}".text = builtins.toJSON {
           "$schema" = "https://opencode.ai/config.json";
