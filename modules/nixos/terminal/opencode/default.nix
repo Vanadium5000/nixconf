@@ -4,7 +4,6 @@
     {
       pkgs,
       config,
-      lib,
       ...
     }:
     let
@@ -44,6 +43,15 @@
               --set OPENCODE_LIBC ${pkgs.glibc}/lib/libc.so.6
           '';
       configFile = ".config/opencode/config.json";
+
+      # Persistence configuration using bind mount for reliability
+      accountsPersistence = self.lib.persistence.mkPersistent {
+        method = "bind";
+        inherit user;
+        fileName = "opencode-accounts.json";
+        targetFile = "/home/${user}/.config/opencode/antigravity-accounts.json";
+        defaultContent = "{}";
+      };
     in
     {
       environment.systemPackages = [
@@ -51,17 +59,14 @@
         pkgs.libcanberra-gtk3 # Required by opencode-warcraft-notifications
       ];
 
+      # Setup script to ensure files exist before mount
       system.activationScripts.opencode-persistence = {
-        text = ''
-          ${(import ../../_lib/persistence.nix { inherit lib; }).mkPersistentFileScript {
-            inherit user;
-            fileName = "antigravity-accounts.json";
-            targetFile = "/home/${config.preferences.user.username}/.config/opencode/antigravity-accounts.json";
-            defaultContent = "{}";
-          }}
-        '';
+        text = accountsPersistence.activationScript;
         deps = [ "users" ];
       };
+
+      # Bind mount for reliable persistence (apps can't overwrite)
+      fileSystems = accountsPersistence.fileSystems;
       hjem.users.${user}.files = {
         "${configFile}".text = builtins.toJSON {
           "$schema" = "https://opencode.ai/config.json";

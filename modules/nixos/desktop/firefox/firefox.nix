@@ -42,6 +42,14 @@
         ${extraPrefs}
       '';
 
+      # Persistence configuration using bind mount for reliability
+      permissionsPersistence = self.lib.persistence.mkPersistent {
+        method = "bind";
+        inherit user;
+        fileName = "librewolf-permissions.sqlite";
+        targetFile = "/home/${user}/.librewolf/${user}.default/permissions.sqlite";
+      };
+
       # Profile submodule
       profileModule = types.submodule (
         { config, name, ... }:
@@ -236,16 +244,12 @@
         );
 
         system.activationScripts.firefox-permissions = {
-          text = ''
-            ${(import ../../_lib/persistence.nix { inherit lib; }).mkPersistentFileScript {
-              inherit user;
-              fileName = "permissions.sqlite";
-              targetFile = "/home/${user}/.librewolf/${user}.default/permissions.sqlite";
-              defaultContent = "";
-            }}
-          '';
+          text = permissionsPersistence.activationScript;
           deps = [ "users" ];
         };
+
+        # Bind mount for reliable persistence (apps can't overwrite)
+        fileSystems = permissionsPersistence.fileSystems;
 
         # Default Configuration
         programs.librewolf.policies = {

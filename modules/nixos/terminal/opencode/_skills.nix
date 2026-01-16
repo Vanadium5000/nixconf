@@ -22,7 +22,7 @@ let
 
       installPhase = ''
         mkdir -p $out
-        cp ${path} $out/SKILL.md
+        cp ${path} $out/SKILLd.md
       '';
     };
 
