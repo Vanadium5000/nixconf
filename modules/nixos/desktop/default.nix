@@ -61,6 +61,7 @@
 
         # GUIs
         kdePackages.dolphin # File Manager
+        # FIXME: plasma-systemmonitor is broken
         kdePackages.plasma-systemmonitor # System Monitor
         kdePackages.ark # Archive Manager
         kdePackages.okular # Document Viewer
