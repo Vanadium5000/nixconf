@@ -44,8 +44,10 @@
           ExecStart = "${cfg.package}/bin/git-sync-on-inotify";
           Restart = "always";
           RestartSec = "3min";
-          StartLimitIntervalSec = 0;
           WorkingDirectory = repo.path; # Set working directory to the repo path
+        };
+        unitConfig = {
+          StartLimitIntervalSec = 0;
         };
       };
 

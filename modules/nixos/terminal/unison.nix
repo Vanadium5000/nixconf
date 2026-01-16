@@ -62,7 +62,6 @@
             ExecStart = "${pkgs.unison}/bin/unison -batch -repeat watch default";
             Restart = "always";
             RestartSec = "3min";
-            StartLimitIntervalSec = 0;
             Environment = [
               "HOME=/home/${user}"
               "PATH=${
@@ -72,6 +71,9 @@
                 ]
               }"
             ];
+          };
+          unitConfig = {
+            StartLimitIntervalSec = 0;
           };
         };
 
