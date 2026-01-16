@@ -56,7 +56,7 @@
         # Fetch extensions less declaritively for any not in nixpkgs or that need to be kept up to date
         ++ (pkgs.nix4vscode.forVscode [
           # AI
-          "kilocode.kilo-code" # Kilo Code - Open Source AI coding assistant for planning, building, and fixing code
+          # "kilocode.kilo-code" # Kilo Code - Open Source AI coding assistant for planning, building, and fixing code
           # "rooveterinaryinc.roo-cline" # Similar to Cline/Kilo Code
           # "amazonwebservices.amazon-q-vscode" # Amazon Q - Autocomplete mainly
           # "continue.continue"
