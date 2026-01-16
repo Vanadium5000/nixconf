@@ -125,6 +125,12 @@
               enabled = true;
               timeout = 10000;
             };
+            daisyui = {
+              type = "stdio";
+              command = "${pkgs.daisyui-mcp}/bin/daisyui-mcp";
+              enabled = true;
+              timeout = 10000;
+            };
           };
           formatter = languages.formatter;
           lsp = languages.lsp;

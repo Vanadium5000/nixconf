@@ -1,28 +1,34 @@
 { pkgs }:
 let
   formatterBins = {
-    alejandra = "${pkgs.alejandra}/bin/alejandra";
-    biome = "${pkgs.biome}/bin/biome";
+    nixfmt = "${pkgs.nixfmt-rfc-style}/bin/nixfmt";
     oxfmt = "${pkgs.unstable.oxfmt}/bin/oxfmt";
     shfmt = "${pkgs.shfmt}/bin/shfmt";
   };
 
   lspBins = {
-    biome = "${pkgs.biome}/bin/biome";
     marksman = "${pkgs.marksman}/bin/marksman";
     nil = "${pkgs.nil}/bin/nil";
     tailwindcss = "${pkgs.tailwindcss-language-server}/bin/tailwindcss-language-server";
+    typescript = "${pkgs.typescript-language-server}/bin/typescript-language-server";
+    html = "${pkgs.vscode-langservers-extracted}/bin/vscode-html-language-server";
+    css = "${pkgs.vscode-langservers-extracted}/bin/vscode-css-language-server";
+    json = "${pkgs.vscode-langservers-extracted}/bin/vscode-json-language-server";
+    eslint = "${pkgs.vscode-langservers-extracted}/bin/vscode-eslint-language-server";
   };
 in
 {
   packages = with pkgs; [
-    biome
     marksman
     nil
     tailwindcss-language-server
     alejandra
     unstable.oxfmt
     shfmt
+    vscode-langservers-extracted
+    typescript-language-server
+    eslint_d
+    daisyui-mcp
   ];
 
   formatter = {
@@ -52,17 +58,9 @@ in
         "vue"
       ];
     };
-    biome = {
+    nixfmt = {
       command = [
-        formatterBins.biome
-        "format"
-        "--stdin-file-path"
-      ];
-      extensions = [ "astro" ];
-    };
-    alejandra = {
-      command = [
-        formatterBins.alejandra
+        formatterBins.nixfmt
         "-q"
       ];
       extensions = [ "nix" ];
@@ -99,6 +97,54 @@ in
       extensions = [
         "css"
         "html"
+        "jsx"
+        "tsx"
+      ];
+    };
+    typescript = {
+      command = [
+        lspBins.typescript
+        "--stdio"
+      ];
+      extensions = [
+        "ts"
+        "tsx"
+        "js"
+        "jsx"
+      ];
+    };
+    html = {
+      command = [
+        lspBins.html
+        "--stdio"
+      ];
+      extensions = [ "html" ];
+    };
+    css = {
+      command = [
+        lspBins.css
+        "--stdio"
+      ];
+      extensions = [ "css" ];
+    };
+    json = {
+      command = [
+        lspBins.json
+        "--stdio"
+      ];
+      extensions = [ "json" ];
+    };
+    eslint = {
+      command = [
+        lspBins.eslint
+        "--stdio"
+      ];
+      extensions = [
+        "js"
+        "jsx"
+        "ts"
+        "tsx"
+        "vue"
       ];
     };
   };
