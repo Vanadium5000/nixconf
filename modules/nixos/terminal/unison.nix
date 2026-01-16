@@ -103,7 +103,7 @@
         };
 
         # Persist Unison state (archives/backups) across reboots
-        impermanence.home.directories = [ ".unison" ];
+        impermanence.home.cache.directories = [ ".unison" ];
       };
     };
 }
