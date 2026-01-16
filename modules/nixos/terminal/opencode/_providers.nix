@@ -3,8 +3,8 @@
     google = {
       npm = "@ai-sdk/google";
       models = {
-        "antigravity-gemini-3-pro-low" = {
-          name = "Gemini 3 Pro Low (Antigravity)";
+        antigravity-gemini-3-pro = {
+          name = "Gemini 3 Pro (Antigravity)";
           limit = {
             context = 1048576;
             output = 65535;
@@ -15,26 +15,20 @@
               "image"
               "pdf"
             ];
-            output = [ "text" ];
-          };
-        };
-        "antigravity-gemini-3-pro-high" = {
-          name = "Gemini 3 Pro High (Antigravity)";
-          limit = {
-            context = 1048576;
-            output = 65535;
-          };
-          modalities = {
-            input = [
+            output = [
               "text"
-              "image"
-              "pdf"
             ];
-            output = [ "text" ];
+          };
+          variants = {
+            low = {
+              thinkingLevel = "low";
+            };
+            high = {
+              thinkingLevel = "high";
+            };
           };
         };
-
-        "antigravity-gemini-3-flash" = {
+        antigravity-gemini-3-flash = {
           name = "Gemini 3 Flash (Antigravity)";
           limit = {
             context = 1048576;
@@ -46,11 +40,26 @@
               "image"
               "pdf"
             ];
-            output = [ "text" ];
+            output = [
+              "text"
+            ];
+          };
+          variants = {
+            minimal = {
+              thinkingLevel = "minimal";
+            };
+            low = {
+              thinkingLevel = "low";
+            };
+            medium = {
+              thinkingLevel = "medium";
+            };
+            high = {
+              thinkingLevel = "high";
+            };
           };
         };
-
-        "antigravity-claude-sonnet-4-5" = {
+        antigravity-claude-sonnet-4-5 = {
           name = "Claude Sonnet 4.5 (Antigravity)";
           limit = {
             context = 200000;
@@ -62,12 +71,13 @@
               "image"
               "pdf"
             ];
-            output = [ "text" ];
+            output = [
+              "text"
+            ];
           };
         };
-
-        "antigravity-claude-sonnet-4-5-thinking-low" = {
-          name = "Claude Sonnet 4.5 Low (Antigravity)";
+        antigravity-claude-sonnet-4-5-thinking = {
+          name = "Claude Sonnet 4.5 Thinking (Antigravity)";
           limit = {
             context = 200000;
             output = 64000;
@@ -78,11 +88,25 @@
               "image"
               "pdf"
             ];
-            output = [ "text" ];
+            output = [
+              "text"
+            ];
+          };
+          variants = {
+            low = {
+              thinkingConfig = {
+                thinkingBudget = 8192;
+              };
+            };
+            max = {
+              thinkingConfig = {
+                thinkingBudget = 32768;
+              };
+            };
           };
         };
-        "antigravity-claude-sonnet-4-5-thinking-medium" = {
-          name = "Claude Sonnet 4.5 Medium (Antigravity)";
+        antigravity-claude-opus-4-5-thinking = {
+          name = "Claude Opus 4.5 Thinking (Antigravity)";
           limit = {
             context = 200000;
             output = 64000;
@@ -93,14 +117,28 @@
               "image"
               "pdf"
             ];
-            output = [ "text" ];
+            output = [
+              "text"
+            ];
+          };
+          variants = {
+            low = {
+              thinkingConfig = {
+                thinkingBudget = 8192;
+              };
+            };
+            max = {
+              thinkingConfig = {
+                thinkingBudget = 32768;
+              };
+            };
           };
         };
-        "antigravity-claude-sonnet-4-5-thinking-high" = {
-          name = "Claude Sonnet 4.5 High (Antigravity)";
+        "gemini-2.5-flash" = {
+          name = "Gemini 2.5 Flash (Gemini CLI)";
           limit = {
-            context = 200000;
-            output = 64000;
+            context = 1048576;
+            output = 65536;
           };
           modalities = {
             input = [
@@ -108,15 +146,16 @@
               "image"
               "pdf"
             ];
-            output = [ "text" ];
+            output = [
+              "text"
+            ];
           };
         };
-
-        "antigravity-claude-opus-4-5-thinking-low" = {
-          name = "Claude Opus 4.5 Low (Antigravity)";
+        "gemini-2.5-pro" = {
+          name = "Gemini 2.5 Pro (Gemini CLI)";
           limit = {
-            context = 200000;
-            output = 64000;
+            context = 1048576;
+            output = 65536;
           };
           modalities = {
             input = [
@@ -124,14 +163,16 @@
               "image"
               "pdf"
             ];
-            output = [ "text" ];
+            output = [
+              "text"
+            ];
           };
         };
-        "antigravity-claude-opus-4-5-thinking-medium" = {
-          name = "Claude Opus 4.5 Medium (Antigravity)";
+        gemini-3-flash-preview = {
+          name = "Gemini 3 Flash Preview (Gemini CLI)";
           limit = {
-            context = 200000;
-            output = 64000;
+            context = 1048576;
+            output = 65536;
           };
           modalities = {
             input = [
@@ -139,14 +180,16 @@
               "image"
               "pdf"
             ];
-            output = [ "text" ];
+            output = [
+              "text"
+            ];
           };
         };
-        "antigravity-claude-opus-4-5-thinking-high" = {
-          name = "Claude Opus 4.5 High (Antigravity)";
+        gemini-3-pro-preview = {
+          name = "Gemini 3 Pro Preview (Gemini CLI)";
           limit = {
-            context = 200000;
-            output = 64000;
+            context = 1048576;
+            output = 65535;
           };
           modalities = {
             input = [
@@ -154,22 +197,9 @@
               "image"
               "pdf"
             ];
-            output = [ "text" ];
-          };
-        };
-        "antigravity-gpt-oss-120b-medium" = {
-          name = "GPT-OSS 120B Medium (Antigravity)";
-          limit = {
-            context = 131072;
-            output = 32768;
-          };
-          modalities = {
-            input = [
+            output = [
               "text"
-              "image"
-              "pdf"
             ];
-            output = [ "text" ];
           };
         };
       };

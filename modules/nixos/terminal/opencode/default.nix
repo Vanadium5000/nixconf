@@ -1,9 +1,8 @@
-{ ... }:
+{ inputs, ... }:
 {
   flake.nixosModules.opencode =
     {
       pkgs,
-      inputs,
       config,
       ...
     }:
@@ -52,7 +51,7 @@
       hjem.users.${user}.files = {
         "${configFile}".text = builtins.toJSON {
           "$schema" = "https://opencode.ai/config.json";
-          plugin = [ "opencode-antigravity-auth@1.2.9-beta.8" ];
+          plugin = [ "opencode-antigravity-auth@beta" ];
           small_model = "google/gemma-3n-e4b-it:free";
           autoupdate = false;
           share = "disabled";

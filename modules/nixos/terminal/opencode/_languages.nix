@@ -3,29 +3,25 @@ let
   formatterBins = {
     alejandra = "${pkgs.alejandra}/bin/alejandra";
     biome = "${pkgs.biome}/bin/biome";
-    oxfmt = "${pkgs.oxfmt}/bin/oxfmt";
+    oxfmt = "${pkgs.unstable.oxfmt}/bin/oxfmt";
     shfmt = "${pkgs.shfmt}/bin/shfmt";
   };
 
   lspBins = {
-    astro-ls = "${pkgs.astro-language-server}/bin/astro-ls";
     biome = "${pkgs.biome}/bin/biome";
     marksman = "${pkgs.marksman}/bin/marksman";
     nil = "${pkgs.nil}/bin/nil";
     tailwindcss = "${pkgs.tailwindcss-language-server}/bin/tailwindcss-language-server";
-    volar = "${pkgs.vue-language-server}/bin/vue-language-server";
   };
 in
 {
   packages = with pkgs; [
-    astro-language-server
     biome
     marksman
     nil
     tailwindcss-language-server
-    vue-language-server
     alejandra
-    oxfmt
+    unstable.oxfmt
     shfmt
   ];
 
@@ -74,13 +70,6 @@ in
   };
 
   lsp = {
-    astro-ls = {
-      command = [
-        lspBins.astro-ls
-        "--stdio"
-      ];
-      extensions = [ "astro" ];
-    };
     biome = {
       command = [
         lspBins.biome
@@ -111,13 +100,6 @@ in
         "css"
         "html"
       ];
-    };
-    volar = {
-      command = [
-        lspBins.volar
-        "--stdio"
-      ];
-      extensions = [ "vue" ];
     };
   };
 }
