@@ -1,4 +1,4 @@
-{ pkgs }:
+{ pkgs, self }:
 let
   formatterBins = {
     nixfmt = "${pkgs.nixfmt-rfc-style}/bin/nixfmt";
@@ -18,18 +18,19 @@ let
   };
 in
 {
-  packages = with pkgs; [
-    marksman
-    nil
-    tailwindcss-language-server
-    alejandra
-    unstable.oxfmt
-    shfmt
-    vscode-langservers-extracted
-    typescript-language-server
-    eslint_d
-    daisyui-mcp
-  ];
+  packages =
+    (with pkgs; [
+      marksman
+      nil
+      tailwindcss-language-server
+      alejandra
+      unstable.oxfmt
+      shfmt
+      vscode-langservers-extracted
+      typescript-language-server
+      eslint_d
+    ])
+    ++ (with self.packages.${pkgs.stdenv.hostPlatform.system}; [ daisyui-mcp ]);
 
   formatter = {
     shfmt = {

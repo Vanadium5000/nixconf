@@ -1,4 +1,4 @@
-{ inputs, ... }:
+{ inputs, self, ... }:
 {
   flake.nixosModules.opencode =
     {
@@ -9,7 +9,7 @@
     }:
     let
       user = config.preferences.user.username;
-      languages = import ./_languages.nix { inherit pkgs; };
+      languages = import ./_languages.nix { inherit pkgs self; };
       providers = import ./_providers.nix;
       skills = import ./_skills.nix { inherit pkgs; };
 
@@ -64,7 +64,10 @@
       hjem.users.${user}.files = {
         "${configFile}".text = builtins.toJSON {
           "$schema" = "https://opencode.ai/config.json";
-          plugin = [ "opencode-antigravity-auth@beta" ];
+          plugin = [
+            "opencode-antigravity-auth@beta"
+            "@pantheon-ai/opencode-warcraft-notifications"
+          ];
           small_model = "google/gemma-3n-e4b-it:free";
           autoupdate = false;
           share = "disabled";
@@ -127,7 +130,7 @@
             };
             daisyui = {
               type = "stdio";
-              command = "${pkgs.daisyui-mcp}/bin/daisyui-mcp";
+              command = "${self.packages.${pkgs.stdenv.hostPlatform.system}.daisyui-mcp}/bin/daisyui-mcp";
               enabled = true;
               timeout = 10000;
             };
