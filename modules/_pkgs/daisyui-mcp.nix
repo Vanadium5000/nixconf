@@ -2,6 +2,7 @@
 
 let
   python = pkgs.python313;
+  pythonEnv = python.withPackages (ps: [ ps.fastmcp ]);
 in
 pkgs.stdenv.mkDerivation {
   pname = "daisyui-mcp";
@@ -15,7 +16,7 @@ pkgs.stdenv.mkDerivation {
   };
 
   buildInputs = [
-    (python.withPackages (ps: [ ps.fastmcp ]))
+    pythonEnv
   ];
 
   installPhase = ''
@@ -25,7 +26,7 @@ pkgs.stdenv.mkDerivation {
 
     # Create a wrapper script
     echo "#!/bin/sh" > $out/bin/daisyui-mcp
-    echo "cd $out/share/daisyui-mcp && exec ${python}/bin/python mcp_server.py \"\$@\"" >> $out/bin/daisyui-mcp
+    echo "cd $out/share/daisyui-mcp && exec ${pythonEnv}/bin/python mcp_server.py \"\$@\"" >> $out/bin/daisyui-mcp
     chmod +x $out/bin/daisyui-mcp
   '';
 }

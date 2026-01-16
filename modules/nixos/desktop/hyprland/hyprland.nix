@@ -299,6 +299,7 @@
 
           # Recordings
           "${mod},S, exec, ${getExe pkgs.grim} -g \"$(${getExe pkgs.slurp} -d)\" - | ${getExe pkgs.swappy} -f -"
+          "${shiftMod},S, exec, ${getExe pkgs.grim} -g \"$(${getExe pkgs.slurp} -d)\" - | ${getExe pkgs.tesseract} - - | ${getExe pkgs.wl-clipboard} && text=$( ${getExe pkgs.wl-clipboard} -p) && if [ \${#text} -le 120 ]; then ${getExe pkgs.libnotify} \"OCR Result\" \"\$text\"; else ${getExe pkgs.libnotify} \"OCR Result\" \"\${text:0:100}...\${text: -20}\"; fi" # OCR Screenshot
           "${mod},R, exec, mkdir -p ~/Videos && ${getExe pkgs.wf-recorder} -g \"$(${getExe pkgs.slurp} -d)\" -f ~/Videos/rec_$(date +'%Y-%m-%d_%H-%M-%S').mp4" # Start video recording
           "${shiftMod},R, exec, pkill -SIGINT wf-recorder" # End video recording
 

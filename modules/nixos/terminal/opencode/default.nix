@@ -129,8 +129,8 @@
               timeout = 10000;
             };
             daisyui = {
-              type = "stdio";
-              command = "${self.packages.${pkgs.stdenv.hostPlatform.system}.daisyui-mcp}/bin/daisyui-mcp";
+              type = "local";
+              command = [ "${self.packages.${pkgs.stdenv.hostPlatform.system}.daisyui-mcp}/bin/daisyui-mcp" ];
               enabled = true;
               timeout = 10000;
             };
