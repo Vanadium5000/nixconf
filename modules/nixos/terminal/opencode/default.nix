@@ -48,6 +48,7 @@
     {
       environment.systemPackages = [
         opencodeWrapped
+        pkgs.libcanberra-gtk3 # Required by opencode-warcraft-notifications
       ];
 
       system.activationScripts.opencode-persistence = {
