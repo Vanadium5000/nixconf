@@ -10,7 +10,7 @@ let
     marksman = "${pkgs.marksman}/bin/marksman";
     nil = "${pkgs.nil}/bin/nil";
     tailwindcss = "${pkgs.tailwindcss-language-server}/bin/tailwindcss-language-server";
-    typescript = "${pkgs.typescript-language-server}/bin/typescript-language-server";
+    # typescript = "${pkgs.typescript-language-server}/bin/typescript-language-server";
     html = "${pkgs.vscode-langservers-extracted}/bin/vscode-html-language-server";
     css = "${pkgs.vscode-langservers-extracted}/bin/vscode-css-language-server";
     json = "${pkgs.vscode-langservers-extracted}/bin/vscode-json-language-server";
@@ -68,19 +68,6 @@ in
   };
 
   lsp = {
-    biome = {
-      command = [
-        lspBins.biome
-        "lsp-proxy"
-      ];
-      extensions = [
-        "js"
-        "ts"
-        "json"
-        "jsx"
-        "tsx"
-      ];
-    };
     nil = {
       command = [ lspBins.nil ];
       extensions = [ "nix" ];
@@ -101,18 +88,19 @@ in
         "tsx"
       ];
     };
-    typescript = {
-      command = [
-        lspBins.typescript
-        "--stdio"
-      ];
-      extensions = [
-        "ts"
-        "tsx"
-        "js"
-        "jsx"
-      ];
-    };
+    # Already included by default
+    # typescript = {
+    #   command = [
+    #     lspBins.typescript
+    #     "--stdio"
+    #   ];
+    #   extensions = [
+    #     "ts"
+    #     "tsx"
+    #     "js"
+    #     "jsx"
+    #   ];
+    # };
     html = {
       command = [
         lspBins.html
