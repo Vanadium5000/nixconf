@@ -61,6 +61,12 @@ rec {
         mkdir -p "$SHARED_DATA_DIR"
         chown ${user}:users "$SHARED_DATA_DIR"
 
+        # Security: refuse to use a symlink as the persistent file (prevents symlink attacks)
+        if [ -L "$PERSISTENT_FILE" ]; then
+          echo "ERROR: Persistent file '$PERSISTENT_FILE' is a symlink. Refusing to use." >&2
+          exit 1
+        fi
+
         # Initialize persistent file if it doesn't exist
         if [ ! -f "$PERSISTENT_FILE" ]; then
           ${
@@ -91,11 +97,15 @@ rec {
       symlinkScript = ''
         ${setupScript}
 
-        # Handle existing target file
+        # Handle existing target: symlink, regular file, or directory
         if [ -L "$TARGET_FILE" ]; then
+          # Remove existing symlink (including broken ones)
           rm "$TARGET_FILE"
-        elif [ -f "$TARGET_FILE" ]; then
-          # Back up regular files (might contain user data)
+        elif [ -d "$TARGET_FILE" ]; then
+          # Back up directories (unusual but possible)
+          mv "$TARGET_FILE" "$TARGET_FILE.dir.bak.$(date +%Y%m%d%H%M%S)"
+        elif [ -e "$TARGET_FILE" ]; then
+          # Back up regular files or other types (might contain user data)
           mv "$TARGET_FILE" "$TARGET_FILE.bak.$(date +%Y%m%d%H%M%S)"
         fi
 
@@ -108,11 +118,24 @@ rec {
       bindSetupScript = ''
         ${setupScript}
 
-        # For bind mounts, we need the target file to exist as a mount point
-        if [ ! -f "$TARGET_FILE" ]; then
+        # For bind mounts, we need the target file to exist as a mount point.
+        # Handle edge cases: symlinks, directories, or other file types.
+        if [ -L "$TARGET_FILE" ]; then
+          # Remove symlinks (including broken ones) - bind mounts need a real file
+          rm "$TARGET_FILE"
+          touch "$TARGET_FILE"
+          chown ${user}:users "$TARGET_FILE"
+        elif [ -d "$TARGET_FILE" ]; then
+          # Cannot bind-mount a file over a directory
+          mv "$TARGET_FILE" "$TARGET_FILE.dir.bak.$(date +%Y%m%d%H%M%S)"
+          touch "$TARGET_FILE"
+          chown ${user}:users "$TARGET_FILE"
+        elif [ ! -e "$TARGET_FILE" ]; then
+          # Target doesn't exist, create empty file as mount point
           touch "$TARGET_FILE"
           chown ${user}:users "$TARGET_FILE"
         fi
+        # If it's already a regular file, leave it (will be shadowed by bind mount)
       '';
 
       # Systemd mount unit name (for dependencies)
