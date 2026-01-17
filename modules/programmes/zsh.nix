@@ -249,8 +249,8 @@
             alias ....="cd ../../.."
 
             # Bat as cat replacement with better defaults
-            alias cat="bat --paging=never"
-            alias less="bat --paging=always"
+            alias cat="bat --style=plain --color=always --paging=never"
+            alias less="bat --color=always --paging=always"
 
             # ══════════════════════════════════════════════════════════════════
             # Environment Setup

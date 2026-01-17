@@ -86,6 +86,7 @@
         nwg-dock-hyprland
         nwg-drawer
         rofi
+        rofi-images
         rofi-askpass
         niri-screen-time
         #sideloader # Sideloader (iOS) - SideStore for Linux

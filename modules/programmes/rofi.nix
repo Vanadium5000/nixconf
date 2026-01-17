@@ -237,15 +237,29 @@
         # Also wrap both with UWSM
         if [[ "$cmd" == *"waydroid"* ]]; then
             # Run with NVIDIA offload - if device supports it
-            uwsm app -- ${if (pkgs.config.cudaSupport or false) then "nvidia-offload " else ""}exec $cmd
+            uwsm app -- ${if (pkgs.config.cudaSupport or false) then "nvidia-offload " else ""} $cmd
         else
             # Run normally for other apps
-            uwsm app -- exec $cmd
+            uwsm app -- $cmd
         fi
       '';
 
+      rofi-toggle = pkgs.writeShellScript "rofi-toggle" ''
+        PID_FILE="/dev/shm/rofi.pid"
+        if [ -f "$PID_FILE" ]; then
+          PID=$(cat "$PID_FILE")
+          if kill -0 "$PID" 2>/dev/null; then
+            kill "$PID"
+            exit 1
+          fi
+          rm -f "$PID_FILE"
+        fi
+        echo $$ > "$PID_FILE"
+        trap 'rm -f "$PID_FILE"' EXIT
+      '';
+
       rofi-package =
-        name: config:
+        config:
         let
           pkg = inputs.wrappers.lib.makeWrapper {
             inherit pkgs;
@@ -262,16 +276,19 @@
             };
           };
         in
-        pkgs.writeShellScriptBin name ''
-          if ${pkgs.procps}/bin/pkill -f '^(.*/)?rofi( |$)' ; then
-            exit 0
-          fi
-          exec ${pkg}/bin/rofi "$@"
-        '';
+        pkgs.symlinkJoin {
+          name = "rofi-toggle";
+          paths = [ pkg ];
+          nativeBuildInputs = [ pkgs.makeWrapper ];
+          postBuild = ''
+            wrapProgram $out/bin/rofi \
+              --run '. ${rofi-toggle}'
+          '';
+        };
     in
     {
-      packages.rofi = rofi-package "rofi" config;
-      packages.rofi-images = rofi-package "rofi-images" config-images;
+      packages.rofi = rofi-package config;
+      packages.rofi-images = rofi-package config-images;
 
       packages.rofi-askpass = pkgs.writeShellScriptBin "rofi-askpass" ''
         : | rofi -dmenu \
