@@ -1,6 +1,7 @@
 {
   lib,
   inputs,
+  self,
   ...
 }:
 {
@@ -37,7 +38,7 @@
         inherit system;
         overlays = [
           (final: prev: {
-            customPackages = inputs.self.overlays.customPackages final prev;
+            customPackages = self.packages.${system};
             unstable = import inputs.nixpkgs-unstable { inherit system; };
             nur = import inputs.nur {
               nurpkgs = prev;

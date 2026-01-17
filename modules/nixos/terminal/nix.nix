@@ -1,4 +1,4 @@
-{ inputs, ... }:
+{ inputs, self, ... }:
 {
   flake.nixosModules.nix =
     {
@@ -103,7 +103,7 @@
       # Add overlays
       nixpkgs.overlays = [
         (final: prev: {
-          customPackages = inputs.self.overlays.customPackages final prev;
+          customPackages = self.packages.${final.system};
           unstable = import inputs.nixpkgs-unstable {
             system = final.system;
             config = final.config; # Inherit nixpkgs config

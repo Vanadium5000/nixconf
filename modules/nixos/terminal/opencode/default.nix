@@ -139,6 +139,15 @@
               enabled = true;
               timeout = 10000;
             };
+            playwrite = {
+              enabled = true;
+              type = "local";
+              command = [
+                "${pkgs.playwright-mcp}/bin/mcp-server-playwright"
+                "--browser=firefox"
+                "--headless"
+              ];
+            };
           };
           formatter = languages.formatter;
           lsp = languages.lsp;

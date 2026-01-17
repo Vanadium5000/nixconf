@@ -15,7 +15,7 @@ let
     builtins.foldl' (acc: filename: acc // (toPackage filename)) { } files;
 in
 {
-  flake.overlays.customPackages = final: prev: getPackages final.callPackage;
+  flake.overlays.customPackages = final: prev: { customPackages = getPackages final.callPackage; };
 
   perSystem =
     { pkgs, ... }:
