@@ -239,15 +239,15 @@
         "nixpkgs": "nixpkgs"
       },
       "locked": {
-        "lastModified": 1767822991,
-        "narHash": "sha256-iyrn9AcPZCoyxX4OT8eMkBsjG7SRUQXXS/V1JzxS7rA=",
-        "owner": "nix-community",
+        "lastModified": 1768607612,
+        "narHash": "sha256-HNPsd86s6iQc9yEduIMEo/MGDML9KJJnjXMYtoiWuUQ=",
+        "owner": "vanadium5000",
         "repo": "impermanence",
-        "rev": "82e5bc4508cab9e8d5a136626276eb5bbce5e9c5",
+        "rev": "d2688d30ac20a31cd4179b8cd954f067f66b60ec",
         "type": "github"
       },
       "original": {
-        "owner": "nix-community",
+        "owner": "vanadium5000",
         "repo": "impermanence",
         "type": "github"
       }

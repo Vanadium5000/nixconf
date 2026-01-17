@@ -56,7 +56,6 @@
     {
       environment.systemPackages = [
         opencodeWrapped
-        pkgs.libcanberra-gtk3 # Required by opencode-warcraft-notifications
       ];
 
       # Setup script to ensure files exist before mount
@@ -72,7 +71,7 @@
           "$schema" = "https://opencode.ai/config.json";
           plugin = [
             "opencode-antigravity-auth@beta"
-            "@pantheon-ai/opencode-warcraft-notifications"
+            "@mohak34/opencode-notifier@latest"
           ];
           small_model = "google/gemma-3n-e4b-it:free";
           autoupdate = false;

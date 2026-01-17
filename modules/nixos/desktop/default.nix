@@ -88,7 +88,9 @@
         rofi
         rofi-askpass
         niri-screen-time
-        sideloader # Sideloader (iOS) - SideStore for Linux
+        #sideloader # Sideloader (iOS) - SideStore for Linux
+        # iloader is preferred
+        iloader # User friendly sideloader (iOS) - SideStore for Linux
       ]);
 
       services = {
@@ -100,6 +102,8 @@
         gvfs.enable = true;
         # DBus service that allows applications to query and manipulate storage devices
         udisks2.enable = true;
+        # Enable usbmuxd service for iOS devices
+        usbmuxd.enable = true;
       };
 
       # Generic command-line automation tool (macro/autoclicker)
