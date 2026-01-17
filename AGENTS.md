@@ -69,12 +69,14 @@ statix fix .     # Auto-fix issues
 ## Code Style & Conventions
 
 ### Commenting Policy
+
 - **Concise & Useful:** Add comments *only* when the "why" isn't obvious from the code.
 - **Avoid Redundancy:** Do not describe *what* the code does (e.g., `# Enable docker` above `virtualisation.docker.enable = true` is bad).
 - **Context:** Explain complex logic, workarounds, or non-standard configurations.
 - **Header:** Top-level modules should have a brief description of their purpose.
 
 ### Module Structure
+
 Modules follow the `flake-parts` pattern. Use `import-tree` for directory structures.
 
 ```nix
@@ -102,6 +104,7 @@ Modules follow the `flake-parts` pattern. Use `import-tree` for directory struct
 ```
 
 ### Preferences System (`config.preferences`)
+
 The configuration is controlled via a centralized `preferences` option tree (defined in `modules/common/base.nix`).
 
 - `preferences.enable`: Global enable flag (default true).
@@ -116,7 +119,9 @@ The configuration is controlled via a centralized `preferences` option tree (def
 Use `config.preferences.user.username` instead of hardcoding "matrix".
 
 ### Custom Packages (`_pkgs`)
+
 Packages in `modules/_pkgs/` are automatically exposed via `self.packages`.
+
 - File name must match the package name (e.g., `daisyui-mcp.nix`).
 - Do not create a `default.nix` in `_pkgs/`.
 
@@ -131,6 +136,7 @@ pkgs.stdenv.mkDerivation {
 ```
 
 ### Custom Library (`modules/lib`)
+
 Accessible via `self.lib`. Contains helpers for persistence and config generation.
 
 ```nix
@@ -147,6 +153,7 @@ file = mkPersistent {
 ```
 
 ### Formatting Rules
+
 - **Formatter:** `nixfmt` (RFC style).
 - **Indentation:** 2 spaces.
 - **Lists:** Single-item lists on one line, multi-item lists = one per line.
@@ -157,9 +164,11 @@ file = mkPersistent {
 This system uses ephemeral root storage. You **MUST** explicitly persist files/directories that should survive a reboot.
 
 ### Critical Data (Backed up)
+
 Use `impermanence.nixos` (system) or `impermanence.home` (user).
 
 **Guidelines:**
+
 - Add directories containing configuration, database files, or keys.
 - Add specific files if the parent directory shouldn't be persisted.
 
@@ -185,8 +194,9 @@ impermanence.home.files = [
 ];
 ```
 
-### Cache / Large Data (Not Critical)
-Use `impermanence.*.cache` for large files or download artifacts ( >50MB) that can be re-downloaded or regenerated. These are preserved but semantically separated from critical data.
+### Cache / Large Data (Not Backed Up)
+
+Use `impermanence.*.cache` for large files or download artifacts (>50MB) that can be re-downloaded or regenerated. Cache directories are persisted across reboots just like regular persistence, but are **not included in backups**. They are never automatically cleaned up - the only difference is backup inclusion.
 
 ```nix
 # System Cache
@@ -206,7 +216,9 @@ impermanence.home.cache.directories = [
 ## Flake & Advanced Patterns
 
 ### Self-References
+
 Access flake outputs directly via `self`:
+
 - `self.nixosModules.*`: Access other modules.
 - `self.packages.${pkgs.system}.*`: Access custom packages.
 - `self.theme`: Access the global theme definition.
@@ -214,7 +226,9 @@ Access flake outputs directly via `self`:
 - `self.secrets`: Access runtime secrets (loaded via `rebuild.sh`).
 
 ### Secrets Management
+
 Secrets are managed via `pass` (password-store) and `secrets.nix`.
+
 1. `rebuild.sh` reads secrets from `pass` based on `SECRETS_MAP`.
 2. It generates `secrets.nix` (ignored by git).
 3. `flake.nix` imports `secrets.nix` and exposes `self.secrets`.
@@ -223,6 +237,7 @@ Secrets are managed via `pass` (password-store) and `secrets.nix`.
 **Note:** Never commit actual secrets. `secrets.nix` is in `.gitignore`.
 
 ### Input Handling
+
 - Use `inputs.nixpkgs.lib` for standard library functions.
 - Use `inputs.<flake>.nixosModules.<module>` for external modules.
 - Use `self` for internal references.
@@ -230,16 +245,19 @@ Secrets are managed via `pass` (password-store) and `secrets.nix`.
 ## Common Tasks
 
 **Adding a new Host:**
+
 1. Create `modules/hosts/<hostname>/default.nix`.
 2. Define `flake.nixosConfigurations.<hostname>`.
 3. Import `self.nixosModules.desktop` (or terminal/common).
 4. Set `preferences.hostName` and hardware config.
 
 **Adding a Package:**
+
 1. If available in nixpkgs: add to `environment.systemPackages`.
 2. If custom: add `modules/_pkgs/<name>.nix`, then add to system packages using `self.packages.${pkgs.system}.<name>`.
 
 **Debugging Build Failures:**
+
 1. Check `nix log` for detailed error messages.
 2. Verify `path:.` is used (default in `rebuild.sh`) so dirty/ignored files are seen.
 3. Check `impermanence` paths if state is lost on reboot.

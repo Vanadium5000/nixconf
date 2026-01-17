@@ -13,17 +13,17 @@
       user = config.preferences.user.username;
 
       # Determine remote host based on current host for safe, targeted sync
-      # Legion 5i (100.97.223.117) <-> MacBook (100.98.152.13)
+      # Uses Tailscale FQDNs for consistent hostname resolution (critical for archive hashing)
       remoteDetails =
         if config.preferences.hostName == "legion5i" then
           {
             name = "macbook";
-            ip = "100.98.152.13";
+            fqdn = "macbook.tailb91a72.ts.net";
           }
         else if config.preferences.hostName == "macbook" then
           {
             name = "legion5i";
-            ip = "100.97.223.117";
+            fqdn = "legion5i.tailb91a72.ts.net";
           }
         else
           null;
@@ -34,31 +34,39 @@
       };
 
       config = mkIf cfg.enable {
-        environment.systemPackages = [ pkgs.unison ];
+        environment.systemPackages = [
+          pkgs.unison
+          pkgs.inotify-tools
+        ];
 
         # SSH Configuration for the sync target
         programs.ssh.extraConfig = lib.mkIf (remoteDetails != null) ''
           Host sync-target
-            HostName ${remoteDetails.ip}
+            HostName ${remoteDetails.fqdn}
             User ${user}
-            # Identityfile unspecified/managed by GPG Agent
             # Keep connection alive for long-running watch sessions
             ServerAliveInterval 60
             ServerAliveCountMax 3
         '';
 
         # Systemd User Service for continuous sync using file monitoring
-        # User services inherit the user's environment (including SSH_AUTH_SOCK from GPG agent)
         systemd.user.services.unison-sync = lib.mkIf (remoteDetails != null) {
           description = "Unison Background Synchronization between ${config.preferences.hostName} and ${remoteDetails.name}";
-          # Note: User services usually don't wait for network-online.target as they start in user session.
-          # We rely on Restart=always to handle initial connectivity issues.
           wantedBy = [ "default.target" ];
 
           serviceConfig = {
             Type = "simple";
-            # -batch: run without user interaction
-            # -repeat watch: use file monitoring to sync immediately on change
+            # Wait for Tailscale connectivity before starting
+            ExecStartPre = "${pkgs.writeShellScript "unison-wait-for-peer" ''
+              for i in $(seq 1 30); do
+                if ${pkgs.tailscale}/bin/tailscale ping --timeout=2s ${remoteDetails.fqdn} >/dev/null 2>&1; then
+                  exit 0
+                fi
+                sleep 2
+              done
+              echo "Peer ${remoteDetails.fqdn} not reachable after 60s"
+              exit 1
+            ''}";
             ExecStart = "${pkgs.unison}/bin/unison -batch -repeat watch default";
             Restart = "always";
             RestartSec = "3min";
@@ -68,6 +76,7 @@
                 lib.makeBinPath [
                   pkgs.unison
                   pkgs.openssh
+                  pkgs.inotify-tools
                 ]
               }"
             ];
@@ -87,11 +96,8 @@
             # Selective Sync: Only sync the Shared folder
             path = Shared
 
-            # Ignore patterns for efficiency and to avoid syncing garbage
-            ignore = Name {.*,.*~}
-            ignore = Name {node_modules,target,.git,.direnv}
-            ignore = Name {.DS_Store,.localized,Icon\r}
-            ignore = Name {.cache,.local/share/Trash,Downloads}
+            # Version compatibility - embeds version in archive names to prevent collisions
+            addversionno = true
 
             # Robustness & Automation
             auto = true
@@ -99,6 +105,16 @@
             confirmbigdel = true
             prefer = newer
             times = true
+
+            # Connection resilience
+            retry = 3
+            sshargs = -o BatchMode=yes -o ConnectTimeout=10
+
+            # Backup conflicting files before overwriting
+            backup = Name *
+            backuploc = central
+            backupdir = .unison/backups
+            maxbackups = 5
           '';
         };
 
