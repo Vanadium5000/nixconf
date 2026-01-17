@@ -204,23 +204,23 @@
         };
       };
       # Image model - found in https://github.com/NoeFabris/opencode-antigravity-auth/pull/164
-      "gemini-3-pro-image" = {
-        name = "Gemini 3 Pro Image (Antigravity)";
-        limit = {
-          context = 1048576;
-          output = 65536;
-        };
-        modalities = {
-          input = [
-            "text"
-            "image"
-          ];
-          output = [
-            "text"
-            "image"
-          ];
-        };
-      };
+      # "gemini-3-pro-image" = {
+      #   name = "Gemini 3 Pro Image (Antigravity)";
+      #   limit = {
+      #     context = 1048576;
+      #     output = 65536;
+      #   };
+      #   modalities = {
+      #     input = [
+      #       "text"
+      #       "image"
+      #     ];
+      #     output = [
+      #       "text"
+      #       "image"
+      #     ];
+      #   };
+      # };
     };
   };
 }

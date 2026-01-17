@@ -43,6 +43,8 @@
               --set OPENCODE_LIBC ${pkgs.glibc}/lib/libc.so.6
           '';
       configFile = ".config/opencode/config.json";
+      antigravityConfigFile = ".config/opencode/antigravity.json";
+      ohmyopencodeConfigFile = ".config/opencode/oh-my-opencode.json";
 
       # Persistence configuration using bind mount for reliability
       accountsPersistence = self.lib.persistence.mkPersistent {
@@ -72,6 +74,8 @@
           plugin = [
             "opencode-antigravity-auth@latest"
             "@mohak34/opencode-notifier@latest"
+            "oh-my-opencode@latest"
+            "@tarquinen/opencode-dcp@latest"
           ];
           small_model = "google/gemma-3n-e4b-it:free";
           autoupdate = false;
@@ -154,6 +158,18 @@
           provider = providers.config;
         };
         "opencode/skill".source = skills.skillsSource + "/skill";
+
+        "${antigravityConfigFile}".text = builtins.toJSON {
+          "$schema" =
+            "https://raw.githubusercontent.com/NoeFabris/opencode-antigravity-auth/main/assets/antigravity.schema.json";
+          account_selection_strategy = "round-robin";
+          pid_offset_enabled = true;
+        };
+        "${ohmyopencodeConfigFile}".text = builtins.toJSON {
+          "$schema" =
+            "https://raw.githubusercontent.com/code-yeongyu/oh-my-opencode/master/assets/oh-my-opencode.schema.json";
+          "google_auth" = false;
+        };
       };
     };
 }

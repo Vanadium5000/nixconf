@@ -22,6 +22,8 @@
       altMod = "ALT";
       terminal = self.packages.${pkgs.stdenv.hostPlatform.system}.terminal;
       systemSettings = config.preferences.system;
+
+      makeScript = script: builtins.toString (pkgs.writeScriptBin "script" script) + "/bin/script";
     in
     {
       # Persist nwg-displays diplay settings
@@ -299,8 +301,14 @@
 
           # Recordings
           "${mod},S, exec, ${getExe pkgs.grim} -g \"$(${getExe pkgs.slurp} -d)\" - | ${getExe pkgs.swappy} -f -"
-          "${shiftMod},S, exec, ${getExe pkgs.grim} -g \"$(${getExe pkgs.slurp} -d)\" - | ${getExe pkgs.tesseract} - - | ${pkgs.wl-clipboard}/bin/wl-copy && text=$( ${pkgs.wl-clipboard}/bin/wl-paste) && if [ \${#text} -le 120 ]; then ${getExe pkgs.libnotify} \"OCR Result\" \"\$text\"; else ${getExe pkgs.libnotify} \"OCR Result\" \"\${text:0:100}...\${text: -20}\"; fi" # OCR Screenshot
-          "${altMod},S, exec, ${getExe pkgs.grim} -g \"$(${getExe pkgs.slurp} -d)\" - | ${pkgs.zbar}/bin/zbarimg - | sed 's/^QR-Code:[[:space:]]*//' | ${pkgs.wl-clipboard}/bin/wl-copy && text=$( ${pkgs.wl-clipboard}/bin/wl-paste) && if [ \${#text} -le 120 ]; then ${getExe pkgs.libnotify} \"ZBAR SCAN Result\" \"\$text\"; else ${getExe pkgs.libnotify} \"ZBAR SCAN Result\" \"\${text:0:100}...\${text: -20}\"; fi" # ZBAR SCAN Screenshot
+          (
+            "${shiftMod},S, exec, "
+            + (makeScript "${getExe pkgs.grim} -g \"$(${getExe pkgs.slurp} -d)\" - | ${getExe pkgs.tesseract} - - | ${pkgs.wl-clipboard}/bin/wl-copy && text=$( ${pkgs.wl-clipboard}/bin/wl-paste) && if [ \${#text} -le 120 ]; then ${getExe pkgs.libnotify} \"OCR Result\" \"\$text\"; else ${getExe pkgs.libnotify} \"OCR Result\" \"\${text:0:100}...\${text: -20}\"; fi")
+          ) # OCR Screenshot
+          (
+            "${altMod},S, exec, "
+            + (makeScript "${getExe pkgs.grim} -g \"$(${getExe pkgs.slurp} -d)\" - | ${pkgs.zbar}/bin/zbarimg - | sed 's/^QR-Code:[[:space:]]*//' | ${pkgs.wl-clipboard}/bin/wl-copy && text=$( ${pkgs.wl-clipboard}/bin/wl-paste) && if [ \${#text} -le 120 ]; then ${getExe pkgs.libnotify} \"ZBAR SCAN Result\" \"\$text\"; else ${getExe pkgs.libnotify} \"ZBAR SCAN Result\" \"\${text:0:100}...\${text: -20}\"; fi")
+          ) # ZBAR SCAN Screenshot
           "${mod},R, exec, mkdir -p ~/Videos && ${getExe pkgs.wf-recorder} -g \"$(${getExe pkgs.slurp} -d)\" -f ~/Videos/rec_$(date +'%Y-%m-%d_%H-%M-%S').mp4" # Start video recording
           "${shiftMod},R, exec, pkill -SIGINT wf-recorder" # End video recording
 
@@ -386,7 +394,7 @@
           "GSK_RENDERER,vulkan" # "ngl" | "vulkan"
 
           # Proper cursor
-          "XCURSOR_THEME,Adwaita"
+          "XCURSOR_THEME,Oxygen"
           "XCURSOR_SIZE,16"
 
           # Checklist directory

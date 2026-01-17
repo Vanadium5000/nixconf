@@ -76,6 +76,9 @@
               LYRICS_FONT_SIZE="''${LYRICS_FONT_SIZE:-28}" \
               LYRICS_COLOR="''${LYRICS_COLOR:-#ffffff}" \
               LYRICS_OPACITY="''${LYRICS_OPACITY:-0.95}" \
+              LYRICS_SHADOW="''${LYRICS_SHADOW:-true}" \
+              LYRICS_SPACING="''${LYRICS_SPACING:-8}" \
+              LYRICS_LENGTH="''${LYRICS_LENGTH:-0}" \
               "$QS_BIN" -p "$QML_FILE" &
               ;;
             hide)
@@ -88,6 +91,9 @@
                 LYRICS_FONT_SIZE="''${LYRICS_FONT_SIZE:-28}" \
                 LYRICS_COLOR="''${LYRICS_COLOR:-#ffffff}" \
                 LYRICS_OPACITY="''${LYRICS_OPACITY:-0.95}" \
+                LYRICS_SHADOW="''${LYRICS_SHADOW:-true}" \
+                LYRICS_SPACING="''${LYRICS_SPACING:-8}" \
+                LYRICS_LENGTH="''${LYRICS_LENGTH:-0}" \
                 "$QS_BIN" -p "$QML_FILE" &
               fi
               ;;

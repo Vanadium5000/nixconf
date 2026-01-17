@@ -48,6 +48,14 @@ interface CliOptions {
   lines: number;
   player: string;
   quiet: boolean;
+  // Overlay options
+  length: number;
+  fontSize: number;
+  color: string;
+  position: string;
+  opacity: number;
+  shadow: boolean;
+  spacing: number;
 }
 
 function parseArgs(): CliOptions {
@@ -59,6 +67,13 @@ function parseArgs(): CliOptions {
     lines: 3,
     player: DEFAULT_PLAYER,
     quiet: false,
+    length: 0,
+    fontSize: 28,
+    color: "#ffffff",
+    position: "bottom",
+    opacity: 0.95,
+    shadow: true,
+    spacing: 8,
   };
 
   let i = 0;
@@ -88,6 +103,35 @@ function parseArgs(): CliOptions {
         i++;
         options.lines = parseInt(args[i] || "3") || 3;
         break;
+      case "--length":
+      case "-len":
+        i++;
+        options.length = parseInt(args[i] || "0") || 0;
+        break;
+      case "--font-size":
+        i++;
+        options.fontSize = parseInt(args[i] || "28") || 28;
+        break;
+      case "--color":
+        i++;
+        options.color = args[i] || "#ffffff";
+        break;
+      case "--position":
+        i++;
+        options.position = args[i] || "bottom";
+        break;
+      case "--opacity":
+        i++;
+        options.opacity = parseFloat(args[i] || "0.95") || 0.95;
+        break;
+      case "--shadow":
+        i++;
+        options.shadow = args[i] === "false" ? false : true;
+        break;
+      case "--spacing":
+        i++;
+        options.spacing = parseInt(args[i] || "8") || 8;
+        break;
       case "--player":
         i++;
         options.player = args[i] || DEFAULT_PLAYER;
@@ -112,8 +156,17 @@ Options:
   --json, -j      Output JSON for waybar
   --progress, -p  Show progress/timestamp
   --lines N, -l N Number of lines to display (default: 3)
+  --length N      Max line length before truncation (default: 0, disabled)
   --player NAME   Player to use (default: mpd,%any)
   --quiet, -q     Suppress errors
+  
+Overlay Options:
+  --font-size N   Font size for overlay (default: 28)
+  --color HEX     Text color (default: #ffffff)
+  --position POS  Overlay position: top, bottom, center (default: bottom)
+  --opacity N     Text opacity (0.0-1.0, default: 0.95)
+  --shadow BOOL   Show text shadow/outline (default: true)
+  --spacing N     Spacing between lines (default: 8)
   --help, -h      Show this help
 `);
         process.exit(0);
@@ -396,6 +449,11 @@ async function cacheLyrics(
 }
 
 // --- Output Formatting ---
+function truncate(text: string, length: number): string {
+  if (length <= 0 || text.length <= length) return text;
+  return text.slice(0, length - 3) + "...";
+}
+
 function formatProgress(position: number, duration: number): string {
   const formatTime = (s: number) => {
     const m = Math.floor(s / 60);
@@ -423,23 +481,31 @@ function formatWaybarOutput(
     ? getCurrentLines(lyrics, metadata.position, options.lines)
     : { current: "", upcoming: [] };
 
-  let text = current || "♪";
+  let text = truncate(current || "♪", options.length);
   if (options.progress && metadata.duration > 0) {
     text = `${formatProgress(metadata.position, metadata.duration)} ${text}`;
   }
 
   // Build tooltip with context
-  let tooltip = `<b>${metadata.title}</b>\n${metadata.artist}`;
-  if (metadata.album) tooltip += `\n<i>${metadata.album}</i>`;
+  let tooltip = `<b>${truncate(metadata.title, options.length)}</b>\n${truncate(
+    metadata.artist,
+    options.length
+  )}`;
+  if (metadata.album)
+    tooltip += `\n<i>${truncate(metadata.album, options.length)}</i>`;
   tooltip += "\n";
 
   if (lyrics?.synced && current) {
-    tooltip += `\n<b>► ${current}</b>`;
+    tooltip += `\n<b>► ${truncate(current, options.length)}</b>`;
     for (const line of upcoming) {
-      tooltip += `\n  ${line}`;
+      tooltip += `\n  ${truncate(line, options.length)}`;
     }
   } else if (lyrics?.plainText) {
-    const previewLines = lyrics.plainText.split("\n").slice(0, 8).join("\n");
+    const previewLines = lyrics.plainText
+      .split("\n")
+      .slice(0, 8)
+      .map((l) => truncate(l, options.length))
+      .join("\n");
     tooltip += `\n${previewLines}...`;
   } else {
     tooltip += "\n<i>No lyrics found</i>";
@@ -453,7 +519,7 @@ function formatWaybarOutput(
       : "paused";
 
   return {
-    text: text.length > 50 ? text.slice(0, 47) + "..." : text,
+    text: text, // Waybar already handles truncation if configured, but we respect our length opt
     tooltip,
     class: statusClass,
     alt: metadata.status.toLowerCase(),
@@ -462,10 +528,24 @@ function formatWaybarOutput(
 
 // --- Overlay Control ---
 async function controlOverlay(
-  action: "show" | "hide" | "toggle"
+  action: "show" | "hide" | "toggle",
+  options: CliOptions
 ): Promise<void> {
   try {
-    await $`toggle-lyrics-overlay ${action}`.quiet();
+    // Pass options as environment variables to the wrapper
+    const env = {
+      ...process.env,
+      LYRICS_LINES: options.lines.toString(),
+      LYRICS_POSITION: options.position,
+      LYRICS_FONT_SIZE: options.fontSize.toString(),
+      LYRICS_COLOR: options.color,
+      LYRICS_OPACITY: options.opacity.toString(),
+      LYRICS_SHADOW: options.shadow.toString(),
+      LYRICS_SPACING: options.spacing.toString(),
+      LYRICS_LENGTH: options.length.toString(),
+    };
+
+    await $`toggle-lyrics-overlay ${action}`.env(env).quiet();
   } catch (e) {
     console.error(`Failed to ${action} overlay:`, e);
   }
@@ -518,7 +598,7 @@ async function watchMode(options: CliOptions): Promise<void> {
             metadata.position,
             1
           );
-          console.log(current || "♪");
+          console.log(truncate(current || "♪", options.length));
         } else {
           console.log("");
         }
@@ -586,14 +666,15 @@ async function currentMode(options: CliOptions): Promise<void> {
         metadata.position,
         options.lines
       );
-      console.log(current);
+      console.log(truncate(current, options.length));
       for (const line of upcoming) {
-        console.log(line);
+        console.log(truncate(line, options.length));
       }
     } else if (lyrics?.plainText) {
-      console.log(
-        lyrics.plainText.split("\n").slice(0, options.lines).join("\n")
-      );
+      const lines = lyrics.plainText.split("\n").slice(0, options.lines);
+      for (const line of lines) {
+        console.log(truncate(line, options.length));
+      }
     }
   }
 }
@@ -611,13 +692,13 @@ async function main() {
       await currentMode(options);
       break;
     case "show":
-      await controlOverlay("show");
+      await controlOverlay("show", options);
       break;
     case "hide":
-      await controlOverlay("hide");
+      await controlOverlay("hide", options);
       break;
     case "toggle":
-      await controlOverlay("toggle");
+      await controlOverlay("toggle", options);
       break;
   }
 }

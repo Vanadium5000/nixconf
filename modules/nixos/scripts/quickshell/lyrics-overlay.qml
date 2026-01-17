@@ -17,6 +17,9 @@ PanelWindow {
     property string textColor: Quickshell.env("LYRICS_COLOR") ?? "#ffffff"
     property real textOpacity: parseFloat(Quickshell.env("LYRICS_OPACITY") ?? "0.95")
     property string fontFamily: Quickshell.env("LYRICS_FONT") ?? "sans-serif"
+    property bool showShadow: (Quickshell.env("LYRICS_SHADOW") ?? "true") === "true"
+    property int lineSpacing: parseInt(Quickshell.env("LYRICS_SPACING") ?? "8")
+    property int maxLineLength: parseInt(Quickshell.env("LYRICS_LENGTH") ?? "0")
 
     // Lyrics data
     property string currentLine: ""
@@ -73,7 +76,7 @@ PanelWindow {
         anchors.verticalCenter: root.positionMode === "center" ? parent.verticalCenter : undefined
         anchors.bottomMargin: 20
         anchors.topMargin: 20
-        spacing: 8
+        spacing: root.lineSpacing
         width: parent.width * 0.8
 
         // Current lyric line (highlighted)
@@ -91,7 +94,7 @@ PanelWindow {
             font.pixelSize: root.fontSize
             font.weight: Font.Bold
 
-            style: Text.Outline
+            style: root.showShadow ? Text.Outline : Text.Normal
             styleColor: "#80000000"
 
             wrapMode: Text.WordWrap
@@ -138,7 +141,7 @@ PanelWindow {
                 font.pixelSize: root.fontSize * 0.85
                 font.weight: Font.Medium
 
-                style: Text.Outline
+                style: root.showShadow ? Text.Outline : Text.Normal
                 styleColor: "#60000000"
 
                 wrapMode: Text.WordWrap
@@ -172,7 +175,7 @@ PanelWindow {
     // Process to fetch lyrics data
     Process {
         id: lyricsProcess
-        command: ["synced-lyrics", "current", "--json", "--lines", root.numLines.toString()]
+        command: ["synced-lyrics", "current", "--json", "--lines", root.numLines.toString(), "--length", root.maxLineLength.toString()]
         running: false
 
         stdout: StdioCollector {
