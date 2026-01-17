@@ -70,7 +70,7 @@
         "${configFile}".text = builtins.toJSON {
           "$schema" = "https://opencode.ai/config.json";
           plugin = [
-            "opencode-antigravity-auth@beta"
+            "opencode-antigravity-auth@latest"
             "@mohak34/opencode-notifier@latest"
           ];
           small_model = "google/gemma-3n-e4b-it:free";

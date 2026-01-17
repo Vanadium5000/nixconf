@@ -93,7 +93,9 @@
         nixd
         nil
         nixfmt-rfc-style # Nixfmt
-        nixfmt-tree # Nixfmt-tree
+        (pkgs.treefmt.withConfig {
+          runtimeInputs = [ pkgs.nixfmt-rfc-style ];
+        }) # Nixfmt-tree
         alejandra
         jq
 
