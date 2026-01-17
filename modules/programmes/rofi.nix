@@ -232,45 +232,46 @@
 
         echo "Running command: $cmd"
 
-        # Check if it's Roblox (adjust based on exact command, e.g., contains "Roblox" or specific path/exec)
-        if [[ "$cmd" == *"Roblox"* || "$cmd" == *"roblox"* ]]; then
-            # Run with NVIDIA offload
-            ${if (pkgs.config.cudaSupport or false) then "nvidia-offload " else ""}exec $cmd
+
+        # Check if it's Waydroid
+        # Also wrap both with UWSM
+        if [[ "$cmd" == *"waydroid"* ]]; then
+            # Run with NVIDIA offload - if device supports it
+            uwsm app -- ${if (pkgs.config.cudaSupport or false) then "nvidia-offload " else ""}exec $cmd
         else
             # Run normally for other apps
-            exec $cmd
+            uwsm app -- exec $cmd
         fi
       '';
+
+      rofi-package =
+        name: config:
+        let
+          pkg = inputs.wrappers.lib.makeWrapper {
+            inherit pkgs;
+            package = pkgs.rofi.override {
+              plugins = [
+                pkgs.rofi-emoji
+                pkgs.rofi-calc
+                pkgs.rofi-nerdy
+              ];
+            };
+            flags = {
+              "-config" = config;
+              "-run-command" = "${rofi-wrapper}/bin/rofi-wrapper {cmd}";
+            };
+          };
+        in
+        pkgs.writeShellScriptBin name ''
+          if ${pkgs.procps}/bin/pkill -f '^(.*/)?rofi( |$)' ; then
+            exit 0
+          fi
+          exec ${pkg}/bin/rofi "$@"
+        '';
     in
     {
-      packages.rofi = inputs.wrappers.lib.makeWrapper {
-        inherit pkgs;
-        package = pkgs.rofi.override {
-          plugins = [
-            pkgs.rofi-emoji
-            pkgs.rofi-calc
-            pkgs.rofi-nerdy
-          ];
-        };
-        flags = {
-          "-config" = config;
-          "-run-command" = "${rofi-wrapper}/bin/rofi-wrapper {cmd}";
-        };
-      };
-      packages.rofi-images = inputs.wrappers.lib.makeWrapper {
-        inherit pkgs;
-        package = pkgs.rofi.override {
-          plugins = [
-            pkgs.rofi-emoji
-            pkgs.rofi-calc
-            pkgs.rofi-nerdy
-          ];
-        };
-        flags = {
-          "-config" = config-images;
-          "-run-command" = "${rofi-wrapper}/bin/rofi-wrapper {cmd}";
-        };
-      };
+      packages.rofi = rofi-package "rofi" config;
+      packages.rofi-images = rofi-package "rofi-images" config-images;
 
       packages.rofi-askpass = pkgs.writeShellScriptBin "rofi-askpass" ''
         : | rofi -dmenu \
