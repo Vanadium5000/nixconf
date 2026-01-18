@@ -117,7 +117,6 @@
           enabled_providers = [
             "opencode"
             "custom-antigravity"
-
           ];
           mcp = {
             gh_grep = {
