@@ -5,7 +5,7 @@
     let
     in
     {
-      packages.git = inputs.wrappers.lib.wrapPackage {
+      packages.git = inputs.wrappers.lib.makeWrapper {
         inherit pkgs;
         package = pkgs.git;
         env = rec {

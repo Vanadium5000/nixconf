@@ -73,12 +73,12 @@
         "${configFile}".text = builtins.toJSON {
           "$schema" = "https://opencode.ai/config.json";
           plugin = [
-            "opencode-antigravity-auth@latest"
+            # "opencode-antigravity-auth@latest"
             "@mohak34/opencode-notifier@latest"
             "oh-my-opencode@latest"
             # "@tarquinen/opencode-dcp@latest"
           ];
-          small_model = "google/gemma-3n-e4b-it:free";
+          small_model = "opencode/grok-code";
           autoupdate = false;
           share = "disabled";
           disabled_providers = [
@@ -115,9 +115,9 @@
             "zenmux"
           ];
           enabled_providers = [
-            "openrouter"
-            "google"
             "opencode"
+            "custom-antigravity"
+
           ];
           mcp = {
             gh_grep = {
