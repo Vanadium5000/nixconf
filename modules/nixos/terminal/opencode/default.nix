@@ -58,7 +58,8 @@
     {
       environment.systemPackages = [
         opencodeWrapped
-      ];
+      ]
+      ++ languages.packages;
 
       # Setup script to ensure files exist before mount
       system.activationScripts.opencode-persistence = {
@@ -75,7 +76,7 @@
             "opencode-antigravity-auth@latest"
             "@mohak34/opencode-notifier@latest"
             "oh-my-opencode@latest"
-            "@tarquinen/opencode-dcp@latest"
+            # "@tarquinen/opencode-dcp@latest"
           ];
           small_model = "google/gemma-3n-e4b-it:free";
           autoupdate = false;
@@ -105,7 +106,6 @@
             "ollama"
             "ollama-cloud"
             "openai"
-            "opencode-zen"
             "sap-ai-core"
             "ovhcloud-ai-endpoints"
             "together-ai"
@@ -117,6 +117,7 @@
           enabled_providers = [
             "openrouter"
             "google"
+            "opencode"
           ];
           mcp = {
             gh_grep = {
@@ -168,7 +169,31 @@
         "${ohmyopencodeConfigFile}".text = builtins.toJSON {
           "$schema" =
             "https://raw.githubusercontent.com/code-yeongyu/oh-my-opencode/master/assets/oh-my-opencode.schema.json";
-          "google_auth" = false;
+          "google_auth" = false; # Disable conflicts
+          "oracle" = {
+            "model" = "gemini-3-pro-preview"; # antigravity-claude-opus-4-5-thinking
+            variant = "high";
+          };
+          "librarian" = {
+            "model" = "gemini-3-flash-preview";
+            variant = "high";
+          };
+          "explore" = {
+            "model" = "gemini-3-flash-preview";
+            variant = "high";
+          };
+          "frontend-ui-ux-engineer" = {
+            "model" = "gemini-3-pro-preview";
+            variant = "high";
+          };
+          "document-writer" = {
+            "model" = "gemini-3-flash-preview";
+            variant = "high";
+          };
+          "multimodal-looker" = {
+            "model" = "gemini-3-flash-preview";
+            variant = "high";
+          };
         };
       };
     };

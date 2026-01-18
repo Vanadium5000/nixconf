@@ -1,0 +1,22 @@
+[daisyui-mcp]
+src.git = "https://github.com/birdseyevue/daisyui-mcp"
+fetch.github = "birdseyevue/daisyui-mcp"
+git.branch = "main"
+
+[iloader]
+src.github = "nab138/iloader"
+fetch.url = "https://github.com/nab138/iloader/releases/download/$ver/iloader-linux-amd64.AppImage"
+
+[niri-screen-time]
+src.git = "https://github.com/probeldev/niri-screen-time"
+fetch.github = "probeldev/niri-screen-time"
+git.branch = "main"
+
+[pomodoro-for-waybar]
+src.git = "https://github.com/Tejas242/pomodoro-for-waybar"
+fetch.github = "Tejas242/pomodoro-for-waybar"
+git.branch = "master"
+
+[sideloader]
+src.github_tag = "Dadoum/Sideloader"
+fetch.url = "https://github.com/Dadoum/Sideloader/releases/download/$ver/sideloader-cli-x86_64-linux-gnu.zip"

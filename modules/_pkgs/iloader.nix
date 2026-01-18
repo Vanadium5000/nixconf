@@ -4,7 +4,7 @@
   fetchurl,
 }:
 let
-  version = "1.1.6";
+  version = "1.1.5";
   pname = "iloader";
 
   src = fetchurl {
