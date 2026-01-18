@@ -38,7 +38,7 @@ pkgs.appimageTools.wrapType2 {
   meta = with lib; {
     description = "Antigravity Tools - Antigravity account manager";
     homepage = "https://github.com/lbjlaq/Antigravity-Manager";
-    license = licenses.unfree;
+    license = licenses.gpl3;
     platforms = [ "x86_64-linux" ];
     mainProgram = pname;
   };

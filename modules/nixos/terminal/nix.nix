@@ -99,6 +99,9 @@
               # Dictation CUDA deps
               "libcufile"
               "libcusparse_lt"
+
+              # Antigravity Manager
+              "antigravity-manager"
             ]
             ++ config.preferences.allowedUnfree
           );

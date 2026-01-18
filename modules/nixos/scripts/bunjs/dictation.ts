@@ -176,27 +176,29 @@ async function runDaemon() {
     }
 
     // Start recording
-    // Try parec (PulseAudio/PipeWire) first, then fallback to arecord (ALSA)
+    // Priority: pw-record (PipeWire) > parec (Pulse) > arecord (ALSA)
     try {
-        const fs = require("fs");
-        // Check if parec is available (primitive check by spawning or checking path? 
-        // We'll just try spawning parec, if it fails immediately/errors, we could fallback? 
-        // But spawn doesn't throw if exe missing in bun, it throws on await or exit? 
-        // Actually spawn throws if command not found.
-        
         try {
+             // Try pw-record
              recordProc = spawn({
-                cmd: ["parec", "--format=s16le", "--channels=1", "--rate=" + RATE.toString(), "--latency=1024"],
+                cmd: ["pw-record", "--rate", RATE.toString(), "--channels", "1", "--format", "s16", "-"],
+                stdout: "pipe",
+                stderr: "pipe", 
+             });
+             console.log("Using pw-record for recording");
+        } catch (e) {
+             console.log("pw-record not found/failed, trying parec");
+             // Try parec
+             recordProc = spawn({
+                cmd: ["parec", "--format=s16le", "--channels=1", "--rate=" + RATE.toString()],
                 stdout: "pipe",
                 stderr: "pipe", 
              });
              console.log("Using parec for recording");
-        } catch (e) {
-             console.log("parec not found/failed, falling back to arecord");
-             throw e; // trigger fallback
         }
     } catch (e) {
          try {
+            // Fallback to arecord
             recordProc = spawn({
                 cmd: ["arecord", "-r", RATE.toString(), "-c", "1", "-f", "S16_LE", "-t", "raw"],
                 stdout: "pipe",

@@ -21,6 +21,7 @@
           pkgs.bun
           pkgs.alsa-utils # arecord
           pkgs.pulseaudio # arecord/parec compatibility
+          pkgs.pipewire # pw-record
           pkgs.wtype
           pkgs.coreutils
         ];
