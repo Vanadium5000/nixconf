@@ -1,403 +1,232 @@
-import { spawn } from "bun";
-import { connect } from "bun";
+#!/usr/bin/env bun
+import { spawn, connect } from "bun";
+import { existsSync, unlinkSync, readFileSync, writeFileSync } from "fs";
 
-const SOCKET_PATH = "/tmp/dictation.sock";
-const STATUS_FILE = "/tmp/dictation_status.json";
-const WYOMING_HOST = "localhost";
-const WYOMING_PORT = 10300;
-const RATE = 16000;
+// Configuration
+const CONFIG = {
+  socketPath: "/tmp/dictation.sock", // Legacy cleanup
+  statusFile: "/tmp/dictation_status.json",
+  pidFile: "/tmp/dictation.pid",
+  wyoming: {
+    host: "localhost",
+    port: 10300,
+    rate: 16000,
+  },
+};
 
 // Types
-type State = {
+type Status = {
   active: boolean;
   text: string;
   error: string | null;
 };
 
-let state: State = {
-  active: false,
-  text: "",
-  error: null,
-};
+// --- Main CLI ---
 
-// Mode handling
-const mode = process.argv[2] || "daemon";
+const command = process.argv[2] || "status";
 
-if (mode === "daemon") {
-  runDaemon();
-} else if (mode === "toggle") {
-  runClient("TOGGLE");
-} else if (mode === "status") {
-  runClient("STATUS");
-} else if (mode === "monitor") {
-
-  runMonitor();
-} else {
-  console.error("Unknown mode. Use: daemon, toggle, monitor");
-  process.exit(1);
-}
-
-// --- Daemon Implementation ---
-
-async function runDaemon() {
-  console.log("Starting Dictation Daemon...");
-  
-  // Cleanup old socket
-  try {
-    const fs = require("fs");
-    if (fs.existsSync(SOCKET_PATH)) fs.unlinkSync(SOCKET_PATH);
-  } catch (e) {}
-
-  const clients = new Set<any>();
-  let wyomingSocket: any = null;
-  let recordProc: any = null;
-  let keepAliveTimer: any = null;
-
-  // Broadcast state to all monitor clients
-  function broadcast() {
-    const msg = JSON.stringify(state) + "\n";
-    for (const client of clients) {
-      try {
-        client.write(msg);
-      } catch (e) {
-        clients.delete(client);
-      }
-    }
-    // Also write to file for legacy/fallback
-    try {
-      Bun.write(STATUS_FILE, JSON.stringify(state));
-    } catch (e) {}
-  }
-
-  // Type text using wtype
-  function typeText(text: string) {
-    if (!text) return;
-    spawn(["wtype", text]);
-  }
-
-  // Wyoming Handling
-  async function connectWyoming() {
-    try {
-      if (wyomingSocket) return wyomingSocket;
-      
-      console.log(`Connecting to Wyoming at ${WYOMING_HOST}:${WYOMING_PORT}...`);
-      wyomingSocket = await connect({
-        hostname: WYOMING_HOST,
-        port: WYOMING_PORT,
-        socket: {
-          data(socket, data) {
-            // Parse Wyoming events (JSON lines)
-            const text = new TextDecoder().decode(data);
-            const lines = text.split("\n");
-            for (const line of lines) {
-              if (!line.trim()) continue;
-              try {
-                const msg = JSON.parse(line);
-                handleWyomingMessage(msg);
-              } catch (e) {
-                // Ignore parsing errors (could be binary payload if we were reading mixed stream)
-                // But wyoming-faster-whisper usually sends clean JSON events on the event channel?
-                // Actually, we are using the same socket for audio and events.
-                // The server might send binary if we requested audio, but we are sending audio.
-                // Responses should be JSON.
-              }
-            }
-          },
-          error(socket, error) {
-            console.error("Wyoming socket error:", error);
-            stopDictation("Wyoming Error");
-            wyomingSocket = null;
-          },
-          close() {
-            console.log("Wyoming disconnected");
-            wyomingSocket = null;
-            if (state.active) stopDictation("Wyoming Disconnected");
-          },
-        },
-      });
-
-      // Handshake / Describe?
-      // wyoming-faster-whisper expects us to just start sending audio-chunk
-      // or audio-start.
-      
-      return wyomingSocket;
-    } catch (e) {
-      console.error("Failed to connect to Wyoming:", e);
-      state.error = "Connection Failed";
-      broadcast();
-      return null;
-    }
-  }
-
-  function handleWyomingMessage(msg: any) {
-    if (msg.type === "transcript") {
-      const text = msg.text;
-      if (text) {
-        console.log("Transcript:", text);
-        // If it's partial, we might want to show it in UI but not type it yet?
-        // faster-whisper usually sends final segments.
-        // If is_final is true or missing (default implied final for segment).
-        
-        // Update UI
-        state.text = text;
-        broadcast();
-        
-        // Type it
-        typeText(text + " ");
-      }
-    }
-  }
-
-  async function startDictation() {
-    if (state.active) return;
-    
-    const ws = await connectWyoming();
-    if (!ws) return;
-
-    state.active = true;
-    state.error = null;
-    state.text = "";
-    broadcast();
-
-    // Send audio-start
-    try {
-      ws.write(JSON.stringify({
-        type: "audio-start",
-        data: {
-            rate: RATE,
-            width: 2,
-            channels: 1,
-        }
-      }) + "\n");
-    } catch (e) {
-      console.error("Failed to send audio-start:", e);
-      stopDictation("Wyoming Error");
-      return;
-    }
-
-    // Start recording
-    // Priority: pw-record (PipeWire) > parec (Pulse) > arecord (ALSA)
-    try {
-        try {
-             // Try pw-record
-             recordProc = spawn({
-                cmd: ["pw-record", "--rate", RATE.toString(), "--channels", "1", "--format", "s16", "-"],
-                stdout: "pipe",
-                stderr: "pipe", 
-             });
-             console.log("Using pw-record for recording");
-        } catch (e) {
-             console.log("pw-record not found/failed, trying parec");
-             // Try parec
-             recordProc = spawn({
-                cmd: ["parec", "--format=s16le", "--channels=1", "--rate=" + RATE.toString()],
-                stdout: "pipe",
-                stderr: "pipe", 
-             });
-             console.log("Using parec for recording");
-        }
-    } catch (e) {
-         try {
-            // Fallback to arecord
-            recordProc = spawn({
-                cmd: ["arecord", "-r", RATE.toString(), "-c", "1", "-f", "S16_LE", "-t", "raw"],
-                stdout: "pipe",
-                stderr: "pipe", 
-            });
-            console.log("Using arecord for recording");
-         } catch (e2) {
-             console.error("Failed to spawn recorder:", e2);
-             stopDictation("Record Error");
-             return;
-         }
-    }
-
-    // Log stderr
-    (async () => {
-        const reader = recordProc.stderr.getReader();
-        const decoder = new TextDecoder();
-        while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            console.error("recorder stderr:", decoder.decode(value).trim());
-        }
-    })();
-
-    // Check exit
-    recordProc.exited.then((code: number) => {
-        console.log("recorder exited with code:", code);
-        // If it exits too fast (e.g. within 1 second) and we haven't stopped manually, it's an error.
-        if (state.active) stopDictation("Recorder Exited");
-    });
-
-    readAudioStream(recordProc.stdout, ws);
-  }
-
-  async function readAudioStream(stdout: any, ws: any) {
-    const reader = stdout.getReader();
-    const chunkType = "audio-chunk";
-
-    try {
-      while (state.active) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        if (!state.active) break;
-        
-        // Check if socket is still open
-        if (!ws || (ws.readyState && ws.readyState !== "open")) { 
-             break;
-        }
-
-        // Send chunk
-        try {
-            const header = JSON.stringify({ 
-                type: chunkType,
-                data: {
-                    rate: RATE,
-                    width: 2,
-                    channels: 1,
-                },
-                payload_length: value.length 
-            }) + "\n";
-            ws.write(header);
-            ws.write(value);
-            // Flush? Bun writes are usually immediate/buffered.
-        } catch (e) {
-            console.error("Wyoming write error:", e);
-            break;
-        }
-      }
-    } catch (e) {
-      console.error("Audio read error:", e);
-    } finally {
-      reader.releaseLock();
-      if (state.active) stopDictation("Stream Ended");
-    }
-  }
-
-  async function stopDictation(error: string | null = null) {
-    if (!state.active) return;
-    
-    console.log(`Stopping dictation. Reason: ${error || "User Request"}`);
-    state.active = false;
-    if (error) state.error = error;
-    broadcast();
-
-    if (recordProc) {
-      recordProc.kill();
-      recordProc = null;
-    }
-
-    if (wyomingSocket) {
-      try {
-        wyomingSocket.write(JSON.stringify({ type: "audio-stop" }) + "\n");
-        // Don't close socket immediately, wait for final transcripts?
-        // Wyoming protocol: audio-stop marks end of stream.
-        // We will keep the socket open if possible, but simpler to just close and reconnect on next session
-        // to avoid state desync.
-        wyomingSocket.end(); 
-        wyomingSocket = null;
-      } catch (e) {}
-    }
-  }
-
-  // Server for CLI/Monitor
-  Bun.listen({
-    unix: SOCKET_PATH,
-    socket: {
-      data(socket, data) {
-        const msg = new TextDecoder().decode(data).trim();
-        if (msg === "TOGGLE") {
-          if (state.active) stopDictation();
-          else startDictation();
-        } else if (msg === "START") {
-          startDictation();
-        } else if (msg === "STOP") {
-          stopDictation();
-        }
-      },
-      open(socket) {
-        clients.add(socket);
-        // Send current state immediately
-        socket.write(JSON.stringify(state) + "\n");
-      },
-      close(socket) {
-        clients.delete(socket);
-      },
-    },
-  });
-  
-  // Clean exit
-  process.on("SIGINT", () => {
-    stopDictation();
-    try {
-        const fs = require("fs");
-        if (fs.existsSync(SOCKET_PATH)) fs.unlinkSync(SOCKET_PATH);
-    } catch(e) {}
-    process.exit(0);
-  });
-}
-
-// --- Client Implementation ---
-
-async function runClient(command: string) {
-  try {
-    const socket = await connect({
-      unix: SOCKET_PATH,
-      socket: {
-        open(socket) {
-          if (command === "STATUS") {
-            // Daemon sends state on connection
-          } else {
-            socket.write(command);
-            // socket.end(); // Don't end immediately if we want to see result, but for TOGGLE we don't care
-             if (command === "TOGGLE") {
-                // Wait for broadcast? No, just exit
-                socket.end();
-                process.exit(0);
-             }
-          }
-        },
-        data(socket, data) {
-          if (command === "STATUS") {
-             process.stdout.write(data);
-             socket.end();
-             process.exit(0);
-          }
-        },
-        error(error) {
-          console.error("Failed to connect to daemon. Is it running?");
-          process.exit(1);
-        }
-      }
-    });
-  } catch (e) {
-    console.error("Connection error:", e);
+switch (command) {
+  case "toggle":
+    handleToggle();
+    break;
+  case "run":
+    handleRun();
+    break;
+  case "status":
+    handleStatus();
+    break;
+  case "daemon":
+    // Legacy support: Just clean up state on boot
+    cleanupState();
+    console.log("Dictation system initialized (on-demand mode)");
+    break;
+  default:
+    console.error("Usage: dictation [toggle|run|status]");
     process.exit(1);
+}
+
+// --- Commands ---
+
+function handleStatus() {
+  try {
+    if (existsSync(CONFIG.statusFile)) {
+      const content = readFileSync(CONFIG.statusFile, "utf-8");
+      process.stdout.write(content); // Print JSON directly
+    } else {
+      console.log(JSON.stringify({ active: false, text: "", error: null }));
+    }
+  } catch (e) {
+    console.log(JSON.stringify({ active: false, text: "", error: "Status Read Error" }));
   }
 }
 
-async function runMonitor() {
+function handleToggle() {
+  const pid = getRunningPid();
+  if (pid) {
+    // Stop existing instance
+    try {
+      process.kill(pid, "SIGINT");
+      console.log("Stopped dictation service");
+    } catch (e) {
+      console.log("Service was stale, cleaning up");
+      cleanupState();
+    }
+  } else {
+    // Start new instance
+    console.log("Starting dictation service...");
+    spawn([process.argv[0], process.argv[1], "run"], {
+      stdio: ["ignore", "ignore", "ignore"],
+    }).unref();
+  }
+}
+
+async function handleRun() {
+  // 1. Initialization
+  const pid = process.pid;
+  writeFileSync(CONFIG.pidFile, pid.toString());
+  updateStatus({ active: true, text: "", error: null });
+
+  // Cleanup on exit
+  const cleanup = () => {
+    cleanupState();
+    process.exit(0);
+  };
+  process.on("SIGINT", cleanup);
+  process.on("SIGTERM", cleanup);
+
+  // 2. Connect to Wyoming
+  let socket;
   try {
-    const socket = await connect({
-      unix: SOCKET_PATH,
+    socket = await connect({
+      hostname: CONFIG.wyoming.host,
+      port: CONFIG.wyoming.port,
       socket: {
-        data(socket, data) {
-          // Print incoming data (JSON lines) directly to stdout
-          process.stdout.write(data);
+        data(_socket, data) {
+          handleWyomingData(data);
         },
-        error(error) {
-          // console.error("Monitor connection error. Retrying...");
-          // Retry logic could be handled by the caller (QML Process)
-          process.exit(1); 
+        error(_socket, error) {
+          console.error("Wyoming error:", error);
+          updateStatus({ active: false, text: "", error: "Connection Error" });
+          cleanup();
         },
         close() {
-            process.exit(0);
-        }
-      }
+          cleanup();
+        },
+      },
     });
   } catch (e) {
-    console.error("Failed to connect to daemon");
-    process.exit(1);
+    updateStatus({ active: false, text: "", error: "Connection Failed" });
+    console.error("Failed to connect to Wyoming:", e);
+    // Keep error visible for a moment
+    setTimeout(cleanup, 2000);
+    return;
+  }
+
+  // 3. Send Audio Start
+  try {
+    socket.write(
+      JSON.stringify({
+        type: "audio-start",
+        data: {
+          rate: CONFIG.wyoming.rate,
+          width: 2,
+          channels: 1,
+        },
+      }) + "\n"
+    );
+  } catch (e) {
+    cleanup();
+    return;
+  }
+
+  // Tries pw-record -> parec -> arecord
+  const recordCmd = `pw-record --rate ${CONFIG.wyoming.rate} --channels 1 --format s16 - 2>/dev/null || parec --format=s16le --channels=1 --rate=${CONFIG.wyoming.rate} 2>/dev/null || arecord -r ${CONFIG.wyoming.rate} -c 1 -f S16_LE -t raw 2>/dev/null`;
+  
+  const recorder = spawn(["sh", "-c", recordCmd], {
+    stdout: "pipe",
+    stderr: "ignore",
+  });
+
+  streamAudio(recorder.stdout, socket);
+
+  recorder.exited.then((code) => {
+    if (code !== 0 && code !== null) {
+        updateStatus({ active: false, text: "", error: "Microphone Error" });
+        setTimeout(cleanup, 2000);
+    } else {
+        cleanup();
+    }
+  });
+}
+
+// --- Helpers ---
+
+function updateStatus(status: Status) {
+  try {
+    writeFileSync(CONFIG.statusFile, JSON.stringify(status));
+  } catch (e) {}
+}
+
+function cleanupState() {
+  try {
+    if (existsSync(CONFIG.pidFile)) unlinkSync(CONFIG.pidFile);
+    // Legacy socket cleanup
+    if (existsSync(CONFIG.socketPath)) unlinkSync(CONFIG.socketPath);
+    
+    updateStatus({ active: false, text: "", error: null });
+  } catch (e) {}
+}
+
+function getRunningPid(): number | null {
+  try {
+    if (existsSync(CONFIG.pidFile)) {
+      const pid = parseInt(readFileSync(CONFIG.pidFile, "utf-8"));
+      // Check if actually running
+      process.kill(pid, 0); // Throws if not running
+      return pid;
+    }
+  } catch (e) {
+    // Process doesn't exist or file is stale
+    return null;
+  }
+  return null;
+}
+
+async function streamAudio(readable: any, socket: any) {
+  const reader = readable.getReader();
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      
+      const header = JSON.stringify({
+        type: "audio-chunk",
+        data: { rate: CONFIG.wyoming.rate, width: 2, channels: 1 },
+        payload_length: value.length,
+      }) + "\n";
+      
+      socket.write(header);
+      socket.write(value);
+    }
+  } catch (e) {
+    // Stream broken
+  } finally {
+    reader.releaseLock();
+  }
+}
+
+function handleWyomingData(data: Uint8Array) {
+  const text = new TextDecoder().decode(data);
+  const lines = text.split("\n");
+  
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    try {
+      const msg = JSON.parse(line);
+      if (msg.type === "transcript" && msg.text) {
+        updateStatus({ active: true, text: msg.text, error: null });
+        spawn(["wtype", msg.text + " "]);
+      }
+    } catch (e) {}
   }
 }
