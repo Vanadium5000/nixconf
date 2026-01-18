@@ -2,98 +2,44 @@
 
 let
   pname = "antigravity-manager";
-  version = "3.3.7";
+  version = "3.3.43";
 
-  unwrapped = pkgs.stdenv.mkDerivation {
-    pname = "${pname}-unwrapped";
-    inherit version;
-
-    src = pkgs.fetchurl {
-      url = "https://github.com/lbjlaq/Antigravity-Manager/releases/download/v${version}/Antigravity.Tools-${version}-1.x86_64.rpm";
-      hash = "sha256-dMkX0hpKpS8pIKUE34LflHOmWJgH2iI60lJTW+zH/pI=";
-    };
-
-    nativeBuildInputs = with pkgs; [
-      rpm
-      cpio
-    ];
-
-    unpackPhase = ''
-      rpm2cpio $src | cpio -idmv
-    '';
-
-    installPhase = ''
-      mkdir -p $out/bin
-      mkdir -p $out/share/applications
-      mkdir -p $out/share/icons/hicolor/{32x32,128x128,256x256@2}/apps
-
-      cp usr/bin/antigravity_tools $out/bin/
-      cp usr/share/applications/*.desktop $out/share/applications/
-
-      cp usr/share/icons/hicolor/32x32/apps/*.png $out/share/icons/hicolor/32x32/apps/
-      cp usr/share/icons/hicolor/128x128/apps/*.png $out/share/icons/hicolor/128x128/apps/
-      cp usr/share/icons/hicolor/256x256@2/apps/*.png $out/share/icons/hicolor/256x256@2/apps/
-    '';
-
-    meta = with lib; {
-      description = "Antigravity Tools - Antigravity account manager";
-      homepage = "https://github.com/lbjlaq/Antigravity-Manager";
-      license = licenses.unfree;
-      platforms = [ "x86_64-linux" ];
-      mainProgram = "antigravity_tools";
-    };
+  src = pkgs.fetchurl {
+    url = "https://github.com/lbjlaq/Antigravity-Manager/releases/download/v${version}/Antigravity.Tools_${version}_amd64.AppImage";
+    hash = "sha256:0m2hsm5irljm7jw9wpybmgmjasbmcl1a607h4lg9qcvk1z1yhsb5";
   };
 
+  appimageContents = pkgs.appimageTools.extract { inherit pname version src; };
 in
-pkgs.buildFHSEnv {
-  name = pname;
-  inherit version;
+pkgs.appimageTools.wrapType2 {
+  inherit pname version src;
 
-  targetPkgs =
+  extraPkgs =
     pkgs: with pkgs; [
       gtk3
       webkitgtk_4_1
       libsoup_3
       openssl_3
-      glib
-      gdk-pixbuf
-      cairo
-      pango
-      atk
-      libgcc
-      bzip2
-      zlib
-      curl
       libayatana-appindicator
-    ];
-
-  multiPkgs =
-    pkgs: with pkgs; [
-      udev
-      alsa-lib
       libpulseaudio
+      alsa-lib
+      curl
     ];
-
-  runScript = "${unwrapped}/bin/antigravity_tools";
 
   extraInstallCommands = ''
-    mkdir -p $out/share/applications
-    ln -s ${unwrapped}/share/icons $out/share/icons
+    install -m 444 -D ${appimageContents}/antigravity_tools.desktop $out/share/applications/${pname}.desktop
+    install -m 444 -D ${appimageContents}/antigravity_tools.png \
+      $out/share/icons/hicolor/512x512/apps/antigravity_tools.png
 
-    # Create desktop file
-    cat > $out/share/applications/${pname}.desktop <<EOF
-    [Desktop Entry]
-    Name=Antigravity Tools
-    Comment=Antigravity account manager
-    Exec=$out/bin/${pname}
-    Icon=antigravity_tools
-    Terminal=false
-    Type=Application
-    Categories=Network;Utility;
-    EOF
+    substituteInPlace $out/share/applications/${pname}.desktop \
+      --replace 'Exec=AppRun' 'Exec=${pname}'
   '';
 
-  meta = unwrapped.meta // {
+  meta = with lib; {
+    description = "Antigravity Tools - Antigravity account manager";
+    homepage = "https://github.com/lbjlaq/Antigravity-Manager";
+    license = licenses.unfree;
+    platforms = [ "x86_64-linux" ];
     mainProgram = pname;
   };
 }
