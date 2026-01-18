@@ -295,7 +295,6 @@
           "${mod},V, exec, rofi-tools"
           "${shiftMod},V, exec, stop-autoclickers" # Autoclicker Safety
           "${mod},T, exec, dictation toggle" # Dictation Toggle (More reliable than hold)
-          "${shiftMod},T, exec, toggle-dictation-overlay" # Dictation Overlay
           "${altMod},V, exec, ${
             getExe self.packages.${pkgs.stdenv.hostPlatform.system}.toggle-pause-autoclickers
           }"
