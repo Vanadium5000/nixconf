@@ -6,7 +6,7 @@
 }:
 appimageTools.wrapType2 {
   pname = "iloader";
-  version = "v1.1.5";
+  version = "1.1.6";
 
   src = fetchurl {
     url = "https://github.com/nab138/iloader/releases/download/v1.1.6/iloader-linux-amd64.AppImage";
