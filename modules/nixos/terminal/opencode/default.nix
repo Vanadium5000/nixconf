@@ -178,28 +178,22 @@
             "https://raw.githubusercontent.com/code-yeongyu/oh-my-opencode/master/assets/oh-my-opencode.schema.json";
           "google_auth" = false; # Disable conflicts
           "oracle" = {
-            "model" = "gemini-3-pro-preview"; # antigravity-claude-opus-4-5-thinking
-            variant = "high";
+            "model" = "gemini-3-pro-high"; # claude-opus-4-5-thinking
           };
           "librarian" = {
-            "model" = "gemini-3-flash-preview";
-            variant = "high";
+            "model" = "gemini-3-flash";
           };
           "explore" = {
-            "model" = "gemini-3-flash-preview";
-            variant = "high";
+            "model" = "gemini-3-flash";
           };
           "frontend-ui-ux-engineer" = {
-            "model" = "gemini-3-pro-preview";
-            variant = "high";
+            "model" = "gemini-3-pro-high";
           };
           "document-writer" = {
-            "model" = "gemini-3-flash-preview";
-            variant = "high";
+            "model" = "gemini-3-flash";
           };
           "multimodal-looker" = {
-            "model" = "gemini-3-flash-preview";
-            variant = "high";
+            "model" = "gemini-3-flash";
           };
         };
       };
