@@ -511,6 +511,7 @@
         rofi-music-search
         btrfs-backup
         synced-lyrics
+        markdown-lint-mcp
       ];
     };
 }

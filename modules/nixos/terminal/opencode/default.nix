@@ -153,6 +153,12 @@
                 "--headless"
               ];
             };
+            markdown_lint = {
+              type = "local";
+              command = [ "${inputs.self.packages.${pkgs.stdenv.hostPlatform.system}.markdown-lint-mcp}/bin/markdown-lint-mcp" ];
+              enabled = true;
+              timeout = 10000;
+            };
           };
           formatter = languages.formatter;
           lsp = languages.lsp;

@@ -146,5 +146,19 @@
           pkgs.coreutils
         ];
       };
+
+      packages.markdown-lint-mcp = inputs.wrappers.lib.makeWrapper {
+        inherit pkgs;
+        package = pkgs.writeShellScriptBin "markdown-lint-mcp" ''
+          exec ${pkgs.bun}/bin/bun run ${./mcp/markdown-lint.ts} "$@"
+        '';
+
+        # Ensure PATH includes all runtime inputs
+        runtimeInputs = [
+          pkgs.bun
+          pkgs.nodePackages.markdownlint-cli
+          pkgs.coreutils
+        ];
+      };
     };
 }
