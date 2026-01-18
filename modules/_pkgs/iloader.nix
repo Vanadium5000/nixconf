@@ -1,19 +1,15 @@
 {
   lib,
   appimageTools,
-  fetchurl,
+  pkgs,
+  ...
 }:
 let
-  version = "1.1.5";
-  pname = "iloader";
-
-  src = fetchurl {
-    url = "https://github.com/nab138/iloader/releases/download/v${version}/iloader-linux-amd64.AppImage";
-    hash = "sha256-L1fFwFjdIrrhviBlwORhSDXsNYgrT1NcVKAKlss6h4o=";
-  };
+  sources = pkgs.callPackage ./_sources/generated.nix { };
+  source = sources.iloader;
 in
 appimageTools.wrapType2 {
-  inherit pname version src;
+  inherit (source) pname version src;
 
   extraPkgs =
     pkgs: with pkgs; [

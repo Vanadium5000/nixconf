@@ -21,9 +21,9 @@ in
   packages =
     (with pkgs; [
       marksman
-      nil
+      # nil
       tailwindcss-language-server
-      alejandra
+      nixfmt-rfc-style
       unstable.oxfmt
       shfmt
       vscode-langservers-extracted
@@ -61,7 +61,7 @@ in
     };
     nixfmt = {
       command = [
-        formatterBins.nixfmt
+        formatterBins.nixfmt-rfc-style
         "-q"
       ];
       extensions = [ "nix" ];
@@ -69,13 +69,19 @@ in
   };
 
   lsp = {
-    nil = {
-      command = [ lspBins.nil ];
-      extensions = [ "nix" ];
-    };
-    marksman = {
-      command = [ lspBins.marksman ];
-      extensions = [ "md" ];
+    # nixd is already included
+    # nil = {
+    #   command = [ lspBins.nil ];
+    #   extensions = [ "nix" ];
+    # };
+    markdown = {
+      command = [
+        lspBins.marksman
+        "server"
+      ];
+      extensions = [
+        "md"
+      ];
     };
     tailwindcss = {
       command = [
