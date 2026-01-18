@@ -92,6 +92,7 @@
         #sideloader # Sideloader (iOS) - SideStore for Linux
         # iloader is preferred
         iloader # User friendly sideloader (iOS) - SideStore for Linux
+        antigravity-manager # Antigravity Tools
       ]);
 
       services = {

@@ -42,6 +42,13 @@ switch (command) {
   case "run":
     handleRun();
     break;
+  case "transcribe":
+    if (!process.argv[3]) {
+      console.error("Usage: dictation transcribe <file>");
+      process.exit(1);
+    }
+    handleTranscribe(process.argv[3]);
+    break;
   case "status":
     handleStatus();
     break;
@@ -51,7 +58,7 @@ switch (command) {
     console.log("Dictation system initialized (on-demand mode)");
     break;
   default:
-    console.error("Usage: dictation [toggle|run|status]");
+    console.error("Usage: dictation [toggle|run|status|transcribe]");
     process.exit(1);
 }
 
@@ -90,6 +97,76 @@ function handleToggle() {
       stdio: ["ignore", "ignore", "ignore"],
     }).unref();
   }
+}
+
+async function handleTranscribe(filePath: string) {
+  log(`Transcribing file: ${filePath}`);
+
+  // 1. Check file
+  if (!require("fs").existsSync(filePath)) {
+    console.error("File not found:", filePath);
+    process.exit(1);
+  }
+
+  // 2. Connect to Wyoming
+  let socket;
+  try {
+    socket = await connect({
+      hostname: CONFIG.wyoming.host,
+      port: CONFIG.wyoming.port,
+      socket: {
+        data(_socket, data) {
+          const text = new TextDecoder().decode(data);
+          const lines = text.split("\n");
+          for (const line of lines) {
+            if (!line.trim()) continue;
+            try {
+              const msg = JSON.parse(line);
+              if (msg.type === "transcript" && msg.text) {
+                console.log(msg.text);
+              }
+            } catch (e) {}
+          }
+        },
+        error(_socket, error) {
+          console.error("Wyoming error:", error);
+          process.exit(1);
+        },
+        close() {
+          process.exit(0);
+        },
+      },
+    });
+  } catch (e) {
+    console.error("Failed to connect to Wyoming:", e);
+    process.exit(1);
+  }
+
+  // 3. Send Audio Start
+  socket.write(
+    JSON.stringify({
+      type: "audio-start",
+      data: {
+        rate: CONFIG.wyoming.rate,
+        width: 2,
+        channels: 1,
+        language: "en",
+      },
+    }) + "\n"
+  );
+
+  // 4. Convert and stream using ffmpeg
+  const ffmpegCmd = `ffmpeg -i "${filePath}" -f s16le -ac 1 -ar ${CONFIG.wyoming.rate} -`;
+
+  const ffmpeg = spawn(["sh", "-c", ffmpegCmd], {
+    stdout: "pipe",
+    stderr: "ignore",
+  });
+
+  await streamAudio(ffmpeg.stdout, socket);
+
+  // Send stop
+  socket.write(JSON.stringify({ type: "audio-stop" }) + "\n");
 }
 
 async function handleRun() {
@@ -150,10 +227,11 @@ async function handleRun() {
           rate: CONFIG.wyoming.rate,
           width: 2,
           channels: 1,
+          language: "en",
         },
       }) + "\n"
     );
-    log("Sent audio-start");
+    log("Sent audio-start (en)");
   } catch (e) {
     log(`Failed to send audio-start: ${e}`);
     cleanup();
