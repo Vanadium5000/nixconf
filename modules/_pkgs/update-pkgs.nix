@@ -60,7 +60,8 @@ pkgs.writeShellApplication {
       # Per-package configurations
       case "$pkg" in
         "antigravity-manager")
-          ARGS+=("--url" "https://github.com/lbjlaq/Antigravity-Manager")
+          # Use specific regex to ignore tags without releases (e.g. .44 tag but .43 release)
+          ARGS+=("--url" "https://github.com/lbjlaq/Antigravity-Manager" "--use-version" "latest")
           ;;
         "pomodoro-for-waybar"|"daisyui-mcp")
               # These track branches, so update to latest commit
