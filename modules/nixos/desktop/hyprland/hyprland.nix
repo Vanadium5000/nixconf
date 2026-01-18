@@ -42,7 +42,6 @@
         "wl-paste --type text --watch ${pkgs.cliphist}/bin/cliphist store" # Stores only text data
         "wl-paste --type image --watch ${pkgs.cliphist}/bin/cliphist store" # Stores only image data
         "${pkgs.kdePackages.polkit-kde-agent-1}/libexec/polkit-kde-authentication-agent-1"
-        "dictation-daemon"
       ];
 
       programs.hyprland = {
@@ -295,7 +294,7 @@
           "${mod},X, exec, rofi-powermenu"
           "${mod},V, exec, rofi-tools"
           "${shiftMod},V, exec, stop-autoclickers" # Autoclicker Safety
-          "${mod},T, exec, dictation-client TOGGLE" # Dictation Toggle (More reliable than hold)
+          "${mod},T, exec, dictation toggle" # Dictation Toggle (More reliable than hold)
           "${shiftMod},T, exec, toggle-dictation-overlay" # Dictation Overlay
           "${altMod},V, exec, ${
             getExe self.packages.${pkgs.stdenv.hostPlatform.system}.toggle-pause-autoclickers

@@ -160,55 +160,87 @@ async function runDaemon() {
     broadcast();
 
     // Send audio-start
-    ws.write(JSON.stringify({
-      type: "audio-start",
-      rate: RATE,
-      width: 2,
-      channels: 1,
-    }) + "\n");
+    try {
+      ws.write(JSON.stringify({
+        type: "audio-start",
+        data: {
+            rate: RATE,
+            width: 2,
+            channels: 1,
+        }
+      }) + "\n");
+    } catch (e) {
+      console.error("Failed to send audio-start:", e);
+      stopDictation("Wyoming Error");
+      return;
+    }
 
     // Start recording
     // using arecord piped to our handler
     // arecord -r 16000 -c 1 -f S16_LE -t raw
-    recordProc = spawn({
-      cmd: ["arecord", "-r", RATE.toString(), "-c", "1", "-f", "S16_LE", "-t", "raw", "-B", "10000"], // -B buffer size
-      stdout: "pipe",
-    });
+    try {
+      recordProc = spawn({
+        cmd: ["arecord", "-r", RATE.toString(), "-c", "1", "-f", "S16_LE", "-t", "raw", "-B", "100000"], // Increased buffer
+        stdout: "pipe",
+        stderr: "ignore", // Ignore stderr to keep logs clean
+      });
+    } catch (e) {
+      console.error("Failed to spawn arecord:", e);
+      stopDictation("Record Error");
+      return;
+    }
 
     readAudioStream(recordProc.stdout, ws);
   }
 
   async function readAudioStream(stdout: any, ws: any) {
     const reader = stdout.getReader();
-    const chunkHeaderBase = {
-      type: "audio-chunk",
+    // Protocol requires rate/width/channels in 'data' object
+    const chunkData = {
       rate: RATE,
       width: 2,
       channels: 1,
     };
+    const chunkType = "audio-chunk";
 
     try {
       while (state.active) {
         const { done, value } = await reader.read();
         if (done) break;
         if (!state.active) break;
-        if (!ws) break;
+        
+        // Check if socket is still open
+        if (!ws || (ws.readyState && ws.readyState !== "open")) { 
+             break;
+        }
 
         // Send chunk
-        const header = JSON.stringify({ ...chunkHeaderBase, payload_length: value.length }) + "\n";
-        ws.write(header);
-        ws.write(value);
+        try {
+            const header = JSON.stringify({ 
+                type: chunkType,
+                data: chunkData,
+                payload_length: value.length 
+            }) + "\n";
+            ws.write(header);
+            ws.write(value);
+            // Flush? Bun writes are usually immediate/buffered.
+        } catch (e) {
+            console.error("Wyoming write error:", e);
+            break;
+        }
       }
     } catch (e) {
       console.error("Audio read error:", e);
     } finally {
       reader.releaseLock();
+      if (state.active) stopDictation("Stream Ended");
     }
   }
 
   async function stopDictation(error: string | null = null) {
     if (!state.active) return;
     
+    console.log(`Stopping dictation. Reason: ${error || "User Request"}`);
     state.active = false;
     if (error) state.error = error;
     broadcast();
@@ -222,8 +254,11 @@ async function runDaemon() {
       try {
         wyomingSocket.write(JSON.stringify({ type: "audio-stop" }) + "\n");
         // Don't close socket immediately, wait for final transcripts?
-        // For simplicity, we keep socket open for next time, or close it.
         // Wyoming protocol: audio-stop marks end of stream.
+        // We will keep the socket open if possible, but simpler to just close and reconnect on next session
+        // to avoid state desync.
+        wyomingSocket.end(); 
+        wyomingSocket = null;
       } catch (e) {}
     }
   }

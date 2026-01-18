@@ -65,11 +65,11 @@ in
   # https://github.com/ashish-kus/waybar-minimal/blob/main/src/config.jsonc
   # Options: https://github.com/Alexays/Waybar/wiki/Configuration
   "custom/dictation" = {
-    exec = "cat /tmp/dictation_status.json 2>/dev/null | ${pkgs.jq}/bin/jq --unbuffered -c 'if .active then {text:\"🎙️\", class:\"active\", tooltip:.text} else {text:\"\", class:\"inactive\"} end'";
+    exec = "dictation status | ${pkgs.jq}/bin/jq --unbuffered -c 'if .active then {text:\"🎙️\", class:\"active\", tooltip:.text} else {text:\"\", class:\"inactive\"} end'";
     return-type = "json";
     interval = 1;
     format = "{}";
-    on-click = "dictation-client TOGGLE";
+    on-click = "dictation toggle";
   };
   "custom/notifications" = {
     format = "󰂚 {}";

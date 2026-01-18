@@ -22,6 +22,7 @@
         self.nixosModules.dev
         self.nixosModules.nix
         self.nixosModules.ai
+        self.nixosModules.dictation
         self.nixosModules.tailscale
         self.nixosModules.virtualisation
         self.nixosModules.unison
