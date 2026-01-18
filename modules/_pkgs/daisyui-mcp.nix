@@ -6,7 +6,7 @@ let
 in
 pkgs.stdenv.mkDerivation {
   pname = "daisyui-mcp";
-  version = "unstable-2024-01-16";
+  version = "1.0.0";
 
   src = pkgs.fetchFromGitHub {
     owner = "birdseyevue";
