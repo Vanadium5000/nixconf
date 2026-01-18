@@ -42,6 +42,7 @@
         "wl-paste --type text --watch ${pkgs.cliphist}/bin/cliphist store" # Stores only text data
         "wl-paste --type image --watch ${pkgs.cliphist}/bin/cliphist store" # Stores only image data
         "${pkgs.kdePackages.polkit-kde-agent-1}/libexec/polkit-kde-authentication-agent-1"
+        "${self.packages.${pkgs.stdenv.hostPlatform.system}.dictation}/bin/dictation daemon"
       ];
 
       programs.hyprland = {

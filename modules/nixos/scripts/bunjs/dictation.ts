@@ -176,31 +176,63 @@ async function runDaemon() {
     }
 
     // Start recording
-    // using arecord piped to our handler
-    // arecord -r 16000 -c 1 -f S16_LE -t raw
+    // Try parec (PulseAudio/PipeWire) first, then fallback to arecord (ALSA)
     try {
-      recordProc = spawn({
-        cmd: ["arecord", "-r", RATE.toString(), "-c", "1", "-f", "S16_LE", "-t", "raw", "-B", "100000"], // Increased buffer
-        stdout: "pipe",
-        stderr: "ignore", // Ignore stderr to keep logs clean
-      });
+        const fs = require("fs");
+        // Check if parec is available (primitive check by spawning or checking path? 
+        // We'll just try spawning parec, if it fails immediately/errors, we could fallback? 
+        // But spawn doesn't throw if exe missing in bun, it throws on await or exit? 
+        // Actually spawn throws if command not found.
+        
+        try {
+             recordProc = spawn({
+                cmd: ["parec", "--format=s16le", "--channels=1", "--rate=" + RATE.toString(), "--latency=1024"],
+                stdout: "pipe",
+                stderr: "pipe", 
+             });
+             console.log("Using parec for recording");
+        } catch (e) {
+             console.log("parec not found/failed, falling back to arecord");
+             throw e; // trigger fallback
+        }
     } catch (e) {
-      console.error("Failed to spawn arecord:", e);
-      stopDictation("Record Error");
-      return;
+         try {
+            recordProc = spawn({
+                cmd: ["arecord", "-r", RATE.toString(), "-c", "1", "-f", "S16_LE", "-t", "raw"],
+                stdout: "pipe",
+                stderr: "pipe", 
+            });
+            console.log("Using arecord for recording");
+         } catch (e2) {
+             console.error("Failed to spawn recorder:", e2);
+             stopDictation("Record Error");
+             return;
+         }
     }
+
+    // Log stderr
+    (async () => {
+        const reader = recordProc.stderr.getReader();
+        const decoder = new TextDecoder();
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            console.error("recorder stderr:", decoder.decode(value).trim());
+        }
+    })();
+
+    // Check exit
+    recordProc.exited.then((code: number) => {
+        console.log("recorder exited with code:", code);
+        // If it exits too fast (e.g. within 1 second) and we haven't stopped manually, it's an error.
+        if (state.active) stopDictation("Recorder Exited");
+    });
 
     readAudioStream(recordProc.stdout, ws);
   }
 
   async function readAudioStream(stdout: any, ws: any) {
     const reader = stdout.getReader();
-    // Protocol requires rate/width/channels in 'data' object
-    const chunkData = {
-      rate: RATE,
-      width: 2,
-      channels: 1,
-    };
     const chunkType = "audio-chunk";
 
     try {
@@ -218,7 +250,11 @@ async function runDaemon() {
         try {
             const header = JSON.stringify({ 
                 type: chunkType,
-                data: chunkData,
+                data: {
+                    rate: RATE,
+                    width: 2,
+                    channels: 1,
+                },
                 payload_length: value.length 
             }) + "\n";
             ws.write(header);

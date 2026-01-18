@@ -20,6 +20,7 @@
         runtimeInputs = [
           pkgs.bun
           pkgs.alsa-utils # arecord
+          pkgs.pulseaudio # arecord/parec compatibility
           pkgs.wtype
           pkgs.coreutils
         ];

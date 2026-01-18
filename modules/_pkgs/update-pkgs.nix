@@ -25,6 +25,7 @@ pkgs.writeShellApplication {
         cat > packages.nix <<EOF
     { pkgs ? import <nixpkgs> {} }:
     {
+      antigravity-manager = pkgs.callPackage ./antigravity-manager.nix {};
       daisyui-mcp = pkgs.callPackage ./daisyui-mcp.nix {};
       iloader = pkgs.callPackage ./iloader.nix {};
       niri-screen-time = pkgs.callPackage ./niri-screen-time.nix {};
@@ -39,8 +40,9 @@ pkgs.writeShellApplication {
         notify "Fetching latest package information..."
 
         # Define packages to update
-        PACKAGES=(
-          "daisyui-mcp"
+    PACKAGES=(
+      "antigravity-manager"
+      "daisyui-mcp"
           "iloader"
           "niri-screen-time"
           "pomodoro-for-waybar"
@@ -55,9 +57,12 @@ pkgs.writeShellApplication {
           
           ARGS=("$pkg")
           
-          # Per-package configurations
-          case "$pkg" in
-            "pomodoro-for-waybar"|"daisyui-mcp")
+      # Per-package configurations
+      case "$pkg" in
+        "antigravity-manager")
+          ARGS+=("--url" "https://github.com/lbjlaq/Antigravity-Manager")
+          ;;
+        "pomodoro-for-waybar"|"daisyui-mcp")
               # These track branches, so update to latest commit
               ARGS+=("--version" "branch")
               ;;
