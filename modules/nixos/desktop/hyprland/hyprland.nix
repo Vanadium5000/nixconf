@@ -42,6 +42,7 @@
         "wl-paste --type text --watch ${pkgs.cliphist}/bin/cliphist store" # Stores only text data
         "wl-paste --type image --watch ${pkgs.cliphist}/bin/cliphist store" # Stores only image data
         "${pkgs.kdePackages.polkit-kde-agent-1}/libexec/polkit-kde-authentication-agent-1"
+        "dictation-daemon"
       ];
 
       programs.hyprland = {
@@ -264,7 +265,7 @@
           }" # Toggle Hyprpanel (bar)
 
           "${mod},Q, killactive," # Close window
-          "${mod},T, togglefloating," # Toggle Floating
+          # "${mod},T, togglefloating," # Toggle Floating (Disabled for Dictation)
           "${mod},F, fullscreen" # Toggle Fullscreen
           "${mod},left, movefocus, l" # Move focus left
           "${mod},right, movefocus, r" # Move focus Right
@@ -294,6 +295,8 @@
           "${mod},X, exec, rofi-powermenu"
           "${mod},V, exec, rofi-tools"
           "${shiftMod},V, exec, stop-autoclickers" # Autoclicker Safety
+          "${mod},T, exec, dictation-client START" # Start dictation (press)
+          "${shiftMod},T, exec, toggle-dictation-overlay" # Dictation Overlay
           "${altMod},V, exec, ${
             getExe self.packages.${pkgs.stdenv.hostPlatform.system}.toggle-pause-autoclickers
           }"
@@ -337,6 +340,10 @@
           "${mod},mouse:273, resizewindow"
           "${mod},mouse:272, movewindow" # Move Window (mouse)
           "${mod},R, resizewindow" # Resize Window (mouse)
+        ];
+
+        bindr = [
+          "${mod},T, exec, dictation-client STOP" # Stop dictation (release)
         ];
 
         bindl = [

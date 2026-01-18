@@ -236,6 +236,24 @@ Secrets are managed via `pass` (password-store) and `secrets.nix`.
 
 **Note:** Never commit actual secrets. `secrets.nix` is in `.gitignore`.
 
+### CUDA & Environment Variables
+
+When implementing modules that require CUDA, follow these patterns:
+
+1. **Check `config.nixpkgs.config.cudaSupport`** to conditionally enable features or variables.
+2. **Set Environment Variables** in `environment.variables` if needed for python libraries or binaries to find CUDA libs:
+
+```nix
+environment.variables = lib.mkIf (config.nixpkgs.config.cudaSupport or false) {
+  USE_CUDA = "1";
+  CUDA_PATH = "${pkgs.cudatoolkit}";
+  LD_LIBRARY_PATH =
+    "${pkgs.cudatoolkit}/lib:${pkgs.cudaPackages.cudnn}/lib"
+    + (lib.optionalString (config.hardware ? nvidia) ":${config.hardware.nvidia.package}/lib")
+    + ":$LD_LIBRARY_PATH";
+};
+```
+
 ### Input Handling
 
 - Use `inputs.nixpkgs.lib` for standard library functions.

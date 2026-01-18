@@ -487,6 +487,7 @@
           fi
         '';
       };
+
       legacyPackages.scripts = with self'.packages; [
         sound-change
         sound-up
@@ -512,6 +513,9 @@
         btrfs-backup
         synced-lyrics
         markdown-lint-mcp
+        dictation-daemon
+        dictation-client
+        toggle-dictation-overlay
       ];
     };
 }

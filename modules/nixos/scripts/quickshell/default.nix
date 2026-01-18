@@ -104,5 +104,18 @@
           pkgs.quickshell
         ];
       };
+      packages.toggle-dictation-overlay = inputs.wrappers.lib.makeWrapper {
+        inherit pkgs;
+        package = pkgs.writeShellScriptBin "toggle-dictation-overlay" ''
+          # Toggle QuickShell dictation overlay
+          QML_FILE="${./dictation-overlay.qml}"
+          QS_BIN="${pkgs.quickshell}/bin/qs"
+
+          if ! "$QS_BIN" kill -p "$QML_FILE" 2>/dev/null; then
+             "$QS_BIN" -p "$QML_FILE" &
+          fi
+        '';
+        runtimeInputs = [ pkgs.quickshell ];
+      };
     };
 }
