@@ -4,12 +4,21 @@ pkgs.writeShellApplication {
   runtimeInputs = [
     pkgs.nix-update
     pkgs.git
+    pkgs.libnotify
   ];
   text = ''
     # Navigate to the target directory
     ROOT="$(git rev-parse --show-toplevel)"
     TARGET="$ROOT/modules/_pkgs"
     cd "$TARGET"
+
+    # Function to send notifications
+    notify() {
+      if command -v notify-send >/dev/null; then
+        notify-send "Update Packages" "$1"
+      fi
+      echo "$1"
+    }
 
     # Create a temporary expression to expose packages for nix-update
     # This avoids relying on flake attribute paths which might require --flake (missing in some nix-update versions)
@@ -27,7 +36,7 @@ EOF
     # Set NIX_PATH so <nixpkgs> can be resolved
     export NIX_PATH=nixpkgs=${pkgs.path}
 
-    echo "Fetching latest package information..."
+    notify "Fetching latest package information..."
 
     # Define packages to update
     PACKAGES=(
@@ -39,15 +48,28 @@ EOF
     )
 
     UPDATED=()
+    FAILED=()
 
     for pkg in "''${PACKAGES[@]}"; do
       echo "Checking $pkg..."
+      
+      ARGS=("$pkg")
+      
+      # Per-package configurations
+      case "$pkg" in
+        "pomodoro-for-waybar"|"daisyui-mcp")
+          # These track branches, so update to latest commit
+          ARGS+=("--version" "branch")
+          ;;
+      esac
+
       # Try to update using the temporary packages.nix
-      if nix-update -f packages.nix "$pkg" --commit; then
+      if nix-update -f packages.nix "''${ARGS[@]}"; then
         echo "Updated $pkg"
         UPDATED+=("$pkg")
       else
         echo "No update for $pkg or failed."
+        FAILED+=("$pkg")
       fi
     done
     
@@ -55,7 +77,7 @@ EOF
     rm packages.nix
 
     if [ ''${#UPDATED[@]} -eq 0 ]; then
-      echo "No packages updated."
+      notify "No packages updated."
       exit 0
     fi
 
@@ -64,16 +86,11 @@ EOF
     printf '%s\n' "''${UPDATED[@]}"
     echo "----------------------------------------------------------------"
     
-    git diff modules/_pkgs
+    # Show diff of the current directory (modules/_pkgs) without pager
+    git diff --no-pager .
 
-    read -p "Do you want to commit these changes? [y/N] " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        git add modules/_pkgs
-        git commit -m "chore(pkgs): update $(IFS=, ; echo "''${UPDATED[*]}")"
-        echo "Committed."
-    else
-        echo "Changes left in working tree. You can revert them with 'git checkout modules/_pkgs' if desired."
-    fi
+    # Final notification
+    MSG="Updated: $(IFS=', '; echo "''${UPDATED[*]}")"
+    notify "$MSG"
   '';
 }

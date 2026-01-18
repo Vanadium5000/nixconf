@@ -6,12 +6,12 @@ let
 in
 pkgs.stdenv.mkDerivation {
   pname = "daisyui-mcp";
-  version = "1.0.0";
+  version = "1.0.0-unstable-2025-12-16";
 
   src = pkgs.fetchFromGitHub {
     owner = "birdseyevue";
     repo = "daisyui-mcp";
-    rev = "main";
+    rev = "9923eff974a7ace9a9ac8ef3b7941198880c9f72";
     hash = "sha256-KCgj39tslAkS6F0+huzNVvsFaLBgbJyLjPa779pn3/s=";
   };
 

@@ -3,7 +3,8 @@
   fetchFromGitHub,
 }:
 buildGoModule {
-  name = "niri-screen-time";
+  pname = "niri-screen-time";
+  version = "0.0.15";
   vendorHash = "sha256-9y1F2ZrmpiQJ9ZTq9SoRE2PxR65DDNCeBKf4M0HUQC4=";
   src = fetchFromGitHub {
     owner = "probeldev";

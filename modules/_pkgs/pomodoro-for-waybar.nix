@@ -9,12 +9,12 @@
 
 stdenv.mkDerivation {
   pname = "pomodoro-for-waybar";
-  version = "unstable-2024-01-14";
+  version = "0-unstable-2025-05-14";
 
   src = fetchFromGitHub {
     owner = "Tejas242";
     repo = "pomodoro-for-waybar";
-    rev = "master";
+    rev = "bb466beb3b31df12938af698db0e175470d9c847";
     hash = "sha256-weGmKyRY6TWb0J4fYGjYtJAwSkaDeTp2MmOXCsloxrY=";
   };
 
