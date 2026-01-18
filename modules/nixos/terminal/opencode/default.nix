@@ -75,7 +75,7 @@
           plugin = [
             # "opencode-antigravity-auth@latest"
             "@mohak34/opencode-notifier@latest"
-            "oh-my-opencode@latest"
+            # "oh-my-opencode@latest"
             # "@tarquinen/opencode-dcp@latest"
           ];
           small_model = "opencode/grok-code";

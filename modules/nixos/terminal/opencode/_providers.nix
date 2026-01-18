@@ -2,11 +2,11 @@
 {
   config = {
     custom-antigravity = {
-      npm = "@ai-sdk/openai-compatible";
+      npm = "@ai-sdk/anthropic";
       name = "Antigravity";
       options = {
         baseURL = "http://127.0.0.1:8045/v1";
-        api_key = self.secrets.ANTIGRAVITY_MANAGER_KEY;
+        apiKey = self.secrets.ANTIGRAVITY_MANAGER_KEY;
       };
       models = {
         gemini-3-pro-high = {
