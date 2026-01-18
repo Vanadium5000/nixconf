@@ -45,6 +45,7 @@ rec {
       targetFile,
       sourceFile ? null,
       defaultContent ? "",
+      isDirectory ? false,
     }:
     let
       sharedDataDir = "/home/${user}/Shared/Data";
@@ -67,25 +68,49 @@ rec {
           exit 1
         fi
 
-        # Initialize persistent file if it doesn't exist
-        if [ ! -f "$PERSISTENT_FILE" ]; then
-          ${
-            if sourceFile != null then
-              ''
-                cp "${sourceFile}" "$PERSISTENT_FILE"
-              ''
-            else if defaultContent == "" then
-              ''
-                touch "$PERSISTENT_FILE"
-              ''
-            else
-              ''
-                printf '%s' '${defaultContent}' > "$PERSISTENT_FILE"
-              ''
-          }
-          chown ${user}:users "$PERSISTENT_FILE"
-          chmod 644 "$PERSISTENT_FILE"
-        fi
+        ${
+          if isDirectory then
+            ''
+              # Directory initialization
+              if [ -f "$PERSISTENT_FILE" ]; then
+                 echo "ERROR: Persistent path '$PERSISTENT_FILE' exists and is a file (expected directory)." >&2
+                 exit 1
+              fi
+
+              if [ ! -d "$PERSISTENT_FILE" ]; then
+                mkdir -p "$PERSISTENT_FILE"
+                chown ${user}:users "$PERSISTENT_FILE"
+                chmod 755 "$PERSISTENT_FILE"
+              fi
+            ''
+          else
+            ''
+              # File initialization
+              if [ -d "$PERSISTENT_FILE" ]; then
+                 echo "ERROR: Persistent path '$PERSISTENT_FILE' exists and is a directory (expected file)." >&2
+                 exit 1
+              fi
+
+              if [ ! -f "$PERSISTENT_FILE" ]; then
+                ${
+                  if sourceFile != null then
+                    ''
+                      cp "${sourceFile}" "$PERSISTENT_FILE"
+                    ''
+                  else if defaultContent == "" then
+                    ''
+                      touch "$PERSISTENT_FILE"
+                    ''
+                  else
+                    ''
+                      printf '%s' '${defaultContent}' > "$PERSISTENT_FILE"
+                    ''
+                }
+                chown ${user}:users "$PERSISTENT_FILE"
+                chmod 644 "$PERSISTENT_FILE"
+              fi
+            ''
+        }
 
         # Ensure target directory exists
         TARGET_DIR="$(dirname "$TARGET_FILE")"
@@ -118,24 +143,43 @@ rec {
       bindSetupScript = ''
         ${setupScript}
 
-        # For bind mounts, we need the target file to exist as a mount point.
-        # Handle edge cases: symlinks, directories, or other file types.
-        if [ -L "$TARGET_FILE" ]; then
-          # Remove symlinks (including broken ones) - bind mounts need a real file
-          rm "$TARGET_FILE"
-          touch "$TARGET_FILE"
-          chown ${user}:users "$TARGET_FILE"
-        elif [ -d "$TARGET_FILE" ]; then
-          # Cannot bind-mount a file over a directory
-          mv "$TARGET_FILE" "$TARGET_FILE.dir.bak.$(date +%Y%m%d%H%M%S)"
-          touch "$TARGET_FILE"
-          chown ${user}:users "$TARGET_FILE"
-        elif [ ! -e "$TARGET_FILE" ]; then
-          # Target doesn't exist, create empty file as mount point
-          touch "$TARGET_FILE"
-          chown ${user}:users "$TARGET_FILE"
-        fi
-        # If it's already a regular file, leave it (will be shadowed by bind mount)
+        ${
+          if isDirectory then
+            ''
+              # Directory bind mount target setup
+              if [ -L "$TARGET_FILE" ]; then
+                 rm "$TARGET_FILE"
+              elif [ -f "$TARGET_FILE" ]; then
+                 mv "$TARGET_FILE" "$TARGET_FILE.bak.$(date +%Y%m%d%H%M%S)"
+              fi
+              
+              if [ ! -d "$TARGET_FILE" ]; then
+                 mkdir -p "$TARGET_FILE"
+                 chown ${user}:users "$TARGET_FILE"
+              fi
+            ''
+          else
+            ''
+              # For bind mounts, we need the target file to exist as a mount point.
+              # Handle edge cases: symlinks, directories, or other file types.
+              if [ -L "$TARGET_FILE" ]; then
+                # Remove symlinks (including broken ones) - bind mounts need a real file
+                rm "$TARGET_FILE"
+                touch "$TARGET_FILE"
+                chown ${user}:users "$TARGET_FILE"
+              elif [ -d "$TARGET_FILE" ]; then
+                # Cannot bind-mount a file over a directory
+                mv "$TARGET_FILE" "$TARGET_FILE.dir.bak.$(date +%Y%m%d%H%M%S)"
+                touch "$TARGET_FILE"
+                chown ${user}:users "$TARGET_FILE"
+              elif [ ! -e "$TARGET_FILE" ]; then
+                # Target doesn't exist, create empty file as mount point
+                touch "$TARGET_FILE"
+                chown ${user}:users "$TARGET_FILE"
+              fi
+              # If it's already a regular file, leave it (will be shadowed by bind mount)
+            ''
+        }
       '';
 
       # Systemd mount unit name (for dependencies)

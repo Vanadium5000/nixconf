@@ -47,12 +47,12 @@
       ohmyopencodeConfigFile = ".config/opencode/oh-my-opencode.json";
 
       # Persistence configuration using bind mount for reliability
-      accountsPersistence = self.lib.persistence.mkPersistent {
+      toolsPersistence = self.lib.persistence.mkPersistent {
         method = "bind";
         inherit user;
-        fileName = "opencode-accounts.json";
-        targetFile = "/home/${user}/.config/opencode/antigravity-accounts.json";
-        defaultContent = "{}";
+        fileName = "antigravity_tools";
+        targetFile = "/home/${user}/.antigravity_tools";
+        isDirectory = true;
       };
     in
     {
@@ -63,19 +63,19 @@
 
       # Setup script to ensure files exist before mount
       system.activationScripts.opencode-persistence = {
-        text = accountsPersistence.activationScript;
+        text = toolsPersistence.activationScript;
         deps = [ "users" ];
       };
 
       # Bind mount for reliable persistence (apps can't overwrite)
-      fileSystems = accountsPersistence.fileSystems;
+      fileSystems = toolsPersistence.fileSystems;
       hjem.users.${user}.files = {
         "${configFile}".text = builtins.toJSON {
           "$schema" = "https://opencode.ai/config.json";
           plugin = [
             # "opencode-antigravity-auth@latest"
             "@mohak34/opencode-notifier@latest"
-            # "oh-my-opencode@latest"
+            "oh-my-opencode@latest"
             # "@tarquinen/opencode-dcp@latest"
           ];
           small_model = "opencode/grok-code";

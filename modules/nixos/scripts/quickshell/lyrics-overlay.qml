@@ -175,7 +175,9 @@ PanelWindow {
     // Process to fetch lyrics data
     Process {
         id: lyricsProcess
-        command: ["synced-lyrics", "current", "--json", "--lines", root.numLines.toString(), "--length", root.maxLineLength.toString()]
+        command: Quickshell.env("OVERLAY_COMMAND") 
+            ? Quickshell.env("OVERLAY_COMMAND").split(" ") 
+            : ["synced-lyrics", "current", "--json", "--lines", root.numLines.toString(), "--length", root.maxLineLength.toString()]
         running: false
 
         stdout: StdioCollector {
