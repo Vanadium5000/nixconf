@@ -7,7 +7,7 @@ let
   };
 
   lspBins = {
-    marksman = "${pkgs.marksman}/bin/marksman";
+    markdownlint = "${pkgs.nodePackages.markdownlint}/bin/markdownlint";
     nil = "${pkgs.nil}/bin/nil";
     tailwindcss = "${pkgs.tailwindcss-language-server}/bin/tailwindcss-language-server";
     # typescript = "${pkgs.typescript-language-server}/bin/typescript-language-server";
@@ -20,7 +20,7 @@ in
 {
   packages =
     (with pkgs; [
-      marksman
+      nodePackages.markdownlint
       # nil
       tailwindcss-language-server
       nixfmt-rfc-style
@@ -74,12 +74,13 @@ in
     #   command = [ lspBins.nil ];
     #   extensions = [ "nix" ];
     # };
-    marksman = {
+    markdownlint = {
       command = [
-        lspBins.marksman
+        lspBins.markdownlint
       ];
       extensions = [
         "md"
+        "markdown"
       ];
     };
     tailwindcss = {
