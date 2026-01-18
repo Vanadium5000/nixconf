@@ -2,7 +2,7 @@
 
 let
   pname = "antigravity-manager";
-  version = "3.3.43";
+  version = "3.3.44";
 
   src = pkgs.fetchurl {
     url = "https://github.com/lbjlaq/Antigravity-Manager/releases/download/v${version}/Antigravity.Tools_${version}_amd64.AppImage";
@@ -27,8 +27,8 @@ pkgs.appimageTools.wrapType2 {
     ];
 
   extraInstallCommands = ''
-    install -m 444 -D ${appimageContents}/antigravity_tools.desktop $out/share/applications/${pname}.desktop
-    install -m 444 -D ${appimageContents}/antigravity_tools.png \
+    install -m 444 -D "${appimageContents}/Antigravity Tools.desktop" $out/share/applications/${pname}.desktop
+    install -m 444 -D "${appimageContents}/Antigravity Tools.png" \
       $out/share/icons/hicolor/512x512/apps/antigravity_tools.png
 
     substituteInPlace $out/share/applications/${pname}.desktop \
