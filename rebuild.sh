@@ -107,6 +107,7 @@ declare -A SECRETS_MAP=(
     ["MY_WEBSITE_ENV"]="my_website/env_file"
     ["MONGODB_PASSWORD"]="system/mongodb_password"
     ["MONGO_EXPRESS_PASSWORD"]="system/mongo_express_password"
+    ["ANTIGRAVITY_MANAGER_KEY"]="system/antigravity-manager-key"
     # Example additional secrets (uncomment and modify as needed):
     # ["API_KEY"]="services/api/key"
     # ["DATABASE_PASSWORD"]="database/prod/password"

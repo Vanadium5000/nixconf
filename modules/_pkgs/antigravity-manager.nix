@@ -32,7 +32,7 @@ pkgs.appimageTools.wrapType2 {
       $out/share/icons/hicolor/512x512/apps/antigravity_tools.png
 
     substituteInPlace $out/share/applications/${pname}.desktop \
-      --replace 'Exec=AppRun' 'Exec=${pname}'
+      --replace 'Exec=antigravity_tools' 'Exec=${pname}'
   '';
 
   meta = with lib; {

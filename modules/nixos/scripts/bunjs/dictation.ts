@@ -157,19 +157,31 @@ async function handleTranscribe(filePath: string) {
 
   // 4. Convert and stream using ffmpeg
   const ffmpegCmd = `ffmpeg -i "${filePath}" -f s16le -ac 1 -ar ${CONFIG.wyoming.rate} -`;
-
+  
   const ffmpeg = spawn(["sh", "-c", ffmpegCmd], {
     stdout: "pipe",
-    stderr: "ignore",
+    stderr: "pipe",
   });
 
-  await streamAudio(ffmpeg.stdout, socket);
+  (async () => {
+    const reader = ffmpeg.stderr.getReader();
+    const decoder = new TextDecoder();
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      log(`FFmpeg stderr: ${decoder.decode(value).trim()}`);
+    }
+  })();
 
-  // Send stop
+  await streamAudio(ffmpeg.stdout, socket);
+  
+  log("Finished streaming audio, sending audio-stop");
   socket.write(JSON.stringify({ type: "audio-stop" }) + "\n");
 }
 
+
 async function handleRun() {
+
   log("Daemon started");
   // 1. Initialization
   const pid = process.pid;

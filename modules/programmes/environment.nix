@@ -22,6 +22,7 @@
         # Wrapped programmes
         self'.packages.qalc
         self'.packages.monero-wallet
+        self'.packages.git
         self'.packages.starship
         editor
       ]
@@ -39,7 +40,6 @@
           ]
           # General CLI tools
           ++ [
-            git
             wget
             curl
 

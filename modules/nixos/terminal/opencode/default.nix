@@ -9,7 +9,7 @@
     let
       user = config.preferences.user.username;
       languages = import ./_languages.nix { inherit pkgs self; };
-      providers = import ./_providers.nix;
+      providers = import ./_providers.nix { inherit self; };
       skills = import ./_skills.nix { inherit pkgs; };
 
       opencode = inputs.opencode.packages.${pkgs.stdenv.hostPlatform.system}.default;
@@ -155,7 +155,9 @@
             };
             markdown_lint = {
               type = "local";
-              command = [ "${inputs.self.packages.${pkgs.stdenv.hostPlatform.system}.markdown-lint-mcp}/bin/markdown-lint-mcp" ];
+              command = [
+                "${inputs.self.packages.${pkgs.stdenv.hostPlatform.system}.markdown-lint-mcp}/bin/markdown-lint-mcp"
+              ];
               enabled = true;
               timeout = 10000;
             };
