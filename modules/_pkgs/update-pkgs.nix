@@ -2,47 +2,78 @@
 pkgs.writeShellApplication {
   name = "update-pkgs";
   runtimeInputs = [
-    pkgs.nvfetcher
+    pkgs.nix-update
     pkgs.git
   ];
   text = ''
-    # Navigate to the repo root
+    # Navigate to the target directory
     ROOT="$(git rev-parse --show-toplevel)"
     TARGET="$ROOT/modules/_pkgs"
+    cd "$TARGET"
 
-    if [ ! -f "$TARGET/nvfetcher.toml" ]; then
-      echo "Error: nvfetcher.toml not found in $TARGET"
-      exit 1
+    # Create a temporary expression to expose packages for nix-update
+    # This avoids relying on flake attribute paths which might require --flake (missing in some nix-update versions)
+    cat > packages.nix <<EOF
+{ pkgs ? import <nixpkgs> {} }:
+{
+  daisyui-mcp = pkgs.callPackage ./daisyui-mcp.nix {};
+  iloader = pkgs.callPackage ./iloader.nix {};
+  niri-screen-time = pkgs.callPackage ./niri-screen-time.nix {};
+  pomodoro-for-waybar = pkgs.callPackage ./pomodoro-for-waybar.nix {};
+  sideloader = pkgs.callPackage ./sideloader.nix {};
+}
+EOF
+
+    # Set NIX_PATH so <nixpkgs> can be resolved
+    export NIX_PATH=nixpkgs=${pkgs.path}
+
+    echo "Fetching latest package information..."
+
+    # Define packages to update
+    PACKAGES=(
+      "daisyui-mcp"
+      "iloader"
+      "niri-screen-time"
+      "pomodoro-for-waybar"
+      "sideloader"
+    )
+
+    UPDATED=()
+
+    for pkg in "''${PACKAGES[@]}"; do
+      echo "Checking $pkg..."
+      # Try to update using the temporary packages.nix
+      if nix-update -f packages.nix "$pkg" --commit; then
+        echo "Updated $pkg"
+        UPDATED+=("$pkg")
+      else
+        echo "No update for $pkg or failed."
+      fi
+    done
+    
+    # Cleanup
+    rm packages.nix
+
+    if [ ''${#UPDATED[@]} -eq 0 ]; then
+      echo "No packages updated."
+      exit 0
     fi
 
-    # Remove state file to force a full re-check
-    rm -f "$TARGET/_sources/generated.json"
-
-    # Snapshot current generated.nix
-    cp "$TARGET/_sources/generated.nix" "$TARGET/generated.nix.bak" 2>/dev/null || touch "$TARGET/generated.nix.bak"
-
-    echo "Updating packages in $TARGET..."
-    cd "$TARGET"
-    nvfetcher -c nvfetcher.toml -o _sources "$@"
-    
     echo "----------------------------------------------------------------"
-    if cmp -s "_sources/generated.nix" "generated.nix.bak"; then
-       echo "No updates found."
-       rm "generated.nix.bak"
+    echo "The following packages were updated:"
+    printf '%s\n' "''${UPDATED[@]}"
+    echo "----------------------------------------------------------------"
+    
+    git diff modules/_pkgs
+
+    read -p "Do you want to commit these changes? [y/N] " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        git add modules/_pkgs
+        git commit -m "chore(pkgs): update $(IFS=, ; echo "''${UPDATED[*]}")"
+        echo "Committed."
     else
-       echo "Updates found!"
-       git diff --no-index "generated.nix.bak" "_sources/generated.nix" || true
-       
-       read -p "Do you want to keep these changes? [Y/n] " -n 1 -r
-       echo
-       if [[ ! $REPLY =~ ^[Yy]$ ]] && [[ -n $REPLY ]]; then
-           echo "Reverting changes..."
-           mv "generated.nix.bak" "_sources/generated.nix"
-           echo "Updates discarded."
-       else
-           rm "generated.nix.bak"
-           echo "Updates kept."
-       fi
+        echo "Changes left in working tree. You can revert them with 'git checkout modules/_pkgs' if desired."
     fi
   '';
 }

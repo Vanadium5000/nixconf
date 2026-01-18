@@ -61,7 +61,7 @@ in
     };
     nixfmt = {
       command = [
-        formatterBins.nixfmt-rfc-style
+        formatterBins.nixfmt
         "-q"
       ];
       extensions = [ "nix" ];
@@ -74,10 +74,9 @@ in
     #   command = [ lspBins.nil ];
     #   extensions = [ "nix" ];
     # };
-    markdown = {
+    marksman = {
       command = [
         lspBins.marksman
-        "server"
       ];
       extensions = [
         "md"
