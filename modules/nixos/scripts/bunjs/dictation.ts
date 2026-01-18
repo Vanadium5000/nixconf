@@ -7,12 +7,22 @@ const CONFIG = {
   socketPath: "/tmp/dictation.sock", // Legacy cleanup
   statusFile: "/tmp/dictation_status.json",
   pidFile: "/tmp/dictation.pid",
+  logFile: "/tmp/dictation.log",
   wyoming: {
     host: "localhost",
     port: 10300,
     rate: 16000,
   },
 };
+
+function log(msg: string) {
+  const timestamp = new Date().toISOString();
+  const line = `[${timestamp}] ${msg}\n`;
+  try {
+    const fs = require("fs");
+    fs.appendFileSync(CONFIG.logFile, line);
+  } catch (e) {}
+}
 
 // Types
 type Status = {
@@ -56,7 +66,9 @@ function handleStatus() {
       console.log(JSON.stringify({ active: false, text: "", error: null }));
     }
   } catch (e) {
-    console.log(JSON.stringify({ active: false, text: "", error: "Status Read Error" }));
+    console.log(
+      JSON.stringify({ active: false, text: "", error: "Status Read Error" })
+    );
   }
 }
 
@@ -74,13 +86,14 @@ function handleToggle() {
   } else {
     // Start new instance
     console.log("Starting dictation service...");
-    spawn([process.argv[0], process.argv[1], "run"], {
+    spawn([process.argv[0]!, process.argv[1]!, "run"], {
       stdio: ["ignore", "ignore", "ignore"],
     }).unref();
   }
 }
 
 async function handleRun() {
+  log("Daemon started");
   // 1. Initialization
   const pid = process.pid;
   writeFileSync(CONFIG.pidFile, pid.toString());
@@ -88,6 +101,7 @@ async function handleRun() {
 
   // Cleanup on exit
   const cleanup = () => {
+    log("Cleanup triggered");
     cleanupState();
     process.exit(0);
   };
@@ -95,6 +109,7 @@ async function handleRun() {
   process.on("SIGTERM", cleanup);
 
   // 2. Connect to Wyoming
+  log(`Connecting to Wyoming at ${CONFIG.wyoming.host}:${CONFIG.wyoming.port}`);
   let socket;
   try {
     socket = await connect({
@@ -105,22 +120,26 @@ async function handleRun() {
           handleWyomingData(data);
         },
         error(_socket, error) {
+          log(`Wyoming socket error: ${error}`);
           console.error("Wyoming error:", error);
           updateStatus({ active: false, text: "", error: "Connection Error" });
           cleanup();
         },
         close() {
+          log("Wyoming socket closed");
           cleanup();
         },
       },
     });
   } catch (e) {
+    log(`Failed to connect to Wyoming: ${e}`);
     updateStatus({ active: false, text: "", error: "Connection Failed" });
     console.error("Failed to connect to Wyoming:", e);
     // Keep error visible for a moment
     setTimeout(cleanup, 2000);
     return;
   }
+  log("Connected to Wyoming");
 
   // 3. Send Audio Start
   try {
@@ -134,27 +153,41 @@ async function handleRun() {
         },
       }) + "\n"
     );
+    log("Sent audio-start");
   } catch (e) {
+    log(`Failed to send audio-start: ${e}`);
     cleanup();
     return;
   }
 
   // Tries pw-record -> parec -> arecord
-  const recordCmd = `pw-record --rate ${CONFIG.wyoming.rate} --channels 1 --format s16 - 2>/dev/null || parec --format=s16le --channels=1 --rate=${CONFIG.wyoming.rate} 2>/dev/null || arecord -r ${CONFIG.wyoming.rate} -c 1 -f S16_LE -t raw 2>/dev/null`;
-  
+  const recordCmd = `pw-record --rate ${CONFIG.wyoming.rate} --channels 1 --format s16 - || parec --format=s16le --channels=1 --rate=${CONFIG.wyoming.rate} || arecord -r ${CONFIG.wyoming.rate} -c 1 -f S16_LE -t raw`;
+
+  log(`Starting recorder with chain: ${recordCmd}`);
   const recorder = spawn(["sh", "-c", recordCmd], {
     stdout: "pipe",
-    stderr: "ignore",
+    stderr: "pipe",
   });
+
+  (async () => {
+    const reader = recorder.stderr.getReader();
+    const decoder = new TextDecoder();
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      log(`Recorder stderr: ${decoder.decode(value).trim()}`);
+    }
+  })();
 
   streamAudio(recorder.stdout, socket);
 
   recorder.exited.then((code) => {
+    log(`Recorder exited with code ${code}`);
     if (code !== 0 && code !== null) {
-        updateStatus({ active: false, text: "", error: "Microphone Error" });
-        setTimeout(cleanup, 2000);
+      updateStatus({ active: false, text: "", error: "Microphone Error" });
+      setTimeout(cleanup, 2000);
     } else {
-        cleanup();
+      cleanup();
     }
   });
 }
@@ -172,7 +205,7 @@ function cleanupState() {
     if (existsSync(CONFIG.pidFile)) unlinkSync(CONFIG.pidFile);
     // Legacy socket cleanup
     if (existsSync(CONFIG.socketPath)) unlinkSync(CONFIG.socketPath);
-    
+
     updateStatus({ active: false, text: "", error: null });
   } catch (e) {}
 }
@@ -194,17 +227,29 @@ function getRunningPid(): number | null {
 
 async function streamAudio(readable: any, socket: any) {
   const reader = readable.getReader();
+  let chunkCount = 0;
   try {
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-      
-      const header = JSON.stringify({
-        type: "audio-chunk",
-        data: { rate: CONFIG.wyoming.rate, width: 2, channels: 1 },
-        payload_length: value.length,
-      }) + "\n";
-      
+
+      if (chunkCount % 50 === 0) {
+        const rms = calculateRMS(value);
+        log(
+          `Sending chunk #${chunkCount} size=${value.length} RMS=${rms.toFixed(
+            2
+          )}`
+        );
+      }
+      chunkCount++;
+
+      const header =
+        JSON.stringify({
+          type: "audio-chunk",
+          data: { rate: CONFIG.wyoming.rate, width: 2, channels: 1 },
+          payload_length: value.length,
+        }) + "\n";
+
       socket.write(header);
       socket.write(value);
     }
@@ -215,18 +260,35 @@ async function streamAudio(readable: any, socket: any) {
   }
 }
 
+function calculateRMS(buffer: Uint8Array): number {
+  let sum = 0;
+  const int16View = new Int16Array(
+    buffer.buffer,
+    buffer.byteOffset,
+    buffer.length / 2
+  );
+  for (let i = 0; i < int16View.length; i++) {
+    sum += int16View[i]! * int16View[i]!;
+  }
+  return Math.sqrt(sum / int16View.length);
+}
+
 function handleWyomingData(data: Uint8Array) {
   const text = new TextDecoder().decode(data);
   const lines = text.split("\n");
-  
+
   for (const line of lines) {
     if (!line.trim()) continue;
     try {
       const msg = JSON.parse(line);
+      log(`Received Wyoming message type: ${msg.type}`);
       if (msg.type === "transcript" && msg.text) {
+        log(`Transcript received: "${msg.text}"`);
         updateStatus({ active: true, text: msg.text, error: null });
         spawn(["wtype", msg.text + " "]);
       }
-    } catch (e) {}
+    } catch (e) {
+      log(`Error parsing Wyoming message: ${e}`);
+    }
   }
 }
