@@ -95,6 +95,10 @@
               "libnvjitlink"
               "libcusparse"
               "cudnn"
+
+              # Dictation CUDA deps
+              "libcufile"
+              "libcusparse_lt"
             ]
             ++ config.preferences.allowedUnfree
           );

@@ -513,8 +513,7 @@
         btrfs-backup
         synced-lyrics
         markdown-lint-mcp
-        dictation-daemon
-        dictation-client
+        dictation
         toggle-dictation-overlay
       ];
     };

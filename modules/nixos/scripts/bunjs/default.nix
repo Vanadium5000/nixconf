@@ -10,6 +10,21 @@
       ...
     }:
     {
+      packages.dictation = inputs.wrappers.lib.makeWrapper {
+        inherit pkgs;
+        package = pkgs.writeShellScriptBin "dictation" ''
+          exec ${pkgs.bun}/bin/bun run ${./dictation.ts} "$@"
+        '';
+
+        # Ensure PATH includes all runtime inputs
+        runtimeInputs = [
+          pkgs.bun
+          pkgs.alsa-utils # arecord
+          pkgs.wtype
+          pkgs.coreutils
+        ];
+      };
+
       packages.rofi-passmenu = inputs.wrappers.lib.makeWrapper {
         inherit pkgs;
         package = pkgs.writeShellScriptBin "rofi-passmenu" ''

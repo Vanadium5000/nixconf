@@ -295,7 +295,7 @@
           "${mod},X, exec, rofi-powermenu"
           "${mod},V, exec, rofi-tools"
           "${shiftMod},V, exec, stop-autoclickers" # Autoclicker Safety
-          "${mod},T, exec, dictation-client START" # Start dictation (press)
+          "${mod},T, exec, dictation-client TOGGLE" # Dictation Toggle (More reliable than hold)
           "${shiftMod},T, exec, toggle-dictation-overlay" # Dictation Overlay
           "${altMod},V, exec, ${
             getExe self.packages.${pkgs.stdenv.hostPlatform.system}.toggle-pause-autoclickers
@@ -343,7 +343,8 @@
         ];
 
         bindr = [
-          "${mod},T, exec, dictation-client STOP" # Stop dictation (release)
+          # Released T -> Stop dictation (Removed for reliability - switched to Toggle)
+          # "${mod},T, exec, dictation-client STOP"
         ];
 
         bindl = [

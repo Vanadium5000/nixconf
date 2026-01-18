@@ -84,70 +84,36 @@ PanelWindow {
         }
     }
     
-    // Poll status file
+    // Poll status using the dictation daemon
     Timer {
-        interval: 100
+        id: pollTimer
+        interval: 50 // Fast polling for responsiveness
         running: true
         repeat: true
         onTriggered: {
-            var file = readFile(root.statusFile);
-            if (file) {
-                try {
-                    var data = JSON.parse(file);
-                    root.isActive = data.active;
-                    // Only update text if it's not empty, or handle accumulation?
-                    // The daemon sends the *latest* segment. 
-                    // If we want to show history, we need the daemon to send it.
-                    // For now, let's just show what the daemon sends.
-                    if (data.text) {
-                         root.activeText = data.text;
-                    }
-                    root.statusError = data.error || "";
-                } catch (e) {
-                    console.log("JSON parse error: " + e);
-                }
-            } else {
-                 root.isActive = false;
+            if (!statusProcess.running) {
+                statusProcess.running = true;
             }
         }
     }
 
-    function readFile(path) {
-        // QuickShell doesn't have a direct sync file read in JS context easily?
-        // We can use `cat` process or similar, but polling process is heavy.
-        // Actually, Quickshell might have `Io.File`? 
-        // Let's use `cat` via Process for now as we did in lyrics, but polling is expensive.
-        // Better: Use `FileWatch` or similar if available.
-        // Looking at `lyrics-overlay.qml`, it spawns a process.
-        // Let's spawn `cat` once per tick? That's bad.
-        // Quickshell has `File` object?
-        // Checking imports... `Quickshell.Io`.
-        // Let's try `cat` for now, 100ms is 10 process/sec. A bit much.
-        // 500ms?
-    }
-    
     Process {
-        id: catProcess
-        command: ["cat", root.statusFile]
+        id: statusProcess
+        command: ["dictation", "status"]
         running: false
+        
         stdout: StdioCollector {
             onStreamFinished: {
                 if (text) {
                      try {
                         var data = JSON.parse(text);
+                        // Atomic update from daemon
                         root.isActive = data.active;
-                        root.activeText = data.text || root.activeText;
+                        if (data.text) root.activeText = data.text;
                         root.statusError = data.error || "";
                      } catch(e) {}
                 }
             }
         }
-    }
-    
-    Timer {
-        interval: 200
-        running: true
-        repeat: true
-        onTriggered: catProcess.running = true
     }
 }
