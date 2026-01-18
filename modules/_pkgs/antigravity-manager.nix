@@ -2,11 +2,11 @@
 
 let
   pname = "antigravity-manager";
-  version = "3.3.44";
+  version = "3.3.43";
 
   src = pkgs.fetchurl {
     url = "https://github.com/lbjlaq/Antigravity-Manager/releases/download/v${version}/Antigravity.Tools_${version}_amd64.AppImage";
-    hash = "sha256:0m2hsm5irljm7jw9wpybmgmjasbmcl1a607h4lg9qcvk1z1yhsb5";
+    hash = "sha256-ZWnoww9zM5weJfAAowJldWkl66vLX564PFXSHEvVUFQ=";
   };
 
   appimageContents = pkgs.appimageTools.extract { inherit pname version src; };
