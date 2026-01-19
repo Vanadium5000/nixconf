@@ -56,17 +56,7 @@
 
           serviceConfig = {
             Type = "simple";
-            # Wait for connectivity before starting (uses SSH as reliable check)
-            ExecStartPre = "${pkgs.writeShellScript "unison-wait-for-peer" ''
-              for i in $(seq 1 30); do
-                if ${pkgs.openssh}/bin/ssh -q -o BatchMode=yes -o ConnectTimeout=5 sync-target exit; then
-                  exit 0
-                fi
-                sleep 2
-              done
-              echo "Peer sync-target not reachable via SSH after 60s"
-              exit 1
-            ''}";
+
             ExecStart = "${pkgs.unison}/bin/unison -batch default";
             Restart = "always";
             RestartSec = "3min";
