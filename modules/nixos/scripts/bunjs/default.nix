@@ -19,12 +19,9 @@
         runtimeInputs = [
           self'.packages.toggle-lyrics-overlay
           pkgs.bun
-          pkgs.alsa-utils
-          pkgs.pulseaudio
-          pkgs.pipewire
           pkgs.wtype
           pkgs.coreutils
-          pkgs.whisper-cpp
+          #pkgs.whisper-cpp # using whisper-cpp as a runtimeInput makes it not work.
           pkgs.ffmpeg
           pkgs.jq
         ];

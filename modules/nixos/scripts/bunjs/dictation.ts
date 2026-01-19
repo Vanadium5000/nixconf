@@ -145,13 +145,15 @@ async function handleRun() {
 
   const whisperBin = await findWhisperBinary();
   if (!whisperBin) {
-    log("ERROR", "whisper-stream not found");
+    const msg = "whisper-stream not found. Add whisper-cpp to environment.systemPackages (not runtimeInputs)";
+    log("ERROR", msg);
     await updateState({
-      text: "❌ whisper-stream missing",
+      text: "❌ whisper-cpp missing",
       isRecording: false,
       mode: "error",
-      error: "Binary not found",
+      error: msg,
     });
+    console.error(`Error: ${msg}`);
     await Bun.sleep(3000);
     process.exit(1);
   }
@@ -360,12 +362,18 @@ async function runWhisperStream(bin: string, modelPath: string, noType: boolean)
   );
 
   let lastText = "";
+  let typedText = ""; // Track what we've actually typed for incremental updates
   let lastUpdateTime = Date.now();
 
   const stripAnsi = (s: string) => s.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, "");
 
   const isValidTranscript = (text: string): boolean => {
     if (!text || text.length < 2) return false;
+
+    // Filter parenthetical noise: (music), (beeping), [inaudible], etc.
+    if (/^\(.*\)$/.test(text) || /^\[.*\]$/.test(text)) return false;
+    if (/^\*.*\*$/.test(text)) return false;
+
     const dominated = [
       "init:",
       "whisper_",
@@ -466,7 +474,38 @@ async function runWhisperStream(bin: string, modelPath: string, noType: boolean)
 
           if (!noType) {
             try {
-              await $`wtype -- ${text} `.quiet();
+              if (text.startsWith(typedText)) {
+                const delta = text.slice(typedText.length);
+                if (delta) {
+                  await $`wtype -- ${delta}`.quiet();
+                  typedText = text;
+                }
+              } else {
+                let commonLen = 0;
+                const minLen = Math.min(typedText.length, text.length);
+                while (commonLen < minLen && typedText[commonLen] === text[commonLen]) {
+                  commonLen++;
+                }
+
+                const backspaces = typedText.length - commonLen;
+
+                if (backspaces > 50 || commonLen < 3) {
+                  // New segment from whisper - append with space, reset tracking
+                  const separator = typedText.length > 0 ? " " : "";
+                  await $`wtype -- ${separator}${text}`.quiet();
+                  typedText = text;
+                } else {
+                  // Small correction - backspace and fix
+                  const newText = text.slice(commonLen);
+                  for (let i = 0; i < backspaces; i++) {
+                    await $`wtype -k BackSpace`.quiet();
+                  }
+                  if (newText) {
+                    await $`wtype -- ${newText}`.quiet();
+                  }
+                  typedText = text;
+                }
+              }
             } catch (e) {
               log("WARN", "wtype failed", { error: String(e) });
             }
