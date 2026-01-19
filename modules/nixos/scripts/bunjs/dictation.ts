@@ -20,7 +20,7 @@ const CONFIG = {
   pidFile: join(tmpdir(), "dictation.pid"),
   stateFile: join(tmpdir(), "dictation-state.json"),
   // Default model name to download if no model is found
-  defaultModelName: "base.en",
+  defaultModelName: "medium.en",
   // User-local cache directory for downloaded models
   userModelDir: join(homedir(), ".cache", "whisper"),
 };
@@ -254,11 +254,14 @@ async function handleRun() {
             } else if (trimmed.includes("init: attempt to open")) {
               await updateState({ text: "Init Audio...", isRecording: true });
             } else if (trimmed.includes("whisper_model_load")) {
-              await updateState({ text: "Loading Model...", isRecording: true });
+              await updateState({
+                text: "Loading Model...",
+                isRecording: true,
+              });
             } else if (trimmed.includes("whisper_init_state")) {
               await updateState({ text: "Init Context...", isRecording: true });
             } else if (
-              trimmed.includes("computed_timestamps") || 
+              trimmed.includes("computed_timestamps") ||
               trimmed.includes("[Start speaking]") ||
               trimmed.includes("main: processing")
             ) {
