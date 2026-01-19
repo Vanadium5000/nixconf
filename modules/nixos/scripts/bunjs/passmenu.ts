@@ -391,12 +391,14 @@ async function appendToPass(
 
 async function listPassEntries(passDir: string): Promise<string[]> {
   const listOutput =
-    await $`find ${passDir} -type f -name '*.gpg' -printf '%P\n' | sed 's/\\.gpg$//' | sort`.text();
+    await $`find ${passDir} -type f -name '*.gpg' -printf '%P\n'`.text();
   return listOutput
     .trim()
     .split("\n")
     .filter(Boolean)
-    .filter((e) => !e.startsWith("temp_emails/"));
+    .map((entry) => entry.replace(/\.gpg$/, ""))
+    .filter((e) => !e.startsWith("temp_emails/"))
+    .sort();
 }
 
 // =============================================================================
@@ -435,22 +437,72 @@ async function addTotpFromQr(entryPath: string): Promise<boolean> {
   }
 }
 
-/**
- * Open credential in default editor
- */
+async function hasTerminal(): Promise<boolean> {
+  return !!process.env.TERM && process.env.TERM !== "dumb";
+}
+
+async function getTerminalCommand(): Promise<string[]> {
+  if (await commandExists("kitty")) {
+    return ["kitty", "--"];
+  }
+  if (await commandExists("alacritty")) {
+    return ["alacritty", "-e"];
+  }
+  if (await commandExists("foot")) {
+    return ["foot", "--"];
+  }
+  if (await commandExists("wezterm")) {
+    return ["wezterm", "start", "--"];
+  }
+  throw new Error("No terminal emulator found");
+}
+
 async function editCredential(entryPath: string): Promise<void> {
   try {
-    // pass edit uses $EDITOR
-    const proc = Bun.spawn(["pass", "edit", entryPath], {
-      stdin: "inherit",
-      stdout: "inherit",
-      stderr: "inherit",
-    });
-    await proc.exited;
+    if (await hasTerminal()) {
+      const proc = Bun.spawn(["pass", "edit", entryPath], {
+        stdin: "inherit",
+        stdout: "inherit",
+        stderr: "inherit",
+      });
+      await proc.exited;
+    } else {
+      const termCmd = await getTerminalCommand();
+      const proc = Bun.spawn([...termCmd, "pass", "edit", entryPath], {
+        stdin: "inherit",
+        stdout: "inherit",
+        stderr: "inherit",
+      });
+      await proc.exited;
+    }
   } catch (error) {
     logError("Failed to edit credential", error);
     await notify("Failed to open editor", "passmenu");
   }
+}
+
+async function deleteCredential(
+  menuCommand: string[],
+  entryPath: string
+): Promise<boolean> {
+  const confirm = await selectOption(
+    menuCommand,
+    ["No, keep it", "Yes, delete permanently"],
+    `Delete ${entryPath}?`
+  );
+
+  if (confirm === "Yes, delete permanently") {
+    try {
+      await $`pass rm -f ${entryPath}`.quiet();
+      await notify(`Deleted: ${entryPath}`, "passmenu");
+      return true;
+    } catch (error) {
+      logError("Failed to delete credential", error);
+      await notify("Failed to delete credential", "passmenu");
+      return false;
+    }
+  }
+  return false;
 }
 
 /**
@@ -459,11 +511,12 @@ async function editCredential(entryPath: string): Promise<void> {
 async function showEditOptions(
   menuCommand: string[],
   entryPath: string
-): Promise<"back" | "exit"> {
+): Promise<"back" | "exit" | "deleted"> {
   const options = [
     "← Back",
     "📷 Add TOTP from QR Code",
     "✏️ Edit with $EDITOR",
+    "🗑️ Delete Credential",
   ];
 
   const selected = await selectOption(
@@ -482,6 +535,9 @@ async function showEditOptions(
     case "✏️ Edit with $EDITOR":
       await editCredential(entryPath);
       return "exit";
+    case "🗑️ Delete Credential":
+      const deleted = await deleteCredential(menuCommand, entryPath);
+      return deleted ? "deleted" : "back";
     default:
       return "back";
   }
@@ -1161,7 +1217,11 @@ async function main(): Promise<void> {
       if (result === "exit") {
         process.exit(0);
       }
-      // Show field options again
+      if (result === "deleted") {
+        selected = "";
+        await clearState();
+        continue;
+      }
       continue;
     }
 

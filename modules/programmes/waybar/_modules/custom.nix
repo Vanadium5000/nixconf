@@ -65,11 +65,37 @@ in
   # https://github.com/ashish-kus/waybar-minimal/blob/main/src/config.jsonc
   # Options: https://github.com/Alexays/Waybar/wiki/Configuration
   "custom/dictation" = {
-    exec = "dictation status | ${pkgs.jq}/bin/jq --unbuffered -c 'if .active then {text:\"🎙️\", class:\"active\", tooltip:.text} else {text:\"\", class:\"inactive\"} end'";
+    exec = "${pkgs.writeShellScript "dictation-waybar" ''
+      status=$(dictation status 2>/dev/null)
+      if [ -z "$status" ]; then
+        echo '{"text":"","class":"inactive","tooltip":"Dictation unavailable"}'
+        exit 0
+      fi
+      active=$(echo "$status" | ${pkgs.jq}/bin/jq -r '.active // false')
+      mode=$(echo "$status" | ${pkgs.jq}/bin/jq -r '.mode // "idle"')
+      text=$(echo "$status" | ${pkgs.jq}/bin/jq -r '.text // ""')
+      error=$(echo "$status" | ${pkgs.jq}/bin/jq -r '.error // ""')
+      uptime=$(echo "$status" | ${pkgs.jq}/bin/jq -r '.uptime // 0')
+
+      if [ "$active" = "true" ]; then
+        case "$mode" in
+          live) icon="🎙️" ;;
+          transcribe) icon="📝" ;;
+          *) icon="⏳" ;;
+        esac
+        tooltip="<b>$mode</b>\n$text"
+        [ -n "$error" ] && tooltip="$tooltip\n<span color='#ff6b6b'>$error</span>"
+        [ "$uptime" -gt 0 ] && tooltip="$tooltip\nUptime: ''${uptime}s"
+        ${pkgs.jq}/bin/jq -nc --arg t "$icon" --arg c "active" --arg tip "$tooltip" '{text:$t,class:$c,tooltip:$tip}'
+      else
+        ${pkgs.jq}/bin/jq -nc '{text:"",class:"inactive",tooltip:"Click to start dictation"}'
+      fi
+    ''}";
     return-type = "json";
     interval = 1;
     format = "{}";
     on-click = "dictation toggle";
+    tooltip = true;
   };
   "custom/notifications" = {
     format = "󰂚 {}";

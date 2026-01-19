@@ -16,16 +16,17 @@
           exec ${pkgs.bun}/bin/bun run ${./dictation.ts} "$@"
         '';
 
-        # Ensure PATH includes all runtime inputs
         runtimeInputs = [
           self'.packages.toggle-lyrics-overlay
           pkgs.bun
-          pkgs.alsa-utils # arecord
-          pkgs.pulseaudio # arecord/parec compatibility
-          pkgs.pipewire # pw-record
+          pkgs.alsa-utils
+          pkgs.pulseaudio
+          pkgs.pipewire
           pkgs.wtype
           pkgs.coreutils
           pkgs.whisper-cpp
+          pkgs.ffmpeg
+          pkgs.jq
         ];
       };
 
