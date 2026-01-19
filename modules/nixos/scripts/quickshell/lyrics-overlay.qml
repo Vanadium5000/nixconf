@@ -231,7 +231,7 @@ PanelWindow {
     // Timer for periodic updates
     Timer {
         id: updateTimer
-        interval: 400
+        interval: parseInt(Quickshell.env("LYRICS_UPDATE_INTERVAL") ?? "400")
         repeat: false
         onTriggered: {
             lyricsProcess.running = true;

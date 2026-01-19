@@ -71,12 +71,14 @@
               # Kill existing instance first
               "$QS_BIN" kill -p "$QML_FILE" 2>/dev/null || true
               # Launch with environment configuration
+              OVERLAY_COMMAND="''${OVERLAY_COMMAND}" \
               LYRICS_LINES="''${LYRICS_LINES:-3}" \
               LYRICS_POSITION="''${LYRICS_POSITION:-bottom}" \
               LYRICS_FONT_SIZE="''${LYRICS_FONT_SIZE:-28}" \
               LYRICS_COLOR="''${LYRICS_COLOR:-#ffffff}" \
               LYRICS_OPACITY="''${LYRICS_OPACITY:-0.95}" \
               LYRICS_SHADOW="''${LYRICS_SHADOW:-true}" \
+              LYRICS_UPDATE_INTERVAL="''${LYRICS_UPDATE_INTERVAL:-400}" \
               LYRICS_SPACING="''${LYRICS_SPACING:-8}" \
               LYRICS_LENGTH="''${LYRICS_LENGTH:-0}" \
               "$QS_BIN" -p "$QML_FILE" &
@@ -86,12 +88,14 @@
               ;;
             *)  # toggle
               if ! "$QS_BIN" kill -p "$QML_FILE" 2>/dev/null; then
+                OVERLAY_COMMAND="''${OVERLAY_COMMAND}" \
                 LYRICS_LINES="''${LYRICS_LINES:-3}" \
                 LYRICS_POSITION="''${LYRICS_POSITION:-bottom}" \
                 LYRICS_FONT_SIZE="''${LYRICS_FONT_SIZE:-28}" \
                 LYRICS_COLOR="''${LYRICS_COLOR:-#ffffff}" \
                 LYRICS_OPACITY="''${LYRICS_OPACITY:-0.95}" \
                 LYRICS_SHADOW="''${LYRICS_SHADOW:-true}" \
+                LYRICS_UPDATE_INTERVAL="''${LYRICS_UPDATE_INTERVAL:-400}" \
                 LYRICS_SPACING="''${LYRICS_SPACING:-8}" \
                 LYRICS_LENGTH="''${LYRICS_LENGTH:-0}" \
                 "$QS_BIN" -p "$QML_FILE" &
@@ -103,19 +107,6 @@
         runtimeInputs = [
           pkgs.quickshell
         ];
-      };
-      packages.toggle-dictation-overlay = inputs.wrappers.lib.makeWrapper {
-        inherit pkgs;
-        package = pkgs.writeShellScriptBin "toggle-dictation-overlay" ''
-          # Toggle QuickShell dictation overlay
-          QML_FILE="${./dictation-overlay.qml}"
-          QS_BIN="${pkgs.quickshell}/bin/qs"
-
-          if ! "$QS_BIN" kill -p "$QML_FILE" 2>/dev/null; then
-             "$QS_BIN" -p "$QML_FILE" &
-          fi
-        '';
-        runtimeInputs = [ pkgs.quickshell ];
       };
     };
 }

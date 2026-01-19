@@ -100,8 +100,8 @@ async function handleToggle() {
 }
 
 async function handleRun() {
+  const pid = process.pid;
   try {
-    const pid = process.pid;
     await Bun.write(CONFIG.pidFile, pid.toString());
   } catch (e) {
     console.error("Failed to write PID file:", e);
@@ -109,7 +109,7 @@ async function handleRun() {
   }
 
   // Initialize state
-  await updateState({ text: "Initializing...", isRecording: true });
+  await updateState({ text: "Initializing Daemon...", isRecording: true });
 
   // Cleanup on exit
   const exitHandler = async () => {
@@ -123,8 +123,25 @@ async function handleRun() {
   const modelPath = getArg("--model") || CONFIG.defaultModel;
   const noOverlay = args.includes("--no-overlay");
 
+  // Check dependencies
+  try {
+    await $`which whisper-cli`.quiet();
+  } catch {
+    const errorMsg = "Error: whisper-cli not found in PATH";
+    console.error(errorMsg);
+    await updateState({
+      text: errorMsg,
+      isRecording: false,
+      error: "Missing binary",
+    });
+    // Keep running briefly so overlay can show error, then exit
+    await Bun.sleep(2000);
+    process.exit(1);
+  }
+
   // Start Overlay
   if (!noOverlay) {
+    await updateState({ text: "Starting Overlay...", isRecording: true });
     try {
       // We hijack the lyrics overlay by setting OVERLAY_COMMAND
       const overlayCmd = `${process.argv[0]} ${process.argv[1]} source`;
@@ -137,91 +154,54 @@ async function handleRun() {
         LYRICS_UPDATE_INTERVAL: "100", // Faster updates for dictation
       };
 
-      // Launch the overlay script (which runs the QML)
-      // We use 'show' to ensure it appears
-      await $`toggle-lyrics-overlay show`.env(env).quiet();
+      // Spawn overlay detached so we don't hang waiting for it
+      Bun.spawn(["toggle-lyrics-overlay", "show"], {
+        env,
+        stdio: ["ignore", "ignore", "ignore"],
+        detached: true,
+      }).unref();
     } catch (e) {
       console.error("Failed to start overlay:", e);
     }
   }
 
   try {
-    // Start whisper-cli in streaming mode
-    // -t 4: 4 threads
-    // --step 0: step size (0 = auto/default)
-    // --length 0: context length
-    // -vth 0.6: voice threshold
-    // Using stream mode if available or just reading standard output
-    // Note: whisper-cli arguments depend on the specific version/fork.
-    // Assuming whisper.cpp stream binary arguments or similar.
-    // If 'whisper-cli' is the standard 'main' example, it might not do realtime streaming nicely without -stream equivalent.
-    // However, the prompt implies using `whisper-cli`. We'll assume it supports standard args.
-    // A common realtime command pattern for whisper.cpp is `./stream -m model.bin ...`
-    // If whisper-cli is just 'main', we might need to rely on it processing a stream or loop.
-    // BUT the prompt says "make the new script is realtime".
-    // We will assume `whisper-cli` is capable of this or we are using the `stream` binary wrapped as `whisper-cli`.
-
+    const modelName = modelPath.split("/").pop() || "Model";
     console.log(`Loading model: ${modelPath}`);
-    await updateState({ text: "Listening...", isRecording: true });
+    await updateState({ text: `Loading ${modelName}...`, isRecording: true });
 
-    // Using `stream` logic:
-    // -t 4 threads
-    // --step 500ms
-    // --length 5000ms buffer
-    // -vth 0.6 voice threshold
-    const proc = Bun.spawn(
-      [
-        "whisper-cli",
-        "-m",
-        modelPath,
-        "-t",
-        "4",
-        "--step",
-        "500",
-        "--length",
-        "5000",
-        "-vth",
-        "0.6",
-      ],
-      {
-        stdout: "pipe",
-        stderr: "pipe", // Capture log output to ignore or debug
-      }
-    );
+    // Using `stream` logic via whisper-cli
+    // We iterate over lines directly using Bun Shell's streaming capability
+    const cmd =
+      $`whisper-cli -m "${modelPath}" -t 4 --step 500 --length 5000 -vth 0.6`.quiet();
 
-    const reader = proc.stdout.getReader();
-    const decoder = new TextDecoder();
     let accumulatedText = "";
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
+    for await (const line of cmd.lines()) {
+      const trimmed = line.trim();
+      // whisper-cpp stream output often looks like: "[00:00:00.000 --> 00:00:01.000]   Hello world"
+      const match = trimmed.match(/^\[.*?\]\s*(.*)/);
+      if (match) {
+        const text = match[1]!.trim();
+        if (text) {
+          console.log(`Recognized: ${text}`);
 
-      const chunk = decoder.decode(value);
-      const lines = chunk.split("\n");
+          // Type the text
+          await $`wtype ${text} `.quiet().catch(() => {});
 
-      for (const line of lines) {
-        const trimmed = line.trim();
-        // whisper-cpp stream output often looks like: "[00:00:00.000 --> 00:00:01.000]   Hello world"
-        // We want to extract the text.
-        const match = trimmed.match(/^\[.*?\]\s*(.*)/);
-        if (match) {
-          const text = match[1]!.trim();
-          if (text) {
-            // Type the text
-            // We use wtype to simulate keystrokes
-            await $`wtype ${text} `.quiet().catch(() => {});
-
-            // Update state for overlay
-            accumulatedText = text; // For realtime, we might just show the last phrase
-            await updateState({ text: `Says: ${text}`, isRecording: true });
-          }
+          // Update state for overlay
+          accumulatedText = text;
+          await updateState({ text: `Says: ${text}`, isRecording: true });
         }
+      } else if (trimmed.includes("loading model")) {
+        await updateState({ text: "Loading core...", isRecording: true });
       }
     }
   } catch (e: any) {
+    const errorText = "Error: " + (e.message || String(e));
+    console.error(errorText);
     await updateState({
-      text: "Error: " + (e.message || String(e)),
+      text: errorText,
       isRecording: false,
       error: String(e),
     });

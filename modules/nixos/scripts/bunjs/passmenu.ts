@@ -3,6 +3,9 @@
 import { $ } from "bun";
 import { faker } from "@faker-js/faker";
 import crypto from "node:crypto";
+import { join } from "path";
+import { existsSync, mkdirSync } from "fs";
+
 // Logging utility with timestamps
 function log(level: string, message: string, ...args: any[]) {
   const timestamp = new Date().toISOString();
@@ -97,14 +100,30 @@ async function performAction(
 async function selectOption(
   menuCommand: string[],
   options: string[],
-  prompt: string
+  prompt: string,
+  initialSelection?: string
 ): Promise<string> {
   if (options.length === 0) return "";
-  const selected = (
-    await $`printf '%s\n' ${options} | ${menuCommand} -p ${prompt}`.text()
-  ).trim();
-  return selected;
+
+  let cmd = [...menuCommand];
+  if (initialSelection && cmd[0]!.includes("rofi")) {
+    const idx = options.indexOf(initialSelection);
+    if (idx !== -1) {
+      cmd.push("-selected-row", idx.toString());
+    }
+  }
+
+  try {
+    const result = await $`printf '%s\n' ${options} | ${cmd} -p ${prompt}`
+      .nothrow()
+      .quiet();
+    if (result.exitCode !== 0) return "";
+    return result.text().trim();
+  } catch {
+    return "";
+  }
 }
+
 // Helper to parse password from pass content
 function parsePassword(content: string): string {
   return content.split("\n")[0]?.trim() || "";
@@ -119,6 +138,34 @@ function parseField(content: string, field: string): string {
   }
   return "";
 }
+
+const STATE_DIR = join(process.env.HOME || "", ".cache", "passmenu");
+const STATE_FILE = join(STATE_DIR, "state.json");
+
+interface State {
+  timestamp: number;
+  lastEntry?: string;
+  lastField?: string;
+}
+
+async function loadState(): Promise<State> {
+  if (!existsSync(STATE_FILE)) return { timestamp: 0 };
+  try {
+    return await Bun.file(STATE_FILE).json();
+  } catch {
+    return { timestamp: 0 };
+  }
+}
+
+async function saveState(state: Partial<State>) {
+  if (!existsSync(STATE_DIR)) {
+    mkdirSync(STATE_DIR, { recursive: true });
+  }
+  const current = await loadState();
+  const newState = { ...current, ...state, timestamp: Date.now() };
+  await Bun.write(STATE_FILE, JSON.stringify(newState));
+}
+
 interface Options {
   autotype: boolean;
   squash: boolean;
@@ -592,136 +639,196 @@ Options:
   }
   const passDir =
     process.env.PASSWORD_STORE_DIR || `${process.env.HOME}/.password-store`;
-  // List entries
-  const suffix = ".gpg";
-  const listOutput =
-    await $`find ${passDir} -type f -name '*.gpg' -printf '%P\n' | sed 's/\\.gpg$//' | sort`.text();
-  const entries = listOutput
-    .trim()
-    .split("\n")
-    .filter(Boolean)
-    .map((str) => {
-      if (str.endsWith(suffix)) {
-        return str.slice(0, -suffix.length);
-      }
-      return str; // Return unchanged if no match
-    })
-    .filter((e) => !e.startsWith("temp_emails/"));
-  // Special entries
-  const specialEntries = ["Generate Credential", "Manage Temp Emails"];
-  const displayEntries = [...specialEntries, ...entries];
-  // Menu
   const menuCommand = await getMenuCommand();
-  const selected = (
-    await $`printf '%s\n' ${displayEntries} | ${menuCommand} -p 'Select'`.text()
-  ).trim();
-  if (!selected) {
-    await notify("No selection made", "passmenu");
-    process.exit(0);
-  }
-  // Handle special
-  if (selected === "Generate Credential") {
-    await generateCredential(menuCommand, passDir, action, actionCmd);
-    process.exit(0);
-  } else if (selected === "Manage Temp Emails") {
-    await manageTempEmails(menuCommand, passDir, options);
-    process.exit(0);
-  }
-  // Regular pass handling
-  const content = await $`pass show ${selected}`.text();
-  const lines = content.trim().split("\n");
-  let password = "";
-  let fields: Record<string, string> = {};
-  let hasOtpauth = false;
 
-  if (lines[0] && lines[0].includes(":")) {
-    // Parse all lines as key: value pairs
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (trimmed.startsWith("otpauth://")) {
-        hasOtpauth = true;
-      } else if (trimmed.includes(":")) {
-        const parts = trimmed.split(":");
-        const key = parts.shift();
-        if (key) {
-          const k = key.trim().toLowerCase();
-          const v = parts.join(":").trim();
-          if (k === "password") {
-            password = v;
-          } else {
-            fields[k] = v;
+  // Load State
+  const state = await loadState();
+  const isRecent = Date.now() - state.timestamp < 60000;
+
+  let selected = "";
+  let autoJumped = false;
+
+  if (isRecent && state.lastEntry) {
+    selected = state.lastEntry;
+    autoJumped = true;
+  }
+
+  while (true) {
+    if (!selected) {
+      // List entries
+      const suffix = ".gpg";
+      const listOutput = await $`find ${passDir} -type f -name '*.gpg' -printf '%P\n' | sed 's/\\.gpg$//' | sort`.text();
+      const entries = listOutput
+        .trim()
+        .split("\n")
+        .filter(Boolean)
+        .map((str) => {
+          if (str.endsWith(suffix)) {
+            return str.slice(0, -suffix.length);
+          }
+          return str; // Return unchanged if no match
+        })
+        .filter((e) => !e.startsWith("temp_emails/"));
+      // Special entries
+      const specialEntries = ["Generate Credential", "Manage Temp Emails"];
+      const displayEntries = [...specialEntries, ...entries];
+
+      selected = await selectOption(
+        menuCommand,
+        displayEntries,
+        "Select",
+        state.lastEntry, // Pre-select last entry
+      );
+
+      if (!selected) {
+        await notify("No selection made", "passmenu");
+        process.exit(0);
+      }
+      autoJumped = false; // User explicitly selected
+    }
+
+    // Handle special
+    if (selected === "Generate Credential") {
+      await generateCredential(menuCommand, passDir, action, actionCmd);
+      process.exit(0);
+    } else if (selected === "Manage Temp Emails") {
+      await manageTempEmails(menuCommand, passDir, options);
+      process.exit(0);
+    }
+
+    // Regular pass handling
+    let content = "";
+    try {
+      content = await $`pass show ${selected}`.quiet().text();
+    } catch (e) {
+      // If auto-jumped to a deleted entry?
+      if (autoJumped) {
+        selected = "";
+        autoJumped = false;
+        continue;
+      }
+      await notify("Failed to read entry", "passmenu");
+      process.exit(1);
+    }
+
+    const lines = content.trim().split("\n");
+    let password = "";
+    let fields: Record<string, string> = {};
+    let hasOtpauth = false;
+
+    if (lines[0] && lines[0].includes(":")) {
+      // Parse all lines as key: value pairs
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (trimmed.startsWith("otpauth://")) {
+          hasOtpauth = true;
+        } else if (trimmed.includes(":")) {
+          const parts = trimmed.split(":");
+          const key = parts.shift();
+          if (key) {
+            const k = key.trim().toLowerCase();
+            const v = parts.join(":").trim();
+            if (k === "password") {
+              password = v;
+            } else {
+              fields[k] = v;
+            }
           }
         }
       }
-    }
-  } else {
-    // Standard pass format: first line is password, rest are key: value
-    password = lines[0]?.trim() || "";
-    for (let j = 1; j < lines.length; j++) {
-      const line = lines[j]?.trim() || "";
-      if (line.startsWith("otpauth://")) {
-        hasOtpauth = true;
-      } else if (line.includes(":")) {
-        const [key, ...val] = line.split(":");
-        fields[(key as string).trim().toLowerCase()] = val.join(":").trim();
-      }
-    }
-  }
-  if (!fields["username"] && options.fileisuser) {
-    fields["username"] = selected.split("/").pop() || "";
-  }
-  let fieldOptions = ["password", ...Object.keys(fields)];
-  if (hasOtpauth) fieldOptions.push("otp");
-  if (options.autotype) fieldOptions.push("autotype");
-  fieldOptions = [...new Set(fieldOptions)];
-  let selectedField = "";
-  if (options.squash && fieldOptions.length === 1 && !options.autotype) {
-    selectedField = "password";
-  } else {
-    selectedField = (
-      await $`printf '%s\n' ${fieldOptions} | ${menuCommand} -p 'Select field'`.text()
-    ).trim();
-  }
-  if (!selectedField) {
-    await notify("No field selected", "passmenu");
-    process.exit(0);
-  }
-  let value = "";
-  if (selectedField === "password") {
-    value = password;
-  } else if (selectedField === "otp") {
-    value = (await $`pass otp ${selected}`.text()).trim();
-  } else if (selectedField === "autotype") {
-    // Autotype
-    const username = fields["username"] || "";
-    const copyCmd = await getCopyCommand();
-    await performAction(password, "copy", copyCmd); // Always copy password to clipboard
-    if (action === "type") {
-      if (username) {
-        await performAction(username, "type", actionCmd);
-        const tabCmd = await getTabCommand();
-        await $`${tabCmd}`;
-      }
-      await performAction(password, "type", actionCmd);
-      await notify(
-        "Autotyped username and password (password copied to clipboard)",
-        "passmenu"
-      );
     } else {
-      await notify("Password copied to clipboard", "passmenu");
+      // Standard pass format: first line is password, rest are key: value
+      password = lines[0]?.trim() || "";
+      for (let j = 1; j < lines.length; j++) {
+        const line = lines[j]?.trim() || "";
+        if (line.startsWith("otpauth://")) {
+          hasOtpauth = true;
+        } else if (line.includes(":")) {
+          const [key, ...val] = line.split(":");
+          fields[(key as string).trim().toLowerCase()] = val.join(":").trim();
+        }
+      }
     }
+
+    // Fallback Username
+    if (!fields["username"]) {
+      const fallback = selected.split("/").pop();
+      if (fallback) fields["username"] = fallback;
+    }
+
+    let fieldOptions = ["password", ...Object.keys(fields)];
+    if (hasOtpauth) fieldOptions.push("otp");
+    if (options.autotype) fieldOptions.push("autotype");
+    fieldOptions = [...new Set(fieldOptions)];
+
+    let selectedField = "";
+    // Squash logic
+    if (options.squash && fieldOptions.length === 1 && !options.autotype) {
+      selectedField = "password";
+    } else {
+      const prompt = `${selected}`; // Show path in prompt
+      selectedField = await selectOption(
+        menuCommand,
+        fieldOptions,
+        prompt,
+        selected === state.lastEntry ? state.lastField : undefined,
+      );
+    }
+
+    if (!selectedField) {
+      if (autoJumped) {
+        selected = "";
+        autoJumped = false;
+        continue; // Go back to main menu
+      }
+      await notify("No field selected", "passmenu");
+      process.exit(0);
+    }
+
+    let value = "";
+    if (selectedField === "password") {
+      value = password;
+    } else if (selectedField === "otp") {
+      value = (await $`pass otp ${selected}`.text()).trim();
+    } else if (selectedField === "autotype") {
+      // Autotype
+      const username = fields["username"] || "";
+      const copyCmd = await getCopyCommand();
+      await performAction(password, "copy", copyCmd); // Always copy password to clipboard
+      if (action === "type") {
+        if (username) {
+          await performAction(username, "type", actionCmd);
+          const tabCmd = await getTabCommand();
+          await $`${tabCmd}`;
+        }
+        await performAction(password, "type", actionCmd);
+        await notify(
+          "Autotyped username and password (password copied to clipboard)",
+          "passmenu",
+        );
+      } else {
+        await notify("Password copied to clipboard", "passmenu");
+      }
+
+      // Save state before exit
+      await saveState({ lastEntry: selected, lastField: selectedField });
+      process.exit(0);
+    } else {
+      value = fields[selectedField] || "";
+    }
+
+    // Perform action
+    await performAction(value, action, actionCmd);
+    if (action === "copy") {
+      await notify("Copied to clipboard", "passmenu");
+    } else {
+      await notify("Typed value", "passmenu");
+    }
+
+    // Save state
+    await saveState({ lastEntry: selected, lastField: selectedField });
     process.exit(0);
-  } else {
-    value = fields[selectedField] || "";
   }
-  // Perform action
-  await performAction(value, action, actionCmd);
-  if (action === "copy") {
-    await notify("Copied to clipboard", "passmenu");
-  } else {
-    await notify("Typed value", "passmenu");
-  }
-  process.exit(0);
 }
 main().catch(async (error) => {
   console.error("Error:", error);

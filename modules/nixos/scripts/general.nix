@@ -514,7 +514,6 @@
         synced-lyrics
         markdown-lint-mcp
         dictation
-        toggle-dictation-overlay
       ];
     };
 }
