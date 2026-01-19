@@ -56,18 +56,18 @@
 
           serviceConfig = {
             Type = "simple";
-            # Wait for Tailscale connectivity before starting
+            # Wait for connectivity before starting (uses SSH as reliable check)
             ExecStartPre = "${pkgs.writeShellScript "unison-wait-for-peer" ''
               for i in $(seq 1 30); do
-                if ${pkgs.tailscale}/bin/tailscale ping --timeout=2s ${remoteDetails.fqdn} >/dev/null 2>&1; then
+                if ${pkgs.openssh}/bin/ssh -q -o BatchMode=yes -o ConnectTimeout=5 sync-target exit; then
                   exit 0
                 fi
                 sleep 2
               done
-              echo "Peer ${remoteDetails.fqdn} not reachable after 60s"
+              echo "Peer sync-target not reachable via SSH after 60s"
               exit 1
             ''}";
-            ExecStart = "${pkgs.unison}/bin/unison -batch -repeat watch default";
+            ExecStart = "${pkgs.unison}/bin/unison -batch default";
             Restart = "always";
             RestartSec = "3min";
             Environment = [
@@ -102,6 +102,7 @@
             # Robustness & Automation
             auto = true
             batch = true
+            repeat = watch
             confirmbigdel = true
             prefer = newer
             times = true

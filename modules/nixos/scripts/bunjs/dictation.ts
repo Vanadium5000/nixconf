@@ -19,8 +19,6 @@ import { existsSync, unlinkSync, mkdirSync } from "node:fs";
 const CONFIG = {
   pidFile: join(tmpdir(), "dictation.pid"),
   stateFile: join(tmpdir(), "dictation-state.json"),
-  // System-wide model path (preferred if exists)
-  systemModelPath: "/var/cache/ollama/whisper/ggml-base.en.bin",
   // Default model name to download if no model is found
   defaultModelName: "base.en",
   // User-local cache directory for downloaded models
@@ -129,9 +127,9 @@ async function handleRun() {
 
   // Check dependencies
   try {
-    await $`which whisper-cli`.quiet();
+    await $`which whisper-stream`.quiet();
   } catch {
-    const errorMsg = "Error: whisper-cli not found in PATH";
+    const errorMsg = "Error: whisper-stream not found in PATH";
     console.error(errorMsg);
     await updateState({
       text: errorMsg,
@@ -190,30 +188,100 @@ async function handleRun() {
     console.log(`Loading model: ${modelPath}`);
     await updateState({ text: `Loading ${modelName}...`, isRecording: true });
 
-    // Using `stream` logic via whisper-cli
-    // We iterate over lines directly using Bun Shell's streaming capability
+    // Using `stream` logic via whisper-stream (NOT whisper-cli)
+    // whisper-cli expects a file argument, whereas whisper-stream listens to microphone
     const cmd =
-      $`whisper-cli -m "${modelPath}" -t 4 --step 500 --length 5000 -vth 0.6`.quiet();
+      $`whisper-stream -m "${modelPath}" -t 4 --step 500 --length 5000 -vth 0.6 2>&1`.quiet();
 
-    for await (const line of cmd.lines()) {
-      const trimmed = line.trim();
-      // whisper-cpp stream output often looks like: "[00:00:00.000 --> 00:00:01.000]   Hello world"
-      const match = trimmed.match(/^\[.*?\]\s*(.*)/);
-      if (match) {
-        const text = match[1]!.trim();
-        if (text) {
-          console.log(`Recognized: ${text}`);
+    // Watchdog: If we don't start listening within 30 seconds, abort.
+    const watchdog = setTimeout(async () => {
+      console.error("Timeout: Dictation daemon failed to initialize within 30s.");
+      await updateState({
+        text: "Init Timeout",
+        isRecording: false,
+        error: "Timeout",
+      });
+      // We must explicitly kill the child process if it hangs
+      proc.kill();
+      process.exit(1);
+    }, 30000);
 
-          // Type the text
-          await $`wtype ${text} `.quiet().catch(() => {});
-
-          // Update state for overlay
-          await updateState({ text: `Says: ${text}`, isRecording: true });
-        }
-      } else if (trimmed.includes("loading model")) {
-        await updateState({ text: "Loading core...", isRecording: true });
+    // Use Bun.spawn directly instead of shell template literals for better stream control
+    // This allows us to read stderr/stdout as they come, including CR (\r) updates
+    const proc = Bun.spawn(
+      [
+        "whisper-stream",
+        "-m",
+        modelPath,
+        "-t",
+        "4",
+        "--step",
+        "500",
+        "--length",
+        "5000",
+        "-vth",
+        "0.6",
+      ],
+      {
+        stdio: ["ignore", "pipe", "pipe"],
       }
-    }
+    );
+
+    // Read both stdout and stderr
+    const streamReader = async (stream: ReadableStream, name: string) => {
+      const reader = stream.getReader();
+      const decoder = new TextDecoder();
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const chunk = decoder.decode(value);
+          
+          // Split by newline AND carriage return to handle progress bars/status updates
+          const lines = chunk.split(/[\n\r]+/);
+          
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed) continue;
+            
+            console.log(`[${name}]: ${trimmed}`);
+
+            if (trimmed.includes("loading model") || trimmed.includes("load_backend")) {
+              await updateState({ text: "Loading Core...", isRecording: true });
+            } else if (trimmed.includes("computed_timestamps")) {
+              clearTimeout(watchdog);
+              await updateState({ text: "Listening...", isRecording: true });
+            }
+
+            // Standard output matching
+            const match = trimmed.match(/^\[.*?\]\s*(.*)/);
+            if (match) {
+              const text = match[1]!.trim();
+              if (text) {
+                console.log(`Recognized: ${text}`);
+                await $`wtype ${text} `.quiet().catch(() => {});
+                await updateState({ text: `Says: ${text}`, isRecording: true });
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.error(`Error reading ${name}:`, e);
+      }
+    };
+
+    // Run both readers in parallel
+    await Promise.all([
+      streamReader(proc.stdout, "stdout"),
+      streamReader(proc.stderr, "stderr"),
+      proc.exited,
+    ]);
+
+    // If the process exits, we're done
+    console.log("Dictation process exited.");
+    await updateState({ text: "Stopped", isRecording: false });
+    
+  } catch (e: any) {
   } catch (e: any) {
     const errorText = "Error: " + (e.message || String(e));
     console.error(errorText);
@@ -285,13 +353,7 @@ async function resolveModel(input: string | null): Promise<string> {
     return await ensureModelDownloaded(input);
   }
 
-  // Case 2: No input provided. Try system path first.
-  if (existsSync(CONFIG.systemModelPath)) {
-    console.log(`Using system model: ${CONFIG.systemModelPath}`);
-    return CONFIG.systemModelPath;
-  }
-
-  // Case 3: Fallback to default model in user cache
+  // Case 2: Fallback to default model in user cache
   return await ensureModelDownloaded(CONFIG.defaultModelName);
 }
 
