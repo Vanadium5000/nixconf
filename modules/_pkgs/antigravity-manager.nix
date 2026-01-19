@@ -2,41 +2,62 @@
 
 let
   pname = "antigravity-manager";
-  version = "3.3.43";
+  version = "3.3.45";
 
   src = pkgs.fetchurl {
-    url = "https://github.com/lbjlaq/Antigravity-Manager/releases/download/v${version}/Antigravity.Tools_${version}_amd64.AppImage";
-    hash = "sha256-ZWnoww9zM5weJfAAowJldWkl66vLX564PFXSHEvVUFQ=";
+    url = "https://github.com/lbjlaq/Antigravity-Manager/releases/download/v${version}/Antigravity.Tools_${version}_amd64.deb";
+    hash = "sha256-jJAytsb/8OF7d7Ty9Dq5WV7bEWm0eO943vcdYfDO06E=";
   };
-
-  appimageContents = pkgs.appimageTools.extract { inherit pname version src; };
 in
-pkgs.appimageTools.wrapType2 {
+pkgs.stdenv.mkDerivation {
   inherit pname version src;
 
-  extraPkgs =
-    pkgs: with pkgs; [
-      gtk3
-      webkitgtk_4_1
-      libsoup_3
-      openssl_3
-      libayatana-appindicator
-      libpulseaudio
-      alsa-lib
-      curl
-    ];
+  nativeBuildInputs = [
+    pkgs.dpkg
+    pkgs.autoPatchelfHook
+    pkgs.makeWrapper
+  ];
 
-  extraInstallCommands = ''
-    install -m 444 -D "${appimageContents}/Antigravity Tools.desktop" $out/share/applications/${pname}.desktop
-    install -m 444 -D "${appimageContents}/Antigravity Tools.png" \
-      $out/share/icons/hicolor/512x512/apps/antigravity_tools.png
+  buildInputs = with pkgs; [
+    gtk3
+    webkitgtk_4_1
+    libsoup_3
+    openssl_3
+    libayatana-appindicator
+    libpulseaudio
+    alsa-lib
+    curl
+  ];
 
-    substituteInPlace $out/share/applications/${pname}.desktop \
-      --replace 'Exec=antigravity_tools' 'Exec=${pname}'
+  unpackPhase = ''
+    dpkg-deb -x $src .
+  '';
+
+  installPhase = ''
+    runHook preInstall
+
+    mkdir -p $out
+    cp -r usr/* $out/
+
+    # Ensure binary is executable and wrapped correctly
+    chmod +x $out/bin/*
+
+    # Fix desktop file Exec if needed
+    if [ -f "$out/share/applications/antigravity-tools.desktop" ]; then
+      substituteInPlace $out/share/applications/antigravity-tools.desktop \
+        --replace 'Exec=antigravity-tools' 'Exec=${pname}'
+    fi
+
+    # Provide canonical binary name
+    if [ ! -e "$out/bin/${pname}" ]; then
+      ln -s $out/bin/antigravity_tools $out/bin/${pname}
+    fi
+
+    runHook postInstall
   '';
 
   meta = with lib; {
-    description = "Antigravity Tools - Antigravity account manager";
+    description = "Antigravity Tools – Antigravity account manager";
     homepage = "https://github.com/lbjlaq/Antigravity-Manager";
     license = licenses.gpl3;
     platforms = [ "x86_64-linux" ];
