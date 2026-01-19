@@ -106,7 +106,8 @@
 
             # Run "unison" on the remote host
             servercmd = /run/current-system/sw/bin/unison
-            addversionno = false # Remote sync breaks if this isn't false
+            # Remote sync breaks if this isn't false:
+            addversionno = false
           '';
         };
 
