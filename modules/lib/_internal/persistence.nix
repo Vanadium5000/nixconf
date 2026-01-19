@@ -97,13 +97,17 @@ rec {
                     ''
                       cp "${sourceFile}" "$PERSISTENT_FILE"
                     ''
-                  else if defaultContent == "" then
-                    ''
-                      touch "$PERSISTENT_FILE"
-                    ''
                   else
                     ''
-                      printf '%s' '${defaultContent}' > "$PERSISTENT_FILE"
+                      # Initialize from target if it exists and has content, otherwise use defaultContent
+                      if [ -f "$TARGET_FILE" ] && [ -s "$TARGET_FILE" ]; then
+                        cp "$TARGET_FILE" "$PERSISTENT_FILE"
+                      elif [ -n '${defaultContent}' ]; then
+                        printf '%s' '${defaultContent}' > "$PERSISTENT_FILE"
+                      else
+                        # No source, no default - create empty as last resort
+                        touch "$PERSISTENT_FILE"
+                      fi
                     ''
                 }
                 chown ${user}:users "$PERSISTENT_FILE"

@@ -1,36 +1,106 @@
 #!/usr/bin/env bun
-// passmenu.ts - Bun.js TypeScript script for browsing and selecting passwords from password-store using rofi or wofi
+/**
+ * passmenu.ts - Password store browser using rofi/wofi
+ *
+ * Features:
+ * - Browse and select passwords from pass (password-store)
+ * - Generate credentials (passwords, usernames, emails)
+ * - Temporary email management via mail.tm API
+ * - TOTP support with QR code scanning
+ * - Autotype with keyboard simulation
+ * - 60-second state persistence for quick re-access
+ */
+
 import { $ } from "bun";
 import { faker } from "@faker-js/faker";
 import crypto from "node:crypto";
 import { join } from "path";
 import { existsSync, mkdirSync } from "fs";
 
-// Logging utility with timestamps
-function log(level: string, message: string, ...args: any[]) {
+// =============================================================================
+// Constants & Configuration
+// =============================================================================
+
+const STATE_DIR = join(process.env.HOME || "", ".cache", "passmenu");
+const STATE_FILE = join(STATE_DIR, "state.json");
+const STATE_EXPIRY_MS = 60_000; // 60 seconds
+
+/** Fields that indicate a username-type field already exists */
+const USERNAME_FIELD_ALIASES = ["login", "user", "username"] as const;
+
+/** Fixed display order for credential fields (others appear after these, before otp) */
+const FIELD_DISPLAY_ORDER = ["username", "password"] as const;
+
+/** Special menu entries in main menu */
+const SPECIAL_ENTRIES = [
+  "Generate Credential",
+  "Manage Temp Emails",
+  "Create Credential",
+] as const;
+
+// =============================================================================
+// Types
+// =============================================================================
+
+interface State {
+  timestamp: number;
+  lastEntry?: string;
+  lastField?: string;
+}
+
+interface Options {
+  autotype: boolean;
+  squash: boolean;
+  fileisuser: boolean;
+  copyCmd?: string[];
+  typeCmd?: string[];
+}
+
+interface ParsedCredential {
+  password: string;
+  fields: Record<string, string>;
+  hasOtpauth: boolean;
+}
+
+interface TempEmail {
+  path: string;
+  email: string;
+  associated: string;
+  display: string;
+}
+
+// =============================================================================
+// Logging & Notifications
+// =============================================================================
+
+function log(level: string, message: string, ...args: unknown[]): void {
   const timestamp = new Date().toISOString();
   console.log(`[${timestamp}] [${level}] ${message}`, ...args);
 }
-function logInfo(message: string, ...args: any[]) {
+
+const logInfo = (message: string, ...args: unknown[]) =>
   log("INFO", message, ...args);
-}
-function logError(message: string, ...args: any[]) {
+const logError = (message: string, ...args: unknown[]) =>
   log("ERROR", message, ...args);
-}
-function logDebug(message: string, ...args: any[]) {
+const logDebug = (message: string, ...args: unknown[]) =>
   log("DEBUG", message, ...args);
-}
-// Notification utility
-async function notify(message: string, title: string = "passmenu") {
+
+async function notify(
+  message: string,
+  title: string = "passmenu"
+): Promise<void> {
   console.log(`[${title}] ${message}`);
   try {
-    await $`notify-send -t 3000 "${title}" "${message}"`.quiet();
+    await $`notify-send -t 3000 ${title} ${message}`.quiet();
   } catch {
-    // Log error
-    logError(`ERROR SENDING NOTIFICATION: [${title}] ${message}`);
+    logError(`Failed to send notification: [${title}] ${message}`);
   }
 }
-// Utility to check if a command exists
+
+// =============================================================================
+// Command Detection
+// =============================================================================
+
 async function commandExists(cmd: string): Promise<boolean> {
   try {
     const result = await $`which ${cmd}`.quiet();
@@ -39,78 +109,106 @@ async function commandExists(cmd: string): Promise<boolean> {
     return false;
   }
 }
-// Get menu command (rofi preferred, fallback to wofi on Wayland)
+
 async function getMenuCommand(): Promise<string[]> {
   if (await commandExists("rofi")) {
     return ["rofi", "-dmenu"];
-  } else if (!!process.env.WAYLAND_DISPLAY && (await commandExists("wofi"))) {
+  }
+  if (process.env.WAYLAND_DISPLAY && (await commandExists("wofi"))) {
     return ["wofi", "--show", "dmenu"];
-  } else {
-    throw new Error("Neither rofi nor wofi found.");
   }
+  throw new Error("Neither rofi nor wofi found.");
 }
-// Get copy command
+
 async function getCopyCommand(): Promise<string[]> {
-  if (!!process.env.WAYLAND_DISPLAY && (await commandExists("wl-copy"))) {
+  if (process.env.WAYLAND_DISPLAY && (await commandExists("wl-copy"))) {
     return ["wl-copy"];
-  } else if (await commandExists("xclip")) {
+  }
+  if (await commandExists("xclip")) {
     return ["xclip", "-selection", "clipboard"];
-  } else {
-    throw new Error("Neither wl-copy nor xclip found.");
   }
+  throw new Error("Neither wl-copy nor xclip found.");
 }
-// Get type command
+
 async function getTypeCommand(): Promise<string[]> {
-  if (!!process.env.WAYLAND_DISPLAY && (await commandExists("wtype"))) {
+  if (process.env.WAYLAND_DISPLAY && (await commandExists("wtype"))) {
     return ["wtype"];
-  } else if (await commandExists("xdotool")) {
+  }
+  if (await commandExists("xdotool")) {
     return ["xdotool", "type", "--clearmodifiers"];
-  } else if (await commandExists("ydotool")) {
+  }
+  if (await commandExists("ydotool")) {
     return ["ydotool", "type", "--"];
-  } else {
-    throw new Error("Neither wtype, xdotool, nor ydotool found.");
   }
+  throw new Error("Neither wtype, xdotool, nor ydotool found.");
 }
-// Get tab command
+
 async function getTabCommand(): Promise<string[]> {
-  if (!!process.env.WAYLAND_DISPLAY && (await commandExists("wtype"))) {
+  if (process.env.WAYLAND_DISPLAY && (await commandExists("wtype"))) {
     return ["wtype", "-k", "tab"];
-  } else if (await commandExists("xdotool")) {
+  }
+  if (await commandExists("xdotool")) {
     return ["xdotool", "key", "Tab"];
-  } else if (await commandExists("ydotool")) {
+  }
+  if (await commandExists("ydotool")) {
     return ["ydotool", "key", "15:1", "15:0"];
-  } else {
-    throw new Error("No tool found for tab key.");
+  }
+  throw new Error("No tool found for tab key.");
+}
+
+// =============================================================================
+// State Management
+// =============================================================================
+
+async function loadState(): Promise<State> {
+  if (!existsSync(STATE_FILE)) {
+    return { timestamp: 0 };
+  }
+  try {
+    return await Bun.file(STATE_FILE).json();
+  } catch {
+    return { timestamp: 0 };
   }
 }
-// Helper to perform copy or type action
-async function performAction(
-  value: string,
-  action: "copy" | "type",
-  actionCmd: string[]
-) {
-  const proc = Bun.spawn(actionCmd, {
-    stdin: "pipe",
-  });
-  proc.stdin.write(value);
-  proc.stdin.end();
-  await proc.exited;
+
+async function saveState(state: Partial<State>): Promise<void> {
+  if (!existsSync(STATE_DIR)) {
+    mkdirSync(STATE_DIR, { recursive: true });
+  }
+  const current = await loadState();
+  const newState = { ...current, ...state, timestamp: Date.now() };
+  await Bun.write(STATE_FILE, JSON.stringify(newState));
 }
-// Helper to select from menu
+
+async function clearState(): Promise<void> {
+  if (existsSync(STATE_FILE)) {
+    await Bun.write(STATE_FILE, JSON.stringify({ timestamp: 0 }));
+  }
+}
+
+function isStateRecent(state: State): boolean {
+  return Date.now() - state.timestamp < STATE_EXPIRY_MS;
+}
+
+// =============================================================================
+// Menu Helpers
+// =============================================================================
+
+/**
+ * Display a menu and return the selected option
+ * @param initialIndex - 0-based index to pre-select (for rofi)
+ */
 async function selectOption(
   menuCommand: string[],
   options: string[],
   prompt: string,
-  initialSelection?: string
+  initialIndex?: number
 ): Promise<string> {
   if (options.length === 0) return "";
 
-  let cmd = [...menuCommand];
-  if (initialSelection && cmd[0]!.includes("rofi")) {
-    const idx = options.indexOf(initialSelection);
-    if (idx !== -1) {
-      cmd.push("-selected-row", idx.toString());
-    }
+  const cmd = [...menuCommand];
+  if (initialIndex !== undefined && initialIndex >= 0 && cmd[0]?.includes("rofi")) {
+    cmd.push("-selected-row", initialIndex.toString());
   }
 
   try {
@@ -124,123 +222,368 @@ async function selectOption(
   }
 }
 
-// Helper to parse password from pass content
-function parsePassword(content: string): string {
-  return content.split("\n")[0]?.trim() || "";
+// =============================================================================
+// Clipboard & Typing Actions
+// =============================================================================
+
+async function performAction(
+  value: string,
+  action: "copy" | "type",
+  actionCmd: string[]
+): Promise<void> {
+  const proc = Bun.spawn(actionCmd, { stdin: "pipe" });
+  proc.stdin.write(value);
+  proc.stdin.end();
+  await proc.exited;
 }
-// Helper to parse field from pass content
-function parseField(content: string, field: string): string {
-  const lines = content.split("\n");
-  for (const line of lines) {
-    if (line.startsWith(`${field}: `)) {
-      return line.slice(`${field}: `.length).trim();
+
+// =============================================================================
+// Credential Parsing
+// =============================================================================
+
+/**
+ * Parse pass entry content into structured credential data
+ * Handles both standard format (password on first line) and key:value format
+ */
+function parseCredential(content: string, entryPath: string): ParsedCredential {
+  const lines = content.trim().split("\n");
+  let password = "";
+  const fields: Record<string, string> = {};
+  let hasOtpauth = false;
+
+  // Check if first line is a key:value pair
+  const firstLineIsKeyValue = lines[0]?.includes(":");
+
+  if (firstLineIsKeyValue) {
+    // All lines are key:value pairs
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (trimmed.startsWith("otpauth://")) {
+        hasOtpauth = true;
+        continue;
+      }
+      if (trimmed.includes(":")) {
+        const colonIdx = trimmed.indexOf(":");
+        const key = trimmed.slice(0, colonIdx).trim().toLowerCase();
+        const value = trimmed.slice(colonIdx + 1).trim();
+        if (key === "password") {
+          password = value;
+        } else {
+          fields[key] = value;
+        }
+      }
+    }
+  } else {
+    // Standard pass format: first line is password
+    password = lines[0]?.trim() || "";
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i]?.trim() || "";
+      if (line.startsWith("otpauth://")) {
+        hasOtpauth = true;
+        continue;
+      }
+      if (line.includes(":")) {
+        const colonIdx = line.indexOf(":");
+        const key = line.slice(0, colonIdx).trim().toLowerCase();
+        const value = line.slice(colonIdx + 1).trim();
+        fields[key] = value;
+      }
     }
   }
-  return "";
-}
 
-const STATE_DIR = join(process.env.HOME || "", ".cache", "passmenu");
-const STATE_FILE = join(STATE_DIR, "state.json");
-
-interface State {
-  timestamp: number;
-  lastEntry?: string;
-  lastField?: string;
-}
-
-async function loadState(): Promise<State> {
-  if (!existsSync(STATE_FILE)) return { timestamp: 0 };
-  try {
-    return await Bun.file(STATE_FILE).json();
-  } catch {
-    return { timestamp: 0 };
+  // Add username from filename ONLY if no username-type field exists
+  const hasUsernameField = USERNAME_FIELD_ALIASES.some(
+    (alias) => alias in fields
+  );
+  if (!hasUsernameField) {
+    const filename = entryPath.split("/").pop();
+    if (filename) {
+      fields["username"] = filename;
+    }
   }
+
+  return { password, fields, hasOtpauth };
 }
 
-async function saveState(state: Partial<State>) {
-  if (!existsSync(STATE_DIR)) {
-    mkdirSync(STATE_DIR, { recursive: true });
+/**
+ * Build ordered field options for display
+ * Order: [credential path], username, password, [other fields...], otp, autotype
+ */
+function buildFieldOptions(
+  credential: ParsedCredential,
+  entryPath: string,
+  showAutotype: boolean
+): string[] {
+  const options: string[] = [];
+
+  // First entry: credential path (for edit options)
+  options.push(`📁 ${entryPath}`);
+
+  // Fixed order fields first
+  for (const field of FIELD_DISPLAY_ORDER) {
+    if (field === "password" && credential.password) {
+      options.push("password");
+    } else if (field === "username" && credential.fields["username"]) {
+      options.push("username");
+    }
   }
-  const current = await loadState();
-  const newState = { ...current, ...state, timestamp: Date.now() };
-  await Bun.write(STATE_FILE, JSON.stringify(newState));
+
+  // Other fields (excluding those already added and username aliases)
+  const excludeFields = new Set([
+    ...FIELD_DISPLAY_ORDER,
+    ...USERNAME_FIELD_ALIASES,
+  ]);
+  const otherFields = Object.keys(credential.fields)
+    .filter((f) => !excludeFields.has(f))
+    .sort();
+  options.push(...otherFields);
+
+  // OTP at the end (before autotype)
+  if (credential.hasOtpauth) {
+    options.push("otp");
+  }
+
+  // Autotype last
+  if (showAutotype) {
+    options.push("autotype");
+  }
+
+  return options;
 }
 
-interface Options {
-  autotype: boolean;
-  squash: boolean;
-  fileisuser: boolean;
-  copyCmd: string[] | undefined;
-  typeCmd: string[] | undefined;
-}
-// Credential generators
+// =============================================================================
+// Credential Generators
+// =============================================================================
+
 const credentialGenerators: Record<string, () => string> = {
-  password: () => crypto.randomBytes(15).toString("base64"), // 20 characters
+  password: () => crypto.randomBytes(15).toString("base64"),
   username: () => faker.internet.username(),
   "full name": () => faker.person.fullName(),
   "phone number": () => faker.phone.number({ style: "international" }),
   "lorem ipsum": () => faker.lorem.paragraph(),
-  // Add more as needed
 };
-// Generate fake email (non-temporary)
+
 function generateFakeEmail(): string {
   return faker.internet.email();
 }
-// Helper to fetch and parse Hydra collections from mail.tm API
+
+// =============================================================================
+// Pass Store Operations
+// =============================================================================
+
+async function appendToPass(
+  path: string,
+  field: string,
+  value: string
+): Promise<void> {
+  const existing = await $`pass show ${path}`.text().catch(() => "");
+  const lines = existing.trim().split("\n").filter(Boolean);
+
+  if (field === "password") {
+    lines.unshift(value);
+  } else {
+    lines.push(`${field}: ${value}`);
+  }
+
+  const content = lines.join("\n") + "\n";
+  await $`echo ${content} | pass insert --multiline --force ${path}`;
+}
+
+async function listPassEntries(passDir: string): Promise<string[]> {
+  const listOutput =
+    await $`find ${passDir} -type f -name '*.gpg' -printf '%P\n' | sed 's/\\.gpg$//' | sort`.text();
+  return listOutput
+    .trim()
+    .split("\n")
+    .filter(Boolean)
+    .filter((e) => !e.startsWith("temp_emails/"));
+}
+
+// =============================================================================
+// Edit Operations
+// =============================================================================
+
+/**
+ * Scan QR code for TOTP and add to credential
+ * Uses grim + slurp + zbar on Wayland
+ */
+async function addTotpFromQr(entryPath: string): Promise<boolean> {
+  try {
+    // Capture QR code region and decode
+    const result =
+      await $`grim -g "$(slurp -d)" - | zbarimg -q --raw - 2>/dev/null`
+        .nothrow()
+        .text();
+
+    const otpUri = result.trim();
+    if (!otpUri.startsWith("otpauth://")) {
+      await notify("No valid TOTP QR code detected", "passmenu");
+      return false;
+    }
+
+    // Append to pass entry
+    const existing = await $`pass show ${entryPath}`.text().catch(() => "");
+    const content = existing.trim() + "\n" + otpUri + "\n";
+    await $`echo ${content} | pass insert --multiline --force ${entryPath}`;
+
+    await notify("TOTP added successfully", "passmenu");
+    return true;
+  } catch (error) {
+    logError("Failed to add TOTP from QR", error);
+    await notify("Failed to scan QR code", "passmenu");
+    return false;
+  }
+}
+
+/**
+ * Open credential in default editor
+ */
+async function editCredential(entryPath: string): Promise<void> {
+  try {
+    // pass edit uses $EDITOR
+    const proc = Bun.spawn(["pass", "edit", entryPath], {
+      stdin: "inherit",
+      stdout: "inherit",
+      stderr: "inherit",
+    });
+    await proc.exited;
+  } catch (error) {
+    logError("Failed to edit credential", error);
+    await notify("Failed to open editor", "passmenu");
+  }
+}
+
+/**
+ * Show edit options menu for a credential
+ */
+async function showEditOptions(
+  menuCommand: string[],
+  entryPath: string
+): Promise<"back" | "exit"> {
+  const options = [
+    "← Back",
+    "📷 Add TOTP from QR Code",
+    "✏️ Edit with $EDITOR",
+  ];
+
+  const selected = await selectOption(
+    menuCommand,
+    options,
+    `Edit: ${entryPath}`
+  );
+
+  switch (selected) {
+    case "← Back":
+    case "":
+      return "back";
+    case "📷 Add TOTP from QR Code":
+      await addTotpFromQr(entryPath);
+      return "back";
+    case "✏️ Edit with $EDITOR":
+      await editCredential(entryPath);
+      return "exit";
+    default:
+      return "back";
+  }
+}
+
+// =============================================================================
+// Create Credential
+// =============================================================================
+
+async function createCredential(
+  menuCommand: string[],
+  passDir: string
+): Promise<void> {
+  // Prompt for path
+  const path = (
+    await $`echo -n | ${menuCommand} -p 'Enter credential path (e.g., personal/site/account)'`.text()
+  ).trim();
+
+  if (!path) {
+    await notify("No path entered", "passmenu");
+    return;
+  }
+
+  // Check if already exists
+  try {
+    await $`pass show ${path}`.quiet();
+    await notify("Credential already exists", "passmenu");
+    return;
+  } catch {
+    // Good, doesn't exist
+  }
+
+  // Open editor to create
+  await editCredential(path);
+  await notify(`Created credential: ${path}`, "passmenu");
+}
+
+// =============================================================================
+// Temporary Email Management (mail.tm API)
+// =============================================================================
+
 async function fetchHydraCollection(
   url: string,
   options?: RequestInit
-): Promise<any[]> {
+): Promise<unknown[]> {
   logDebug(`Fetching Hydra collection from ${url}`);
   const res = await fetch(url, options);
   if (!res.ok) {
     const errorText = await res.text();
-    throw new Error(`Failed to fetch ${url}: ${res.statusText} - ${errorText}`);
+    throw new Error(
+      `Failed to fetch ${url}: ${res.statusText} - ${errorText}`
+    );
   }
-  const data = (await res.json()) as any;
+  const data = (await res.json()) as {
+    "hydra:member": unknown[];
+    "hydra:totalItems": number;
+  };
   logDebug(`Fetched ${data["hydra:totalItems"]} items from ${url}`);
   return data["hydra:member"];
 }
-// Create temporary email using mail.tm API with error handling
+
 async function createTempEmail(): Promise<{ email: string; tempPass: string }> {
-  try {
-    // Fetch available domains
-    const domainsData = await fetchHydraCollection(
-      "https://api.mail.tm/domains"
-    );
-    const activeDomains = domainsData
-      .filter((d: any) => d.isActive && !d.isPrivate)
-      .map((d: any) => d.domain);
-    if (activeDomains.length === 0) {
-      throw new Error("No active public domains available");
-    }
-    const domain =
-      activeDomains[Math.floor(Math.random() * activeDomains.length)];
-    logInfo(`Selected domain: ${domain}`);
-    const randomName = crypto.randomBytes(8).toString("hex");
-    const email = `${randomName}@${domain}`;
-    const tempPass = crypto.randomBytes(16).toString("hex");
-    // Create account
-    logInfo(`Creating account for ${email}`);
-    const createRes = await fetch("https://api.mail.tm/accounts", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ address: email, password: tempPass }),
-    });
-    if (!createRes.ok) {
-      const errorText = await createRes.text();
-      throw new Error(
-        `Failed to create email account: ${createRes.statusText} - ${errorText}`
-      );
-    }
-    logInfo(`Account created successfully for ${email}`);
-    return { email, tempPass };
-  } catch (error) {
-    logError("Temp email creation failed", error);
-    throw error;
+  // Fetch available domains
+  const domainsData = (await fetchHydraCollection(
+    "https://api.mail.tm/domains"
+  )) as Array<{ isActive: boolean; isPrivate: boolean; domain: string }>;
+
+  const activeDomains = domainsData
+    .filter((d) => d.isActive && !d.isPrivate)
+    .map((d) => d.domain);
+
+  if (activeDomains.length === 0) {
+    throw new Error("No active public domains available");
   }
+
+  const domain =
+    activeDomains[Math.floor(Math.random() * activeDomains.length)];
+  logInfo(`Selected domain: ${domain}`);
+
+  const randomName = crypto.randomBytes(8).toString("hex");
+  const email = `${randomName}@${domain}`;
+  const tempPass = crypto.randomBytes(16).toString("hex");
+
+  // Create account
+  logInfo(`Creating account for ${email}`);
+  const createRes = await fetch("https://api.mail.tm/accounts", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ address: email, password: tempPass }),
+  });
+
+  if (!createRes.ok) {
+    const errorText = await createRes.text();
+    throw new Error(
+      `Failed to create email account: ${createRes.statusText} - ${errorText}`
+    );
+  }
+
+  logInfo(`Account created successfully for ${email}`);
+  return { email, tempPass };
 }
-// Fetch mail.tm token
+
 async function getMailTmToken(
   email: string,
   password: string
@@ -251,155 +594,176 @@ async function getMailTmToken(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ address: email, password }),
   });
+
   if (!tokenRes.ok) {
     const errorText = await tokenRes.text();
     throw new Error(
       `Failed to get token: ${tokenRes.statusText} - ${errorText}`
     );
   }
+
   const tokenData = (await tokenRes.json()) as { token: string };
   logInfo(`Token fetched successfully for ${email}`);
   return tokenData.token;
 }
-// Fetch messages (first page)
-async function fetchMessages(token: string): Promise<any[]> {
-  const url = "https://api.mail.tm/messages?page=1";
-  return await fetchHydraCollection(url, {
+
+async function fetchMessages(token: string): Promise<unknown[]> {
+  return await fetchHydraCollection("https://api.mail.tm/messages?page=1", {
     headers: { Authorization: `Bearer ${token}` },
   });
 }
-// Fetch single message
-async function fetchMessage(token: string, messageId: string): Promise<any> {
+
+async function fetchMessage(token: string, messageId: string): Promise<unknown> {
   logDebug(`Fetching message ${messageId}`);
   const url = `https://api.mail.tm/messages/${messageId}`;
   const msgRes = await fetch(url, {
     headers: { Authorization: `Bearer ${token}` },
   });
+
   if (!msgRes.ok) {
     const errorText = await msgRes.text();
     throw new Error(
       `Failed to fetch message: ${msgRes.statusText} - ${errorText}`
     );
   }
+
   const msg = await msgRes.json();
   logInfo(`Message ${messageId} fetched successfully`);
   return msg;
 }
-// Append field to pass entry (create if not exists)
-async function appendToPass(
-  path: string,
-  field: string,
-  value: string
-): Promise<void> {
-  let existing = await $`pass show ${path}`.text().catch(() => "");
-  let lines = existing.trim().split("\n").filter(Boolean);
-  if (field === "password") {
-    // Set as first line if password
-    if (lines.length === 0 || !(lines[0] as string).includes(":")) {
-      lines.unshift(value);
-    } else {
-      lines.unshift(value);
+
+function parseField(content: string, field: string): string {
+  for (const line of content.split("\n")) {
+    if (line.startsWith(`${field}: `)) {
+      return line.slice(`${field}: `.length).trim();
     }
-  } else {
-    lines.push(`${field}: ${value}`);
   }
-  const content = lines.join("\n") + "\n";
-  await $`echo ${content} | pass insert --multiline --force ${path}`;
+  return "";
 }
-// Handle generating credential
-async function generateCredential(
+
+async function handleViewMessages(
   menuCommand: string[],
-  passDir: string,
-  action: "copy" | "type",
-  actionCmd: string[]
-) {
-  // Select field
-  const fields = [
-    "email",
-    "password",
-    "username",
-    "full name",
-    "phone number",
-    "lorem ipsum",
-  ];
-  const selectedField = (
-    await $`printf '%s\n' ${fields} | ${menuCommand} -p 'Select credential to generate'`.text()
-  ).trim();
-  if (!selectedField) {
-    await notify("No field selected", "passmenu");
+  email: string,
+  path: string,
+  options: Options
+): Promise<void> {
+  const content = await $`pass show ${path}`.text();
+  const password = parseField(content, "password");
+  if (!password) {
+    await notify("No password found", "passmenu");
     return;
   }
-  let value: string;
-  let isTempEmail = false;
-  if (selectedField === "email") {
-    // Ask temp or fake
-    const emailType = (
-      await $`printf 'Temporary (real)\nFake (generated)\n' | ${menuCommand} -p 'Email type'`.text()
-    ).trim();
-    if (!emailType) {
-      await notify("No email type selected", "passmenu");
+
+  try {
+    const token = await getMailTmToken(email, password);
+    logInfo(`Fetching messages for ${email}`);
+    const messages = (await fetchMessages(token)) as Array<{
+      id: string;
+      from: { address: string };
+      subject: string;
+      text?: string;
+      html?: string;
+      createdAt: string;
+    }>;
+
+    if (messages.length === 0) {
+      await notify(`No messages for ${email}`, "passmenu");
       return;
     }
-    if (emailType === "Temporary (real)") {
-      // Prompt for path for temp email association
-      const path = (
-        await $`echo -n | ${menuCommand} -p 'Enter associated path for temp email (e.g., personal/site/account)'`.text()
-      ).trim();
-      if (!path) {
-        await notify("No path entered", "passmenu");
-        return;
+
+    // Select message
+    const msgOptions = messages.map(
+      (m) => `${m.from.address}: ${m.subject.slice(0, 50)}`
+    );
+    const selectedMsgStr = await selectOption(
+      menuCommand,
+      msgOptions,
+      "Select message:"
+    );
+    const selectedIndex = msgOptions.indexOf(selectedMsgStr);
+    if (selectedIndex === -1) {
+      await notify("No message selected", "passmenu");
+      return;
+    }
+
+    // Fetch full message
+    const msg = (await fetchMessage(token, messages[selectedIndex]!.id)) as {
+      from: { address: string };
+      subject: string;
+      text?: string;
+      html?: string;
+      createdAt: string;
+    };
+    const body = msg.text || msg.html?.replace(/<[^>]*>/g, "") || "No body.";
+
+    // Extract links and codes
+    const links: string[] = body.match(/https?:\/\/[^\s]+/g) || [];
+    const codes: string[] =
+      body.match(/(?:^|[<>\s])(\d{4,8})(?:$|[<>\s])/g) || [];
+
+    // Build options
+    const messageOptions: string[] = ["Copy Full Message"];
+
+    for (const link of links) {
+      messageOptions.push(`Copy Link: ${link}`);
+      if (options.autotype) {
+        messageOptions.push(`Autotype Link: ${link}`);
       }
-      try {
-        const { email, tempPass } = await createTempEmail();
-        value = email;
-        // Store temp creds
-        const tempPath = `temp_emails/${path}/${email}`;
-        const tempContent = `password: ${tempPass}\nassociated: ${path}\n`;
-        await $`echo ${tempContent} | pass insert --multiline --force ${tempPath}`;
-        logInfo(`Stored temp email creds for ${email} under ${tempPath}`);
-        isTempEmail = true;
-      } catch (error) {
-        console.error("Failed to generate temp email.");
-        return;
+    }
+
+    for (const code of codes) {
+      messageOptions.push(`Copy Code: ${code.trim()}`);
+      if (options.autotype) {
+        messageOptions.push(`Autotype Code: ${code.trim()}`);
       }
-    } else {
-      value = generateFakeEmail();
     }
-  } else {
-    const generator = credentialGenerators[selectedField];
-    if (!generator) {
-      console.error("No generator for selected field.");
+
+    const messageAction = await selectOption(
+      menuCommand,
+      messageOptions,
+      "Choose action:"
+    );
+    if (!messageAction) {
+      await notify("No action selected", "passmenu");
       return;
     }
-    value = generator();
-  }
-  // Perform action (copy/type) before prompting for save path
-  await performAction(value, action, actionCmd);
-  if (action === "copy") {
-    await notify("Copied to clipboard", "passmenu");
-  } else {
-    await notify("Typed value", "passmenu");
-  }
-  // If not temp email, prompt for path and save
-  if (!isTempEmail) {
-    const path = (
-      await $`echo -n | ${menuCommand} -p 'Enter path to save credential (e.g., personal/site/account)'`.text()
-    ).trim();
-    if (!path) {
-      await notify("No path entered", "passmenu");
-      return;
+
+    const copyCmd = await getCopyCommand();
+    const typeCmd = await getTypeCommand();
+
+    if (messageAction === "Copy Full Message") {
+      const fullMessage = `From: ${msg.from.address}\nSubject: ${msg.subject}\nDate: ${new Date(msg.createdAt).toLocaleString()}\nBody:\n${body}`;
+      await performAction(fullMessage, "copy", copyCmd);
+      await notify("Message copied to clipboard", "passmenu");
+    } else if (messageAction.startsWith("Copy Link: ")) {
+      const link = messageAction.slice("Copy Link: ".length);
+      await performAction(link, "copy", copyCmd);
+      await notify("Link copied to clipboard", "passmenu");
+    } else if (messageAction.startsWith("Autotype Link: ")) {
+      const link = messageAction.slice("Autotype Link: ".length);
+      await performAction(link, "type", typeCmd);
+      await notify("Link autotyped", "passmenu");
+    } else if (messageAction.startsWith("Copy Code: ")) {
+      const code = messageAction.slice("Copy Code: ".length);
+      await performAction(code, "copy", copyCmd);
+      await notify("Code copied to clipboard", "passmenu");
+    } else if (messageAction.startsWith("Autotype Code: ")) {
+      const code = messageAction.slice("Autotype Code: ".length);
+      await performAction(code, "type", typeCmd);
+      await notify("Code autotyped", "passmenu");
     }
-    await appendToPass(path, selectedField, value);
-    logInfo(`Appended ${selectedField} to ${path}`);
+  } catch (error) {
+    logError("Failed to view messages", error);
+    await notify("Failed to view messages", "passmenu");
   }
 }
-// Handle managing temp emails with new structure and enhanced options
+
 async function manageTempEmails(
   menuCommand: string[],
   passDir: string,
   options: Options
-) {
-  // List temp emails from new structure
+): Promise<void> {
+  // List temp emails
   const tempListOutput =
     await $`find ${passDir} -type f -name '*.gpg' -path '*/temp_emails/*' -printf '%P\n' | sort`.text();
   const tempEntries = tempListOutput
@@ -408,7 +772,7 @@ async function manageTempEmails(
     .filter(Boolean)
     .map((p) => p.replace(/\.gpg$/, ""));
 
-  const tempEmails = tempEntries.map((path) => {
+  const tempEmails: TempEmail[] = tempEntries.map((path) => {
     const parts = path.split("/");
     const email = parts.pop()!;
     const associated = parts.slice(1).join("/"); // skip 'temp_emails'
@@ -448,22 +812,25 @@ async function manageTempEmails(
   }
 
   try {
+    const copyCmd = await getCopyCommand();
+
     switch (action) {
       case "Copy Email":
-        await performAction(selected.email, "copy", await getCopyCommand());
+        await performAction(selected.email, "copy", copyCmd);
         await notify("Email copied to clipboard", "passmenu");
         break;
 
-      case "Copy Password":
+      case "Copy Password": {
         const content = await $`pass show ${selected.path}`.text();
         const password = parseField(content, "password");
         if (!password) {
           await notify("No password found", "passmenu");
           return;
         }
-        await performAction(password, "copy", await getCopyCommand());
+        await performAction(password, "copy", copyCmd);
         await notify("Password copied to clipboard", "passmenu");
         break;
+      }
 
       case "View Messages":
         await handleViewMessages(
@@ -475,233 +842,262 @@ async function manageTempEmails(
         break;
 
       case "Delete Email":
-        await $`pass rm ${selected.path}`;
+        await $`pass rm -f ${selected.path}`;
         await notify("Temp email deleted", "passmenu");
         break;
     }
   } catch (error) {
     logError("Failed to perform action", error);
-    console.error("Failed to perform action:", error);
+    await notify("Failed to perform action", "passmenu");
   }
 }
 
-// Handle viewing messages for a temp email
-async function handleViewMessages(
+// =============================================================================
+// Generate Credential Flow
+// =============================================================================
+
+async function generateCredential(
   menuCommand: string[],
-  email: string,
-  path: string,
-  options: Options
-) {
-  const content = await $`pass show ${path}`.text();
-  const password = parseField(content, "password");
-  if (!password) {
-    await notify("No password found", "passmenu");
+  passDir: string,
+  action: "copy" | "type",
+  actionCmd: string[]
+): Promise<void> {
+  const fields = [
+    "email",
+    "password",
+    "username",
+    "full name",
+    "phone number",
+    "lorem ipsum",
+  ];
+
+  const selectedField = await selectOption(
+    menuCommand,
+    fields,
+    "Select credential to generate"
+  );
+  if (!selectedField) {
+    await notify("No field selected", "passmenu");
     return;
   }
 
-  try {
-    const token = await getMailTmToken(email, password);
-    logInfo(`Fetching messages for ${email}`);
-    const messages = await fetchMessages(token);
-    if (messages.length === 0) {
-      await notify(`No messages for ${email}`, "passmenu");
-      return;
-    }
+  let value: string;
+  let isTempEmail = false;
 
-    // Select message
-    const msgOptions = messages.map(
-      (m) => `${m.from.address}: ${m.subject.slice(0, 50)}`
-    );
-    const selectedMsgStr = await selectOption(
+  if (selectedField === "email") {
+    const emailType = await selectOption(
       menuCommand,
-      msgOptions,
-      "Select message:"
+      ["Temporary (real)", "Fake (generated)"],
+      "Email type"
     );
-    const selectedIndex = msgOptions.indexOf(selectedMsgStr);
-    if (selectedIndex === -1) {
-      await notify("No message selected", "passmenu");
+    if (!emailType) {
+      await notify("No email type selected", "passmenu");
       return;
     }
 
-    // Fetch message
-    const msg = await fetchMessage(token, messages[selectedIndex].id);
-    const body = msg.text || msg.html?.replace(/<[^>]*>/g, "") || "No body.";
-    const links: string[] = body.match(/https?:\/\/[^\s]+/g) || [];
-    const codes: string[] =
-      body.match(/(?:^|[<>\s])(\d{4,8})(?:$|[<>\s])/g) || []; // 4-8 digit codes next to whitespace or angular brackets
-
-    // Build options
-    const linkOptions: string[] = [];
-    for (const l of links) {
-      linkOptions.push(`Copy Link: ${l}`);
-      if (options.autotype) {
-        linkOptions.push(`Autotype Link: ${l}`);
+    if (emailType === "Temporary (real)") {
+      const path = (
+        await $`echo -n | ${menuCommand} -p 'Enter associated path for temp email'`.text()
+      ).trim();
+      if (!path) {
+        await notify("No path entered", "passmenu");
+        return;
       }
-    }
-    const codeOptions: string[] = [];
-    for (const c of codes) {
-      codeOptions.push(`Copy Code: ${c}`);
-      if (options.autotype) {
-        codeOptions.push(`Autotype Code: ${c}`);
-      }
-    }
-    const messageOptions = [
-      "Copy Full Message",
-      ...linkOptions,
-      ...codeOptions,
-    ];
 
-    const messageAction = await selectOption(
-      menuCommand,
-      messageOptions,
-      "Choose action for message:"
-    );
-    if (!messageAction) {
-      await notify("No action selected", "passmenu");
+      try {
+        const { email, tempPass } = await createTempEmail();
+        value = email;
+
+        // Store temp creds
+        const tempPath = `temp_emails/${path}/${email}`;
+        const tempContent = `password: ${tempPass}\nassociated: ${path}\n`;
+        await $`echo ${tempContent} | pass insert --multiline --force ${tempPath}`;
+        logInfo(`Stored temp email creds for ${email} under ${tempPath}`);
+        isTempEmail = true;
+      } catch (error) {
+        logError("Failed to generate temp email", error);
+        await notify("Failed to create temp email", "passmenu");
+        return;
+      }
+    } else {
+      value = generateFakeEmail();
+    }
+  } else {
+    const generator = credentialGenerators[selectedField];
+    if (!generator) {
+      await notify("No generator for selected field", "passmenu");
       return;
     }
+    value = generator();
+  }
 
-    if (messageAction === "Copy Full Message") {
-      const fullMessage = `From: ${msg.from.address}\nSubject: ${
-        msg.subject
-      }\nDate: ${new Date(msg.createdAt).toLocaleString()}\nBody:\n${body}`;
-      console.log(fullMessage); // Keep console for display
-      await performAction(fullMessage, "copy", await getCopyCommand());
-      await notify("Message copied to clipboard", "passmenu");
-    } else if (messageAction.startsWith("Copy Link: ")) {
-      const link = messageAction.slice("Copy Link: ".length);
-      await performAction(link, "copy", await getCopyCommand());
-      await notify("Link copied to clipboard", "passmenu");
-    } else if (messageAction.startsWith("Autotype Link: ")) {
-      const link = messageAction.slice("Autotype Link: ".length);
-      await performAction(link, "type", await getTypeCommand());
-      await notify("Link autotyped", "passmenu");
+  // Perform action immediately
+  await performAction(value, action, actionCmd);
+  await notify(
+    action === "copy" ? "Copied to clipboard" : "Typed value",
+    "passmenu"
+  );
+
+  // Prompt to save (unless temp email, already saved)
+  if (!isTempEmail) {
+    const path = (
+      await $`echo -n | ${menuCommand} -p 'Enter path to save credential (empty to skip)'`.text()
+    ).trim();
+    if (path) {
+      await appendToPass(path, selectedField, value);
+      logInfo(`Appended ${selectedField} to ${path}`);
     }
-  } catch (error) {
-    logError("Failed to view messages", error);
-    console.error("Failed to view messages:", error);
   }
 }
-async function main() {
-  let args = Bun.argv.slice(2);
-  let options: Options = {
+
+// =============================================================================
+// Argument Parsing
+// =============================================================================
+
+function parseArgs(args: string[]): Options {
+  const options: Options = {
     autotype: false,
     squash: false,
     fileisuser: false,
-    copyCmd: undefined,
-    typeCmd: undefined,
   };
+
   let i = 0;
   while (i < args.length) {
     const arg = args[i];
-    if (arg === "-a" || arg === "--autotype") {
-      options.autotype = true;
-    } else if (arg === "-s" || arg === "--squash") {
-      options.squash = true;
-    } else if (arg === "-f" || arg === "--fileisuser") {
-      options.fileisuser = true;
-    } else if (arg === "-c" || arg === "--copy") {
-      i++;
-      options.copyCmd =
-        args[i] && !(args[i] as string).startsWith("-")
-          ? (args[i] as string).split(" ")
-          : await getCopyCommand();
-    } else if (arg === "-t" || arg === "--type") {
-      i++;
-      options.typeCmd =
-        args[i] && !(args[i] as string).startsWith("-")
-          ? (args[i] as string).split(" ")
-          : await getTypeCommand();
-    } else if (arg === "-h" || arg === "--help") {
-      console.log(`
+    switch (arg) {
+      case "-a":
+      case "--autotype":
+        options.autotype = true;
+        break;
+      case "-s":
+      case "--squash":
+        options.squash = true;
+        break;
+      case "-f":
+      case "--fileisuser":
+        options.fileisuser = true;
+        break;
+      case "-c":
+      case "--copy":
+        i++;
+        if (args[i] && !args[i]!.startsWith("-")) {
+          options.copyCmd = args[i]!.split(" ");
+        }
+        break;
+      case "-t":
+      case "--type":
+        i++;
+        if (args[i] && !args[i]!.startsWith("-")) {
+          options.typeCmd = args[i]!.split(" ");
+        }
+        break;
+      case "-h":
+      case "--help":
+        console.log(`
 Usage: passmenu [options]
+
 Options:
-  -a, --autotype Enable autotype (username <tab> password)
-  -c, --copy [cmd] Copy to clipboard
-  -f, --fileisuser Use file name as username
-  -s, --squash Skip field select if only password
-  -t, --type [cmd] Type the selection
-  -h, --help Show help
+  -a, --autotype    Enable autotype (username <tab> password)
+  -c, --copy [cmd]  Copy to clipboard (optional custom command)
+  -f, --fileisuser  Use file name as username (legacy, now default behavior)
+  -s, --squash      Skip field select if only password exists
+  -t, --type [cmd]  Type the selection (optional custom command)
+  -h, --help        Show this help message
 `);
-      process.exit(0);
-    } else {
-      console.error(`Unknown option: ${arg}`);
-      process.exit(1);
+        process.exit(0);
+        break;
+      default:
+        console.error(`Unknown option: ${arg}`);
+        process.exit(1);
     }
     i++;
   }
-  // Determine action
-  let action: "copy" | "type" = "copy";
-  let actionCmd = options.copyCmd || (await getCopyCommand());
-  if (options.typeCmd || options.autotype) {
-    action = "type";
-    actionCmd = options.typeCmd || (await getTypeCommand());
-  }
+
+  return options;
+}
+
+// =============================================================================
+// Main Entry Point
+// =============================================================================
+
+async function main(): Promise<void> {
+  const options = parseArgs(Bun.argv.slice(2));
+
+  // Determine action mode
+  const action: "copy" | "type" =
+    options.typeCmd || options.autotype ? "type" : "copy";
+  const actionCmd =
+    options.typeCmd ||
+    options.copyCmd ||
+    (action === "type" ? await getTypeCommand() : await getCopyCommand());
+
   const passDir =
     process.env.PASSWORD_STORE_DIR || `${process.env.HOME}/.password-store`;
   const menuCommand = await getMenuCommand();
 
-  // Load State
+  // Load persisted state
   const state = await loadState();
-  const isRecent = Date.now() - state.timestamp < 60000;
+  const stateIsRecent = isStateRecent(state);
 
   let selected = "";
   let autoJumped = false;
 
-  if (isRecent && state.lastEntry) {
+  // Auto-jump to last entry if state is recent
+  if (stateIsRecent && state.lastEntry) {
     selected = state.lastEntry;
     autoJumped = true;
   }
 
+  // Main loop
   while (true) {
     if (!selected) {
-      // List entries
-      const suffix = ".gpg";
-      const listOutput = await $`find ${passDir} -type f -name '*.gpg' -printf '%P\n' | sed 's/\\.gpg$//' | sort`.text();
-      const entries = listOutput
-        .trim()
-        .split("\n")
-        .filter(Boolean)
-        .map((str) => {
-          if (str.endsWith(suffix)) {
-            return str.slice(0, -suffix.length);
-          }
-          return str; // Return unchanged if no match
-        })
-        .filter((e) => !e.startsWith("temp_emails/"));
-      // Special entries
-      const specialEntries = ["Generate Credential", "Manage Temp Emails"];
-      const displayEntries = [...specialEntries, ...entries];
+      // List all entries
+      const entries = await listPassEntries(passDir);
+      const displayEntries = [...SPECIAL_ENTRIES, ...entries];
+
+      // Default selection: 4th entry (index 3) = first real credential
+      // (after Generate Credential, Manage Temp Emails, Create Credential)
+      const defaultIndex = displayEntries.length > 3 ? 3 : 0;
 
       selected = await selectOption(
         menuCommand,
         displayEntries,
         "Select",
-        state.lastEntry, // Pre-select last entry
+        stateIsRecent && state.lastEntry
+          ? displayEntries.indexOf(state.lastEntry)
+          : defaultIndex
       );
 
       if (!selected) {
-        await notify("No selection made", "passmenu");
+        // User pressed Escape - clear state
+        await clearState();
         process.exit(0);
       }
-      autoJumped = false; // User explicitly selected
+      autoJumped = false;
     }
 
-    // Handle special
+    // Handle special entries
     if (selected === "Generate Credential") {
       await generateCredential(menuCommand, passDir, action, actionCmd);
       process.exit(0);
-    } else if (selected === "Manage Temp Emails") {
+    }
+
+    if (selected === "Manage Temp Emails") {
       await manageTempEmails(menuCommand, passDir, options);
       process.exit(0);
     }
 
-    // Regular pass handling
+    if (selected === "Create Credential") {
+      await createCredential(menuCommand, passDir);
+      process.exit(0);
+    }
+
+    // Fetch credential content
     let content = "";
     try {
       content = await $`pass show ${selected}`.quiet().text();
-    } catch (e) {
-      // If auto-jumped to a deleted entry?
+    } catch {
+      // Entry might have been deleted
       if (autoJumped) {
         selected = "";
         autoJumped = false;
@@ -711,127 +1107,129 @@ Options:
       process.exit(1);
     }
 
-    const lines = content.trim().split("\n");
-    let password = "";
-    let fields: Record<string, string> = {};
-    let hasOtpauth = false;
+    // Parse credential
+    const credential = parseCredential(content, selected);
+    const fieldOptions = buildFieldOptions(
+      credential,
+      selected,
+      options.autotype
+    );
 
-    if (lines[0] && lines[0].includes(":")) {
-      // Parse all lines as key: value pairs
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (trimmed.startsWith("otpauth://")) {
-          hasOtpauth = true;
-        } else if (trimmed.includes(":")) {
-          const parts = trimmed.split(":");
-          const key = parts.shift();
-          if (key) {
-            const k = key.trim().toLowerCase();
-            const v = parts.join(":").trim();
-            if (k === "password") {
-              password = v;
-            } else {
-              fields[k] = v;
-            }
-          }
-        }
-      }
-    } else {
-      // Standard pass format: first line is password, rest are key: value
-      password = lines[0]?.trim() || "";
-      for (let j = 1; j < lines.length; j++) {
-        const line = lines[j]?.trim() || "";
-        if (line.startsWith("otpauth://")) {
-          hasOtpauth = true;
-        } else if (line.includes(":")) {
-          const [key, ...val] = line.split(":");
-          fields[(key as string).trim().toLowerCase()] = val.join(":").trim();
-        }
+    // Determine initial selection for field menu
+    // 2nd entry (index 1) is the first real field (after credential path)
+    let initialFieldIndex = 1;
+    if (stateIsRecent && selected === state.lastEntry && state.lastField) {
+      const savedIdx = fieldOptions.indexOf(state.lastField);
+      if (savedIdx !== -1) {
+        initialFieldIndex = savedIdx;
       }
     }
 
-    // Fallback Username
-    if (!fields["username"]) {
-      const fallback = selected.split("/").pop();
-      if (fallback) fields["username"] = fallback;
-    }
-
-    let fieldOptions = ["password", ...Object.keys(fields)];
-    if (hasOtpauth) fieldOptions.push("otp");
-    if (options.autotype) fieldOptions.push("autotype");
-    fieldOptions = [...new Set(fieldOptions)];
-
+    // Squash: skip field selection if only password exists
     let selectedField = "";
-    // Squash logic
-    if (options.squash && fieldOptions.length === 1 && !options.autotype) {
+    if (
+      options.squash &&
+      fieldOptions.length === 2 &&
+      !options.autotype // Only path + password
+    ) {
       selectedField = "password";
     } else {
-      const prompt = `${selected}`; // Show path in prompt
       selectedField = await selectOption(
         menuCommand,
         fieldOptions,
-        prompt,
-        selected === state.lastEntry ? state.lastField : undefined,
+        selected,
+        initialFieldIndex
       );
     }
 
     if (!selectedField) {
+      // User pressed Escape
       if (autoJumped) {
+        // Go back to main menu
         selected = "";
         autoJumped = false;
-        continue; // Go back to main menu
+        await clearState();
+        continue;
       }
-      await notify("No field selected", "passmenu");
+      await clearState();
       process.exit(0);
     }
 
+    // Handle credential path selection (edit options)
+    if (selectedField.startsWith("📁 ")) {
+      const result = await showEditOptions(menuCommand, selected);
+      if (result === "exit") {
+        process.exit(0);
+      }
+      // Show field options again
+      continue;
+    }
+
+    // Handle field actions
     let value = "";
+
     if (selectedField === "password") {
-      value = password;
+      value = credential.password;
     } else if (selectedField === "otp") {
       value = (await $`pass otp ${selected}`.text()).trim();
     } else if (selectedField === "autotype") {
-      // Autotype
-      const username = fields["username"] || "";
+      // Autotype: username <tab> password
+      const username =
+        credential.fields["username"] ||
+        credential.fields["login"] ||
+        credential.fields["user"] ||
+        "";
       const copyCmd = await getCopyCommand();
-      await performAction(password, "copy", copyCmd); // Always copy password to clipboard
+
+      // Always copy password to clipboard as backup
+      await performAction(credential.password, "copy", copyCmd);
+
       if (action === "type") {
         if (username) {
           await performAction(username, "type", actionCmd);
           const tabCmd = await getTabCommand();
           await $`${tabCmd}`;
         }
-        await performAction(password, "type", actionCmd);
+        await performAction(credential.password, "type", actionCmd);
         await notify(
-          "Autotyped username and password (password copied to clipboard)",
-          "passmenu",
+          "Autotyped credentials (password also copied)",
+          "passmenu"
         );
       } else {
         await notify("Password copied to clipboard", "passmenu");
       }
 
-      // Save state before exit
       await saveState({ lastEntry: selected, lastField: selectedField });
       process.exit(0);
     } else {
-      value = fields[selectedField] || "";
+      // Regular field
+      value = credential.fields[selectedField] || "";
     }
 
-    // Perform action
+    if (!value) {
+      await notify(`No value for ${selectedField}`, "passmenu");
+      continue;
+    }
+
+    // Perform the action
     await performAction(value, action, actionCmd);
-    if (action === "copy") {
-      await notify("Copied to clipboard", "passmenu");
-    } else {
-      await notify("Typed value", "passmenu");
-    }
+    await notify(
+      action === "copy" ? "Copied to clipboard" : "Typed value",
+      "passmenu"
+    );
 
-    // Save state
+    // Save state and exit
     await saveState({ lastEntry: selected, lastField: selectedField });
     process.exit(0);
   }
 }
+
+// =============================================================================
+// Entry Point
+// =============================================================================
+
 main().catch(async (error) => {
-  console.error("Error:", error);
+  logError("Unhandled error", error);
   await notify("An error occurred", "passmenu");
   process.exit(1);
 });
