@@ -96,9 +96,6 @@
             # Selective Sync: Only sync the Shared folder
             path = Shared
 
-            # Version compatibility - embeds version in archive names to prevent collisions
-            addversionno = true
-
             # Robustness & Automation
             auto = true
             batch = true
@@ -116,6 +113,10 @@
             backuploc = central
             backupdir = .unison/backups
             maxbackups = 5
+
+            # Run "unison" on the remote host
+            servercmd = /run/current-system/sw/bin/unison
+            addversionno = false # Remote sync breaks if this isn't false
           '';
         };
 

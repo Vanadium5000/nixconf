@@ -195,7 +195,9 @@ async function handleRun() {
 
     // Watchdog: If we don't start listening within 30 seconds, abort.
     const watchdog = setTimeout(async () => {
-      console.error("Timeout: Dictation daemon failed to initialize within 30s.");
+      console.error(
+        "Timeout: Dictation daemon failed to initialize within 30s."
+      );
       await updateState({
         text: "Init Timeout",
         isRecording: false,
@@ -236,21 +238,48 @@ async function handleRun() {
           const { done, value } = await reader.read();
           if (done) break;
           const chunk = decoder.decode(value);
-          
+
           // Split by newline AND carriage return to handle progress bars/status updates
           const lines = chunk.split(/[\n\r]+/);
-          
+
           for (const line of lines) {
             const trimmed = line.trim();
             if (!trimmed) continue;
-            
+
             console.log(`[${name}]: ${trimmed}`);
 
-            if (trimmed.includes("loading model") || trimmed.includes("load_backend")) {
+            // State updates
+            if (trimmed.includes("load_backend")) {
               await updateState({ text: "Loading Core...", isRecording: true });
-            } else if (trimmed.includes("computed_timestamps")) {
+            } else if (trimmed.includes("init: attempt to open")) {
+              await updateState({ text: "Init Audio...", isRecording: true });
+            } else if (trimmed.includes("whisper_model_load")) {
+              await updateState({ text: "Loading Model...", isRecording: true });
+            } else if (trimmed.includes("whisper_init_state")) {
+              await updateState({ text: "Init Context...", isRecording: true });
+            } else if (
+              trimmed.includes("computed_timestamps") || 
+              trimmed.includes("[Start speaking]") ||
+              trimmed.includes("main: processing")
+            ) {
               clearTimeout(watchdog);
               await updateState({ text: "Listening...", isRecording: true });
+            }
+
+            // Error detection
+            if (
+              trimmed.includes("failed to open") ||
+              trimmed.includes("failed to initialize") ||
+              trimmed.includes("found 0 capture devices")
+            ) {
+              console.error(`Fatal Error detected: ${trimmed}`);
+              await updateState({
+                text: "Internal Error",
+                isRecording: false,
+                error: trimmed,
+              });
+              proc.kill();
+              process.exit(1);
             }
 
             // Standard output matching
@@ -280,8 +309,6 @@ async function handleRun() {
     // If the process exits, we're done
     console.log("Dictation process exited.");
     await updateState({ text: "Stopped", isRecording: false });
-    
-  } catch (e: any) {
   } catch (e: any) {
     const errorText = "Error: " + (e.message || String(e));
     console.error(errorText);
@@ -372,7 +399,9 @@ async function ensureModelDownloaded(modelName: string): Promise<string> {
   }
 
   // Not found, attempt download
-  console.log(`Model '${modelName}' not found. Attempting download to ${CONFIG.userModelDir}...`);
+  console.log(
+    `Model '${modelName}' not found. Attempting download to ${CONFIG.userModelDir}...`
+  );
   await updateState({ text: `Downloading ${modelName}...`, isRecording: true });
 
   // Ensure download tool exists
@@ -391,13 +420,13 @@ async function ensureModelDownloaded(modelName: string): Promise<string> {
     // but Bun shell supports cwd in options or we can just chain commands.
     // The safest way with Bun shell for PWD change is usually:
     // await $`cd ${path} && command` works if it's one shell execution.
-    
+
     // Note: The downloader script output is verbose, we might want to capture it or show it.
     // We'll let it inherit stdio if attached, but since we are a daemon/background,
     // we should log it.
-    
+
     await $`cd "${CONFIG.userModelDir}" && whisper-cpp-download-ggml-model "${modelName}"`;
-    
+
     if (existsSync(cachedPath)) {
       console.log(`Download successful: ${cachedPath}`);
       return cachedPath;
