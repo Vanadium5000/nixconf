@@ -242,7 +242,6 @@ async function handleTranscribe() {
   const outputFormat = (getArg("--format") || "srt") as SubtitleFormat;
   const outputFile = getArg("--output");
   const embedSubs = args.includes("--embed");
-  const language = getArg("--language") || "en";
 
   log("INFO", "Transcription started", { file: inputFile, format: outputFormat });
   await updateState({ text: `📝 ${basename(inputFile)}`, isRecording: true, mode: "transcribe", file: inputFile, startTime: Date.now() });
@@ -250,7 +249,7 @@ async function handleTranscribe() {
   try {
     const wavFile = await prepareAudioFile(inputFile);
     const modelPath = await resolveModel(modelArg);
-    const segments = await transcribeFile(wavFile, modelPath, language);
+    const segments = await transcribeFile(wavFile, modelPath);
     const content = formatSubtitles(segments, outputFormat);
     const outPath = outputFile || inputFile.replace(ext, `.${outputFormat}`);
 
@@ -265,6 +264,11 @@ async function handleTranscribe() {
 
     await updateState({ text: `✓ ${basename(outPath)}`, isRecording: false, mode: "idle", progress: "100%" });
     console.log(`Done: ${outPath}`);
+    
+    if (segments.length > 0) {
+      console.log("\nTranscript:");
+      segments.forEach(s => console.log(`[${formatTimestamp(s.start)} -> ${formatTimestamp(s.end)}] ${s.text}`));
+    }
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
     log("ERROR", "Transcription failed", { error: msg });
@@ -272,6 +276,12 @@ async function handleTranscribe() {
     console.error(msg);
     process.exit(1);
   }
+}
+
+function formatTimestamp(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
 async function runWhisperStream(bin: string, modelPath: string, noType: boolean) {
@@ -324,13 +334,12 @@ async function runWhisperStream(bin: string, modelPath: string, noType: boolean)
       process.exit(1);
     }
 
-    // Whisper-stream outputs: [00:00:00.000 --> 00:00:02.000]  Text here
-    // Or just: [timestamp] Text
-    const transcriptMatch = trimmed.match(/^\[\d{2}:\d{2}:\d{2}\.\d{3}\s*(?:-->.*?)?\]\s*(.+)$/);
+    // Parse whisper-stream output: [00:00:00.000 --> 00:00:02.000] Text here
+    const transcriptMatch = trimmed.match(/^\[(\d{2}:\d{2}:\d{2}\.\d{3})\s*-->\s*(\d{2}:\d{2}:\d{2}\.\d{3})\]\s*(.+)$/);
     if (transcriptMatch) {
-      const text = transcriptMatch[1]!.trim();
+      const text = transcriptMatch[3]!.trim();
 
-      if (!text || text === lastText || text === "[BLANK_AUDIO]" || /^\[.*\]$/.test(text) || text.startsWith("(") || text.length < 2) {
+      if (!text || text === lastText || text === "[BLANK_AUDIO]" || /^\[.*\]$/.test(text) || /^\(.*\)$/.test(text) || text.length < 2) {
         silenceCount++;
         currentVolume = Math.max(0, currentVolume - 0.1);
         if (silenceCount > 5) {
@@ -402,14 +411,16 @@ async function prepareAudioFile(inputFile: string): Promise<string> {
   }
 }
 
-async function transcribeFile(wavFile: string, modelPath: string, language: string): Promise<TranscriptSegment[]> {
+async function transcribeFile(wavFile: string, modelPath: string): Promise<TranscriptSegment[]> {
   log("INFO", "Transcribing", { file: basename(wavFile) });
   await updateState({ text: "Transcribing...", isRecording: true, mode: "transcribe", progress: "20%" });
 
   try {
-    const result = await $`whisper-cpp -m ${modelPath} -f ${wavFile} -l ${language} -pp`.text();
+    // Use whisper-cli for file transcription
+    const result = await $`whisper-cli -m ${modelPath} -f ${wavFile} -pp`.text();
     const segments: TranscriptSegment[] = [];
 
+    // Parse output: [00:00:00.000 --> 00:00:05.000] Text here
     for (const line of result.split("\n")) {
       const match = line.match(/\[(\d{2}):(\d{2}):(\d{2})\.(\d{3})\s*-->\s*(\d{2}):(\d{2}):(\d{2})\.(\d{3})\]\s*(.*)/);
       if (match) {
@@ -422,34 +433,12 @@ async function transcribeFile(wavFile: string, modelPath: string, language: stri
       }
     }
 
-    const srtPath = wavFile.replace(".wav", ".srt");
-    if (segments.length === 0 && existsSync(srtPath)) {
-      return parseSrtFile(await Bun.file(srtPath).text());
-    }
-
     log("INFO", "Segments parsed", { count: segments.length });
     await updateState({ text: "Processing...", isRecording: true, mode: "transcribe", progress: "90%" });
     return segments;
   } catch (e) {
     throw new Error(`Transcription failed: ${e}`);
   }
-}
-
-function parseSrtFile(content: string): TranscriptSegment[] {
-  const segments: TranscriptSegment[] = [];
-  for (const block of content.split(/\n\n+/)) {
-    const lines = block.trim().split("\n");
-    if (lines.length < 2) continue;
-
-    const match = lines[1]?.match(/(\d{2}):(\d{2}):(\d{2}),(\d{3})\s*-->\s*(\d{2}):(\d{2}):(\d{2}),(\d{3})/);
-    if (!match) continue;
-
-    const start = parseInt(match[1]!) * 3600 + parseInt(match[2]!) * 60 + parseInt(match[3]!) + parseInt(match[4]!) / 1000;
-    const end = parseInt(match[5]!) * 3600 + parseInt(match[6]!) * 60 + parseInt(match[7]!) + parseInt(match[8]!) / 1000;
-    const text = lines.slice(2).join(" ").trim();
-    if (text) segments.push({ start, end, text });
-  }
-  return segments;
 }
 
 function formatSubtitles(segments: TranscriptSegment[], format: SubtitleFormat): string {
@@ -660,13 +649,13 @@ LIVE OPTIONS:
 TRANSCRIBE OPTIONS:
   --format <fmt>      srt, vtt, txt (default: srt)
   --output <file>     Output path
-  --language <code>   Language (default: en)
   --embed             Embed subtitles in video
 
 EXAMPLES:
   dictation toggle
   dictation toggle --model base.en --position bottom
   dictation transcribe video.mp4 --embed
+  dictation transcribe audio.mp3 --format txt
 
 LOGS: ${CONFIG.logFile}
 `);
