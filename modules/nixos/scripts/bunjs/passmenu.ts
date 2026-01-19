@@ -207,7 +207,11 @@ async function selectOption(
   if (options.length === 0) return "";
 
   const cmd = [...menuCommand];
-  if (initialIndex !== undefined && initialIndex >= 0 && cmd[0]?.includes("rofi")) {
+  if (
+    initialIndex !== undefined &&
+    initialIndex >= 0 &&
+    cmd[0]?.includes("rofi")
+  ) {
     cmd.push("-selected-row", initialIndex.toString());
   }
 
@@ -334,7 +338,9 @@ function buildFieldOptions(
     ...USERNAME_FIELD_ALIASES,
   ]);
   const otherFields = Object.keys(credential.fields)
-    .filter((f) => !excludeFields.has(f))
+    .filter(
+      (f) => !excludeFields.has(f as "username" | "password" | "login" | "user")
+    )
     .sort();
   options.push(...otherFields);
 
@@ -587,9 +593,7 @@ async function fetchHydraCollection(
   const res = await fetch(url, options);
   if (!res.ok) {
     const errorText = await res.text();
-    throw new Error(
-      `Failed to fetch ${url}: ${res.statusText} - ${errorText}`
-    );
+    throw new Error(`Failed to fetch ${url}: ${res.statusText} - ${errorText}`);
   }
   const data = (await res.json()) as {
     "hydra:member": unknown[];
@@ -669,7 +673,10 @@ async function fetchMessages(token: string): Promise<unknown[]> {
   });
 }
 
-async function fetchMessage(token: string, messageId: string): Promise<unknown> {
+async function fetchMessage(
+  token: string,
+  messageId: string
+): Promise<unknown> {
   logDebug(`Fetching message ${messageId}`);
   const url = `https://api.mail.tm/messages/${messageId}`;
   const msgRes = await fetch(url, {
@@ -788,7 +795,9 @@ async function handleViewMessages(
     const typeCmd = await getTypeCommand();
 
     if (messageAction === "Copy Full Message") {
-      const fullMessage = `From: ${msg.from.address}\nSubject: ${msg.subject}\nDate: ${new Date(msg.createdAt).toLocaleString()}\nBody:\n${body}`;
+      const fullMessage = `From: ${msg.from.address}\nSubject: ${
+        msg.subject
+      }\nDate: ${new Date(msg.createdAt).toLocaleString()}\nBody:\n${body}`;
       await performAction(fullMessage, "copy", copyCmd);
       await notify("Message copied to clipboard", "passmenu");
     } else if (messageAction.startsWith("Copy Link: ")) {

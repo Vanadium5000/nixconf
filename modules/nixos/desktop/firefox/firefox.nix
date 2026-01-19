@@ -337,7 +337,7 @@
             "extensions.activeThemeID" = "firefox-compact-dark@mozilla.org";
 
             # Disable AV1 playback for "macbook" as it is too graphics-intensive for non-accelerated hardware
-            "media.av1.enabled" = if config.preferences.hostName == "macbook" then false else null;
+            "media.av1.enabled" = if config.preferences.hostName == "macbook" then false else true;
           };
 
           # Firefox Color Settings
