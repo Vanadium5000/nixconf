@@ -50,9 +50,7 @@ type SubtitleFormat = "srt" | "vtt" | "txt";
 
 function log(level: "INFO" | "WARN" | "ERROR", msg: string, data?: unknown) {
   const ts = new Date().toISOString().slice(11, 23);
-  const line = `[${ts}] ${level}: ${msg}${
-    data !== undefined ? ` ${JSON.stringify(data)}` : ""
-  }`;
+  const line = `[${ts}] ${level}: ${msg}${data !== undefined ? ` ${JSON.stringify(data)}` : ""}`;
   try {
     appendFileSync(CONFIG.logFile, line + "\n");
   } catch {}
@@ -123,11 +121,7 @@ async function handleToggle() {
 
 async function handleRun() {
   const pid = process.pid;
-  log("INFO", "Daemon started", {
-    pid,
-    host: HOST,
-    model: CONFIG.defaultModelName,
-  });
+  log("INFO", "Daemon started", { pid, host: HOST, model: CONFIG.defaultModelName });
 
   await Bun.write(CONFIG.pidFile, pid.toString());
   await updateState({
@@ -203,9 +197,7 @@ async function handleStatus() {
         error: state.error,
         progress: state.progress,
         volume: state.volume,
-        uptime: state.startTime
-          ? Math.floor((Date.now() - state.startTime) / 1000)
-          : 0,
+        uptime: state.startTime ? Math.floor((Date.now() - state.startTime) / 1000) : 0,
       })
     );
   } catch (e) {
@@ -224,32 +216,23 @@ async function handleSource() {
   try {
     const file = Bun.file(CONFIG.stateFile);
     if (!(await file.exists())) {
-      console.log(
-        JSON.stringify({ text: "Ready", class: "stopped", alt: "stopped" })
-      );
+      console.log(JSON.stringify({ text: "Ready", class: "stopped", alt: "stopped" }));
       return;
     }
 
     const state = (await file.json()) as State;
-    const volBar =
-      state.volume !== undefined ? getVolumeIndicator(state.volume) : "";
+    const volBar = state.volume !== undefined ? getVolumeIndicator(state.volume) : "";
 
     console.log(
       JSON.stringify({
         text: state.text ? `${volBar} ${state.text}`.trim() : volBar || "...",
         tooltip: buildTooltip(state),
-        class: state.isRecording
-          ? "playing"
-          : state.mode === "error"
-          ? "error"
-          : "stopped",
+        class: state.isRecording ? "playing" : state.mode === "error" ? "error" : "stopped",
         alt: state.isRecording ? "playing" : "stopped",
       })
     );
   } catch {
-    console.log(
-      JSON.stringify({ text: "Error", class: "error", alt: "error" })
-    );
+    console.log(JSON.stringify({ text: "Error", class: "error", alt: "error" }));
   }
 }
 
@@ -264,21 +247,13 @@ function getVolumeIndicator(vol: number): string {
 async function handleTranscribe() {
   const inputFile = args[1];
   if (!inputFile || !existsSync(inputFile)) {
-    console.error(
-      inputFile
-        ? `File not found: ${inputFile}`
-        : "Usage: dictation transcribe <file>"
-    );
+    console.error(inputFile ? `File not found: ${inputFile}` : "Usage: dictation transcribe <file>");
     process.exit(1);
   }
 
   const ext = extname(inputFile).toLowerCase();
-  const isVideo = CONFIG.supportedVideo.includes(
-    ext as ".mp4" | ".mkv" | ".avi" | ".mov" | ".webm" | ".wmv" | ".flv"
-  );
-  const isAudio = CONFIG.supportedAudio.includes(
-    ext as ".mp3" | ".wav" | ".flac" | ".ogg"
-  );
+  const isVideo = CONFIG.supportedVideo.includes(ext as (typeof CONFIG.supportedVideo)[number]);
+  const isAudio = CONFIG.supportedAudio.includes(ext as (typeof CONFIG.supportedAudio)[number]);
 
   if (!isVideo && !isAudio) {
     console.error(`Unsupported format: ${ext}`);
@@ -290,10 +265,7 @@ async function handleTranscribe() {
   const outputFile = getArg("--output");
   const embedSubs = args.includes("--embed");
 
-  log("INFO", "Transcription started", {
-    file: inputFile,
-    format: outputFormat,
-  });
+  log("INFO", "Transcription started", { file: inputFile, format: outputFormat });
   await updateState({
     text: `📝 ${basename(inputFile)}`,
     isRecording: true,
@@ -310,10 +282,7 @@ async function handleTranscribe() {
     const outPath = outputFile || inputFile.replace(ext, `.${outputFormat}`);
 
     await Bun.write(outPath, content);
-    log("INFO", "Transcription complete", {
-      output: outPath,
-      segments: segments.length,
-    });
+    log("INFO", "Transcription complete", { output: outPath, segments: segments.length });
 
     if (embedSubs && isVideo) {
       await embedSubtitles(inputFile, outPath);
@@ -332,9 +301,7 @@ async function handleTranscribe() {
     if (segments.length > 0) {
       console.log("\nTranscript:");
       segments.forEach((s) =>
-        console.log(
-          `[${formatTimestamp(s.start)} -> ${formatTimestamp(s.end)}] ${s.text}`
-        )
+        console.log(`[${formatTimestamp(s.start)} -> ${formatTimestamp(s.end)}] ${s.text}`)
       );
     }
   } catch (e: unknown) {
@@ -357,15 +324,10 @@ function formatTimestamp(seconds: number): string {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-async function runWhisperStream(
-  bin: string,
-  modelPath: string,
-  noType: boolean
-) {
-  const modelName = basename(modelPath)
-    .replace("ggml-", "")
-    .replace(".bin", "");
+async function runWhisperStream(bin: string, modelPath: string, noType: boolean) {
+  const modelName = basename(modelPath).replace("ggml-", "").replace(".bin", "");
   log("INFO", "Starting whisper-stream", { model: modelName });
+
   await updateState({
     text: `Loading ${modelName}...`,
     isRecording: true,
@@ -375,7 +337,7 @@ async function runWhisperStream(
   let initialized = false;
   const watchdog = setTimeout(async () => {
     if (!initialized) {
-      log("ERROR", "Init timeout");
+      log("ERROR", "Init timeout - no audio device response in 60s");
       await updateState({
         text: "❌ Timeout",
         isRecording: false,
@@ -387,141 +349,137 @@ async function runWhisperStream(
   }, 60000);
 
   const proc = Bun.spawn(
-    [
-      bin,
-      "-m",
-      modelPath,
-      "-t",
-      "4",
-      "--step",
-      "500",
-      "--length",
-      "5000",
-      "-vth",
-      "0.6",
-    ],
+    [bin, "-m", modelPath, "-t", "4", "--step", "500", "--length", "5000", "-vth", "0.6"],
     {
       stdio: ["ignore", "pipe", "pipe"],
+      env: {
+        ...process.env,
+        SDL_AUDIODRIVER: "pipewire",
+      },
     }
   );
 
   let lastText = "";
-  let silenceCount = 0;
-  let currentVolume = 0;
+  let lastUpdateTime = Date.now();
 
-  const processOutput = async (line: string) => {
-    const trimmed = line.trim();
-    if (!trimmed) return;
+  const stripAnsi = (s: string) => s.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, "");
 
-    if (trimmed.includes("load_backend")) {
-      await updateState({
-        text: "Loading backend...",
-        isRecording: true,
-        mode: "live",
-      });
-    } else if (
-      trimmed.includes("init: found") ||
-      trimmed.includes("init: attempt")
-    ) {
-      await updateState({
-        text: "Opening mic...",
-        isRecording: true,
-        mode: "live",
-      });
-    } else if (trimmed.includes("whisper_model_load")) {
-      await updateState({
-        text: `Loading ${modelName}...`,
-        isRecording: true,
-        mode: "live",
-      });
-    } else if (trimmed.includes("whisper_init_state")) {
-      await updateState({
-        text: "Initializing...",
-        isRecording: true,
-        mode: "live",
-      });
-    } else if (
-      trimmed.includes("[Start speaking]") ||
-      trimmed.includes("main: processing")
-    ) {
-      if (!initialized) {
-        initialized = true;
-        clearTimeout(watchdog);
-        log("INFO", "Ready to listen");
-      }
-      await updateState({
-        text: "🎤 Listening...",
-        isRecording: true,
-        mode: "live",
-        volume: 0.1,
-      });
+  const isValidTranscript = (text: string): boolean => {
+    if (!text || text.length < 2) return false;
+    const dominated = [
+      "init:",
+      "whisper_",
+      "load_backend",
+      "ggml_",
+      "main:",
+      "system_info",
+      "Device",
+      "sample rate",
+      "format:",
+      "channels:",
+      "samples per frame",
+      "processing",
+      "n_new_line",
+      "timings",
+      "fallbacks",
+      "mel time",
+      "encode time",
+      "decode time",
+      "batchd time",
+      "prompt time",
+      "total time",
+      "compute buffer",
+      "kv ",
+      "model size",
+      "adding",
+      "n_vocab",
+      "n_audio",
+      "n_text",
+      "n_mels",
+      "ftype",
+      "qntvr",
+      "type",
+      "n_langs",
+      "CUDA",
+      "backends",
+      "gpu",
+      "flash attn",
+      "dtw",
+      "devices",
+      "loading model",
+      "capture device",
+      "attempt to open",
+      "obtained spec",
+      "[Start speaking]",
+    ];
+    for (const d of dominated) {
+      if (text.includes(d)) return false;
     }
+    return true;
+  };
 
-    if (trimmed.includes("failed to") || trimmed.includes("found 0 capture")) {
-      log("ERROR", "Audio error", { line: trimmed });
-      await updateState({
-        text: "❌ Audio error",
-        isRecording: false,
-        mode: "error",
-        error: trimmed,
-      });
-      proc.kill();
-      process.exit(1);
-    }
+  const processChunk = async (chunk: string) => {
+    const cleaned = stripAnsi(chunk);
+    const parts = cleaned.split(/[\r\n]+/);
 
-    // Parse whisper-stream output: [00:00:00.000 --> 00:00:02.000] Text here
-    const transcriptMatch = trimmed.match(
-      /^\[(\d{2}:\d{2}:\d{2}\.\d{3})\s*-->\s*(\d{2}:\d{2}:\d{2}\.\d{3})\]\s*(.+)$/
-    );
-    if (transcriptMatch) {
-      const text = transcriptMatch[3]!.trim();
+    for (const part of parts) {
+      const text = part.trim();
+      if (!text) continue;
 
-      if (
-        !text ||
-        text === lastText ||
-        text === "[BLANK_AUDIO]" ||
-        /^\[.*\]$/.test(text) ||
-        /^\(.*\)$/.test(text) ||
-        text.length < 2
-      ) {
-        silenceCount++;
-        currentVolume = Math.max(0, currentVolume - 0.1);
-        if (silenceCount > 5) {
-          await updateState({
-            text: "🎤 Listening...",
-            isRecording: true,
-            mode: "live",
-            volume: currentVolume,
-          });
-        }
-        return;
+      if (text.includes("Capture device #")) {
+        const match = text.match(/Capture device #\d+: '([^']+)'/);
+        if (match) log("INFO", "Audio device", { name: match[1] });
       }
 
-      silenceCount = 0;
-      currentVolume = Math.min(1, 0.5 + Math.random() * 0.5);
-      lastText = text;
-
-      log("INFO", "Recognized", { text: text.slice(0, 50) });
-
-      if (!noType) {
-        try {
-          await $`wtype -- ${text} `.quiet();
-        } catch (e) {
-          log("WARN", "wtype failed", e);
-        }
+      if (text.includes("attempt to open default capture")) {
+        log("INFO", "Opening mic");
+        await updateState({ text: "Opening mic...", isRecording: true, mode: "live" });
       }
 
-      const displayText = text.length > 50 ? text.slice(0, 47) + "..." : text;
-      await updateState({
-        text: displayText,
-        isRecording: true,
-        mode: "live",
-        volume: currentVolume,
-      });
+      if (text.includes("obtained spec for input device")) {
+        log("INFO", "Mic ready");
+      }
+
+      if (text.includes("processing") && text.includes("samples")) {
+        if (!initialized) {
+          initialized = true;
+          clearTimeout(watchdog);
+          log("INFO", "Streaming active");
+        }
+        await updateState({ text: "🎤 Listening...", isRecording: true, mode: "live", volume: 0.2 });
+      }
+
+      if (text.includes("found 0 capture")) {
+        log("ERROR", "No mic found");
+        await updateState({ text: "❌ No mic", isRecording: false, mode: "error", error: "No mic" });
+        proc.kill();
+        process.exit(1);
+      }
+
+      if (isValidTranscript(text) && text !== lastText) {
+        lastText = text;
+        const now = Date.now();
+
+        if (now - lastUpdateTime > 100) {
+          lastUpdateTime = now;
+          log("INFO", "Transcribed", { text: text.slice(0, 60) });
+
+          if (!noType) {
+            try {
+              await $`wtype -- ${text} `.quiet();
+            } catch (e) {
+              log("WARN", "wtype failed", { error: String(e) });
+            }
+          }
+
+          const displayText = text.length > 50 ? text.slice(0, 47) + "..." : text;
+          await updateState({ text: displayText, isRecording: true, mode: "live", volume: 0.8 });
+        }
+      }
     }
   };
 
-  const readStream = async (stream: ReadableStream) => {
+  const readStream = async (stream: ReadableStream, name: string) => {
     const reader = stream.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
@@ -532,33 +490,28 @@ async function runWhisperStream(
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split(/[\n\r]+/);
-        buffer = lines.pop() || "";
-
-        for (const line of lines) {
-          await processOutput(line);
-        }
+        await processChunk(buffer);
+        buffer = "";
       }
-      if (buffer.trim()) await processOutput(buffer);
+      if (buffer.trim()) await processChunk(buffer);
     } catch (e) {
-      log("ERROR", "Stream error", e);
+      log("ERROR", `Stream error (${name})`, { error: String(e) });
     }
   };
 
-  await Promise.all([
-    readStream(proc.stdout),
-    readStream(proc.stderr),
-    proc.exited,
-  ]);
+  log("INFO", "Spawned whisper-stream process", { pid: proc.pid });
+
+  await Promise.all([readStream(proc.stdout, "stdout"), readStream(proc.stderr, "stderr"), proc.exited]);
 
   clearTimeout(watchdog);
-  log("INFO", "Whisper exited");
+  const exitCode = await proc.exited;
+  log("INFO", "whisper-stream exited", { exitCode });
   await updateState({ text: "Stopped", isRecording: false, mode: "idle" });
 }
 
 async function prepareAudioFile(inputFile: string): Promise<string> {
   const outputWav = join(tmpdir(), `dictation-${Date.now()}.wav`);
-  log("INFO", "Converting audio", { input: basename(inputFile) });
+  log("INFO", "Converting to WAV", { input: basename(inputFile) });
   await updateState({
     text: "Converting...",
     isRecording: true,
@@ -574,11 +527,8 @@ async function prepareAudioFile(inputFile: string): Promise<string> {
   }
 }
 
-async function transcribeFile(
-  wavFile: string,
-  modelPath: string
-): Promise<TranscriptSegment[]> {
-  log("INFO", "Transcribing", { file: basename(wavFile) });
+async function transcribeFile(wavFile: string, modelPath: string): Promise<TranscriptSegment[]> {
+  log("INFO", "Transcribing file", { file: basename(wavFile) });
   await updateState({
     text: "Transcribing...",
     isRecording: true,
@@ -587,12 +537,9 @@ async function transcribeFile(
   });
 
   try {
-    // Use whisper-cli for file transcription
-    const result =
-      await $`whisper-cli -m ${modelPath} -f ${wavFile} -pp`.text();
+    const result = await $`whisper-cli -m ${modelPath} -f ${wavFile} -pp`.text();
     const segments: TranscriptSegment[] = [];
 
-    // Parse output: [00:00:00.000 --> 00:00:05.000] Text here
     for (const line of result.split("\n")) {
       const match = line.match(
         /\[(\d{2}):(\d{2}):(\d{2})\.(\d{3})\s*-->\s*(\d{2}):(\d{2}):(\d{2})\.(\d{3})\]\s*(.*)/
@@ -615,7 +562,7 @@ async function transcribeFile(
       }
     }
 
-    log("INFO", "Segments parsed", { count: segments.length });
+    log("INFO", "Parsed segments", { count: segments.length });
     await updateState({
       text: "Processing...",
       isRecording: true,
@@ -628,44 +575,30 @@ async function transcribeFile(
   }
 }
 
-function formatSubtitles(
-  segments: TranscriptSegment[],
-  format: SubtitleFormat
-): string {
+function formatSubtitles(segments: TranscriptSegment[], format: SubtitleFormat): string {
   const fmt = (s: number, dot = false) => {
     const h = Math.floor(s / 3600);
     const m = Math.floor((s % 3600) / 60);
     const sec = Math.floor(s % 60);
     const ms = Math.floor((s % 1) * 1000);
-    return `${h.toString().padStart(2, "0")}:${m
+    return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${sec
       .toString()
-      .padStart(2, "0")}:${sec.toString().padStart(2, "0")}${
-      dot ? "." : ","
-    }${ms.toString().padStart(3, "0")}`;
+      .padStart(2, "0")}${dot ? "." : ","}${ms.toString().padStart(3, "0")}`;
   };
 
   if (format === "vtt") {
     return (
       "WEBVTT\n\n" +
-      segments
-        .map(
-          (s) => `${fmt(s.start, true)} --> ${fmt(s.end, true)}\n${s.text}\n`
-        )
-        .join("\n")
+      segments.map((s) => `${fmt(s.start, true)} --> ${fmt(s.end, true)}\n${s.text}\n`).join("\n")
     );
   }
   if (format === "txt") {
     return segments.map((s) => s.text).join("\n");
   }
-  return segments
-    .map((s, i) => `${i + 1}\n${fmt(s.start)} --> ${fmt(s.end)}\n${s.text}\n`)
-    .join("\n");
+  return segments.map((s, i) => `${i + 1}\n${fmt(s.start)} --> ${fmt(s.end)}\n${s.text}\n`).join("\n");
 }
 
-async function embedSubtitles(
-  videoFile: string,
-  subtitleFile: string
-): Promise<void> {
+async function embedSubtitles(videoFile: string, subtitleFile: string): Promise<void> {
   const ext = extname(videoFile);
   const output = videoFile.replace(ext, `.subtitled${ext}`);
   log("INFO", "Embedding subtitles", { output: basename(output) });
@@ -688,11 +621,7 @@ async function embedSubtitles(
 }
 
 async function startOverlay() {
-  await updateState({
-    text: "Starting overlay...",
-    isRecording: true,
-    mode: "live",
-  });
+  await updateState({ text: "Starting overlay...", isRecording: true, mode: "live" });
 
   try {
     const cmd = `${process.argv[0]} ${process.argv[1]} source`;
@@ -715,7 +644,7 @@ async function startOverlay() {
     }).unref();
     log("INFO", "Overlay started");
   } catch (e) {
-    log("WARN", "Overlay failed", e);
+    log("WARN", "Overlay spawn failed", { error: String(e) });
   }
 }
 
@@ -763,14 +692,8 @@ async function ensureModelDownloaded(modelName: string): Promise<string> {
   mkdirSync(CONFIG.userModelDir, { recursive: true });
 
   const proc = Bun.spawn(
-    [
-      "sh",
-      "-c",
-      `cd "${CONFIG.userModelDir}" && whisper-cpp-download-ggml-model "${modelName}" 2>&1`,
-    ],
-    {
-      stdio: ["ignore", "pipe", "pipe"],
-    }
+    ["sh", "-c", `cd "${CONFIG.userModelDir}" && whisper-cpp-download-ggml-model "${modelName}" 2>&1`],
+    { stdio: ["ignore", "pipe", "pipe"] }
   );
 
   const reader = proc.stdout.getReader();
@@ -799,7 +722,7 @@ async function ensureModelDownloaded(modelName: string): Promise<string> {
   await proc.exited;
 
   if (existsSync(path)) {
-    log("INFO", "Download complete", { model: modelName });
+    log("INFO", "Model download complete", { model: modelName });
     return path;
   }
   throw new Error(`Download failed for ${modelName}`);
@@ -828,10 +751,7 @@ async function updateState(newState: Partial<State>) {
         state = await file.json();
       } catch {}
     }
-    await Bun.write(
-      CONFIG.stateFile,
-      JSON.stringify({ ...state, ...newState })
-    );
+    await Bun.write(CONFIG.stateFile, JSON.stringify({ ...state, ...newState }));
   } catch {}
 }
 
@@ -863,9 +783,7 @@ function buildTooltip(state: State): string {
   if (state.progress) lines.push(`Progress: ${state.progress}`);
   if (state.startTime) {
     const s = Math.floor((Date.now() - state.startTime) / 1000);
-    lines.push(
-      `Time: ${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`
-    );
+    lines.push(`Time: ${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`);
   }
   if (state.error) lines.push(`<span color='#ff6b6b'>${state.error}</span>`);
   lines.push("", `<b>► ${state.text}</b>`);
