@@ -27,9 +27,8 @@
             setopt HIST_IGNORE_ALL_DUPS   # Remove older duplicate from history
             setopt HIST_FIND_NO_DUPS      # Don't show duplicates in search
             setopt HIST_REDUCE_BLANKS     # Remove superfluous blanks
-            setopt INC_APPEND_HISTORY     # Add commands as they are typed, don't wait until exit
+            setopt EXTENDED_HISTORY       # Save timestamps (needed for correct history sharing)
             setopt SHARE_HISTORY          # Share history between all sessions
-            setopt APPEND_HISTORY         # Append to history file
 
             zmodload zsh/parameter
             autoload -Uz add-zsh-hook

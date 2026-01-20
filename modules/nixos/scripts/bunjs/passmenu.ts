@@ -29,7 +29,13 @@ const STATE_EXPIRY_MS = 60_000; // 60 seconds
 const USERNAME_FIELD_ALIASES = ["login", "user", "username"] as const;
 
 /** Fixed display order for credential fields (others appear after these, before otp) */
-const FIELD_DISPLAY_ORDER = ["username", "password"] as const;
+const FIELD_DISPLAY_ORDER = [
+  "username",
+  "login",
+  "user",
+  "username (from path)",
+  "password",
+] as const;
 
 /** Special menu entries in main menu */
 const SPECIAL_ENTRIES = [
@@ -295,14 +301,15 @@ function parseCredential(content: string, entryPath: string): ParsedCredential {
     }
   }
 
-  // Add username from filename ONLY if no username-type field exists
+  // Check if any explicit username field exists
   const hasUsernameField = USERNAME_FIELD_ALIASES.some(
     (alias) => alias in fields
   );
+
   if (!hasUsernameField) {
     const filename = entryPath.split("/").pop();
     if (filename) {
-      fields["username"] = filename;
+      fields["username (from path)"] = filename;
     }
   }
 
@@ -327,8 +334,8 @@ function buildFieldOptions(
   for (const field of FIELD_DISPLAY_ORDER) {
     if (field === "password" && credential.password) {
       options.push("password");
-    } else if (field === "username" && credential.fields["username"]) {
-      options.push("username");
+    } else if (credential.fields[field]) {
+      options.push(field);
     }
   }
 
@@ -470,6 +477,7 @@ async function editCredential(entryPath: string): Promise<void> {
         stdin: "inherit",
         stdout: "inherit",
         stderr: "inherit",
+        env: { ...process.env },
       });
       await proc.exited;
     } else {
@@ -478,6 +486,7 @@ async function editCredential(entryPath: string): Promise<void> {
         stdin: "inherit",
         stdout: "inherit",
         stderr: "inherit",
+        env: { ...process.env },
       });
       await proc.exited;
     }
@@ -1247,6 +1256,7 @@ async function main(): Promise<void> {
         credential.fields["username"] ||
         credential.fields["login"] ||
         credential.fields["user"] ||
+        credential.fields["username (from path)"] ||
         "";
       const copyCmd = await getCopyCommand();
 

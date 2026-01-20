@@ -9,7 +9,7 @@ let
   lspBins = {
     nil = "${pkgs.nil}/bin/nil";
     tailwindcss = "${pkgs.tailwindcss-language-server}/bin/tailwindcss-language-server";
-    # typescript = "${pkgs.typescript-language-server}/bin/typescript-language-server";
+    typescript = "${pkgs.typescript-language-server}/bin/typescript-language-server";
     html = "${pkgs.vscode-langservers-extracted}/bin/vscode-html-language-server";
     css = "${pkgs.vscode-langservers-extracted}/bin/vscode-css-language-server";
     json = "${pkgs.vscode-langservers-extracted}/bin/vscode-json-language-server";
@@ -85,19 +85,18 @@ in
         "tsx"
       ];
     };
-    # Already included by default
-    # typescript = {
-    #   command = [
-    #     lspBins.typescript
-    #     "--stdio"
-    #   ];
-    #   extensions = [
-    #     "ts"
-    #     "tsx"
-    #     "js"
-    #     "jsx"
-    #   ];
-    # };
+    typescript = {
+      command = [
+        lspBins.typescript
+        "--stdio"
+      ];
+      extensions = [
+        "ts"
+        "tsx"
+        "js"
+        "jsx"
+      ];
+    };
     html = {
       command = [
         lspBins.html
