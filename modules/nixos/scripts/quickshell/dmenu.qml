@@ -24,9 +24,12 @@ Scope {
     // --- Window ---
     PanelWindow {
         id: window
-        anchors.centerIn: parent
-        width: 600
-        height: Math.min(600, 60 + (root.lineCount * 40)) // Dynamic height
+        anchors {
+            top: true
+            bottom: true
+            left: true
+            right: true
+        }
         visible: true
 
         WlrLayershell.layer: WlrLayer.Overlay
@@ -35,7 +38,9 @@ Scope {
         color: "transparent"
 
         GlassPanel {
-            anchors.fill: parent
+            anchors.centerIn: parent
+            width: 600
+            height: Math.min(600, 60 + (root.lineCount * 40))
             hasShadow: true
             hasBlur: true
 

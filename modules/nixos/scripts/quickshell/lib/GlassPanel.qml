@@ -7,6 +7,7 @@ Item {
     
     default property alias content: container.children
     property alias color: backgroundRect.color
+    property alias border: backgroundRect.border
     property bool hasShadow: true
     property bool hasBlur: true
     property bool hasBorder: true
