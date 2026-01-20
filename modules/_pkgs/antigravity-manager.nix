@@ -10,7 +10,7 @@ let
 
     src = pkgs.fetchurl {
       url = "https://github.com/lbjlaq/Antigravity-Manager/releases/download/v${version}/Antigravity.Tools-${version}-1.x86_64.rpm";
-      hash = "sha256-qTlifoZdYRm85QJLZ4jjBdwdY+amEF/fz8t7AznQ3QY=";
+      hash = "sha256-qTlifoZdYRm85QJLZ4QKBdwdY+amEF/fz8t7AznQ3QY=";
     };
 
     nativeBuildInputs = with pkgs; [
@@ -45,7 +45,7 @@ let
       };
   };
 in
-pkgs.buildFHSEnv {
+(pkgs.buildFHSEnv {
   name = pname;
   inherit pname;
   inherit version;
@@ -77,7 +77,7 @@ pkgs.buildFHSEnv {
 
   runScript = "${unwrapped}/bin/antigravity_tools";
 
-  extraInstallCommands = ''
+    extraInstallCommands = ''
     mkdir -p $out/share/applications $out/share/icons/hicolor
 
     # Copy icons from unwrapped derivation
@@ -103,4 +103,6 @@ pkgs.buildFHSEnv {
       # license = licenses.unfree;
       platforms = [ "x86_64-linux" ];
     };
-}
+}).overrideAttrs (old: {
+  passthru = (old.passthru or {}) // { inherit unwrapped; };
+})
