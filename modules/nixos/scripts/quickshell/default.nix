@@ -288,7 +288,7 @@
           # Cleanup
           rm "$INPUT_FILE"
         '';
-        runtimeInputs = [ pkgs.quickshell ];
+        runtimeInputs = [ pkgs.quickshell pkgs.coreutils pkgs.gnused ];
       };
 
       packages.qs-askpass = inputs.wrappers.lib.makeWrapper {

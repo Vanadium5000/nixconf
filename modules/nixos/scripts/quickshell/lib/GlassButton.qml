@@ -4,7 +4,7 @@ import "."
 
 Item {
     id: root
-    
+
     property string text: ""
     property string icon: ""
     property bool active: false
@@ -17,35 +17,58 @@ Item {
     property bool hovered: hoverHandler.hovered
     property bool pressed: tapHandler.pressed
 
-    GlassPanel {
+    Rectangle {
+        id: background
         anchors.fill: parent
-        cornerRadius: Theme.rounding
-        
-        // Dynamic styling based on state
+        radius: Theme.rounding
+
+        // Dynamic background color based on state
         color: {
-            if (root.active) return Theme.rgba(Theme.accent, 0.3)
-            if (root.pressed) return Theme.rgba(Theme.accent, 0.2)
-            if (root.hovered) return Theme.rgba(Theme.foreground, 0.1)
-            return Theme.rgba(Theme.background, 0.3)
+            if (root.active) {
+                return Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.35)
+            }
+            if (root.pressed) {
+                return Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.25)
+            }
+            if (root.hovered) {
+                return Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.12)
+            }
+            return Qt.rgba(Theme.background.r, Theme.background.g, Theme.background.b, 0.35)
         }
-        
+
+        // Dynamic border
         border.color: {
-            if (root.active) return Theme.accent
-            if (root.hovered) return Theme.rgba(Theme.accent, 0.5)
-            return Theme.rgba(Theme.accent, Theme.borderOpacity)
+            if (root.active) {
+                return Theme.accent
+            }
+            if (root.hovered) {
+                return Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.5)
+            }
+            return Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, Theme.borderOpacity)
         }
-        
-        opacityValue: root.hovered ? 0.6 : 0.45
-        hasShadow: root.hovered
-        
-        // Animation for hover states
+        border.width: 1
+
+        // Animations
         Behavior on color { ColorAnimation { duration: Theme.animationDuration } }
-        Behavior on opacityValue { NumberAnimation { duration: Theme.animationDuration } }
-        
+        Behavior on border.color { ColorAnimation { duration: Theme.animationDuration } }
+
+        // Specular highlight for glass effect
+        Rectangle {
+            anchors.top: parent.top
+            anchors.left: parent.left
+            anchors.right: parent.right
+            height: parent.height * 0.45
+            radius: Theme.rounding
+            gradient: Gradient {
+                GradientStop { position: 0.0; color: Qt.rgba(1, 1, 1, 0.08) }
+                GradientStop { position: 1.0; color: "transparent" }
+            }
+        }
+
         RowLayout {
             anchors.centerIn: parent
             spacing: 8
-            
+
             // Icon (if present)
             Text {
                 visible: root.icon !== ""
@@ -54,7 +77,7 @@ Item {
                 font.pixelSize: Theme.fontSizeLarge
                 color: root.active ? Theme.accentAlt : Theme.foreground
             }
-            
+
             // Label
             Text {
                 text: root.text

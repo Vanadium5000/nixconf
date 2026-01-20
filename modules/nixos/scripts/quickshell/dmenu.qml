@@ -9,17 +9,14 @@ Scope {
     id: root
 
     // --- Configuration ---
-    // Reads input from a file specified by env var (simulating stdin)
     property string inputFile: Quickshell.env("DMENU_INPUT_FILE") ?? ""
     property string promptText: Quickshell.env("DMENU_PROMPT") ?? "Select"
     property int lineCount: parseInt(Quickshell.env("DMENU_LINES") ?? "10")
-
     property bool passwordMode: (Quickshell.env("DMENU_PASSWORD") ?? "false") === "true"
 
     // --- Data Model ---
-    ListModel {
-        id: itemsModel
-    }
+    ListModel { id: itemsModel }
+    ListModel { id: filteredModel }
 
     // --- Window ---
     PanelWindow {
@@ -37,29 +34,43 @@ Scope {
 
         color: "transparent"
 
+        // Semi-transparent backdrop
+        Rectangle {
+            anchors.fill: parent
+            color: Qt.rgba(0, 0, 0, 0.3)
+
+            MouseArea {
+                anchors.fill: parent
+                onClicked: Qt.quit()
+            }
+        }
+
+        // Main dialog
         GlassPanel {
             anchors.centerIn: parent
             width: 600
-            height: Math.min(600, 60 + (root.lineCount * 40))
+            height: Math.min(500, 70 + (root.lineCount * 44))
             hasShadow: true
-            hasBlur: true
+            cornerRadius: Theme.roundingLarge
 
             ColumnLayout {
                 anchors.fill: parent
                 anchors.margins: Theme.gapsOut
                 spacing: Theme.gapsIn
 
-                // --- Search / Prompt ---
+                // --- Search / Prompt Bar ---
                 GlassPanel {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 50
+                    Layout.preferredHeight: 52
                     cornerRadius: Theme.rounding
-                    opacityValue: 0.3
+                    opacityValue: 0.4
+                    hasBorder: false
 
                     RowLayout {
                         anchors.fill: parent
-                        anchors.margins: 10
-                        spacing: 10
+                        anchors.leftMargin: 16
+                        anchors.rightMargin: 16
+                        spacing: 12
 
                         Text {
                             text: root.promptText
@@ -69,25 +80,36 @@ Scope {
                             color: Theme.accent
                         }
 
+                        Rectangle {
+                            width: 1
+                            Layout.fillHeight: true
+                            Layout.topMargin: 12
+                            Layout.bottomMargin: 12
+                            color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.3)
+                        }
+
                         TextInput {
                             id: searchInput
                             Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            verticalAlignment: TextInput.AlignVCenter
                             font.family: Theme.fontName
                             font.pixelSize: Theme.fontSizeLarge
                             color: Theme.foreground
                             focus: true
+                            clip: true
 
                             echoMode: root.passwordMode ? TextInput.Password : TextInput.Normal
 
                             onAccepted: {
-                                // Output selected or typed
                                 var result = "";
-                                if (filteredModel.count > 0 && listView.currentIndex >= 0 && !text) {
-                                    result = filteredModel.get(listView.currentIndex).originalText || filteredModel.get(listView.currentIndex).text;
-                                } else {
+                                if (filteredModel.count > 0 && listView.currentIndex >= 0) {
+                                    var item = filteredModel.get(listView.currentIndex);
+                                    result = item.originalText || item.text;
+                                } else if (text) {
                                     result = text;
                                 }
-                                outputAndQuit(result);
+                                if (result) outputAndQuit(result);
                             }
 
                             onTextChanged: {
@@ -104,6 +126,13 @@ Scope {
                                     event.accepted = true;
                                 } else if (event.key === Qt.Key_Escape) {
                                     Qt.quit();
+                                } else if (event.key === Qt.Key_Tab) {
+                                    // Tab completion
+                                    if (filteredModel.count > 0 && listView.currentIndex >= 0) {
+                                        var item = filteredModel.get(listView.currentIndex);
+                                        searchInput.text = item.displayText;
+                                    }
+                                    event.accepted = true;
                                 }
                             }
                         }
@@ -116,69 +145,65 @@ Scope {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     clip: true
-                    spacing: 2
-                    visible: !root.passwordMode // Hide list in password mode usually
+                    spacing: 4
+                    visible: !root.passwordMode
 
-                    model: ListModel {
-                        id: filteredModel
+                    model: filteredModel
+
+                    // Empty state
+                    Text {
+                        anchors.centerIn: parent
+                        text: root.inputFile ? "No matches" : "Loading..."
+                        color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.4)
+                        font.family: Theme.fontName
+                        font.pixelSize: Theme.fontSize
+                        visible: listView.count === 0
                     }
 
-                    highlight: Rectangle {
-                        color: Theme.rgba(Theme.accent, 0.2)
-                        radius: Theme.rounding
-                    }
-                    highlightMoveDuration: 100
-
-                    delegate: Item {
+                    delegate: GlassButton {
                         width: listView.width
                         height: 40
+                        text: model.displayText
+                        icon: model.iconPath || ""
+                        active: index === listView.currentIndex
 
-                        GlassButton {
-                            anchors.fill: parent
-                            text: model.displayText
-                            icon: model.iconPath
-                            active: ListView.isCurrentItem
-
-                            onClicked: {
-                                outputAndQuit(model.originalText || model.text);
-                            }
+                        onClicked: {
+                            outputAndQuit(model.originalText || model.text);
                         }
                     }
+
+                    highlightFollowsCurrentItem: true
+                    highlightMoveDuration: 80
                 }
             }
         }
     }
 
     // --- Logic ---
-
     function outputAndQuit(text) {
-        // Output to stdout via console.log (wrapper should handle stderr/stdout separation)
         console.log(text);
         Qt.quit();
     }
 
     function parseLine(line) {
-        // Handle Rofi icon format: Text\0icon\x1fPath
         var text = line;
         var icon = "";
 
+        // Handle Rofi icon format: Text\0icon\x1fPath
         if (line.includes("\0icon\x1f")) {
             var parts = line.split("\0icon\x1f");
             text = parts[0];
             icon = parts[1] ? parts[1].trim() : "";
         }
 
-        // Handle basic Pango markup removal for display (very basic)
+        // Strip basic markup for display
         var displayText = text.replace(/<[^>]*>/g, "");
 
         return {
-            "text": text // For filtering
-            ,
-            "originalText": line // For output (preserve original)
-            ,
-            "displayText": displayText // For UI
-            ,
-            "iconPath": icon
+            text: text,
+            originalText: line,
+            displayText: displayText,
+            iconPath: icon
         };
     }
 
@@ -194,20 +219,24 @@ Scope {
         }
     }
 
-    // Read input file
+    // Read input file on load
     Component.onCompleted: {
         if (root.inputFile) {
-            var proc = Qt.createQmlObject('import Quickshell.Io; Process { command: ["cat", "' + root.inputFile + '"]; running: true }', root);
-            proc.stdout.onStreamFinished.connect(() => {
-                var lines = proc.stdout.text.split("\n");
-                for (var i = 0; i < lines.length; i++) {
-                    if (lines[i].trim() !== "") {
-                        var parsed = parseLine(lines[i]);
-                        itemsModel.append(parsed);
-                        filteredModel.append(parsed); // Initial populate
+            var xhr = new XMLHttpRequest();
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === XMLHttpRequest.DONE) {
+                    var lines = xhr.responseText.split("\n");
+                    for (var i = 0; i < lines.length; i++) {
+                        if (lines[i].trim() !== "") {
+                            var parsed = parseLine(lines[i]);
+                            itemsModel.append(parsed);
+                            filteredModel.append(parsed);
+                        }
                     }
                 }
-            });
+            };
+            xhr.open("GET", "file://" + root.inputFile);
+            xhr.send();
         }
     }
 }

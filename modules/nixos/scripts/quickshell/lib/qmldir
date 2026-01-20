@@ -1,4 +1,4 @@
 module lib
-Theme Theme.qml
-GlassPanel GlassPanel.qml
-GlassButton GlassButton.qml
+singleton Theme 1.0 Theme.qml
+GlassPanel 1.0 GlassPanel.qml
+GlassButton 1.0 GlassButton.qml

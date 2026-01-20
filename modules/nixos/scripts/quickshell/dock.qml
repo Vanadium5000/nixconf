@@ -3,6 +3,7 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Hyprland
+import QtQuick.Controls
 import "./lib"
 
 PanelWindow {
