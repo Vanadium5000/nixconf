@@ -1,6 +1,7 @@
 import Quickshell
 import Quickshell.Wayland
 import QtQuick 2.15
+import "./lib" 1.0
 
 PanelWindow {
     id: root
@@ -9,7 +10,7 @@ PanelWindow {
     // Read margins as environment variable strings
     property int marginLeft: parseInt(Quickshell.env("X") ?? "0")
     property int marginTop: parseInt(Quickshell.env("Y") ?? "0")
-    property string inputColor: Quickshell.env("COLOR") ?? "#00ff00" // Default to Green for crosshair
+    property string inputColor: Quickshell.env("COLOR") ?? Theme.success // Default to Success Green
 
     implicitWidth: 30
     implicitHeight: 30
@@ -20,7 +21,7 @@ PanelWindow {
     anchors.left: true
     anchors.top: true
 
-    mask: Region {}  // Empty = ignore all mouse input
+    mask: Region {}
 
     // x, y position (centered)
     margins.left: marginLeft - implicitWidth / 2
@@ -32,20 +33,20 @@ PanelWindow {
         width: 30
         height: 30
 
-        // Vertical Line (Black Border)
+        // Vertical Line (Shadow)
         Rectangle {
             width: 3
             height: 30
-            color: "black"
+            color: Theme.background
             anchors.centerIn: parent
             opacity: 0.8
         }
         
-        // Horizontal Line (Black Border)
+        // Horizontal Line (Shadow)
         Rectangle {
             width: 30
             height: 3
-            color: "black"
+            color: Theme.background
             anchors.centerIn: parent
             opacity: 0.8
         }
@@ -57,6 +58,13 @@ PanelWindow {
             color: root.inputColor
             anchors.centerIn: parent
             opacity: 1.0
+            
+            // Neon Glow
+            layer.enabled: true
+            layer.effect: RectangularShadow {
+                radius: 4
+                color: root.inputColor
+            }
         }
 
         // Horizontal Line (Color)
@@ -66,13 +74,20 @@ PanelWindow {
             color: root.inputColor
             anchors.centerIn: parent
             opacity: 1.0
+            
+            // Neon Glow
+            layer.enabled: true
+            layer.effect: RectangularShadow {
+                radius: 4
+                color: root.inputColor
+            }
         }
         
-        // Center Dot (Optional, helpful for precision)
+        // Center Dot
         Rectangle {
             width: 1
             height: 1
-            color: "black" 
+            color: Theme.background 
             anchors.centerIn: parent
             opacity: 0.5
         }

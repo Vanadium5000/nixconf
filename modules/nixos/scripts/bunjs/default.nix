@@ -37,7 +37,7 @@
         runtimeInputs = [
           (pkgs.pass.withExtensions (exts: [ exts.pass-otp ])) # Password management
           pkgs.gnupg
-          self'.packages.rofi
+          self'.packages.qs-dmenu
           pkgs.wl-clipboard
           # pkgs.xclip
           # pkgs.wtype
@@ -108,13 +108,13 @@
       packages.rofi-music-search = inputs.wrappers.lib.makeWrapper {
         inherit pkgs;
         package = pkgs.writeShellScriptBin "rofi-music-search" ''
-          export ROFI_IMAGES="${self'.packages.rofi-images}/bin/rofi"
+          export ROFI_IMAGES="${self'.packages.qs-dmenu}/bin/qs-dmenu"
           exec ${pkgs.bun}/bin/bun run ${./music-search.ts} "$@"
         '';
 
         # Ensure PATH includes all runtime inputs
         runtimeInputs = [
-          self'.packages.rofi
+          self'.packages.qs-dmenu
           pkgs.bun
           pkgs.nodejs_latest
           pkgs.libnotify

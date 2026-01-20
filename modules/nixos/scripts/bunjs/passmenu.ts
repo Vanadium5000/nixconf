@@ -117,13 +117,16 @@ async function commandExists(cmd: string): Promise<boolean> {
 }
 
 async function getMenuCommand(): Promise<string[]> {
+  if (await commandExists("qs-dmenu")) {
+    return ["qs-dmenu"];
+  }
   if (await commandExists("rofi")) {
     return ["rofi", "-dmenu"];
   }
   if (process.env.WAYLAND_DISPLAY && (await commandExists("wofi"))) {
     return ["wofi", "--show", "dmenu"];
   }
-  throw new Error("Neither rofi nor wofi found.");
+  throw new Error("Neither qs-dmenu, rofi nor wofi found.");
 }
 
 async function getCopyCommand(): Promise<string[]> {

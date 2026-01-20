@@ -32,13 +32,26 @@ let
   theme = {
     font = "JetBrainsMono Nerd Font";
     blur = true;
-    rounding = 8;
+    rounding = 16;
     opacity = 1.0;
-    gaps-in = 2; # between windows/buttons
-    gaps-out = 3; # between windows and border of display
-    border-size = 1;
+    gaps-in = 6; # between windows/buttons
+    gaps-out = 12; # between windows and border of display
+    border-size = 2;
     font-size = 13;
     system.font-size = 11;
+
+    # Liquid Glass Specifics
+    liquid = {
+      glass-opacity = 0.45; # Base transparency of the glass
+      blur-strength = 40; # Heavy blur for the frosted look
+      border-opacity = 0.3; # Subtle border visibility
+      highlight-opacity = 0.15; # Specular highlight on top edges
+      shadow-opacity = 0.5; # Deep shadows for depth
+      shadow-radius = 12; # Soft glow radius
+      inner-stroke = 1; # Internal border for cut-glass effect
+      noise-opacity = 0.03; # Subtle texture
+      animation-duration = 200; # ms
+    };
   };
 
   hexDigits = {

@@ -5,6 +5,7 @@ import Quickshell.Wayland
 import Quickshell.Io
 import QtQuick 2.15
 import QtQuick.Layouts 1.15
+import "./lib" 1.0
 
 PanelWindow {
     id: root
@@ -13,10 +14,10 @@ PanelWindow {
     // Configuration via environment variables
     property int numLines: parseInt(Quickshell.env("LYRICS_LINES") ?? "3")
     property string positionMode: Quickshell.env("LYRICS_POSITION") ?? "bottom"
-    property int fontSize: parseInt(Quickshell.env("LYRICS_FONT_SIZE") ?? "28")
-    property string textColor: Quickshell.env("LYRICS_COLOR") ?? "#ffffff"
+    property int fontSize: parseInt(Quickshell.env("LYRICS_FONT_SIZE") ?? Theme.fontSizeLarge.toString())
+    property string textColor: Quickshell.env("LYRICS_COLOR") ?? Theme.foreground
     property real textOpacity: parseFloat(Quickshell.env("LYRICS_OPACITY") ?? "0.95")
-    property string fontFamily: Quickshell.env("LYRICS_FONT") ?? "sans-serif"
+    property string fontFamily: Quickshell.env("LYRICS_FONT") ?? Theme.fontName
     property bool showShadow: (Quickshell.env("LYRICS_SHADOW") ?? "true") === "true"
     property int lineSpacing: parseInt(Quickshell.env("LYRICS_SPACING") ?? "8")
     property int maxLineLength: parseInt(Quickshell.env("LYRICS_LENGTH") ?? "0")

@@ -7,6 +7,7 @@
     {
       pkgs,
       self',
+      lib,
       ...
     }:
     {
@@ -97,7 +98,7 @@
           )
 
           # Show menu
-          choice=$(printf "%s\n" "''${options[@]}" | rofi -dmenu -p "Select Action")
+          choice=$(printf "%s\n" "''${options[@]}" | ${lib.getExe self'.packages.qs-dmenu} -p "Select Action")
 
           # Execute commands based on choice
           case "$choice" in
@@ -135,7 +136,7 @@
             result=$(echo "${
               builtins.concatStringsSep "\n" (builtins.attrNames wallpaperSources ++ [ "Choose a file..." ])
             }" | \
-            ${self'.packages.rofi}/bin/rofi -dmenu)
+            ${lib.getExe self'.packages.qs-dmenu})
 
             echo $result
 
@@ -147,7 +148,11 @@
 
             if [[ $result == "Choose a file..." ]];then
               echo "Choosing a specific file"
-              wallPath=$(echo $(${self'.packages.rofi}/bin/rofi -run-command "echo {cmd}" -show filebrowser) | sed 's/^xdg-open //')
+              # TODO: Implement a Quickshell file picker or use zenity/kdialog?
+              # Falling back to zenity for file picking since we removed rofi
+              wallPath=$(zenity --file-selection --title="Select Wallpaper" --file-filter="Images | *.jpg *.jpeg *.png *.gif")
+
+              if [ -z "$wallPath" ]; then exit 0; fi
 
               echo "$wallPath"
               hyprctl hyprpaper preload "$wallPath"
@@ -167,6 +172,7 @@
 
             exit 0
           '';
+        runtimeInputs = [ pkgs.zenity ];
       };
 
       packages.rofi-wallpaper-selector = inputs.wrappers.lib.makeWrapper {
@@ -187,8 +193,8 @@
           RANDOM_PIC="''${PICS[$((RANDOM % ''${#PICS[@]}))]}"
           RANDOM_PIC_NAME=". random"
 
-          # Rofi command
-          rofi_command="${self'.packages.rofi-images}/bin/rofi -dmenu -p 'Select Wallpaper'"
+          # qs-dmenu command
+          qs_command="${lib.getExe self'.packages.qs-dmenu} -p 'Select Wallpaper'"
 
           # Sorting Wallpapers
           menu() {
@@ -196,14 +202,17 @@
           	IFS=$'\n' sorted_options=($(sort <<<"''${PICS[*]}"))
 
           	# Place ". random" at the beginning with the random picture as an icon
-          	printf "%s\x00icon\x1f%s\n" "$RANDOM_PIC_NAME" "$RANDOM_PIC"
+            # qs-dmenu uses simple text for now, icon support via \0icon\x1f is basic
+          	# printf "%s\x00icon\x1f%s\n" "$RANDOM_PIC_NAME" "$RANDOM_PIC"
+            echo "$RANDOM_PIC_NAME"
 
           	for pic_path in "''${sorted_options[@]}"; do
           		pic_name=$(basename "$pic_path")
 
           		# Displaying .gif to indicate animated images
           		if [[ ! "$pic_name" =~ \.gif$ ]]; then
-          			printf "%s\x00icon\x1f%s\n" "$(echo "$pic_name" | cut -d. -f1)" "$pic_path"
+          			# printf "%s\x00icon\x1f%s\n" "$(echo "$pic_name" | cut -d. -f1)" "$pic_path"
+                    echo "$pic_name" | cut -d. -f1
           		else
           			printf "%s\n" "$pic_name"
           		fi
@@ -212,7 +221,7 @@
 
           # Choice of wallpapers
           main() {
-          	choice=$(menu | $rofi_command)
+          	choice=$(menu | $qs_command)
 
           	# Trim any potential whitespace or hidden characters
           	choice=$(echo "$choice" | xargs)

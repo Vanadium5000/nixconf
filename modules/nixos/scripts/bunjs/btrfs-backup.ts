@@ -83,12 +83,14 @@ async function commandExists(cmd: string): Promise<boolean> {
 }
 
 async function getMenuCommand(): Promise<string[]> {
-  if (await commandExists("rofi")) {
+  if (await commandExists("qs-dmenu")) {
+    return ["qs-dmenu"];
+  } else if (await commandExists("rofi")) {
     return ["rofi", "-dmenu", "-i"];
   } else if (process.env.WAYLAND_DISPLAY && (await commandExists("wofi"))) {
     return ["wofi", "--show", "dmenu"];
   } else {
-    throw new Error("Neither rofi nor wofi found. Cannot display TUI.");
+    throw new Error("Neither qs-dmenu, rofi nor wofi found. Cannot display TUI.");
   }
 }
 

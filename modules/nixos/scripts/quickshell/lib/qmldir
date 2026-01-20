@@ -1,0 +1,4 @@
+module lib
+Theme 1.0 Theme.qml
+GlassPanel 1.0 GlassPanel.qml
+GlassButton 1.0 GlassButton.qml

@@ -42,12 +42,14 @@ async function commandExists(cmd: string): Promise<boolean> {
 
 // Get menu command (rofi preferred, fallback to wofi on Wayland)
 async function getMenuCommand(): Promise<string[]> {
-  if (await commandExists("rofi")) {
+  if (await commandExists("qs-dmenu")) {
+    return ["qs-dmenu"];
+  } else if (await commandExists("rofi")) {
     return ["rofi", "-dmenu"];
   } else if (!!process.env.WAYLAND_DISPLAY && (await commandExists("wofi"))) {
     return ["wofi", "--show", "dmenu"];
   } else {
-    throw new Error("Neither rofi nor wofi found.");
+    throw new Error("Neither qs-dmenu, rofi nor wofi found.");
   }
 }
 
