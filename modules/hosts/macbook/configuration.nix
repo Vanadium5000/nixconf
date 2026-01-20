@@ -33,6 +33,15 @@
       # Enable SSH support
       users.users.${config.preferences.user.username}.openssh.authorizedKeys.keys = [
         "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFsIUmSPfK9/ncfGjINjeI7sz+QK7wyaYJZtLhVpiU66 thealfiecrawford@icloud.com"
+
+        # NOTE: iPad Termius Key
+        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDZ4tcgk5qphCpwoaDUCl1ixCNUSpIrVMz8XB0OHcOz2"
+      ];
+
+      # Open firewall for Local Web Development
+      networking.firewall.allowedTCPPorts = [
+        5173
+        3000
       ];
 
       # Preferences

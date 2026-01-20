@@ -23,11 +23,22 @@ const CONFIG = {
   pidFile: join(tmpdir(), "dictation.pid"),
   stateFile: join(tmpdir(), "dictation-state.json"),
   logFile: join(tmpdir(), "dictation.log"),
+  configDir: join(homedir(), ".config", "dictation"),
+  configFile: join(homedir(), ".config", "dictation", "config.json"),
   defaultModelName: IS_MACBOOK ? "base.en" : "medium.en",
   userModelDir: join(homedir(), ".cache", "whisper"),
   supportedAudio: [".mp3", ".wav", ".flac", ".ogg", ".m4a", ".aac", ".wma"],
   supportedVideo: [".mp4", ".mkv", ".avi", ".mov", ".webm", ".wmv", ".flv"],
 } as const;
+
+interface UserConfig {
+  inputDevice?: string; // SDL device name (e.g., "Apple Audio Device BuiltinMic")
+}
+
+interface AudioDevice {
+  sdlId: number;
+  name: string;
+}
 
 interface State {
   text: string;
@@ -75,6 +86,9 @@ switch (command) {
     break;
   case "transcribe":
     await handleTranscribe();
+    break;
+  case "select-device":
+    await handleSelectDevice();
     break;
   case "help":
   case "--help":
@@ -158,6 +172,21 @@ async function handleRun() {
     process.exit(1);
   }
 
+  const device = await ensureDeviceSelected();
+  if (!device) {
+    const msg = "No input device selected";
+    log("ERROR", msg);
+    await updateState({
+      text: "❌ No device",
+      isRecording: false,
+      mode: "error",
+      error: msg,
+    });
+    await Bun.sleep(3000);
+    process.exit(1);
+  }
+  log("INFO", "Using input device", { device: device.name, sdlId: device.sdlId });
+
   let modelPath: string;
   try {
     modelPath = await resolveModel(modelArg);
@@ -176,7 +205,7 @@ async function handleRun() {
 
   if (!noOverlay) await startOverlay();
 
-  await runWhisperStream(whisperBin, modelPath, noType);
+  await runWhisperStream(whisperBin, modelPath, noType, device.sdlId);
 }
 
 async function handleStatus() {
@@ -238,12 +267,144 @@ async function handleSource() {
   }
 }
 
+let smoothedVolume = 0;
+
 function getVolumeIndicator(vol: number): string {
-  if (vol < 0.1) return "░░░░";
-  if (vol < 0.3) return "▓░░░";
-  if (vol < 0.5) return "▓▓░░";
-  if (vol < 0.7) return "▓▓▓░";
-  return "▓▓▓▓";
+  smoothedVolume = smoothedVolume * 0.6 + vol * 0.4;
+  const level = Math.round(smoothedVolume * 4);
+  const bars = ["▁", "▂", "▃", "▅", "▇"];
+  return bars[Math.min(level, 4)]!;
+}
+
+async function handleSelectDevice() {
+  const devices = await getAudioDevices();
+  if (devices.length === 0) {
+    console.error("No audio input devices found");
+    process.exit(1);
+  }
+
+  const config = await loadUserConfig();
+  const selected = await selectDeviceWithRofi(devices, config.inputDevice);
+
+  if (selected) {
+    config.inputDevice = selected.name;
+    await saveUserConfig(config);
+    console.log(`Selected: ${selected.name}`);
+  } else {
+    console.log("No device selected");
+  }
+}
+
+async function getAudioDevices(): Promise<AudioDevice[]> {
+  try {
+    const whisperBin = await findWhisperBinary();
+    if (!whisperBin) return [];
+
+    const proc = Bun.spawn([whisperBin, "-m", "/dev/null"], {
+      stdout: "pipe",
+      stderr: "pipe",
+      env: { ...process.env, SDL_AUDIODRIVER: "pipewire" },
+    });
+
+    const stderr = await new Response(proc.stderr).text();
+    await proc.exited;
+
+    const devices: AudioDevice[] = [];
+    const regex = /Capture device #(\d+): '([^']+)'/g;
+    let match;
+    while ((match = regex.exec(stderr)) !== null) {
+      devices.push({ sdlId: parseInt(match[1]!), name: match[2]! });
+    }
+
+    return devices;
+  } catch (e) {
+    log("ERROR", "Failed to get audio devices", { error: String(e) });
+    return [];
+  }
+}
+
+async function selectDeviceWithRofi(
+  devices: AudioDevice[],
+  currentName?: string
+): Promise<AudioDevice | null> {
+  const lines = devices.map((d) => {
+    const current = d.name === currentName ? " [current]" : "";
+    return `${d.name}${current}`;
+  });
+
+  try {
+    const proc = Bun.spawn(["rofi", "-dmenu", "-i", "-p", "Input Device"], {
+      stdin: "pipe",
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+
+    const writer = proc.stdin.getWriter();
+    await writer.write(new TextEncoder().encode(lines.join("\n")));
+    await writer.close();
+
+    const output = await new Response(proc.stdout).text();
+    const exitCode = await proc.exited;
+
+    if (exitCode !== 0 || !output.trim()) return null;
+
+    const selectedLine = output.trim().replace(/ \[current\]$/, "");
+    return devices.find((d) => d.name === selectedLine) || null;
+  } catch (e) {
+    log("ERROR", "Rofi selection failed", { error: String(e) });
+    return null;
+  }
+}
+
+async function loadUserConfig(): Promise<UserConfig> {
+  try {
+    const file = Bun.file(CONFIG.configFile);
+    if (await file.exists()) {
+      return await file.json();
+    }
+  } catch {}
+  return {};
+}
+
+async function saveUserConfig(config: UserConfig): Promise<void> {
+  try {
+    mkdirSync(CONFIG.configDir, { recursive: true });
+    await Bun.write(CONFIG.configFile, JSON.stringify(config, null, 2));
+  } catch (e) {
+    log("ERROR", "Failed to save config", { error: String(e) });
+  }
+}
+
+async function ensureDeviceSelected(): Promise<AudioDevice | null> {
+  const config = await loadUserConfig();
+  const devices = await getAudioDevices();
+
+  if (devices.length === 0) {
+    log("ERROR", "No audio input devices available");
+    return null;
+  }
+
+  if (config.inputDevice) {
+    const device = devices.find((d) => d.name === config.inputDevice);
+    if (device) return device;
+    log("WARN", "Configured device no longer exists", { device: config.inputDevice });
+  }
+
+  if (devices.length === 1) {
+    config.inputDevice = devices[0]!.name;
+    await saveUserConfig(config);
+    log("INFO", "Auto-selected only available device", { device: devices[0]!.name });
+    return devices[0]!;
+  }
+
+  const selected = await selectDeviceWithRofi(devices);
+  if (selected) {
+    config.inputDevice = selected.name;
+    await saveUserConfig(config);
+    return selected;
+  }
+
+  return null;
 }
 
 async function handleTranscribe() {
@@ -326,9 +487,9 @@ function formatTimestamp(seconds: number): string {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-async function runWhisperStream(bin: string, modelPath: string, noType: boolean) {
+async function runWhisperStream(bin: string, modelPath: string, noType: boolean, deviceId: number) {
   const modelName = basename(modelPath).replace("ggml-", "").replace(".bin", "");
-  log("INFO", "Starting whisper-stream", { model: modelName });
+  log("INFO", "Starting whisper-stream", { model: modelName, deviceId });
 
   await updateState({
     text: `Loading ${modelName}...`,
@@ -351,7 +512,7 @@ async function runWhisperStream(bin: string, modelPath: string, noType: boolean)
   }, 60000);
 
   const proc = Bun.spawn(
-    [bin, "-m", modelPath, "-t", "4", "--step", "500", "--length", "5000", "-vth", "0.6"],
+    [bin, "-m", modelPath, "-t", "4", "--step", "500", "--length", "5000", "-vth", "0.6", "-c", deviceId.toString()],
     {
       stdio: ["ignore", "pipe", "pipe"],
       env: {
@@ -837,6 +998,7 @@ Host: ${HOST} (default model: ${CONFIG.defaultModelName})
 
 COMMANDS:
   toggle              Start/Stop live dictation
+  select-device       Select input device via rofi
   run                 Run daemon (internal)
   status              JSON status for waybar
   source              JSON for overlay (internal)
@@ -857,10 +1019,12 @@ TRANSCRIBE OPTIONS:
 
 EXAMPLES:
   dictation toggle
+  dictation select-device
   dictation toggle --model base.en --position bottom
   dictation transcribe video.mp4 --embed
   dictation transcribe audio.mp3 --format txt
 
+CONFIG: ${CONFIG.configFile}
 LOGS: ${CONFIG.logFile}
 `);
 }
