@@ -3,9 +3,9 @@ pragma ComponentBehavior: Bound
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Io
-import QtQuick 2.15
-import QtQuick.Layouts 1.15
-import "./lib" 1.0
+import QtQuick
+import QtQuick.Layouts
+import "./lib"
 
 PanelWindow {
     id: root

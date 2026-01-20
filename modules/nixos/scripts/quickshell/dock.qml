@@ -1,9 +1,9 @@
-import QtQuick 2.15
-import QtQuick.Layouts 1.15
-import Quickshell 1.0
-import Quickshell.Wayland 1.0
-import Quickshell.Hyprland 1.0
-import "./lib" 1.0
+import QtQuick
+import QtQuick.Layouts
+import Quickshell
+import Quickshell.Wayland
+import Quickshell.Hyprland
+import "./lib"
 
 PanelWindow {
     id: dock
@@ -39,7 +39,7 @@ PanelWindow {
                 text: "❄️" // NixOS Icon placeholder
                 onClicked: {
                     // Launch the launcher
-                    var proc = Qt.createQmlObject('import Quickshell.Io 1.0; Process { command: ["qs", "-p", "' + Qt.resolvedUrl("../launcher.qml") + '"]; running: true }', dock)
+                    var proc = Qt.createQmlObject('import Quickshell.Io; Process { command: ["qs", "-p", "' + Qt.resolvedUrl("../launcher.qml") + '"]; running: true }', dock)
                 }
             }
             

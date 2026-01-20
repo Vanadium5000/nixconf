@@ -1,6 +1,6 @@
-import QtQuick 2.15
-import QtGraphicalEffects 1.15
-import "." 1.0
+import QtQuick
+import Qt5Compat.GraphicalEffects
+import "."
 
 Item {
     id: root
@@ -76,11 +76,22 @@ Item {
         border.width: Theme.borderWidth
     }
 
-    // --- 6. Drop Shadow ---
-    RectangularShadow {
+    // --- 6. Drop Shadow (Replacement for RectangularShadow) ---
+    // Dummy item to cast shadow (avoids double rendering background)
+    Rectangle {
+        id: shadowCaster
         anchors.fill: backgroundRect
+        radius: root.cornerRadius
+        color: "black"
+        visible: false
+    }
+
+    DropShadow {
+        anchors.fill: shadowCaster
+        source: shadowCaster
         z: -1
         radius: Theme.shadowRadius
+        samples: (radius * 2) + 1
         color: Theme.rgba(Theme.background, Theme.shadowOpacity)
         visible: root.hasShadow
     }

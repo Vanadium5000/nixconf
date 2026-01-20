@@ -1,10 +1,10 @@
-import QtQuick 2.15
-import QtQuick.Layouts 1.15
-import QtQuick.Controls 2.15
-import Quickshell 1.0
-import Quickshell.Io 1.0
-import Quickshell.Wayland 1.0
-import "./lib" 1.0
+import QtQuick
+import QtQuick.Layouts
+import QtQuick.Controls
+import Quickshell
+import Quickshell.Io
+import Quickshell.Wayland
+import "./lib"
 
 Scope {
     id: root
@@ -70,7 +70,7 @@ Scope {
                             if (root.mode === "calc") {
                                 // Copy result to clipboard
                                 if (calcResult.text !== "") {
-                                    var proc = Qt.createQmlObject('import Quickshell.Io 1.0; Process { command: ["wl-copy", "' + calcResult.text + '"]; running: true }', root)
+                                    var proc = Qt.createQmlObject('import Quickshell.Io; Process { command: ["wl-copy", "' + calcResult.text + '"]; running: true }', root)
                                     Qt.quit()
                                 }
                             } else {

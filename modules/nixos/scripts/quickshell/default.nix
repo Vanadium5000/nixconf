@@ -10,15 +10,35 @@
       lib,
       ...
     }:
+    let
+      # Helper to prepare QML files for the Nix store
+      # Quickshell requires imports to be valid. We can't easily use absolute paths for imports
+      # without file:// schema, and editing the source is messy.
+      # Instead, we create a derivation that mimics the source structure:
+      # $out/
+      #   ├── script.qml
+      #   └── lib -> /nix/store/.../lib
+      # This allows 'import "./lib"' in the QML to work natively.
+      mkQml =
+        name: src:
+        let
+          env = pkgs.runCommandLocal "qs-${name}" { } ''
+            mkdir -p $out
+            ln -s ${./lib} $out/lib
+            cp ${src} $out/${name}
+          '';
+        in
+        "${env}/${name}";
+    in
     {
       packages.toggle-crosshair = inputs.wrappers.lib.makeWrapper {
         inherit pkgs;
         package = pkgs.writeShellScriptBin "toggle-crosshair" ''
           # Toggle QuickShell for crosshair.qml with slurp selection, using hyprctl dispatch exec to spawn
 
-          QML_FILE="${./crosshair.qml}"
+          QML_FILE="${mkQml "crosshair.qml" ./crosshair.qml}"
           QS_BIN="${pkgs.quickshell}/bin/qs"
-          export QML2_IMPORT_PATH="${./.}:$QML2_IMPORT_PATH"
+          export QML2_IMPORT_PATH="${pkgs.qt6.qt5compat}/lib/qt-6/qml:$QML2_IMPORT_PATH"
 
           # Try to kill existing instance (toggling)
           if ! "$QS_BIN" kill -p "$QML_FILE"; then
@@ -35,6 +55,7 @@
                       hyprctl layers -j | jq -r --arg mon "$(hyprctl activeworkspace -j | jq -r '.monitor')" '
                           .[$mon] // {}
                           | .levels // []
+                          | .[]
                           | .[]
                           | .[]
                           | select(.namespace != "")
@@ -55,7 +76,7 @@
               center_y=$(( y + h / 2 ))
 
               # Launch QuickShell via hyprctl dispatch exec
-              # Uses QML_FILE, passing X and Y coordinates. Color can be overridden by env variable if needed.
+              # Uses QML_FILE, passing X and Y coordinates.
               hyprctl dispatch exec "X=$center_x Y=$center_y \"$QS_BIN\" -p \"$QML_FILE\""
           fi
         '';
@@ -66,9 +87,9 @@
         package = pkgs.writeShellScriptBin "toggle-lyrics-overlay" ''
           # Toggle QuickShell lyrics overlay
 
-          QML_FILE="${./lyrics-overlay.qml}"
+          QML_FILE="${mkQml "lyrics-overlay.qml" ./lyrics-overlay.qml}"
           QS_BIN="${pkgs.quickshell}/bin/qs"
-          export QML2_IMPORT_PATH="${./.}:$QML2_IMPORT_PATH"
+          export QML2_IMPORT_PATH="${pkgs.qt6.qt5compat}/lib/qt-6/qml:$QML2_IMPORT_PATH"
 
           case "''${1:-toggle}" in
             show)
@@ -124,9 +145,9 @@
               MODE="calc"
           fi
 
-          QML_FILE="${./launcher.qml}"
+          QML_FILE="${mkQml "launcher.qml" ./launcher.qml}"
           QS_BIN="${pkgs.quickshell}/bin/qs"
-          export QML2_IMPORT_PATH="${./.}:$QML2_IMPORT_PATH"
+          export QML2_IMPORT_PATH="${pkgs.qt6.qt5compat}/lib/qt-6/qml:$QML2_IMPORT_PATH"
 
           LAUNCHER_MODE="$MODE" "$QS_BIN" -p "$QML_FILE" &
         '';
@@ -202,9 +223,9 @@
         package = pkgs.writeShellScriptBin "qs-dock" ''
           # Launch QuickShell Dock
 
-          QML_FILE="${./dock.qml}"
+          QML_FILE="${mkQml "dock.qml" ./dock.qml}"
           QS_BIN="${pkgs.quickshell}/bin/qs"
-          export QML2_IMPORT_PATH="${./.}:$QML2_IMPORT_PATH"
+          export QML2_IMPORT_PATH="${pkgs.qt6.qt5compat}/lib/qt-6/qml:$QML2_IMPORT_PATH"
 
           # Kill if running to restart/toggle
           "$QS_BIN" kill -p "$QML_FILE" 2>/dev/null || true
@@ -252,12 +273,11 @@
           INPUT_FILE=$(mktemp)
           cat > "$INPUT_FILE"
 
-          QML_FILE="${./dmenu.qml}"
+          QML_FILE="${mkQml "dmenu.qml" ./dmenu.qml}"
           QS_BIN="${pkgs.quickshell}/bin/qs"
+          export QML2_IMPORT_PATH="${pkgs.qt6.qt5compat}/lib/qt-6/qml:$QML2_IMPORT_PATH"
 
           # Run Quickshell and capture stdout
-          # We define QML_IMPORT_PATH to include our lib
-          export QML2_IMPORT_PATH="${./.}:$QML2_IMPORT_PATH"
 
           DMENU_INPUT_FILE="$INPUT_FILE" \
           DMENU_PROMPT="$PROMPT" \

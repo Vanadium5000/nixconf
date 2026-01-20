@@ -1,7 +1,7 @@
 import Quickshell
 import Quickshell.Wayland
-import QtQuick 2.15
-import "./lib" 1.0
+import QtQuick
+import "./lib"
 
 PanelWindow {
     id: root
@@ -41,7 +41,7 @@ PanelWindow {
             border.width: 2
             border.color: root.inputColor
             opacity: 0.8
-            
+
             // Glassy fill
             color: Theme.rgba(root.inputColor, 0.1)
         }
@@ -53,7 +53,7 @@ PanelWindow {
             radius: 3
             color: root.inputColor
             anchors.centerIn: parent
-            
+
             layer.enabled: true
             layer.effect: RectangularShadow {
                 radius: 4
@@ -75,7 +75,7 @@ PanelWindow {
                 easing.type: Easing.InOutQuad
             }
         }
-        
+
         // Rotation Animation for "Active" feel
         RotationAnimation on rotation {
             loops: Animation.Infinite
@@ -84,52 +84,49 @@ PanelWindow {
             duration: 2000
         }
     }
-}
 
+    // Main Ring
+    Rectangle {
+        anchors.centerIn: parent
+        width: parent.width - 2
+        height: parent.height - 2
+        radius: width / 2
+        color: "transparent"
+        border.width: 2
+        border.color: root.inputColor
+        opacity: 0.8
+    }
 
-        // Main Ring
-        Rectangle {
-            anchors.centerIn: parent
-            width: parent.width - 2
-            height: parent.height - 2
-            radius: width / 2
-            color: "transparent"
-            border.width: 2
-            border.color: root.inputColor
-            opacity: 0.8
+    // Inner Dot Shadow
+    Rectangle {
+        width: 6
+        height: 6
+        radius: 3
+        color: "black"
+        anchors.centerIn: parent
+        opacity: 0.5
+    }
+
+    // Inner Dot
+    Rectangle {
+        width: 4
+        height: 4
+        radius: 2
+        color: root.inputColor
+        anchors.centerIn: parent
+        opacity: 1.0
+    }
+
+    // Pulsing Animation (Optional but nice)
+    SequentialAnimation on opacity {
+        loops: Animation.Infinite
+        PropertyAnimation {
+            to: 1.0
+            duration: 1000
         }
-
-        // Inner Dot Shadow
-        Rectangle {
-            width: 6
-            height: 6
-            radius: 3
-            color: "black"
-            anchors.centerIn: parent
-            opacity: 0.5
-        }
-
-        // Inner Dot
-        Rectangle {
-            width: 4
-            height: 4
-            radius: 2
-            color: root.inputColor
-            anchors.centerIn: parent
-            opacity: 1.0
-        }
-
-        // Pulsing Animation (Optional but nice)
-        SequentialAnimation on opacity {
-            loops: Animation.Infinite
-            PropertyAnimation {
-                to: 1.0
-                duration: 1000
-            }
-            PropertyAnimation {
-                to: 0.6
-                duration: 1000
-            }
+        PropertyAnimation {
+            to: 0.6
+            duration: 1000
         }
     }
 }

@@ -1,7 +1,7 @@
 import Quickshell
 import Quickshell.Wayland
-import QtQuick 2.15
-import "./lib" 1.0
+import QtQuick
+import "./lib"
 
 PanelWindow {
     id: root
@@ -41,7 +41,7 @@ PanelWindow {
             anchors.centerIn: parent
             opacity: 0.8
         }
-        
+
         // Horizontal Line (Shadow)
         Rectangle {
             width: 30
@@ -58,7 +58,7 @@ PanelWindow {
             color: root.inputColor
             anchors.centerIn: parent
             opacity: 1.0
-            
+
             // Neon Glow
             layer.enabled: true
             layer.effect: RectangularShadow {
@@ -74,7 +74,7 @@ PanelWindow {
             color: root.inputColor
             anchors.centerIn: parent
             opacity: 1.0
-            
+
             // Neon Glow
             layer.enabled: true
             layer.effect: RectangularShadow {
@@ -82,12 +82,12 @@ PanelWindow {
                 color: root.inputColor
             }
         }
-        
+
         // Center Dot
         Rectangle {
             width: 1
             height: 1
-            color: Theme.background 
+            color: Theme.background
             anchors.centerIn: parent
             opacity: 0.5
         }
