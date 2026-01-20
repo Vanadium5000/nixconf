@@ -10,7 +10,7 @@ let
 
     src = pkgs.fetchurl {
       url = "https://github.com/lbjlaq/Antigravity-Manager/releases/download/v${version}/Antigravity.Tools-${version}-1.x86_64.rpm";
-      hash = "sha256-qTlifoZdYRm85QJLZ4QKBdwdY+amEF/fz8t7AznQ3QY=";
+      hash = "sha256-qTlifoZdYRm85QJLZ4jjBdwdY+amEF/fz8t7AznQ3QY=";
     };
 
     nativeBuildInputs = with pkgs; [

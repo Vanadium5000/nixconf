@@ -160,6 +160,14 @@
               enabled = true;
               timeout = 10000;
             };
+            quickshell = {
+              type = "local";
+              command = [
+                "${inputs.self.packages.${pkgs.stdenv.hostPlatform.system}.quickshell-docs-mcp}/bin/quickshell-docs-mcp"
+              ];
+              enabled = true;
+              timeout = 10000;
+            };
           };
           formatter = languages.formatter;
           lsp = languages.lsp;

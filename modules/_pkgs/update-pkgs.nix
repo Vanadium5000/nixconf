@@ -5,98 +5,132 @@ pkgs.writeShellApplication {
     pkgs.nix-update
     pkgs.git
     pkgs.libnotify
+    pkgs.findutils
   ];
   text = ''
-        # Navigate to the target directory
-        ROOT="$(git rev-parse --show-toplevel)"
-        TARGET="$ROOT/modules/_pkgs"
-        cd "$TARGET"
+    set -e
 
-        # Function to send notifications
-        notify() {
-          if command -v notify-send >/dev/null; then
-            notify-send "Update Packages" "$1"
-          fi
-          echo "$1"
-        }
+    # Navigate to the target directory
+    if git rev-parse --show-toplevel >/dev/null 2>&1; then
+      ROOT="$(git rev-parse --show-toplevel)"
+      TARGET="$ROOT/modules/_pkgs"
+      cd "$TARGET"
+    else
+      echo "Error: Not in a git repository."
+      exit 1
+    fi
 
-        # Create a temporary expression to expose packages for nix-update
-        # This avoids relying on flake attribute paths which might require --flake (missing in some nix-update versions)
-        cat > packages.nix <<EOF
+    # Function to send notifications
+    notify() {
+      if command -v notify-send >/dev/null; then
+        notify-send "Update Packages" "$1"
+      fi
+      echo "$1"
+    }
+
+    notify "Scanning for packages..."
+
+    # Dynamically find all .nix files (excluding this script and the temp file)
+    # We use mapfile to handle filenames safely
+    mapfile -t FILES < <(find . -maxdepth 1 -name "*.nix" -not -name "update-pkgs.nix" -not -name "packages.nix" -printf "%f\n" | sort)
+
+    if [ ''${#FILES[@]} -eq 0 ]; then
+      notify "No packages found to update."
+      exit 0
+    fi
+
+    PACKAGES=()
+    for file in "''${FILES[@]}"; do
+      PACKAGES+=("''${file%.nix}")
+    done
+
+    # Create a temporary expression to expose packages for nix-update
+    cat > packages.nix <<EOF
     { pkgs ? import <nixpkgs> {} }:
     {
-      antigravity-manager = pkgs.callPackage ./antigravity-manager.nix {};
-      daisyui-mcp = pkgs.callPackage ./daisyui-mcp.nix {};
-      iloader = pkgs.callPackage ./iloader.nix {};
-      niri-screen-time = pkgs.callPackage ./niri-screen-time.nix {};
-      pomodoro-for-waybar = pkgs.callPackage ./pomodoro-for-waybar.nix {};
-      sideloader = pkgs.callPackage ./sideloader.nix {};
+    $(for pkg in "''${PACKAGES[@]}"; do echo "  $pkg = pkgs.callPackage ./$pkg.nix {};"; done)
     }
     EOF
 
-        # Set NIX_PATH so <nixpkgs> can be resolved
-        export NIX_PATH=nixpkgs=${pkgs.path}
+    # Set NIX_PATH so <nixpkgs> can be resolved
+    export NIX_PATH=nixpkgs=${pkgs.path}
 
-        notify "Fetching latest package information..."
+    notify "Updating ''${#PACKAGES[@]} packages..."
 
-        # Define packages to update
-    PACKAGES=(
-      "antigravity-manager"
-      "daisyui-mcp"
-          "iloader"
-          "niri-screen-time"
-          "pomodoro-for-waybar"
-          "sideloader"
-        )
+    UPDATED=()
+    FAILED=()
 
-        UPDATED=()
-        FAILED=()
-
-        for pkg in "''${PACKAGES[@]}"; do
-          echo "Checking $pkg..."
-          
-          ARGS=("$pkg")
-          
-      # Per-package configurations
+    for pkg in "''${PACKAGES[@]}"; do
+      echo "----------------------------------------------------------------"
+      echo "Checking $pkg..."
+      
+      ARGS=("$pkg")
+      
+      # Per-package configurations and overrides
       case "$pkg" in
         "antigravity-manager")
           # Use specific regex to ignore tags without releases (e.g. .44 tag but .43 release)
           ARGS+=("--url" "https://github.com/lbjlaq/Antigravity-Manager" "--use-github-releases")
           ;;
-        "pomodoro-for-waybar"|"daisyui-mcp")
-              # These track branches, so update to latest commit
-              ARGS+=("--version" "branch")
-              ;;
-          esac
+        "daisyui-mcp"|"pomodoro-for-waybar")
+          # These track branches/unstable, so update to latest commit
+          ARGS+=("--version" "branch")
+          ;;
+        "quickshell-docs-markdown")
+          # Has multiple sources and uses 'master'. 
+          # Attempt to update to latest commit on branch to replace 'master' with hash
+          ARGS+=("--version" "branch")
+          ;;
+        "niri-screen-time")
+           # Standard update. Note: vendorHash update might be tricky or unsupported 
+           # depending on nix-update version/capabilities, but we let it try.
+           ;;
+        *)
+          # Default behavior for others (like iloader, sideloader)
+          ;;
+      esac
 
-          # Try to update using the temporary packages.nix
-          if nix-update -f packages.nix "''${ARGS[@]}"; then
-            echo "Updated $pkg"
-            UPDATED+=("$pkg")
-          else
-            echo "No update for $pkg or failed."
-            FAILED+=("$pkg")
-          fi
-        done
-        
-        # Cleanup
-        rm packages.nix
+      # Try to update using the temporary packages.nix
+      # We use set +e here to prevent script from exiting on single package failure
+      set +e
+      if nix-update -f packages.nix "''${ARGS[@]}"; then
+        echo "Successfully updated $pkg"
+        UPDATED+=("$pkg")
+      else
+        echo "Failed to update $pkg"
+        FAILED+=("$pkg")
+      fi
+      set -e
+    done
 
-        if [ ''${#UPDATED[@]} -eq 0 ]; then
-          notify "No packages updated."
-          exit 0
-        fi
+    # Cleanup
+    rm packages.nix
 
-        echo "----------------------------------------------------------------"
-        echo "The following packages were updated:"
-        printf '%s\n' "''${UPDATED[@]}"
-        echo "----------------------------------------------------------------"
-        
-        # Show diff of the current directory (modules/_pkgs) without pager
-        git --no-pager diff .
+    echo "----------------------------------------------------------------"
+    echo "Summary:"
+    echo "Updated: ''${#UPDATED[@]}"
+    echo "Failed:  ''${#FAILED[@]}"
 
-        # Final notification
-        MSG="Updated: $(IFS=', '; echo "''${UPDATED[*]}")"
-        notify "$MSG"
+    if [ ''${#FAILED[@]} -gt 0 ]; then
+      echo "Failed packages:"
+      printf ' - %s\n' "''${FAILED[@]}"
+    fi
+
+    if [ ''${#UPDATED[@]} -eq 0 ]; then
+      notify "No packages updated."
+      exit 0
+    fi
+
+    echo "----------------------------------------------------------------"
+    echo "The following packages were updated:"
+    printf '%s\n' "''${UPDATED[@]}"
+    echo "----------------------------------------------------------------"
+
+    # Show diff of the current directory (modules/_pkgs) without pager
+    git --no-pager diff .
+
+    # Final notification
+    MSG="Updated: $(IFS=', '; echo "''${UPDATED[*]}")"
+    notify "$MSG"
   '';
 }

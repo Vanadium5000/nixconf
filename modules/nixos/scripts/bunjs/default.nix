@@ -177,5 +177,18 @@
           pkgs.coreutils
         ];
       };
+
+      packages.quickshell-docs-mcp = inputs.wrappers.lib.makeWrapper {
+        inherit pkgs;
+        package = pkgs.writeShellScriptBin "quickshell-docs-mcp" ''
+          export QUICKSHELL_DOCS_PATH="${self'.packages.quickshell-docs-markdown}"
+          exec ${pkgs.bun}/bin/bun run ${./mcp/quickshell-docs.ts} "$@"
+        '';
+
+        runtimeInputs = [
+          pkgs.bun
+          pkgs.coreutils
+        ];
+      };
     };
 }
