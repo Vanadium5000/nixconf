@@ -379,7 +379,7 @@ async function selectDeviceWithRofi(
 
   try {
     const result =
-      await $`printf '%s\n' ${lines} | rofi -dmenu -i -p "Input Device"`
+      await $`printf '%s\n' ${lines} | qs-dmenu -p "Input Device"`
         .nothrow()
         .quiet();
     if (result.exitCode !== 0 || !result.text().trim()) return null;

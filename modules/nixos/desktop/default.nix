@@ -83,11 +83,6 @@
       ++ (lib.optional config.nixpkgs.config.cudaSupport pkgs.nvtopPackages.full)
       # Custom desktop packages
       ++ (with self.packages.${pkgs.stdenv.hostPlatform.system}; [
-        # nwg-dock-hyprland - Replaced by qs-dock
-        # nwg-drawer - Replaced by qs-launcher
-        # rofi - Replaced by qs-launcher/dmenu
-        # rofi-images - Replaced by qs-launcher
-        # rofi-askpass - Replaced by qs-askpass
         niri-screen-time
         #sideloader # Sideloader (iOS) - SideStore for Linux
         # iloader is preferred

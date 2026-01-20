@@ -141,8 +141,8 @@
         ];
 
         layerrule = [
-          "noanim, launcher"
-          "noanim, rofi"
+          #   "noanim, launcher"
+          #   "noanim, rofi"
 
           # Hyprpanel
           "noanim, ^bar-([0-9]*)$"
@@ -264,20 +264,21 @@
           ",PRINT, exec, screenshot monitor" # Screenshot monitor & copy/save
           "${shiftMod},PRINT, exec, screenshot area toText" # Screenshot area & copy as text
 
-          # Menus - mainly rofi
-          "${mod},SPACE, exec, rofi -show drun" # Apps
-          "${mod},E, exec, rofi -show emoji" # Emojis
-          "${mod},N, exec, rofi -show nerdy" # Nerd Icons
-          "${mod},Z, exec, ${pkgs.cliphist}/bin/cliphist list | ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.qs-dmenu} -p 'Clipboard' | ${pkgs.cliphist}/bin/cliphist decode | wl-copy" # Clipboard manager
-          "${mod},W, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.rofi-wallpaper}"
-          # "${mod},C, exec, rofi -show calc"
-          "${mod},P, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.rofi-passmenu}"
-          "${shiftMod},P, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.rofi-passmenu} -a" # With autotype
-          "${mod},M, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.rofi-music-search}"
+          # Menus - mainly quickshell
+          "${mod},SPACE, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.qs-launcher}" # Apps
+          "${mod},E, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.qs-emoji}" # Emojis
+          "${mod},N, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.qs-nerd}" # Nerd Icons
+          "${mod},Z, exec, ${pkgs.cliphist}/bin/cliphist list | ${
+            getExe self.packages.${pkgs.stdenv.hostPlatform.system}.qs-dmenu
+          } -p 'Clipboard' | ${pkgs.cliphist}/bin/cliphist decode | wl-copy" # Clipboard manager
+          "${mod},W, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.qs-wallpaper}"
+          "${mod},P, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.qs-passmenu}"
+          "${shiftMod},P, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.qs-passmenu} -a" # With autotype
+          "${mod},M, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.qs-music-search}"
           "${shiftMod},M, exec, mpc status | grep -q 'playing' && mpc stop || { mpc clear && mpc add / && mpc shuffle && mpc play; }" # Toggle shuffle-all-play / stop
-          "${mod},C, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.rofi-checklist}"
+          "${mod},C, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.qs-checklist}"
           "${mod},X, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.qs-powermenu}"
-          "${mod},V, exec, rofi-tools" # Kept name, internal tool updated to use qs-dmenu
+          "${mod},V, exec, qs-tools"
           "${shiftMod},V, exec, stop-autoclickers" # Autoclicker Safety
           "${mod},T, exec, dictation toggle" # Dictation Toggle
           "${altMod},V, exec, ${

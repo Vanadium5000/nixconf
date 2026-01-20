@@ -18,7 +18,7 @@ pkgs: {
     tooltip-format-ethernet = "{ifname} 󰈀 \n{ipaddr} | {frequency} MHz{icon} ";
     tooltip-format-disconnected = "Not Connected to any type of Network";
     tooltip = true;
-    #on-click = "pgrep -x rofi &>/dev/null && notify-send rofi || networkmanager_dmenu";
+    on-click = "networkmanager_dmenu";
   };
   "group/networking" = {
     orientation = "horizontal";

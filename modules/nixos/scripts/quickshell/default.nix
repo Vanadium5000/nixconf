@@ -18,7 +18,7 @@
 
           QML_FILE="${./crosshair.qml}"
           QS_BIN="${pkgs.quickshell}/bin/qs"
-          export QML2_IMPORT_PATH="${./.}"
+          export QML2_IMPORT_PATH="${./.}:$QML2_IMPORT_PATH"
 
           # Try to kill existing instance (toggling)
           if ! "$QS_BIN" kill -p "$QML_FILE"; then
@@ -68,7 +68,7 @@
 
           QML_FILE="${./lyrics-overlay.qml}"
           QS_BIN="${pkgs.quickshell}/bin/qs"
-          export QML2_IMPORT_PATH="${./.}"
+          export QML2_IMPORT_PATH="${./.}:$QML2_IMPORT_PATH"
 
           case "''${1:-toggle}" in
             show)
@@ -126,7 +126,7 @@
 
           QML_FILE="${./launcher.qml}"
           QS_BIN="${pkgs.quickshell}/bin/qs"
-          export QML2_IMPORT_PATH="${./.}"
+          export QML2_IMPORT_PATH="${./.}:$QML2_IMPORT_PATH"
 
           LAUNCHER_MODE="$MODE" "$QS_BIN" -p "$QML_FILE" &
         '';
@@ -176,7 +176,7 @@
           if [ ! -f "$CACHE_FILE" ]; then
               notify-send "Downloading Nerd Font List..."
               # Using a known list of Nerd Font glyphs
-              curl -sL "https://raw.githubusercontent.com/ryanoasis/nerd-fonts/master/glyph-names.json" | \
+              curl -sL "https://raw.githubusercontent.com/ryanoasis/nerd-fonts/master/glyphnames.json" | \
               jq -r 'to_entries | .[] | "\(.value.char) \(.key)"' > "$CACHE_FILE"
           fi
 
@@ -204,7 +204,7 @@
 
           QML_FILE="${./dock.qml}"
           QS_BIN="${pkgs.quickshell}/bin/qs"
-          export QML2_IMPORT_PATH="${./.}"
+          export QML2_IMPORT_PATH="${./.}:$QML2_IMPORT_PATH"
 
           # Kill if running to restart/toggle
           "$QS_BIN" kill -p "$QML_FILE" 2>/dev/null || true
@@ -257,7 +257,7 @@
 
           # Run Quickshell and capture stdout
           # We define QML_IMPORT_PATH to include our lib
-          export QML2_IMPORT_PATH="${./.}"
+          export QML2_IMPORT_PATH="${./.}:$QML2_IMPORT_PATH"
 
           DMENU_INPUT_FILE="$INPUT_FILE" \
           DMENU_PROMPT="$PROMPT" \

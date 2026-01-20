@@ -48,7 +48,7 @@ pkgs: {
       "󰂂"
       "󰁹"
     ];
-    on-click = "rofi-powermenu";
+    on-click = "qs-powermenu";
   };
   "group/system" = {
     orientation = "horizontal";

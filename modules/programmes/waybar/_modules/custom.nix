@@ -105,7 +105,7 @@ in
   };
   "custom/logo" = {
     "format" = " ";
-    "on-click" = "rofi-menu";
+    "on-click" = "qs-launcher";
     "tooltip" = false;
   };
   "custom/weather" = {
@@ -121,10 +121,10 @@ in
     interval = 2;
   };
   "custom/clipboard" = {
-    format = "󰅍";
-    interval = 5;
-    tooltip = true;
-    on-click = "sh -c 'cliphist list | rofi -dmenu | cliphist decode | wl-copy'";
+    "format" = "󰅍";
+    "interval" = 5;
+    "tooltip" = true;
+    "on-click" = "sh -c 'cliphist list | qs-dmenu -p Clipboard | cliphist decode | wl-copy'";
   };
   "custom/nightshift" = {
     exec = "night-shift-status-icon";

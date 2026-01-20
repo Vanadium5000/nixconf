@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-// checklist.ts - Bun.js TypeScript script for managing daily checklists using rofi
+// checklist.ts - Bun.js TypeScript script for managing daily checklists using quickshell
 import { $ } from "bun";
 import fs from "node:fs";
 import path from "node:path";
@@ -40,16 +40,14 @@ async function commandExists(cmd: string): Promise<boolean> {
   }
 }
 
-// Get menu command (rofi preferred, fallback to wofi on Wayland)
+// Get menu command (qs-dmenu preferred)
 async function getMenuCommand(): Promise<string[]> {
   if (await commandExists("qs-dmenu")) {
     return ["qs-dmenu"];
-  } else if (await commandExists("rofi")) {
-    return ["rofi", "-dmenu"];
   } else if (!!process.env.WAYLAND_DISPLAY && (await commandExists("wofi"))) {
     return ["wofi", "--show", "dmenu"];
   } else {
-    throw new Error("Neither qs-dmenu, rofi nor wofi found.");
+    throw new Error("qs-dmenu not found.");
   }
 }
 
@@ -67,7 +65,7 @@ async function selectOption(
     ).trim();
     return selected;
   } catch (e) {
-    // Rofi closed - exit programme
+    // Menu closed - exit programme
     console.log(e);
     process.exit(0);
   }

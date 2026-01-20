@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * passmenu.ts - Password store browser using rofi/wofi
+ * passmenu.ts - Password store browser using qs-dmenu
  *
  * Features:
  * - Browse and select passwords from pass (password-store)
@@ -120,13 +120,10 @@ async function getMenuCommand(): Promise<string[]> {
   if (await commandExists("qs-dmenu")) {
     return ["qs-dmenu"];
   }
-  if (await commandExists("rofi")) {
-    return ["rofi", "-dmenu"];
-  }
   if (process.env.WAYLAND_DISPLAY && (await commandExists("wofi"))) {
     return ["wofi", "--show", "dmenu"];
   }
-  throw new Error("Neither qs-dmenu, rofi nor wofi found.");
+  throw new Error("qs-dmenu not found.");
 }
 
 async function getCopyCommand(): Promise<string[]> {
@@ -205,7 +202,7 @@ function isStateRecent(state: State): boolean {
 
 /**
  * Display a menu and return the selected option
- * @param initialIndex - 0-based index to pre-select (for rofi)
+ * @param initialIndex - 0-based index to pre-select
  */
 async function selectOption(
   menuCommand: string[],
@@ -216,13 +213,16 @@ async function selectOption(
   if (options.length === 0) return "";
 
   const cmd = [...menuCommand];
+  /* 
+  // qs-dmenu doesn't support -selected-row yet, or handles it differently.
+  // Keeping logic generic or commented out if not supported by qs-dmenu wrapper
   if (
     initialIndex !== undefined &&
-    initialIndex >= 0 &&
-    cmd[0]?.includes("rofi")
+    initialIndex >= 0
   ) {
-    cmd.push("-selected-row", initialIndex.toString());
-  }
+    // cmd.push("-selected-row", initialIndex.toString());
+  } 
+  */
 
   try {
     const result = await $`printf '%s\n' ${options} | ${cmd} -p ${prompt}`

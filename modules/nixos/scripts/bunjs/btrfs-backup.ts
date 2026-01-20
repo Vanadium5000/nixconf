@@ -90,7 +90,9 @@ async function getMenuCommand(): Promise<string[]> {
   } else if (process.env.WAYLAND_DISPLAY && (await commandExists("wofi"))) {
     return ["wofi", "--show", "dmenu"];
   } else {
-    throw new Error("Neither qs-dmenu, rofi nor wofi found. Cannot display TUI.");
+    throw new Error(
+      "Neither qs-dmenu, rofi nor wofi found. Cannot display TUI."
+    );
   }
 }
 

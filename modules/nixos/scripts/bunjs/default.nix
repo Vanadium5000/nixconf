@@ -27,9 +27,9 @@
         ];
       };
 
-      packages.rofi-passmenu = inputs.wrappers.lib.makeWrapper {
+      packages.qs-passmenu = inputs.wrappers.lib.makeWrapper {
         inherit pkgs;
-        package = pkgs.writeShellScriptBin "rofi-passmenu" ''
+        package = pkgs.writeShellScriptBin "qs-passmenu" ''
           exec ${pkgs.bun}/bin/bun run ${./passmenu.ts} "$@"
         '';
 
@@ -54,15 +54,15 @@
         ];
       };
 
-      packages.rofi-checklist = inputs.wrappers.lib.makeWrapper {
+      packages.qs-checklist = inputs.wrappers.lib.makeWrapper {
         inherit pkgs;
-        package = pkgs.writeShellScriptBin "rofi-checklist" ''
+        package = pkgs.writeShellScriptBin "qs-checklist" ''
           exec ${pkgs.bun}/bin/bun run ${./checklist.ts} "$@"
         '';
 
         # Ensure PATH includes all runtime inputs
         runtimeInputs = [
-          self'.packages.rofi
+          self'.packages.qs-dmenu
           pkgs.bun
           pkgs.nodejs_latest
           pkgs.libnotify
@@ -88,7 +88,7 @@
 
         # Ensure PATH includes all runtime inputs
         runtimeInputs = [
-          self'.packages.rofi
+          self'.packages.qs-dmenu
           pkgs.bun
           pkgs.nodejs_latest
           pkgs.libnotify
@@ -105,9 +105,9 @@
         ];
       };
 
-      packages.rofi-music-search = inputs.wrappers.lib.makeWrapper {
+      packages.qs-music-search = inputs.wrappers.lib.makeWrapper {
         inherit pkgs;
-        package = pkgs.writeShellScriptBin "rofi-music-search" ''
+        package = pkgs.writeShellScriptBin "qs-music-search" ''
           export ROFI_IMAGES="${self'.packages.qs-dmenu}/bin/qs-dmenu"
           exec ${pkgs.bun}/bin/bun run ${./music-search.ts} "$@"
         '';

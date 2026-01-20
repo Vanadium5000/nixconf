@@ -6,7 +6,7 @@ import { homedir, tmpdir } from "node:os";
 // --- Configuration ---
 const MUSIC_DIR = join(homedir(), "Shared", "Music");
 // Use temp directory for cache so it clears on reboot
-const CACHE_DIR = join(tmpdir(), "rofi-music-search");
+const CACHE_DIR = join(tmpdir(), "qs-music-search");
 
 // --- Types ---
 interface MediaItem {
@@ -275,7 +275,7 @@ async function fetchThumbnails(items: MediaItem[]) {
 
 // --- Interaction ---
 
-async function showRofiMenu(items: MediaItem[]): Promise<MediaItem | null> {
+async function showMenu(items: MediaItem[]): Promise<MediaItem | null> {
   let inputString = "";
   const itemMap = new Map<number, MediaItem>();
 
@@ -302,101 +302,42 @@ async function showRofiMenu(items: MediaItem[]): Promise<MediaItem | null> {
   });
 
   try {
-    const rofiCmd = process.env.ROFI_IMAGES || "rofi";
-    // Check if it's qs-dmenu to simplify args
-    if (rofiCmd.includes("qs-dmenu")) {
-      const proc = Bun.spawn(
-        [
-          rofiCmd,
-          "-p",
-          "Select Track",
-          // qs-dmenu ignores extra flags, so we can leave them or strip them.
-          // passing them shouldn't hurt since wrapper handles args in loop
-        ],
-        { stdin: "pipe", stdout: "pipe" }
-      );
-      if (proc.stdin) {
-        proc.stdin.write(inputString);
-        proc.stdin.flush();
-        proc.stdin.end();
-      }
-      const output = await new Response(proc.stdout).text();
-      // ... same handling
-      const indexStr = output.trim();
-      // qs-dmenu returns the original line text (e.g. "Title\0icon..."), 
-      // but music-search expects index in Rofi mode "-format i".
-      // Wait, music-search uses -format i which returns INDEX.
-      // qs-dmenu returns TEXT.
-      // We need to map text back to item.
-      
-      // Let's rewrite this logic for qs-dmenu text return
-      if (!indexStr) return null;
-      
-      // Find item by matching the text line (ignoring icon part if qs-dmenu stripped it in output?)
-      // My qs-dmenu returns originalText which includes \0icon...
-      // So we just find which key in itemMap has value corresponding to indexStr?
-      // No, we need to reverse lookup the item from the string.
-      
-      // But wait, the existing code uses itemMap.set(index, item).
-      // If rofi returns index 0, 1, 2...
-      
-      // qs-dmenu returns the TEXT content of the line.
-      // We can iterate the map values and reconstruction the line to match?
-      // Or just map based on Title?
-      
-      // Simpler: Just search items array for match
-      // But inputString construction logic is inside this function.
-      
-      // Hack:
-      // Since I can't easily change the return format of qs-dmenu to index without breaking other scripts,
-      // I will search for the item.
-      
-      // Re-construct the display string for each item to match
-       for (const [idx, item] of itemMap.entries()) {
-           // We need to reconstruct the exact string we sent
-          const escapedTitle = item.title.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-          const escapedUploader = item.uploader.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-          let line = `<b>${escapedTitle}</b> <span size="small" alpha="70%">${escapedUploader} (${item.duration_string})</span>`;
-          if (item.localThumbnail) {
-              line += `\0icon\x1f${item.localThumbnail}`;
-          }
-          
-          if (line.trim() === indexStr.trim()) {
-              return item;
-          }
-       }
-       return null;
-    }
-
+    const menuCmd = process.env.QS_MENU || "qs-dmenu";
+    
     const proc = Bun.spawn(
       [
-        rofiCmd,
-        "-dmenu",
-        "-i",
+        menuCmd,
         "-p",
         "Select Track",
-        "-show-icons",
-        "-markup-rows",
-        "-format",
-        "i",
-        "-theme-str",
-        "element-icon { size: 3.0ch; }", // Make icons reasonable size
       ],
       { stdin: "pipe", stdout: "pipe" }
     );
-
     if (proc.stdin) {
       proc.stdin.write(inputString);
       proc.stdin.flush();
       proc.stdin.end();
     }
-
     const output = await new Response(proc.stdout).text();
     const indexStr = output.trim();
-
+    
     if (!indexStr) return null;
-    const index = parseInt(indexStr);
-    return itemMap.get(index) || null;
+    
+    // Re-construct the display string for each item to match
+      for (const [idx, item] of itemMap.entries()) {
+        // We need to reconstruct the exact string we sent
+        const escapedTitle = item.title.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        const escapedUploader = item.uploader.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        let line = `<b>${escapedTitle}</b> <span size="small" alpha="70%">${escapedUploader} (${item.duration_string})</span>`;
+        if (item.localThumbnail) {
+            line += `\0icon\x1f${item.localThumbnail}`;
+        }
+        
+        if (line.trim() === indexStr.trim()) {
+            return item;
+        }
+      }
+      return null;
+
   } catch (e) {
     return null;
   }
@@ -523,7 +464,7 @@ async function main() {
     await downloadAndPlay(items);
   } else {
     await fetchThumbnails(items);
-    const selected = await showRofiMenu(items);
+    const selected = await showMenu(items);
     if (selected) {
       await downloadAndPlay([selected]);
     }

@@ -83,9 +83,9 @@
         '';
       };
 
-      packages.rofi-tools = inputs.wrappers.lib.makeWrapper {
+      packages.qs-tools = inputs.wrappers.lib.makeWrapper {
         inherit pkgs;
-        package = pkgs.writeShellScriptBin "rofi-tools" ''
+        package = pkgs.writeShellScriptBin "qs-tools" ''
           #!/usr/bin/env bash
           set -euo pipefail
 
@@ -118,7 +118,7 @@
         '';
       };
 
-      packages.rofi-wallpaper = inputs.wrappers.lib.makeWrapper {
+      packages.qs-wallpaper = inputs.wrappers.lib.makeWrapper {
         inherit pkgs;
         package =
           let
@@ -131,7 +131,7 @@
               }/wallpapers/";
             };
           in
-          pkgs.writeShellScriptBin "rofi-wallpaper" ''
+          pkgs.writeShellScriptBin "qs-wallpaper" ''
             # Nix magic
             result=$(echo "${
               builtins.concatStringsSep "\n" (builtins.attrNames wallpaperSources ++ [ "Choose a file..." ])
@@ -168,16 +168,16 @@
             wallDIR="''${wallpaperSources["$result"]}"
             echo $wallDIR
 
-            ${self'.packages.rofi-wallpaper-selector}/bin/rofi-wallpaper-selector "$wallDIR"
+            ${self'.packages.qs-wallpaper-selector}/bin/qs-wallpaper-selector "$wallDIR"
 
             exit 0
           '';
         runtimeInputs = [ pkgs.zenity ];
       };
 
-      packages.rofi-wallpaper-selector = inputs.wrappers.lib.makeWrapper {
+      packages.qs-wallpaper-selector = inputs.wrappers.lib.makeWrapper {
         inherit pkgs;
-        package = pkgs.writeShellScriptBin "rofi-wallpaper-selector" ''
+        package = pkgs.writeShellScriptBin "qs-wallpaper-selector" ''
 
           # WALLPAPERS PATH
           if [[ -n "$1" ]]; then
@@ -505,9 +505,9 @@
         sound-down-small
         sound-toggle
         sound-set
-        rofi-tools
-        rofi-wallpaper
-        rofi-wallpaper-selector
+        qs-tools
+        qs-wallpaper
+        qs-wallpaper-selector
         toggle-lid-inhibit
         lid-status
         monero-wallet
