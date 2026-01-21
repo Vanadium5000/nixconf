@@ -1,5 +1,23 @@
+/*
+ * dmenu.qml - Quickshell dmenu/rofi replacement
+ *
+ * A glassmorphic menu selector implementing Apple's Liquid Glass design language.
+ * Reads input from a file (piped via shell wrapper) and outputs selection to stdout.
+ *
+ * Environment Variables:
+ *   DMENU_INPUT_FILE      - Path to file containing menu items (one per line)
+ *   DMENU_PROMPT          - Prompt text (default: "Select")
+ *   DMENU_LINES           - Number of visible lines (default: 15)
+ *   DMENU_PASSWORD        - "true" for password mode (hides input, no list)
+ *   DMENU_CASE_INSENSITIVE - "true" for case-insensitive matching
+ *   DMENU_SELECTED        - Index of initially selected item
+ *   DMENU_PLACEHOLDER     - Placeholder text for empty input
+ *   DMENU_FILTER          - Filter mode: "fuzzy", "prefix", "exact"
+ */
+
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Controls
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Io
@@ -8,17 +26,70 @@ import "./lib"
 Scope {
     id: root
 
-    // --- Configuration ---
+    // =========================================================================
+    // Configuration (from environment variables)
+    // =========================================================================
+
     property string inputFile: Quickshell.env("DMENU_INPUT_FILE") ?? ""
     property string promptText: Quickshell.env("DMENU_PROMPT") ?? "Select"
-    property int lineCount: parseInt(Quickshell.env("DMENU_LINES") ?? "10")
+    property int lineCount: parseInt(Quickshell.env("DMENU_LINES") ?? "15")
     property bool passwordMode: (Quickshell.env("DMENU_PASSWORD") ?? "false") === "true"
+    property bool caseInsensitive: (Quickshell.env("DMENU_CASE_INSENSITIVE") ?? "true") === "true"
+    property int selectedIndex: parseInt(Quickshell.env("DMENU_SELECTED") ?? "0")
+    property string placeholderText: Quickshell.env("DMENU_PLACEHOLDER") ?? ""
+    property string filterMode: Quickshell.env("DMENU_FILTER") ?? "fuzzy"
 
-    // --- Data Model ---
+    // Track loading state
+    property bool isLoading: true
+
+    // =========================================================================
+    // Data Models
+    // =========================================================================
+
     ListModel { id: itemsModel }
     ListModel { id: filteredModel }
 
-    // --- Window ---
+    // =========================================================================
+    // File Reader - Uses Quickshell.Io.Process with SplitParser
+    // =========================================================================
+
+    Process {
+        id: fileReader
+        command: ["cat", root.inputFile]
+        running: false  // Start manually after component is ready
+
+        stdout: SplitParser {
+            onRead: data => {
+                if (data.trim() !== "") {
+                    var parsed = root.parseLine(data);
+                    itemsModel.append(parsed);
+                    filteredModel.append(parsed);
+                }
+            }
+        }
+
+        onExited: (code, status) => {
+            root.isLoading = false;
+            // Set initial selection after loading
+            if (root.selectedIndex > 0 && root.selectedIndex < filteredModel.count) {
+                listView.currentIndex = root.selectedIndex;
+            }
+        }
+    }
+
+    // Start file reader after component is fully loaded
+    Component.onCompleted: {
+        if (root.inputFile !== "") {
+            fileReader.running = true;
+        } else {
+            root.isLoading = false;
+        }
+    }
+
+    // =========================================================================
+    // Main Window
+    // =========================================================================
+
     PanelWindow {
         id: window
         anchors {
@@ -34,10 +105,13 @@ Scope {
 
         color: "transparent"
 
-        // Semi-transparent backdrop
+        // ---------------------------------------------------------------------
+        // Backdrop - Semi-transparent overlay with click-to-dismiss
+        // ---------------------------------------------------------------------
         Rectangle {
             anchors.fill: parent
-            color: Qt.rgba(0, 0, 0, 0.3)
+            // Apple-style dark backdrop
+            color: Qt.rgba(0, 0, 0, 0.4)
 
             MouseArea {
                 anchors.fill: parent
@@ -45,158 +119,404 @@ Scope {
             }
         }
 
-        // Main dialog
-        GlassPanel {
+        // ---------------------------------------------------------------------
+        // Main Dialog Container - Liquid Glass Panel
+        // ---------------------------------------------------------------------
+        Item {
+            id: mainDialog
             anchors.centerIn: parent
             width: 600
-            height: Math.min(500, 70 + (root.lineCount * 44))
-            hasShadow: true
-            cornerRadius: Theme.roundingLarge
+            height: Math.min(520, 76 + (root.lineCount * 44))
 
-            ColumnLayout {
+            // Outer glow (subtle accent border outside main container)
+            Rectangle {
                 anchors.fill: parent
-                anchors.margins: Theme.gapsOut
-                spacing: Theme.gapsIn
+                anchors.margins: -1
+                radius: Theme.glass.cornerRadius + 1
+                color: "transparent"
+                border.color: Qt.rgba(
+                    Theme.glass.accentColor.r,
+                    Theme.glass.accentColor.g,
+                    Theme.glass.accentColor.b,
+                    0.12
+                )
+                border.width: 1
+            }
 
-                // --- Search / Prompt Bar ---
-                GlassPanel {
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 52
-                    cornerRadius: Theme.rounding
-                    opacityValue: 0.4
-                    hasBorder: false
+            // Main glass container
+            Rectangle {
+                id: glassContainer
+                anchors.fill: parent
+                radius: Theme.glass.cornerRadius
 
-                    RowLayout {
-                        anchors.fill: parent
-                        anchors.leftMargin: 16
-                        anchors.rightMargin: 16
-                        spacing: 12
+                // Base glass material - Apple dark mode values
+                color: Theme.glass.backgroundColor
 
-                        Text {
-                            text: root.promptText
-                            font.family: Theme.fontName
-                            font.pixelSize: Theme.fontSizeLarge
-                            font.bold: true
-                            color: Theme.accent
+                // Specular highlight gradient (top 40% of panel)
+                Rectangle {
+                    anchors {
+                        top: parent.top
+                        left: parent.left
+                        right: parent.right
+                        margins: 1
+                    }
+                    height: parent.height * 0.4
+                    radius: Theme.glass.cornerRadius - 1
+
+                    gradient: Gradient {
+                        GradientStop {
+                            position: 0.0
+                            color: Qt.rgba(1, 1, 1, Theme.glass.highlightOpacity)
                         }
+                        GradientStop {
+                            position: 0.35
+                            color: Qt.rgba(1, 1, 1, Theme.glass.highlightOpacity * 0.3)
+                        }
+                        GradientStop {
+                            position: 1.0
+                            color: "transparent"
+                        }
+                    }
+                }
 
+                // Inner stroke (cut-glass depth effect)
+                Rectangle {
+                    anchors.fill: parent
+                    anchors.margins: 1
+                    radius: Theme.glass.cornerRadius - 1
+                    color: "transparent"
+                    border.color: Theme.glass.innerStrokeColor
+                    border.width: 1
+                }
+
+                // Accent border
+                border.color: Qt.rgba(
+                    Theme.glass.accentColor.r,
+                    Theme.glass.accentColor.g,
+                    Theme.glass.accentColor.b,
+                    Theme.glass.borderOpacity
+                )
+                border.width: 1
+
+                // -----------------------------------------------------------------
+                // Content Layout
+                // -----------------------------------------------------------------
+                ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: Theme.glass.padding
+                    spacing: Theme.glass.itemSpacing
+
+                    // Search Bar
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 50
+                        radius: Theme.glass.cornerRadius - 4
+                        color: Qt.rgba(0, 0, 0, 0.35)
+
+                        // Inner highlight
                         Rectangle {
-                            width: 1
-                            Layout.fillHeight: true
-                            Layout.topMargin: 12
-                            Layout.bottomMargin: 12
-                            color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.3)
+                            anchors.fill: parent
+                            anchors.margins: 1
+                            radius: parent.radius - 1
+                            color: "transparent"
+                            border.color: Qt.rgba(1, 1, 1, 0.04)
+                            border.width: 1
                         }
 
-                        TextInput {
-                            id: searchInput
-                            Layout.fillWidth: true
-                            Layout.fillHeight: true
-                            verticalAlignment: TextInput.AlignVCenter
-                            font.family: Theme.fontName
-                            font.pixelSize: Theme.fontSizeLarge
-                            color: Theme.foreground
-                            focus: true
-                            clip: true
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.leftMargin: 16
+                            anchors.rightMargin: 16
+                            spacing: 12
 
-                            echoMode: root.passwordMode ? TextInput.Password : TextInput.Normal
+                            // Prompt label
+                            Text {
+                                text: root.promptText
+                                font.family: Theme.glass.fontFamily
+                                font.pixelSize: Theme.glass.fontSizeMedium
+                                font.weight: Font.DemiBold
+                                color: Theme.glass.accentColor
+                            }
 
-                            onAccepted: {
-                                var result = "";
-                                if (filteredModel.count > 0 && listView.currentIndex >= 0) {
-                                    var item = filteredModel.get(listView.currentIndex);
-                                    result = item.originalText || item.text;
-                                } else if (text) {
-                                    result = text;
+                            // Vertical divider
+                            Rectangle {
+                                width: 1
+                                Layout.fillHeight: true
+                                Layout.topMargin: 12
+                                Layout.bottomMargin: 12
+                                color: Qt.rgba(1, 1, 1, 0.12)
+                            }
+
+                            // Text input field
+                            TextInput {
+                                id: searchInput
+                                Layout.fillWidth: true
+                                Layout.fillHeight: true
+                                verticalAlignment: TextInput.AlignVCenter
+                                font.family: Theme.glass.fontFamily
+                                font.pixelSize: Theme.glass.fontSizeMedium
+                                color: Theme.glass.textPrimary
+                                focus: true
+                                clip: true
+                                selectByMouse: true
+                                selectionColor: Theme.glass.accentColor
+                                selectedTextColor: "#ffffff"
+
+                                echoMode: root.passwordMode ? TextInput.Password : TextInput.Normal
+
+                                // Placeholder text
+                                Text {
+                                    anchors.fill: parent
+                                    anchors.leftMargin: 2
+                                    verticalAlignment: Text.AlignVCenter
+                                    text: root.placeholderText || (root.passwordMode ? "Enter password..." : "Type to filter...")
+                                    color: Theme.glass.textTertiary
+                                    font: parent.font
+                                    visible: !parent.text && !parent.activeFocus
                                 }
-                                if (result) outputAndQuit(result);
-                            }
 
-                            onTextChanged: {
-                                filterItems(text);
-                                listView.currentIndex = 0;
-                            }
-
-                            Keys.onPressed: event => {
-                                if (event.key === Qt.Key_Down) {
-                                    listView.incrementCurrentIndex();
-                                    event.accepted = true;
-                                } else if (event.key === Qt.Key_Up) {
-                                    listView.decrementCurrentIndex();
-                                    event.accepted = true;
-                                } else if (event.key === Qt.Key_Escape) {
-                                    Qt.quit();
-                                } else if (event.key === Qt.Key_Tab) {
-                                    // Tab completion
+                                onAccepted: {
+                                    var result = "";
                                     if (filteredModel.count > 0 && listView.currentIndex >= 0) {
                                         var item = filteredModel.get(listView.currentIndex);
-                                        searchInput.text = item.displayText;
+                                        result = item.originalText || item.text;
+                                    } else if (text) {
+                                        result = text;
                                     }
-                                    event.accepted = true;
+                                    if (result) outputAndQuit(result);
                                 }
+
+                                onTextChanged: {
+                                    filterItems(text);
+                                    if (filteredModel.count > 0) {
+                                        listView.currentIndex = 0;
+                                    }
+                                }
+
+                                Keys.onPressed: event => {
+                                    if (event.key === Qt.Key_Down) {
+                                        listView.incrementCurrentIndex();
+                                        event.accepted = true;
+                                    } else if (event.key === Qt.Key_Up) {
+                                        listView.decrementCurrentIndex();
+                                        event.accepted = true;
+                                    } else if (event.key === Qt.Key_Escape) {
+                                        Qt.quit();
+                                    } else if (event.key === Qt.Key_Tab) {
+                                        if (filteredModel.count > 0 && listView.currentIndex >= 0) {
+                                            var item = filteredModel.get(listView.currentIndex);
+                                            searchInput.text = item.displayText;
+                                        }
+                                        event.accepted = true;
+                                    } else if (event.key === Qt.Key_PageDown) {
+                                        listView.currentIndex = Math.min(
+                                            listView.currentIndex + 5,
+                                            filteredModel.count - 1
+                                        );
+                                        event.accepted = true;
+                                    } else if (event.key === Qt.Key_PageUp) {
+                                        listView.currentIndex = Math.max(listView.currentIndex - 5, 0);
+                                        event.accepted = true;
+                                    }
+                                }
+                            }
+
+                            // Match count indicator
+                            Text {
+                                text: filteredModel.count + "/" + itemsModel.count
+                                font.family: Theme.glass.fontFamily
+                                font.pixelSize: Theme.glass.fontSizeSmall
+                                color: Theme.glass.textTertiary
+                                visible: !root.passwordMode && itemsModel.count > 0
+                            }
+                        }
+                    }
+
+                    // Results ListView
+                    ListView {
+                        id: listView
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        clip: true
+                        spacing: 3
+                        visible: !root.passwordMode
+
+                        model: filteredModel
+
+                        // Empty/loading state indicator
+                        Text {
+                            anchors.centerIn: parent
+                            text: root.isLoading ? "Loading..." : "No matches"
+                            color: Theme.glass.textTertiary
+                            font.family: Theme.glass.fontFamily
+                            font.pixelSize: Theme.glass.fontSizeMedium
+                            visible: listView.count === 0
+                        }
+
+                        delegate: Rectangle {
+                            id: delegateItem
+                            width: listView.width
+                            height: 40
+                            radius: Theme.glass.cornerRadius - 6
+
+                            property bool isSelected: index === listView.currentIndex
+                            property bool isHovered: delegateMouseArea.containsMouse
+
+                            // Glass button styling based on state
+                            color: {
+                                if (isSelected) {
+                                    return Qt.rgba(
+                                        Theme.glass.accentColor.r,
+                                        Theme.glass.accentColor.g,
+                                        Theme.glass.accentColor.b,
+                                        0.32
+                                    );
+                                }
+                                if (isHovered) {
+                                    return Qt.rgba(1, 1, 1, 0.06);
+                                }
+                                return Qt.rgba(1, 1, 1, 0.02);
+                            }
+
+                            border.color: {
+                                if (isSelected) {
+                                    return Qt.rgba(
+                                        Theme.glass.accentColor.r,
+                                        Theme.glass.accentColor.g,
+                                        Theme.glass.accentColor.b,
+                                        0.5
+                                    );
+                                }
+                                if (isHovered) {
+                                    return Qt.rgba(1, 1, 1, 0.1);
+                                }
+                                return "transparent";
+                            }
+                            border.width: (isSelected || isHovered) ? 1 : 0
+
+                            Behavior on color {
+                                ColorAnimation { duration: Theme.glass.animationDuration }
+                            }
+
+                            // Top highlight for glass effect
+                            Rectangle {
+                                anchors {
+                                    top: parent.top
+                                    left: parent.left
+                                    right: parent.right
+                                    margins: 1
+                                }
+                                height: parent.height * 0.5
+                                radius: parent.radius - 1
+                                gradient: Gradient {
+                                    GradientStop {
+                                        position: 0.0
+                                        color: Qt.rgba(1, 1, 1, delegateItem.isSelected ? 0.1 : 0.03)
+                                    }
+                                    GradientStop {
+                                        position: 1.0
+                                        color: "transparent"
+                                    }
+                                }
+                            }
+
+                            RowLayout {
+                                anchors.fill: parent
+                                anchors.leftMargin: 14
+                                anchors.rightMargin: 14
+                                spacing: 10
+
+                                // Icon (if present)
+                                Text {
+                                    visible: (model.iconPath || "") !== ""
+                                    text: model.iconPath || ""
+                                    font.family: Theme.glass.fontFamily
+                                    font.pixelSize: 16
+                                    color: delegateItem.isSelected
+                                        ? Theme.glass.accentColorAlt
+                                        : Theme.glass.textSecondary
+                                }
+
+                                // Label
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: model.displayText || ""
+                                    font.family: Theme.glass.fontFamily
+                                    font.pixelSize: Theme.glass.fontSizeMedium
+                                    font.weight: delegateItem.isSelected ? Font.Medium : Font.Normal
+                                    color: delegateItem.isSelected
+                                        ? Theme.glass.textPrimary
+                                        : Theme.glass.textSecondary
+                                    elide: Text.ElideRight
+                                }
+                            }
+
+                            MouseArea {
+                                id: delegateMouseArea
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                onClicked: {
+                                    outputAndQuit(model.originalText || model.text);
+                                }
+                            }
+                        }
+
+                        highlightFollowsCurrentItem: true
+                        highlightMoveDuration: 50
+
+                        ScrollBar.vertical: ScrollBar {
+                            policy: ScrollBar.AsNeeded
+                            width: 5
+                            contentItem: Rectangle {
+                                radius: 2.5
+                                color: Qt.rgba(1, 1, 1, 0.25)
                             }
                         }
                     }
                 }
+            }
 
-                // --- List View ---
-                ListView {
-                    id: listView
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    clip: true
-                    spacing: 4
-                    visible: !root.passwordMode
-
-                    model: filteredModel
-
-                    // Empty state
-                    Text {
-                        anchors.centerIn: parent
-                        text: root.inputFile ? "No matches" : "Loading..."
-                        color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.4)
-                        font.family: Theme.fontName
-                        font.pixelSize: Theme.fontSize
-                        visible: listView.count === 0
-                    }
-
-                    delegate: GlassButton {
-                        width: listView.width
-                        height: 40
-                        text: model.displayText
-                        icon: model.iconPath || ""
-                        active: index === listView.currentIndex
-
-                        onClicked: {
-                            outputAndQuit(model.originalText || model.text);
-                        }
-                    }
-
-                    highlightFollowsCurrentItem: true
-                    highlightMoveDuration: 80
-                }
+            // Drop shadow (positioned behind glass container)
+            Rectangle {
+                anchors.fill: glassContainer
+                anchors.topMargin: Theme.glass.shadowOffsetY
+                z: -1
+                radius: Theme.glass.cornerRadius
+                color: Qt.rgba(0, 0, 0, Theme.glass.shadowOpacity)
             }
         }
     }
 
-    // --- Logic ---
+    // =========================================================================
+    // Helper Functions
+    // =========================================================================
+
+    /**
+     * Output the selected text to stdout and exit.
+     * The shell wrapper strips the "qml: " prefix.
+     */
     function outputAndQuit(text) {
         console.log(text);
         Qt.quit();
     }
 
+    /**
+     * Parse a line of input, extracting icon if present.
+     * Supports Rofi's icon format: Text\0icon\x1fIconPath
+     */
     function parseLine(line) {
         var text = line;
         var icon = "";
 
-        // Handle Rofi icon format: Text\0icon\x1fPath
-        if (line.includes("\0icon\x1f")) {
-            var parts = line.split("\0icon\x1f");
-            text = parts[0];
-            icon = parts[1] ? parts[1].trim() : "";
+        // Handle Rofi icon format
+        var iconMarker = "\0icon\x1f";
+        var iconIdx = line.indexOf(iconMarker);
+        if (iconIdx !== -1) {
+            text = line.substring(0, iconIdx);
+            icon = line.substring(iconIdx + iconMarker.length).trim();
         }
 
-        // Strip basic markup for display
+        // Strip Pango/HTML markup for display
         var displayText = text.replace(/<[^>]*>/g, "");
 
         return {
@@ -207,36 +527,40 @@ Scope {
         };
     }
 
+    /**
+     * Filter items based on query string.
+     * Supports fuzzy (contains), prefix, and exact matching.
+     */
     function filterItems(query) {
         filteredModel.clear();
-        var lowerQuery = query.toLowerCase();
 
-        for (var i = 0; i < itemsModel.count; i++) {
-            var item = itemsModel.get(i);
-            if (item.text.toLowerCase().indexOf(lowerQuery) !== -1) {
+        // No filter - show all items
+        if (query === "") {
+            for (var i = 0; i < itemsModel.count; i++) {
+                filteredModel.append(itemsModel.get(i));
+            }
+            return;
+        }
+
+        var q = root.caseInsensitive ? query.toLowerCase() : query;
+
+        for (var j = 0; j < itemsModel.count; j++) {
+            var item = itemsModel.get(j);
+            var t = root.caseInsensitive ? item.text.toLowerCase() : item.text;
+
+            var match = false;
+            if (root.filterMode === "prefix") {
+                match = t.indexOf(q) === 0;
+            } else if (root.filterMode === "exact") {
+                match = t === q;
+            } else {
+                // fuzzy (contains)
+                match = t.indexOf(q) !== -1;
+            }
+
+            if (match) {
                 filteredModel.append(item);
             }
-        }
-    }
-
-    // Read input file on load
-    Component.onCompleted: {
-        if (root.inputFile) {
-            var xhr = new XMLHttpRequest();
-            xhr.onreadystatechange = function() {
-                if (xhr.readyState === XMLHttpRequest.DONE) {
-                    var lines = xhr.responseText.split("\n");
-                    for (var i = 0; i < lines.length; i++) {
-                        if (lines[i].trim() !== "") {
-                            var parsed = parseLine(lines[i]);
-                            itemsModel.append(parsed);
-                            filteredModel.append(parsed);
-                        }
-                    }
-                }
-            };
-            xhr.open("GET", "file://" + root.inputFile);
-            xhr.send();
         }
     }
 }

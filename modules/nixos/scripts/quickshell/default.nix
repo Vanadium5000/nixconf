@@ -161,6 +161,7 @@
         inherit pkgs;
         package = pkgs.writeShellScriptBin "qs-emoji" ''
           # Quickshell Emoji Picker (using qs-dmenu)
+          # Fetches GitHub's gemoji database and allows selection/copy
 
           CACHE_FILE="$HOME/.cache/qs-emoji.txt"
 
@@ -170,12 +171,21 @@
               jq -r '.[] | "\(.emoji) \(.aliases[0])"' > "$CACHE_FILE"
           fi
 
-          SELECTED=$(cat "$CACHE_FILE" | ${lib.getExe self'.packages.qs-dmenu} -p "Emoji")
+          # Verify cache file has content
+          if [ ! -s "$CACHE_FILE" ]; then
+              notify-send "Error" "Failed to download emoji list"
+              rm -f "$CACHE_FILE"
+              exit 1
+          fi
+
+          SELECTED=$(${lib.getExe self'.packages.qs-dmenu} -p "Emoji" < "$CACHE_FILE")
 
           if [ -n "$SELECTED" ]; then
-              EMOJI=$(echo "$SELECTED" | awk '{print $1}')
-              echo -n "$EMOJI" | wl-copy
-              notify-send "Copied $EMOJI"
+              EMOJI=$(echo "$SELECTED" | cut -d' ' -f1)
+              if [ -n "$EMOJI" ]; then
+                  printf '%s' "$EMOJI" | wl-copy
+                  notify-send "Copied" "$EMOJI"
+              fi
           fi
         '';
         runtimeInputs = [
@@ -184,6 +194,7 @@
           pkgs.jq
           pkgs.wl-clipboard
           pkgs.libnotify
+          pkgs.coreutils
         ];
       };
 
@@ -191,30 +202,46 @@
         inherit pkgs;
         package = pkgs.writeShellScriptBin "qs-nerd" ''
           # Quickshell Nerd Font Picker (using qs-dmenu)
+          # Fetches nerd font glyphs and allows selection/copy
 
           CACHE_FILE="$HOME/.cache/qs-nerd.txt"
 
           if [ ! -f "$CACHE_FILE" ]; then
               notify-send "Downloading Nerd Font List..."
-              # Using a known list of Nerd Font glyphs
+              # Using nerd-fonts cheat sheet API which has cleaner data
+              # Strip any ANSI codes and filter to valid icon entries
               curl -sL "https://raw.githubusercontent.com/ryanoasis/nerd-fonts/master/glyphnames.json" | \
-              jq -r 'to_entries | .[] | "\(.value.char) \(.key)"' > "$CACHE_FILE"
+              jq -r 'to_entries | .[] | select(.value.char != null) | "\(.value.char) \(.key)"' | \
+              sed 's/\x1b\[[0-9;]*m//g' | \
+              grep -v '^[[:space:]]*$' > "$CACHE_FILE"
           fi
 
-          SELECTED=$(cat "$CACHE_FILE" | ${lib.getExe self'.packages.qs-dmenu} -p "Icons")
+          # Verify cache file has content
+          if [ ! -s "$CACHE_FILE" ]; then
+              notify-send "Error" "Failed to download nerd font list"
+              rm -f "$CACHE_FILE"
+              exit 1
+          fi
+
+          SELECTED=$(${lib.getExe self'.packages.qs-dmenu} -p "Icons" < "$CACHE_FILE")
 
           if [ -n "$SELECTED" ]; then
-              ICON=$(echo "$SELECTED" | awk '{print $1}')
-              echo -n "$ICON" | wl-copy
-              notify-send "Copied $ICON"
+              ICON=$(echo "$SELECTED" | cut -d' ' -f1)
+              if [ -n "$ICON" ]; then
+                  printf '%s' "$ICON" | wl-copy
+                  notify-send "Copied" "$ICON"
+              fi
           fi
         '';
         runtimeInputs = [
           self'.packages.qs-dmenu
           pkgs.curl
           pkgs.jq
+          pkgs.gnused
+          pkgs.gnugrep
           pkgs.wl-clipboard
           pkgs.libnotify
+          pkgs.coreutils
         ];
       };
 
@@ -239,28 +266,63 @@
         inherit pkgs;
         package = pkgs.writeShellScriptBin "qs-dmenu" ''
           # Quickshell dmenu replacement
-          # Usage: echo "option1\noption2" | qs-dmenu [-p prompt]
+          # Usage: echo "option1\noption2" | qs-dmenu [options]
+          #
+          # Options:
+          #   -p, --prompt TEXT      Set prompt text (default: "Select")
+          #   -l, --lines N          Number of visible lines (default: 15)
+          #   -i                     Case insensitive matching
+          #   -password              Password/hidden input mode
+          #   -selected N            Pre-select item at index N
+          #   -placeholder TEXT      Placeholder text for input
+          #   -filter MODE           Filter mode: fuzzy, prefix, exact (default: fuzzy)
+          #   -dmenu                 Ignored (compatibility)
 
           PROMPT="Select"
-          LINES=10
+          LINES=15
           PASSWORD="false"
+          CASE_INSENSITIVE="true"
+          SELECTED=0
+          PLACEHOLDER=""
+          FILTER="fuzzy"
 
-          # Parse args (basic)
+          # Parse args
           while [[ $# -gt 0 ]]; do
             case $1 in
-              -p)
+              -p|--prompt)
                 PROMPT="$2"
                 shift 2
                 ;;
-              -l)
+              -l|--lines)
                 LINES="$2"
                 shift 2
+                ;;
+              -i)
+                CASE_INSENSITIVE="true"
+                shift
+                ;;
+              -I)
+                CASE_INSENSITIVE="false"
+                shift
                 ;;
               -password)
                 PASSWORD="true"
                 shift
                 ;;
-              -dmenu|-i) # Ignored flags for compatibility
+              -selected)
+                SELECTED="$2"
+                shift 2
+                ;;
+              -placeholder)
+                PLACEHOLDER="$2"
+                shift 2
+                ;;
+              -filter)
+                FILTER="$2"
+                shift 2
+                ;;
+              -dmenu|-matching|-no-custom|-markup-rows)
+                # Ignored flags for rofi compatibility
                 shift
                 ;;
               *)
@@ -278,15 +340,18 @@
           export QML2_IMPORT_PATH="${pkgs.qt6.qt5compat}/lib/qt-6/qml:$QML2_IMPORT_PATH"
 
           # Run Quickshell and capture stdout
-
           DMENU_INPUT_FILE="$INPUT_FILE" \
           DMENU_PROMPT="$PROMPT" \
           DMENU_LINES="$LINES" \
           DMENU_PASSWORD="$PASSWORD" \
+          DMENU_CASE_INSENSITIVE="$CASE_INSENSITIVE" \
+          DMENU_SELECTED="$SELECTED" \
+          DMENU_PLACEHOLDER="$PLACEHOLDER" \
+          DMENU_FILTER="$FILTER" \
           "$QS_BIN" -p "$QML_FILE" 2>/dev/null | sed 's/^qml: //g'
 
           # Cleanup
-          rm "$INPUT_FILE"
+          rm -f "$INPUT_FILE"
         '';
         runtimeInputs = [ pkgs.quickshell pkgs.coreutils pkgs.gnused ];
       };

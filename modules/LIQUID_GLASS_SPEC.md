@@ -1,8 +1,8 @@
 # Apple Liquid Glass Design Specification
 
 > A comprehensive implementation guide for the Liquid Glass design language,
-> based on Apple's iOS 26 / macOS Tahoe design system, adapted for the
-> Cyberpunk Electric Dark palette.
+> based on Apple's iOS 26 / macOS Tahoe design system (WWDC 2025), adapted for
+> the Cyberpunk Electric Dark palette.
 
 ## Overview
 
@@ -15,20 +15,62 @@ tasks.
 
 1. **Materiality**: Surfaces behave like physical glass slabs
 2. **Depth**: Layered transparency creates spatial hierarchy
-3. **Light Interaction**: Specular highlights and refractions respond to
-   context
+3. **Light Interaction**: Specular highlights and refractions respond to context
 4. **Fluidity**: Smooth animations convey state changes organically
 
-## Design Tokens
+## Official Apple Values (from WWDC25 / HIG)
 
-### Color Palette (Cyberpunk Electric Dark)
+### Blur & Transparency Budgets
+
+| Platform | Max Blur Radius | Recommended Frost |
+| -------- | --------------- | ----------------- |
+| iPhone   | ≤ 40px          | 10-25%            |
+| iPad/Mac | ≤ 60px          | 10-25%            |
+
+> Values > 30% look "milky plastic" and should be avoided.
+
+### Material Variants (SwiftUI)
+
+| Variant     | Description                         |
+| ----------- | ----------------------------------- |
+| `.regular`  | Medium transparency (default)       |
+| `.clear`    | High transparency (media-rich BGs)  |
+| `.identity` | No effect (conditional disabling)   |
+
+### Shadow Tokens (SwiftUI Design System)
+
+```swift
+static let radius: CGFloat = 18
+static let y: CGFloat = 8
+static let opacity: Double = 0.18
+```
+
+### Border Stroke Tokens
+
+```swift
+static let width: CGFloat = 1
+static let subtleOpacity: Double = 0.22
+static let strongOpacity: Double = 0.35
+```
+
+### Corner Radii
+
+| Element | Radius |
+| ------- | ------ |
+| Card    | 28px   |
+| Pill    | 999px  |
+| Sheet   | 34px   |
+
+## Design Tokens (Cyberpunk Electric Dark)
+
+### Color Palette
 
 | Token           | Hex       | RGB                | Usage                |
 | --------------- | --------- | ------------------ | -------------------- |
 | `background`    | `#000000` | `rgb(0,0,0)`       | Primary glass tint   |
-| `backgroundAlt` | `#0d0d0d` | `rgb(13,13,13)`    | Secondary surfaces   |
-| `foreground`    | `#a8a8a8` | `rgb(168,168,168)` | Primary text         |
-| `foregroundAlt` | `#d2d2d2` | `rgb(210,210,210)` | Emphasized text      |
+| `backgroundAlt` | `#141420` | `rgb(20,20,32)`    | Secondary surfaces   |
+| `foreground`    | `#e0e0e0` | `rgb(224,224,224)` | Primary text         |
+| `foregroundAlt` | `#d0d0d0` | `rgb(208,208,208)` | Secondary text       |
 | `accent`        | `#5454fc` | `rgb(84,84,252)`   | Interactive elements |
 | `accentAlt`     | `#54fcfc` | `rgb(84,252,252)`  | Active/hover states  |
 | `error`         | `#fc5454` | `rgb(252,84,84)`   | Error states         |
@@ -36,207 +78,204 @@ tasks.
 
 ### Glass Material Properties
 
-| Property           | Value                    | Description                            |
-| ------------------ | ------------------------ | -------------------------------------- |
-| `glassOpacity`     | `0.55`                   | Base transparency (55% opaque)         |
-| `blurStrength`     | `40px`                   | Gaussian blur radius for backdrop      |
-| `highlightOpacity` | `0.12`                   | Top-edge specular reflection intensity |
-| `innerStroke`      | `1px`                    | Inset border for cut-glass effect      |
-| `innerStrokeColor` | `rgba(255,255,255,0.08)` | Subtle white edge                      |
-| `noiseOpacity`     | `0.02`                   | Frosted texture overlay                |
+| Property           | Value                      | Description                     |
+| ------------------ | -------------------------- | ------------------------------- |
+| `glassOpacity`     | `0.75`                     | Base transparency (75% opaque)  |
+| `glassColor`       | `rgba(8,8,12,0.75)`        | Tinted dark glass               |
+| `blurStrength`     | `8px` (main) + `1px` (bg)  | Two-layer blur system           |
+| `highlightOpacity` | `0.18` top, `0.06` middle  | Specular gradient stops         |
+| `innerStroke`      | `1px`                      | Inset border for depth          |
+| `innerStrokeColor` | `rgba(255,255,255,0.08)`   | Subtle white edge               |
 
 ### Shadow Properties
 
-| Property          | Value                    | Description              |
-| ----------------- | ------------------------ | ------------------------ |
-| `shadowOpacity`   | `0.6`                    | Shadow alpha             |
-| `shadowRadius`    | `16px`                   | Blur radius              |
-| `shadowOffsetY`   | `4px`                    | Vertical displacement    |
-| `shadowColor`     | `rgba(0,0,0,0.6)`        | Pure black shadow        |
+| Property        | Value               | Description            |
+| --------------- | ------------------- | ---------------------- |
+| `shadowOpacity` | `0.50`              | Shadow alpha           |
+| `shadowRadius`  | `18px`              | Blur radius            |
+| `shadowOffsetY` | `6px`               | Vertical displacement  |
+| `shadowColor`   | `rgba(0,0,0,0.5)`   | Pure black shadow      |
 
 ### Border Properties
 
-| Property          | Value   | Description                            |
-| ----------------- | ------- | -------------------------------------- |
-| `borderWidth`     | `1px`   | Structural border thickness            |
-| `borderOpacity`   | `0.25`  | Border visibility (25% of accent)      |
+| Property        | Value  | Description                       |
+| --------------- | ------ | --------------------------------- |
+| `borderWidth`   | `1px`  | Structural border thickness       |
+| `borderOpacity` | `0.35` | Border visibility (35% of accent) |
+| `outerGlow`     | `2px`  | Outer glow border width           |
+| `outerGlowAlpha`| `0.15` | Outer glow opacity                |
 
 ### Layout Tokens
 
-| Token           | Value  | Usage                                    |
-| --------------- | ------ | ---------------------------------------- |
-| `rounding`      | `16px` | Standard corner radius                   |
-| `roundingSmall` | `10px` | Buttons, small controls                  |
-| `roundingLarge` | `24px` | Dialogs, large panels                    |
-| `gapsIn`        | `6px`  | Internal spacing (between elements)      |
-| `gapsOut`       | `12px` | External margins (panel to content)      |
+| Token           | Value  | Usage                              |
+| --------------- | ------ | ---------------------------------- |
+| `rounding`      | `16px` | Standard corner radius             |
+| `roundingSmall` | `12px` | Buttons, list items                |
+| `roundingLarge` | `26px` | Dialogs, large panels              |
+| `gapsIn`        | `12px` | Internal spacing                   |
+| `gapsOut`       | `16px` | External margins                   |
 
 ### Typography
 
-| Token            | Value                      | Usage              |
-| ---------------- | -------------------------- | ------------------ |
-| `fontName`       | `JetBrainsMono Nerd Font`  | All text           |
-| `fontSize`       | `13px`                     | Body text          |
-| `fontSizeSmall`  | `11px`                     | Captions, labels   |
-| `fontSizeLarge`  | `16px`                     | Headings, prompts  |
-| `fontSizeXLarge` | `24px`                     | Display text       |
+| Token            | Value                     | Usage            |
+| ---------------- | ------------------------- | ---------------- |
+| `fontName`       | `JetBrainsMono Nerd Font` | All text         |
+| `fontSize`       | `14px`                    | Body text        |
+| `fontSizeSmall`  | `11px`                    | Captions, labels |
+| `fontSizeLarge`  | `15px`                    | Headings         |
+| `fontSizeXLarge` | `24px`                    | Display text     |
 
 ### Animation
 
-| Property            | Value      | Description                |
-| ------------------- | ---------- | -------------------------- |
-| `animationDuration` | `180ms`    | State transition timing    |
-| `easing`            | `ease-out` | Deceleration curve         |
+| Property            | Value      | Description             |
+| ------------------- | ---------- | ----------------------- |
+| `animationDuration` | `120ms`    | State transition timing |
+| `easing`            | `ease-out` | Deceleration curve      |
 
 ## Component Architecture
 
-### GlassPanel (Container)
-
-The fundamental building block for all glass surfaces.
+### GlassPanel Layer Stack
 
 ```text
-┌─────────────────────────────────────┐  ← Outer border (accent @ 25%)
-│ ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ │  ← Specular gradient (top 50%)
-│ ┌─────────────────────────────────┐ │  ← Inner stroke (white @ 8%)
-│ │                                 │ │
-│ │          CONTENT AREA           │ │  ← Content with gapsIn margin
-│ │                                 │ │
-│ └─────────────────────────────────┘ │
-└─────────────────────────────────────┘
-         ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓            ← Drop shadow (offset Y: 4px)
+┌─────────────────────────────────────────┐
+│  ┌───────────────────────────────────┐  │ ← Outer glow (accent @ 15%)
+│  │ ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ │  │ ← Specular gradient (18% → 6% → 0%)
+│  │ ┌─────────────────────────────────┐│  │ ← Inner stroke (white @ 8%)
+│  │ │                                 ││  │
+│  │ │         CONTENT AREA            ││  │
+│  │ │                                 ││  │
+│  │ └─────────────────────────────────┘│  │
+│  └───────────────────────────────────┘  │ ← Accent border (35%)
+└─────────────────────────────────────────┘
+           ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓             ← Drop shadow (Y: 6px)
 ```
 
-#### Layer Stack (bottom to top)
+### Specular Highlight Gradient
 
-1. **Drop Shadow**: `rgba(0,0,0,0.6)`, radius `16px`, offset Y `4px`
-2. **Background**: `rgba(background, glassOpacity)`
-3. **Specular Highlight**: Linear gradient, white `12%` → transparent
-4. **Inner Stroke**: `1px` inset, `rgba(255,255,255,0.08)`
-5. **Outer Border**: `1px`, `rgba(accent, 0.25)`
-6. **Content**: Z-index `10`, margins `gapsIn`
-
-### GlassButton (Interactive)
-
-Buttons inherit glass properties with state-aware styling.
-
-#### States
-
-| State     | Background                  | Border                    |
-| --------- | --------------------------- | ------------------------- |
-| Default   | `rgba(background, 0.35)`    | `rgba(accent, 0.25)`      |
-| Hover     | `rgba(foreground, 0.12)`    | `rgba(accent, 0.50)`      |
-| Pressed   | `rgba(accent, 0.25)`        | `rgba(accent, 0.50)`      |
-| Active    | `rgba(accent, 0.35)`        | `accent` (solid)          |
-
-## QML Implementation
-
-### Theme Singleton
-
-```qml
-pragma Singleton
-import QtQuick
-
-QtObject {
-    readonly property color background: "#000000"
-    readonly property real glassOpacity: 0.55
-    readonly property real highlightOpacity: 0.12
-    // ... (see lib/Theme.qml for complete implementation)
-
-    function rgba(baseColor, alpha) {
-        return Qt.rgba(baseColor.r, baseColor.g, baseColor.b, alpha)
-    }
-}
+```css
+background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.18) 0%,
+    rgba(255, 255, 255, 0.06) 30%,
+    transparent 100%
+);
 ```
 
-### GlassPanel Usage
+### Button States
 
-```qml
-import "./lib"
-
-GlassPanel {
-    width: 400
-    height: 300
-    cornerRadius: Theme.roundingLarge
-    hasShadow: true
-    hasBorder: true
-    opacityValue: 0.55  // Override default if needed
-
-    // Content goes here as children
-    Text {
-        text: "Hello, Glass!"
-        color: Theme.foreground
-    }
-}
-```
-
-### GlassButton Usage
-
-```qml
-import "./lib"
-
-GlassButton {
-    text: "Click Me"
-    icon: "🔥"  // Optional emoji or icon font glyph
-    active: isSelected
-    onClicked: doSomething()
-}
-```
+| State    | Background                 | Border                   | Highlight    |
+| -------- | -------------------------- | ------------------------ | ------------ |
+| Default  | `rgba(255,255,255,0.03)`   | `transparent`            | 4% white     |
+| Hover    | `rgba(255,255,255,0.08)`   | `rgba(255,255,255,0.15)` | 6% white     |
+| Active   | `rgba(accent,0.35)`        | `rgba(accent,0.6)`       | 12% white    |
+| Pressed  | `rgba(accent,0.25)`        | `rgba(accent,0.5)`       | 8% white     |
 
 ## CSS Reference Implementation
 
-For web or CSS-based systems:
-
 ```css
-.glass-panel {
-    background: rgba(0, 0, 0, 0.55);
-    backdrop-filter: blur(40px);
-    -webkit-backdrop-filter: blur(40px);
-    border-radius: 16px;
-    border: 1px solid rgba(84, 84, 252, 0.25);
-    box-shadow:
-        0 4px 16px rgba(0, 0, 0, 0.6),
-        inset 0 1px 0 rgba(255, 255, 255, 0.08);
+.liquid-glass {
+    /* Base glass */
+    background: rgba(8, 8, 12, 0.75);
+    border-radius: 26px;
+    border: 1px solid rgba(84, 84, 252, 0.35);
     position: relative;
+    overflow: hidden;
+
+    /* Shadow */
+    box-shadow:
+        0 6px 24px rgba(0, 0, 0, 0.5),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08);
+
+    /* Blur (compositor-dependent) */
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
 }
 
-.glass-panel::before {
+/* Outer glow */
+.liquid-glass::before {
     content: '';
     position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 50%;
-    border-radius: 16px 16px 0 0;
+    inset: -2px;
+    border-radius: 28px;
+    border: 2px solid rgba(84, 84, 252, 0.15);
+    pointer-events: none;
+}
+
+/* Specular highlight */
+.liquid-glass::after {
+    content: '';
+    position: absolute;
+    top: 1px;
+    left: 1px;
+    right: 1px;
+    height: 40%;
+    border-radius: 25px 25px 0 0;
     background: linear-gradient(
         to bottom,
-        rgba(255, 255, 255, 0.12) 0%,
-        rgba(255, 255, 255, 0.02) 60%,
+        rgba(255, 255, 255, 0.18) 0%,
+        rgba(255, 255, 255, 0.06) 30%,
         transparent 100%
     );
     pointer-events: none;
 }
+
+/* Button glass */
+.glass-button {
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 12px;
+    border: none;
+    transition: all 120ms ease-out;
+}
+
+.glass-button:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.glass-button.active {
+    background: rgba(84, 84, 252, 0.35);
+    border: 1px solid rgba(84, 84, 252, 0.6);
+}
 ```
 
-## Accessibility Considerations
+## Accessibility Guidelines
 
-Per iOS 26.1, Apple added opacity controls for users who find Liquid Glass
-difficult to read. Consider providing:
+Per iOS 26.1, Apple added opacity controls. Provide options for:
 
-- **Reduce Transparency**: Increase `glassOpacity` to `0.85+`
-- **Increase Contrast**: Boost `borderOpacity` and `highlightOpacity`
-- **Reduce Motion**: Extend `animationDuration` or disable animations
+| Setting              | Normal    | Reduced Transparency |
+| -------------------- | --------- | -------------------- |
+| `glassOpacity`       | 0.75      | 0.92                 |
+| `highlightOpacity`   | 0.18      | 0.05                 |
+| `borderOpacity`      | 0.35      | 0.60                 |
+| Specular amplitude   | ≤ 6px     | disabled             |
+
+### Opacity Priority System (Wireframing)
+
+| Opacity | Usage                                    |
+| ------- | ---------------------------------------- |
+| 100%    | Vital content (main text, primary CTAs)  |
+| 70%     | Supporting text, secondary buttons       |
+| 40%     | Decorative UI (dividers, icons)          |
+| 20%     | Subtle tints, atmospheric overlays       |
 
 ## File Reference
 
-| File                  | Purpose                              |
-| --------------------- | ------------------------------------ |
-| `lib/Theme.qml`       | Singleton with all design tokens     |
-| `lib/GlassPanel.qml`  | Container component                  |
-| `lib/GlassButton.qml` | Interactive button component         |
-| `lib/qmldir`          | QML module definition                |
+| File                  | Purpose                          |
+| --------------------- | -------------------------------- |
+| `lib/Theme.qml`       | Singleton with all design tokens |
+| `lib/GlassPanel.qml`  | Container component              |
+| `lib/GlassButton.qml` | Interactive button component     |
+| `lib/qmldir`          | QML module definition            |
+
+## References
+
+- [WWDC25: Meet Liquid Glass](https://developer.apple.com/videos/play/wwdc2025/219/)
+- [Apple HIG: Materials](https://developer.apple.com/design/human-interface-guidelines/materials)
+- [SwiftUI glassEffect() API](https://developer.apple.com/documentation/SwiftUI/View/glassEffect)
 
 ## Version History
 
-| Version | Date       | Changes                                  |
-| ------- | ---------- | ---------------------------------------- |
-| 1.0     | 2026-01-20 | Initial specification                    |
+| Version | Date       | Changes                                       |
+| ------- | ---------- | --------------------------------------------- |
+| 1.0     | 2026-01-20 | Initial specification                         |
+| 1.1     | 2026-01-20 | Updated with WWDC25 research, improved values |

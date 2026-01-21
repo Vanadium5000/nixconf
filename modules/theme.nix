@@ -1,24 +1,28 @@
 { lib, ... }:
 let
-  # Nix Cyberpunk Electric Dark
+  # ===========================================================================
+  # Nix Cyberpunk Electric Dark - Application Theme
+  # Used for terminal applications, syntax highlighting, and app-specific styling
+  # ===========================================================================
   colors = {
-    base00 = "#000000"; # black
-    base01 = "#0d0d0d"; # darkish black
-    base02 = "#383838"; # brightish black
-    base03 = "#545454"; # bright black
-    base04 = "#7e7e7e"; # darker white
-    base05 = "#a8a8a8"; # white
-    base06 = "#d2d2d2"; # middle white
-    base07 = "#fcfcfc"; # bright white
+    base00 = "#000000"; # black (background)
+    base01 = "#0d0d0d"; # darkish black (lighter background)
+    base02 = "#383838"; # brightish black (selection)
+    base03 = "#545454"; # bright black (comments)
+    base04 = "#7e7e7e"; # darker white (dark foreground)
+    base05 = "#a8a8a8"; # white (default foreground)
+    base06 = "#d2d2d2"; # middle white (light foreground)
+    base07 = "#fcfcfc"; # bright white (lightest)
     base08 = "#fc5454"; # bright red
-    base09 = "#a85400"; # yellow
+    base09 = "#a85400"; # orange/yellow
     base0A = "#fcfc54"; # bright yellow
     base0B = "#54fc54"; # bright green
     base0C = "#54fcfc"; # bright cyan
     base0D = "#5454fc"; # bright blue
     base0E = "#fc54fc"; # bright magenta
-    base0F = "#00a800"; # green
+    base0F = "#00a800"; # dark green
 
+    # Semantic aliases
     accent = colors.base0D;
     accent-alt = colors.base0C;
     background = colors.base00;
@@ -29,31 +33,80 @@ let
     border-color-inactive = colors.base03;
   };
 
+  # ===========================================================================
+  # Apple Liquid Glass UI Theme
+  # Official dark mode values from iOS 26 / macOS Tahoe (WWDC25)
+  # Used for shell UI components (menus, panels, overlays)
+  # ===========================================================================
+  liquidGlass = {
+    # Colors - Apple Dark Mode System Colors
+    background = "rgba(15, 15, 23, 0.78)"; # Translucent dark glass
+    backgroundSolid = "#1C1C1E"; # Solid fallback
+    accent = "#0A84FF"; # iOS system blue (dark mode)
+    accentAlt = "#64D2FF"; # iOS system cyan (dark mode)
+
+    # Text hierarchy (Apple HIG)
+    textPrimary = "#FFFFFF";
+    textSecondary = "#EBEBF5";
+    textTertiary = "rgba(235, 235, 245, 0.3)";
+
+    # Separators
+    separator = "rgba(84, 84, 88, 0.65)";
+    separatorOpaque = "#38383A";
+
+    # Glass material properties
+    highlightOpacity = 0.15; # Top specular reflection
+    innerStrokeOpacity = 0.06; # Cut-glass edge effect
+    borderOpacity = 0.28; # Accent border visibility
+    borderWidth = 1;
+
+    # Shadow (Apple design tokens)
+    shadowOpacity = 0.45;
+    shadowRadius = 20;
+    shadowOffsetY = 6;
+
+    # Backdrop blur
+    blurRadius = 40;
+
+    # Layout tokens
+    cornerRadius = 22; # Large panels
+    cornerRadiusSmall = 12; # Buttons, items
+    padding = 14;
+    itemSpacing = 10;
+
+    # Typography
+    fontFamily = "JetBrainsMono Nerd Font";
+    fontSizeSmall = 11;
+    fontSizeMedium = 14;
+    fontSizeLarge = 17;
+    fontSizeTitle = 22;
+
+    # Animation
+    animationDuration = 150; # ms
+    animationDurationSlow = 250; # ms
+  };
+
+  # ===========================================================================
+  # General Theme Settings
+  # ===========================================================================
   theme = {
     font = "JetBrainsMono Nerd Font";
     blur = true;
     rounding = 16;
     opacity = 1.0;
-    gaps-in = 6; # between windows/buttons
-    gaps-out = 12; # between windows and border of display
+    gaps-in = 6; # Between windows/buttons
+    gaps-out = 12; # Between windows and display edge
     border-size = 2;
     font-size = 13;
     system.font-size = 11;
 
-    # Liquid Glass Specifics
-    liquid = {
-      glass-opacity = 0.45; # Base transparency of the glass
-      blur-strength = 40; # Heavy blur for the frosted look
-      border-opacity = 0.3; # Subtle border visibility
-      highlight-opacity = 0.15; # Specular highlight on top edges
-      shadow-opacity = 0.5; # Deep shadows for depth
-      shadow-radius = 12; # Soft glow radius
-      inner-stroke = 1; # Internal border for cut-glass effect
-      noise-opacity = 0.03; # Subtle texture
-      animation-duration = 200; # ms
-    };
+    # Liquid Glass reference (for modules that need it)
+    liquid = liquidGlass;
   };
 
+  # ===========================================================================
+  # Color Conversion Utilities
+  # ===========================================================================
   hexDigits = {
     "0" = 0;
     "1" = 1;
@@ -129,6 +182,7 @@ in
       colorsRgba
       colorsRgbaValues
       theme
+      liquidGlass
       ;
   };
 }
