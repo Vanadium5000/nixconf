@@ -95,24 +95,18 @@ Item {
             anchors.fill: parent
             anchors.margins: 4
 
-            // 1. IconImage (Preferred)
+            // 1. IconImage (Preferred) - Use Quickshell.iconPath() for proper XDG theme lookup
             IconImage {
                 id: mainIcon
                 anchors.centerIn: parent
-                width: Math.min(parent.width, parent.height) - 16
-                height: width
+                implicitSize: Math.min(parent.width, parent.height) - 8
                 
-                // Use the provided source, but if it fails (status is Error or Null), fallback to terminal
-                source: root.iconSource !== "" ? root.iconSource : "utilities-terminal"
+                // Use Quickshell.iconPath with fallback for proper icon theme resolution
+                source: root.iconSource !== "" 
+                    ? Quickshell.iconPath(root.iconSource, "application-x-executable")
+                    : Quickshell.iconPath("application-x-executable")
                 
-                // If the icon fails to load, fallback to terminal
-                onStatusChanged: {
-                    if (status === Image.Error || status === Image.Null) {
-                        source = "utilities-terminal"
-                    }
-                }
-
-                visible: true // Always try to show icon if we have a source or fallback
+                visible: root.iconSource !== "" || (root.icon === "" && root.text === "")
             }
 
             // 2. Text/Emoji Icon (Fallback)

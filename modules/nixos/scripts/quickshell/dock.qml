@@ -9,6 +9,8 @@
  * - Single instance locking
  */
 
+//@ pragma IconTheme Papirus
+
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls
@@ -49,15 +51,22 @@ PanelWindow {
     implicitWidth: (position === "left" || position === "right") ? 84 : 0
     
     // Layer Configuration
+    // User requested: "stop off-setting/reserving space from the windows by default"
+    // So default exclusiveZone should be -1 (no reservation), unless explicitly enabled.
+    property bool reserveSpace: false // Default to false
+    
+    // Logic: Only reserve if enabled AND not hidden AND not overlay mode
+    property bool effectiveReserve: reserveSpace && !overlayMode && !dockState.hidden
+    
     WlrLayershell.layer: overlayMode ? WlrLayer.Overlay : WlrLayer.Top
-    WlrLayershell.exclusiveZone: overlayMode ? -1 : ((position === "bottom" || position === "top") ? 84 : 84)
+    WlrLayershell.exclusiveZone: effectiveReserve ? 84 : -1
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
     
     color: "transparent"
     
     // --- Smart Hide Logic ---
     
-    property bool smartHide: true
+    property bool smartHide: false // Default to false (always visible)
     property bool isHovered: mouseArea.containsMouse
     property bool forceShow: false // Controlled by signal or external
     
@@ -84,20 +93,6 @@ PanelWindow {
     }
     
     // State Tracker
-    QtObject {
-        id: dockState
-        property bool hidden: false
-    }
-
-    // Mouse Area for hover detection (covers the "hitbox" of the dock)
-    MouseArea {
-        id: mouseArea
-        anchors.fill: parent
-        hoverEnabled: true
-        propagateComposedEvents: true
-        onPressed: (mouse) => mouse.accepted = false // Pass clicks through to buttons
-    }
-    
     // --- State Management ---
     
     property string configPath: Quickshell.env("HOME") + "/.config/quickshell/pinned.json"
@@ -155,7 +150,7 @@ PanelWindow {
                         address: c.address,
                         "class": c.class,
                         title: c.title,
-                        icon: dock.resolveIcon(c.class)
+                        icon: c.class.toLowerCase()
                     });
                 }
             } catch (e) {
@@ -282,7 +277,7 @@ PanelWindow {
                     }
                 } else {
                     var name = contextMenu.appClass;
-                    var icon = dock.resolveIcon(contextMenu.appClass);
+                    var icon = contextMenu.appClass.toLowerCase();
                     var cmd = contextMenu.appClass.toLowerCase(); 
                     
                     var exists = false;
@@ -393,7 +388,7 @@ PanelWindow {
                     property bool isRunning: {
                         for (var i = 0; i < runningAppsModel.count; i++) {
                             // Rough match by name/class
-                             if (dock.resolveIcon(runningAppsModel.get(i)["class"]) === model.icon) return true;
+                             if (runningAppsModel.get(i)["class"].toLowerCase() === model.icon) return true;
                         }
                         return false;
                     }

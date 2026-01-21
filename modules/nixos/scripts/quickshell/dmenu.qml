@@ -78,8 +78,8 @@ Scope {
         onExited: (code, status) => {
             root.isLoading = false;
             // Set initial selection after loading
-            if (root.selectedIndex > 0 && root.selectedIndex < filteredModel.count) {
-                listView.currentIndex = root.selectedIndex;
+            if (root.selectedIndex > 0 && root.selectedIndex < filteredModel.count && viewLoader.item) {
+                viewLoader.item.currentIndex = root.selectedIndex;
             }
         }
     }
@@ -132,8 +132,8 @@ Scope {
         Item {
             id: mainDialog
             anchors.centerIn: parent
-            width: 600
-            height: Math.min(520, 76 + (root.lineCount * 44))
+            width: root.viewMode === "grid" ? Math.min(parent.width * 0.9, 900) : 600
+            height: root.viewMode === "grid" ? Math.min(parent.height * 0.85, 700) : Math.min(520, 76 + (root.lineCount * 44))
 
             // Outer glow (subtle accent border outside main container)
             Rectangle {
@@ -282,10 +282,10 @@ Scope {
                                     visible: !parent.text && !parent.activeFocus
                                 }
 
-                                onAccepted: {
+                                    onAccepted: {
                                     var result = "";
-                                    if (filteredModel.count > 0 && listView.currentIndex >= 0) {
-                                        var item = filteredModel.get(listView.currentIndex);
+                                    var item = viewLoader.getCurrentItem();
+                                    if (item) {
                                         result = item.originalText || item.text;
                                     } else if (text) {
                                         result = text;
@@ -295,34 +295,31 @@ Scope {
 
                                 onTextChanged: {
                                     filterItems(text);
-                                    if (filteredModel.count > 0) {
-                                        listView.currentIndex = 0;
+                                    if (filteredModel.count > 0 && viewLoader.item) {
+                                        viewLoader.item.currentIndex = 0;
                                     }
                                 }
 
                                 Keys.onPressed: event => {
                                     if (event.key === Qt.Key_Down) {
-                                        listView.incrementCurrentIndex();
+                                        viewLoader.increment();
                                         event.accepted = true;
                                     } else if (event.key === Qt.Key_Up) {
-                                        listView.decrementCurrentIndex();
+                                        viewLoader.decrement();
                                         event.accepted = true;
                                     } else if (event.key === Qt.Key_Escape) {
                                         Qt.quit();
                                     } else if (event.key === Qt.Key_Tab) {
-                                        if (filteredModel.count > 0 && listView.currentIndex >= 0) {
-                                            var item = filteredModel.get(listView.currentIndex);
+                                        var item = viewLoader.getCurrentItem();
+                                        if (item) {
                                             searchInput.text = item.displayText;
                                         }
                                         event.accepted = true;
                                     } else if (event.key === Qt.Key_PageDown) {
-                                        listView.currentIndex = Math.min(
-                                            listView.currentIndex + 5,
-                                            filteredModel.count - 1
-                                        );
+                                        viewLoader.pageDown();
                                         event.accepted = true;
                                     } else if (event.key === Qt.Key_PageUp) {
-                                        listView.currentIndex = Math.max(listView.currentIndex - 5, 0);
+                                        viewLoader.pageUp();
                                         event.accepted = true;
                                     }
                                 }
@@ -347,6 +344,33 @@ Scope {
                             clip: true
                             
                             sourceComponent: root.viewMode === "grid" ? gridComponent : listComponent
+                            
+                            // Expose common interface for key navigation
+                            property int count: item ? item.count : 0
+                            property int currentIndex: item ? item.currentIndex : -1
+                            
+                            function increment() {
+                                if (item) item.currentIndex = Math.min(item.currentIndex + 1, item.count - 1)
+                            }
+                            
+                            function decrement() {
+                                if (item) item.currentIndex = Math.max(item.currentIndex - 1, 0)
+                            }
+                            
+                            function pageDown() {
+                                if (item) item.currentIndex = Math.min(item.currentIndex + 5, item.count - 1)
+                            }
+                            
+                            function pageUp() {
+                                if (item) item.currentIndex = Math.max(item.currentIndex - 5, 0)
+                            }
+                            
+                            function getCurrentItem() {
+                                if (filteredModel.count > 0 && item && item.currentIndex >= 0) {
+                                    return filteredModel.get(item.currentIndex)
+                                }
+                                return null
+                            }
                         }
 
                         // --- List View Component ---
@@ -356,6 +380,10 @@ Scope {
                                 id: listView
                                 spacing: 3
                                 model: filteredModel
+
+                                // Explicit property aliases for the Loader to access
+                                property alias count: listView.count
+                                property alias currentIndex: listView.currentIndex
 
                                 // Empty/loading state indicator (parented to Loader's parent or handled in Loader)
                                 // We'll put it in the delegate or outside, but since this is inside Component, 
@@ -428,60 +456,107 @@ Scope {
                             id: gridComponent
                             GridView {
                                 id: gridView
-                                cellWidth: width / root.gridColumns
-                                cellHeight: cellWidth + 20
+                                cellWidth: Math.floor(width / root.gridColumns)
+                                cellHeight: cellWidth * 0.75 + 40
                                 model: filteredModel
+                                clip: true
+                                cacheBuffer: 0
                                 
-                                delegate: Rectangle {
-                                    width: gridView.cellWidth - 10
-                                    height: gridView.cellHeight - 10
-                                    radius: Theme.glass.cornerRadiusSmall
-                                    color: (GridView.isCurrentItem || mouseArea.containsMouse) ? Qt.rgba(1,1,1,0.1) : "transparent"
+                                // Explicit property aliases for the Loader to access
+                                property alias count: gridView.count
+                                property alias currentIndex: gridView.currentIndex
+                                
+                                ScrollBar.vertical: ScrollBar {
+                                    policy: ScrollBar.AsNeeded
+                                    width: 6
+                                    contentItem: Rectangle { radius: 3; color: Qt.rgba(1, 1, 1, 0.3) }
+                                }
+                                
+                                delegate: Item {
+                                    id: gridDelegate
+                                    width: gridView.cellWidth
+                                    height: gridView.cellHeight
                                     
                                     property bool isSelected: GridView.isCurrentItem
+                                    property bool isVisible: gridDelegate.y >= gridView.contentY - gridView.cellHeight &&
+                                                            gridDelegate.y <= gridView.contentY + gridView.height + gridView.cellHeight
                                     
-                                    ColumnLayout {
-                                        anchors.centerIn: parent
-                                        spacing: 8
+                                    Rectangle {
+                                        anchors.fill: parent
+                                        anchors.margins: 5
+                                        radius: Theme.glass.cornerRadiusSmall
+                                        color: (gridDelegate.isSelected || mouseArea.containsMouse) ? Qt.rgba(1,1,1,0.15) : Qt.rgba(1,1,1,0.05)
+                                        border.color: gridDelegate.isSelected ? Theme.glass.accentColor : "transparent"
+                                        border.width: gridDelegate.isSelected ? 2 : 0
                                         
-                                        // Icon Image
-                                        Image {
-                                            Layout.preferredWidth: root.gridIconSize
-                                            Layout.preferredHeight: root.gridIconSize
-                                            Layout.alignment: Qt.AlignHCenter
-                                            source: model.iconPath // Assumes real path for grid mode
-                                            fillMode: Image.PreserveAspectFit
-                                            smooth: true
-                                            mipmap: true
+                                        Behavior on color { ColorAnimation { duration: 150 } }
+                                        
+                                        Column {
+                                            anchors.fill: parent
+                                            anchors.margins: 8
+                                            spacing: 6
                                             
-                                            // Fallback text icon if image fails or is font-icon
+                                            // Image container with fixed aspect ratio
+                                            Rectangle {
+                                                width: parent.width
+                                                height: parent.height - labelText.height - parent.spacing
+                                                color: Qt.rgba(0, 0, 0, 0.3)
+                                                radius: 4
+                                                clip: true
+                                                
+                                                // Only load image when delegate is visible (true lazy loading)
+                                                Loader {
+                                                    anchors.fill: parent
+                                                    active: gridDelegate.isVisible
+                                                    
+                                                    sourceComponent: Image {
+                                                        source: model.iconPath ? "file://" + model.iconPath : ""
+                                                        asynchronous: true
+                                                        cache: true
+                                                        fillMode: Image.PreserveAspectCrop
+                                                        smooth: true
+                                                        
+                                                        // Placeholder while loading
+                                                        Rectangle {
+                                                            anchors.fill: parent
+                                                            color: Qt.rgba(0.2, 0.2, 0.25, 1)
+                                                            visible: parent.status !== Image.Ready
+                                                            
+                                                            Text {
+                                                                anchors.centerIn: parent
+                                                                text: parent.parent.status === Image.Loading ? "..." : "🖼"
+                                                                font.pixelSize: 24
+                                                                color: Theme.glass.textTertiary
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                            
+                                            // Label
                                             Text {
-                                                anchors.centerIn: parent
-                                                visible: parent.status !== Image.Ready
-                                                text: "🖼️"
-                                                font.pixelSize: 48
+                                                id: labelText
+                                                width: parent.width
+                                                height: 28
+                                                text: model.displayText || ""
+                                                horizontalAlignment: Text.AlignHCenter
+                                                verticalAlignment: Text.AlignVCenter
+                                                elide: Text.ElideMiddle
+                                                maximumLineCount: 1
+                                                color: Theme.glass.textPrimary
+                                                font.family: Theme.glass.fontFamily
+                                                font.pixelSize: Theme.glass.fontSizeSmall
                                             }
                                         }
                                         
-                                        Text {
-                                            Layout.fillWidth: true
-                                            Layout.maximumWidth: parent.width
-                                            text: model.displayText
-                                            horizontalAlignment: Text.AlignHCenter
-                                            elide: Text.ElideMiddle
-                                            color: Theme.glass.textPrimary
-                                            font.family: Theme.glass.fontFamily
-                                            font.pixelSize: Theme.glass.fontSizeSmall
-                                        }
-                                    }
-                                    
-                                    MouseArea {
-                                        id: mouseArea
-                                        anchors.fill: parent
-                                        hoverEnabled: true
-                                        onClicked: {
-                                            gridView.currentIndex = index
-                                            outputAndQuit(model.originalText || model.text)
+                                        MouseArea {
+                                            id: mouseArea
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            onClicked: {
+                                                gridView.currentIndex = index
+                                                outputAndQuit(model.originalText || model.text)
+                                            }
                                         }
                                     }
                                 }

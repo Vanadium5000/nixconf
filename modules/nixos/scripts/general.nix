@@ -194,7 +194,7 @@
           RANDOM_PIC_NAME=". random"
 
           # qs-dmenu command
-          qs_command="DMENU_VIEW=grid DMENU_GRID_COLS=3 DMENU_ICON_SIZE=256 ${lib.getExe self'.packages.qs-dmenu} -p 'Select Wallpaper'"
+          qs_command=(env DMENU_VIEW=grid DMENU_GRID_COLS=3 DMENU_ICON_SIZE=256 ${lib.getExe self'.packages.qs-dmenu} -p "Select Wallpaper")
 
           # Sorting Wallpapers
           menu() {
@@ -202,23 +202,23 @@
           	IFS=$'\n' sorted_options=($(sort <<<"''${PICS[*]}"))
 
           	# Place ". random" at the beginning with the random picture as an icon
-          	printf "%s\x00icon\x1f%s\n" "$RANDOM_PIC_NAME" "$RANDOM_PIC"
+          	printf "%s\x00icon\x1f%s\n" "$RANDOM_PIC_NAME" "$RANDOM_PIC" || true
 
           	for pic_path in "''${sorted_options[@]}"; do
           		pic_name=$(basename "$pic_path")
 
           		# Displaying .gif to indicate animated images
           		if [[ ! "$pic_name" =~ \.gif$ ]]; then
-          			printf "%s\x00icon\x1f%s\n" "$(echo "$pic_name" | cut -d. -f1)" "$pic_path"
+          			printf "%s\x00icon\x1f%s\n" "$(echo "$pic_name" | cut -d. -f1)" "$pic_path" || true
           		else
-          			printf "%s\x00icon\x1f%s\n" "$pic_name" "$pic_path"
+          			printf "%s\x00icon\x1f%s\n" "$pic_name" "$pic_path" || true
           		fi
           	done
           }
 
           # Choice of wallpapers
           main() {
-          	choice=$(menu | $qs_command)
+          	choice=$(menu | "''${qs_command[@]}")
 
           	# Trim any potential whitespace or hidden characters
           	choice=$(echo "$choice" | xargs)
