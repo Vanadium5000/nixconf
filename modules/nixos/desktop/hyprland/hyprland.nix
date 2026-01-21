@@ -239,11 +239,9 @@
 
           "${mod},L, exec, hyprlock" # Lock
 
-          #"${mod},TAB, overview:toggle" # Overview (Hyprspace)
+          "${mod},TAB, overview:toggle" # Overview (Hyprspace)
 
-          "${mod},D, exec, pkill nwg-dock || ${
-            getExe self.packages.${pkgs.stdenv.hostPlatform.system}.nwg-dock-hyprland
-          }" # Toggle nwg-dock-hyprland (dock)
+          "${mod},D, exec, qs-dock" # Toggle qs-dock
           "${shiftMod},D, exec, pkill waybar || ${
             getExe self.packages.${pkgs.stdenv.hostPlatform.system}.waybar
           }" # Toggle Hyprpanel (bar)

@@ -253,13 +253,20 @@
           QML_FILE="${mkQml "dock.qml" ./dock.qml}"
           QS_BIN="${pkgs.quickshell}/bin/qs"
           export QML2_IMPORT_PATH="${pkgs.qt6.qt5compat}/lib/qt-6/qml:$QML2_IMPORT_PATH"
+          
+          # Add icon themes to XDG_DATA_DIRS
+          export XDG_DATA_DIRS="${pkgs.adwaita-icon-theme}/share:${pkgs.papirus-icon-theme}/share:$XDG_DATA_DIRS"
 
           # Kill if running to restart/toggle
           "$QS_BIN" kill -p "$QML_FILE" 2>/dev/null || true
 
           exec "$QS_BIN" -p "$QML_FILE"
         '';
-        runtimeInputs = [ pkgs.quickshell ];
+        runtimeInputs = [
+          pkgs.quickshell
+          pkgs.adwaita-icon-theme
+          pkgs.papirus-icon-theme
+        ];
       };
 
       packages.qs-dmenu = inputs.wrappers.lib.makeWrapper {

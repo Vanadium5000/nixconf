@@ -11,21 +11,76 @@ import "./lib"
 PanelWindow {
     id: dock
     
-    // Dock at the bottom centered
+    // --- Window Configuration ---
+
+    // Positioning
+    // Top, Bottom, Left, Right
+    property string position: "bottom" // Default
+    
+    // Overlay Mode: If true, renders on Overlay layer (over fullscreens). 
+    // If false, renders on Top layer (reserves space)
+    property bool overlayMode: false 
+    
     anchors {
-        bottom: true
-        left: true
-        right: true
+        bottom: position === "bottom"
+        top: position === "top"
+        left: position === "left" || position === "top" || position === "bottom"
+        right: position === "right" || position === "top" || position === "bottom"
     }
     
-    // Fix: Use implicitHeight instead of height
-    implicitHeight: 84
+    // Dimensions
+    implicitHeight: (position === "bottom" || position === "top") ? 84 : 0
+    implicitWidth: (position === "left" || position === "right") ? 84 : 0
     
-    WlrLayershell.layer: WlrLayer.Top
-    WlrLayershell.exclusiveZone: 84
+    // Layer Configuration
+    WlrLayershell.layer: overlayMode ? WlrLayer.Overlay : WlrLayer.Top
+    WlrLayershell.exclusiveZone: overlayMode ? -1 : ((position === "bottom" || position === "top") ? 84 : 84)
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
     
     color: "transparent"
+    
+    // --- Smart Hide Logic ---
+    
+    property bool smartHide: true
+    property bool isHovered: mouseArea.containsMouse
+    property bool forceShow: false // Controlled by signal or external
+    
+    // Hide Timer
+    Timer {
+        id: hideTimer
+        interval: 3000
+        running: dock.smartHide && !dock.isHovered && !dock.forceShow
+        repeat: false
+        onTriggered: {
+            // Trigger hide animation state
+            dockState.hidden = true
+        }
+    }
+    
+    // Reset timer on hover
+    onIsHoveredChanged: {
+        if (isHovered) {
+            dockState.hidden = false
+            hideTimer.stop()
+        } else {
+            hideTimer.restart()
+        }
+    }
+    
+    // State Tracker
+    QtObject {
+        id: dockState
+        property bool hidden: false
+    }
+
+    // Mouse Area for hover detection (covers the "hitbox" of the dock)
+    MouseArea {
+        id: mouseArea
+        anchors.fill: parent
+        hoverEnabled: true
+        propagateComposedEvents: true
+        onPressed: (mouse) => mouse.accepted = false // Pass clicks through to buttons
+    }
     
     // --- State Management ---
     
@@ -46,7 +101,7 @@ PanelWindow {
         running: true
         repeat: true
         onTriggered: {
-            if (!fetchClients.running) fetchClients.running = true;
+             if (!fetchClients.running) fetchClients.running = true;
         }
     }
 
@@ -99,7 +154,7 @@ PanelWindow {
         running: true
         repeat: true
         onTriggered: {
-            if (!fetchActive.running) fetchActive.running = true;
+             if (!fetchActive.running) fetchActive.running = true;
         }
     }
     
@@ -174,7 +229,7 @@ PanelWindow {
 
     function loadDefaults() {
         pinnedAppsModel.clear();
-        pinnedAppsModel.append({ name: "Terminal", icon: "utilities-terminal", cmd: "kitty" });
+        pinnedAppsModel.append({ name: "Terminal", icon: "terminal", cmd: "kitty" });
         pinnedAppsModel.append({ name: "Browser", icon: "firefox", cmd: "firefox" });
         pinnedAppsModel.append({ name: "Files", icon: "system-file-manager", cmd: "nautilus" });
         savePinnedApps();
@@ -184,7 +239,9 @@ PanelWindow {
     function resolveIcon(className) {
         if (!className) return "application-x-executable";
         var c = className.toLowerCase();
-        if (c.includes("kitty")) return "utilities-terminal";
+        
+        // Manual mapping for common apps
+        if (c.includes("kitty")) return "terminal";
         if (c.includes("firefox")) return "firefox";
         if (c.includes("brave")) return "brave-browser";
         if (c.includes("chromium")) return "chromium";
@@ -197,6 +254,9 @@ PanelWindow {
         if (c.includes("nautilus") || c.includes("thunar") || c.includes("dolphin")) return "system-file-manager";
         if (c.includes("vlc")) return "vlc";
         if (c.includes("steam")) return "steam";
+        
+        // Fallback: try to use the class name directly
+        // This often works for well-behaved apps (e.g. 'gimp', 'inkscape')
         return c;
     }
 
@@ -263,10 +323,22 @@ PanelWindow {
 
     GlassPanel {
         id: dockContainer
+        
+        // Animation for Smart Hide
+        // We animate the vertical offset (translation)
+        transform: Translate {
+            y: dockState.hidden ? (dock.position === "bottom" ? 100 : 0) : 0
+            x: dockState.hidden ? (dock.position === "left" ? -100 : (dock.position === "right" ? 100 : 0)) : 0
+            
+            Behavior on y { NumberAnimation { duration: 300; easing.type: Easing.OutExpo } }
+            Behavior on x { NumberAnimation { duration: 300; easing.type: Easing.OutExpo } }
+        }
+        
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: 8
+        anchors.bottomMargin: dockState.hidden ? -60 : 8 // Tuck away partially or fully
         anchors.horizontalCenter: parent.horizontalCenter
         
+        // Auto-width based on content
         width: dockLayout.implicitWidth + (Theme.glass.padding * 2)
         height: 68
         
@@ -275,6 +347,11 @@ PanelWindow {
         // Use darker background with blue border as requested
         color: Qt.rgba(0.06, 0.06, 0.09, 0.85) 
         hasBorder: true
+        
+        // Hovering the dock container keeps it awake
+        HoverHandler {
+            onHoveredChanged: if (hovered) dockState.hidden = false
+        }
         
         // Content
         RowLayout {
