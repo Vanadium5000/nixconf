@@ -9,6 +9,12 @@ import "./lib"
 
 PanelWindow {
     id: root
+    
+    InstanceLock {
+        lockName: "lyrics"
+        toggle: true
+    }
+
     WlrLayershell.layer: WlrLayer.Overlay
 
     // Configuration via environment variables

@@ -5,7 +5,7 @@ import "."
 Item {
     id: root
 
-    default property alias content: container.children
+    default property alias content: container.data
     property bool hasShadow: true
     property bool hasBlur: true
     property bool hasBorder: true

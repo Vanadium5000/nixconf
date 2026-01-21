@@ -97,16 +97,22 @@ Item {
 
             // 1. IconImage (Preferred)
             IconImage {
+                id: mainIcon
                 anchors.centerIn: parent
                 width: Math.min(parent.width, parent.height) - 16
                 height: width
-                source: root.iconSource
-                visible: root.iconSource !== ""
                 
-                // Colorize symbolic icons if active, otherwise use native colors
-                // Note: For full color application icons, we might not want to mask them.
-                // But for symbolic icons, we want them to follow theme.
-                // Let's assume application icons (svg/png) for dock, so no color overlay by default unless specified.
+                // Use the provided source, but if it fails (status is Error or Null), fallback to terminal
+                source: root.iconSource !== "" ? root.iconSource : "utilities-terminal"
+                
+                // If the icon fails to load, fallback to terminal
+                onStatusChanged: {
+                    if (status === Image.Error || status === Image.Null) {
+                        source = "utilities-terminal"
+                    }
+                }
+
+                visible: true // Always try to show icon if we have a source or fallback
             }
 
             // 2. Text/Emoji Icon (Fallback)

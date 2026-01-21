@@ -194,7 +194,7 @@
           RANDOM_PIC_NAME=". random"
 
           # qs-dmenu command
-          qs_command="${lib.getExe self'.packages.qs-dmenu} -p 'Select Wallpaper'"
+          qs_command="DMENU_VIEW=grid DMENU_GRID_COLS=3 DMENU_ICON_SIZE=256 ${lib.getExe self'.packages.qs-dmenu} -p 'Select Wallpaper'"
 
           # Sorting Wallpapers
           menu() {
@@ -202,19 +202,16 @@
           	IFS=$'\n' sorted_options=($(sort <<<"''${PICS[*]}"))
 
           	# Place ". random" at the beginning with the random picture as an icon
-            # qs-dmenu uses simple text for now, icon support via \0icon\x1f is basic
-          	# printf "%s\x00icon\x1f%s\n" "$RANDOM_PIC_NAME" "$RANDOM_PIC"
-            echo "$RANDOM_PIC_NAME"
+          	printf "%s\x00icon\x1f%s\n" "$RANDOM_PIC_NAME" "$RANDOM_PIC"
 
           	for pic_path in "''${sorted_options[@]}"; do
           		pic_name=$(basename "$pic_path")
 
           		# Displaying .gif to indicate animated images
           		if [[ ! "$pic_name" =~ \.gif$ ]]; then
-          			# printf "%s\x00icon\x1f%s\n" "$(echo "$pic_name" | cut -d. -f1)" "$pic_path"
-                    echo "$pic_name" | cut -d. -f1
+          			printf "%s\x00icon\x1f%s\n" "$(echo "$pic_name" | cut -d. -f1)" "$pic_path"
           		else
-          			printf "%s\n" "$pic_name"
+          			printf "%s\x00icon\x1f%s\n" "$pic_name" "$pic_path"
           		fi
           	done
           }

@@ -38,9 +38,16 @@ Scope {
     property int selectedIndex: parseInt(Quickshell.env("DMENU_SELECTED") ?? "0")
     property string placeholderText: Quickshell.env("DMENU_PLACEHOLDER") ?? ""
     property string filterMode: Quickshell.env("DMENU_FILTER") ?? "fuzzy"
+    property string viewMode: Quickshell.env("DMENU_VIEW") ?? "list" // list, grid
+    property int gridColumns: parseInt(Quickshell.env("DMENU_GRID_COLS") ?? "3")
+    property int gridIconSize: parseInt(Quickshell.env("DMENU_ICON_SIZE") ?? "128")
 
     // Track loading state
     property bool isLoading: true
+
+    InstanceLock {
+        lockName: "dmenu"
+    }
 
     // =========================================================================
     // Data Models
@@ -332,147 +339,154 @@ Scope {
                         }
                     }
 
-                    // Results ListView
-                    ListView {
-                        id: listView
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        clip: true
-                        spacing: 3
-                        visible: !root.passwordMode
-
-                        model: filteredModel
-
-                        // Empty/loading state indicator
-                        Text {
-                            anchors.centerIn: parent
-                            text: root.isLoading ? "Loading..." : "No matches"
-                            color: Theme.glass.textTertiary
-                            font.family: Theme.glass.fontFamily
-                            font.pixelSize: Theme.glass.fontSizeMedium
-                            visible: listView.count === 0
+                        // Results View (Loader for List or Grid)
+                        Loader {
+                            id: viewLoader
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            clip: true
+                            
+                            sourceComponent: root.viewMode === "grid" ? gridComponent : listComponent
                         }
 
-                        delegate: Rectangle {
-                            id: delegateItem
-                            width: listView.width
-                            height: 40
-                            radius: Theme.glass.cornerRadius - 6
+                        // --- List View Component ---
+                        Component {
+                            id: listComponent
+                            ListView {
+                                id: listView
+                                spacing: 3
+                                model: filteredModel
 
-                            property bool isSelected: index === listView.currentIndex
-                            property bool isHovered: delegateMouseArea.containsMouse
+                                // Empty/loading state indicator (parented to Loader's parent or handled in Loader)
+                                // We'll put it in the delegate or outside, but since this is inside Component, 
+                                // we need to reference the root model.
 
-                            // Glass button styling based on state
-                            color: {
-                                if (isSelected) {
-                                    return Qt.rgba(
-                                        Theme.glass.accentColor.r,
-                                        Theme.glass.accentColor.g,
-                                        Theme.glass.accentColor.b,
-                                        0.32
-                                    );
-                                }
-                                if (isHovered) {
-                                    return Qt.rgba(1, 1, 1, 0.06);
-                                }
-                                return Qt.rgba(1, 1, 1, 0.02);
-                            }
+                                delegate: Rectangle {
+                                    id: delegateItem
+                                    width: ListView.view.width
+                                    height: 40
+                                    radius: Theme.glass.cornerRadius - 6
 
-                            border.color: {
-                                if (isSelected) {
-                                    return Qt.rgba(
-                                        Theme.glass.accentColor.r,
-                                        Theme.glass.accentColor.g,
-                                        Theme.glass.accentColor.b,
-                                        0.5
-                                    );
-                                }
-                                if (isHovered) {
-                                    return Qt.rgba(1, 1, 1, 0.1);
-                                }
-                                return "transparent";
-                            }
-                            border.width: (isSelected || isHovered) ? 1 : 0
+                                    property bool isSelected: index === ListView.view.currentIndex
+                                    property bool isHovered: delegateMouseArea.containsMouse
 
-                            Behavior on color {
-                                ColorAnimation { duration: Theme.glass.animationDuration }
-                            }
-
-                            // Top highlight for glass effect
-                            Rectangle {
-                                anchors {
-                                    top: parent.top
-                                    left: parent.left
-                                    right: parent.right
-                                    margins: 1
-                                }
-                                height: parent.height * 0.5
-                                radius: parent.radius - 1
-                                gradient: Gradient {
-                                    GradientStop {
-                                        position: 0.0
-                                        color: Qt.rgba(1, 1, 1, delegateItem.isSelected ? 0.1 : 0.03)
+                                    // Glass button styling based on state
+                                    color: {
+                                        if (isSelected) return Qt.rgba(Theme.glass.accentColor.r, Theme.glass.accentColor.g, Theme.glass.accentColor.b, 0.32);
+                                        if (isHovered) return Qt.rgba(1, 1, 1, 0.06);
+                                        return Qt.rgba(1, 1, 1, 0.02);
                                     }
-                                    GradientStop {
-                                        position: 1.0
-                                        color: "transparent"
+
+                                    border.color: (isSelected || isHovered) ? Qt.rgba(1, 1, 1, 0.1) : "transparent"
+                                    border.width: (isSelected || isHovered) ? 1 : 0
+
+                                    Behavior on color { ColorAnimation { duration: Theme.glass.animationDuration } }
+
+                                    RowLayout {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 14
+                                        anchors.rightMargin: 14
+                                        spacing: 10
+
+                                        Text {
+                                            visible: (model.iconPath || "") !== ""
+                                            text: model.iconPath || ""
+                                            font.family: Theme.glass.fontFamily
+                                            font.pixelSize: 16
+                                            color: delegateItem.isSelected ? Theme.glass.accentColorAlt : Theme.glass.textSecondary
+                                        }
+
+                                        Text {
+                                            Layout.fillWidth: true
+                                            text: model.displayText || ""
+                                            font.family: Theme.glass.fontFamily
+                                            font.pixelSize: Theme.glass.fontSizeMedium
+                                            font.weight: delegateItem.isSelected ? Font.Medium : Font.Normal
+                                            color: delegateItem.isSelected ? Theme.glass.textPrimary : Theme.glass.textSecondary
+                                            elide: Text.ElideRight
+                                        }
+                                    }
+
+                                    MouseArea {
+                                        id: delegateMouseArea
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        onClicked: outputAndQuit(model.originalText || model.text);
                                     }
                                 }
-                            }
-
-                            RowLayout {
-                                anchors.fill: parent
-                                anchors.leftMargin: 14
-                                anchors.rightMargin: 14
-                                spacing: 10
-
-                                // Icon (if present)
-                                Text {
-                                    visible: (model.iconPath || "") !== ""
-                                    text: model.iconPath || ""
-                                    font.family: Theme.glass.fontFamily
-                                    font.pixelSize: 16
-                                    color: delegateItem.isSelected
-                                        ? Theme.glass.accentColorAlt
-                                        : Theme.glass.textSecondary
-                                }
-
-                                // Label
-                                Text {
-                                    Layout.fillWidth: true
-                                    text: model.displayText || ""
-                                    font.family: Theme.glass.fontFamily
-                                    font.pixelSize: Theme.glass.fontSizeMedium
-                                    font.weight: delegateItem.isSelected ? Font.Medium : Font.Normal
-                                    color: delegateItem.isSelected
-                                        ? Theme.glass.textPrimary
-                                        : Theme.glass.textSecondary
-                                    elide: Text.ElideRight
-                                }
-                            }
-
-                            MouseArea {
-                                id: delegateMouseArea
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                onClicked: {
-                                    outputAndQuit(model.originalText || model.text);
+                                
+                                ScrollBar.vertical: ScrollBar {
+                                    policy: ScrollBar.AsNeeded
+                                    width: 5
+                                    contentItem: Rectangle { radius: 2.5; color: Qt.rgba(1, 1, 1, 0.25) }
                                 }
                             }
                         }
 
-                        highlightFollowsCurrentItem: true
-                        highlightMoveDuration: 50
-
-                        ScrollBar.vertical: ScrollBar {
-                            policy: ScrollBar.AsNeeded
-                            width: 5
-                            contentItem: Rectangle {
-                                radius: 2.5
-                                color: Qt.rgba(1, 1, 1, 0.25)
+                        // --- Grid View Component ---
+                        Component {
+                            id: gridComponent
+                            GridView {
+                                id: gridView
+                                cellWidth: width / root.gridColumns
+                                cellHeight: cellWidth + 20
+                                model: filteredModel
+                                
+                                delegate: Rectangle {
+                                    width: gridView.cellWidth - 10
+                                    height: gridView.cellHeight - 10
+                                    radius: Theme.glass.cornerRadiusSmall
+                                    color: (GridView.isCurrentItem || mouseArea.containsMouse) ? Qt.rgba(1,1,1,0.1) : "transparent"
+                                    
+                                    property bool isSelected: GridView.isCurrentItem
+                                    
+                                    ColumnLayout {
+                                        anchors.centerIn: parent
+                                        spacing: 8
+                                        
+                                        // Icon Image
+                                        Image {
+                                            Layout.preferredWidth: root.gridIconSize
+                                            Layout.preferredHeight: root.gridIconSize
+                                            Layout.alignment: Qt.AlignHCenter
+                                            source: model.iconPath // Assumes real path for grid mode
+                                            fillMode: Image.PreserveAspectFit
+                                            smooth: true
+                                            mipmap: true
+                                            
+                                            // Fallback text icon if image fails or is font-icon
+                                            Text {
+                                                anchors.centerIn: parent
+                                                visible: parent.status !== Image.Ready
+                                                text: "🖼️"
+                                                font.pixelSize: 48
+                                            }
+                                        }
+                                        
+                                        Text {
+                                            Layout.fillWidth: true
+                                            Layout.maximumWidth: parent.width
+                                            text: model.displayText
+                                            horizontalAlignment: Text.AlignHCenter
+                                            elide: Text.ElideMiddle
+                                            color: Theme.glass.textPrimary
+                                            font.family: Theme.glass.fontFamily
+                                            font.pixelSize: Theme.glass.fontSizeSmall
+                                        }
+                                    }
+                                    
+                                    MouseArea {
+                                        id: mouseArea
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        onClicked: {
+                                            gridView.currentIndex = index
+                                            outputAndQuit(model.originalText || model.text)
+                                        }
+                                    }
+                                }
                             }
                         }
-                    }
                 }
             }
 

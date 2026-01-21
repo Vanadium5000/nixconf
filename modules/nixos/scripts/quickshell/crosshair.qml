@@ -5,6 +5,12 @@ import "./lib"
 
 PanelWindow {
     id: root
+    
+    InstanceLock {
+        lockName: "crosshair"
+        toggle: true
+    }
+    
     WlrLayershell.layer: WlrLayer.Overlay
 
     // Read margins as environment variable strings

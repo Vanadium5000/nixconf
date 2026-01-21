@@ -1,3 +1,14 @@
+/*
+ * dock.qml - Desktop Dock
+ *
+ * Bottom edge panel with pinned apps and running tasks.
+ * Features:
+ * - Smart hide/show on hover
+ * - Pinned apps management (json persistence)
+ * - Hyprland taskbar integration
+ * - Single instance locking
+ */
+
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls
@@ -10,6 +21,11 @@ import "./lib"
 
 PanelWindow {
     id: dock
+    
+    InstanceLock {
+        lockName: "dock"
+        toggle: false // Dock should replace old instance, not toggle close
+    }
     
     // --- Window Configuration ---
 
@@ -233,31 +249,6 @@ PanelWindow {
         pinnedAppsModel.append({ name: "Browser", icon: "firefox", cmd: "firefox" });
         pinnedAppsModel.append({ name: "Files", icon: "system-file-manager", cmd: "nautilus" });
         savePinnedApps();
-    }
-
-    // Helper to resolve icons
-    function resolveIcon(className) {
-        if (!className) return "application-x-executable";
-        var c = className.toLowerCase();
-        
-        // Manual mapping for common apps
-        if (c.includes("kitty")) return "terminal";
-        if (c.includes("firefox")) return "firefox";
-        if (c.includes("brave")) return "brave-browser";
-        if (c.includes("chromium")) return "chromium";
-        if (c.includes("chrome")) return "google-chrome";
-        if (c.includes("discord")) return "discord";
-        if (c.includes("code")) return "visual-studio-code";
-        if (c.includes("neovim")) return "nvim";
-        if (c.includes("obsidian")) return "obsidian";
-        if (c.includes("spotify")) return "spotify";
-        if (c.includes("nautilus") || c.includes("thunar") || c.includes("dolphin")) return "system-file-manager";
-        if (c.includes("vlc")) return "vlc";
-        if (c.includes("steam")) return "steam";
-        
-        // Fallback: try to use the class name directly
-        // This often works for well-behaved apps (e.g. 'gimp', 'inkscape')
-        return c;
     }
 
     // --- Context Menu ---

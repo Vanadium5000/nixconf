@@ -1,3 +1,13 @@
+/*
+ * launcher.qml - Application Launcher & Calculator
+ *
+ * Floating centered window implementing the Liquid Glass design.
+ * Features:
+ * - Application search (via desktop files)
+ * - Calculator mode (via qalc)
+ * - Single instance locking (toggleable)
+ */
+
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls
@@ -9,15 +19,22 @@ import "./lib"
 Scope {
     id: root
     
-    property string mode: Quickshell.env("LAUNCHER_MODE") ?? "app" // app, calc
-    
+    // --- Single Instance Lock ---
+    InstanceLock {
+        lockName: "launcher"
+        toggle: true
+    }
+
     // --- Window Configuration ---
-    // Floating centered window for the launcher
+    // Fullscreen overlay window to allow centering content
     PanelWindow {
         id: window
-        anchors.centerIn: parent
-        width: 600
-        height: root.mode === "calc" ? 200 : 500
+        anchors {
+            top: true
+            bottom: true
+            left: true
+            right: true
+        }
         visible: true
         
         WlrLayershell.layer: WlrLayer.Overlay
@@ -25,7 +42,25 @@ Scope {
         
         color: "transparent"
         
-        GlassPanel {
+        // Close on click outside
+        MouseArea {
+            anchors.fill: parent
+            onClicked: Qt.quit()
+        }
+        
+        // Centered Content Container
+        Item {
+            width: 600
+            height: root.mode === "calc" ? 200 : 500
+            anchors.centerIn: parent
+            
+            // Block clicks from closing window when clicking inside content
+            MouseArea {
+                anchors.fill: parent
+                onClicked: mouse.accepted = false
+            }
+
+            GlassPanel {
             anchors.fill: parent
             hasShadow: true
             hasBlur: true
@@ -131,7 +166,9 @@ Scope {
                         width: appView.width
                         height: 50
                         text: model.name
-                        icon: "" // TODO: Icon support
+                        // Use exec command to resolve icon (often matches binary name), fallback to name
+                        // GlassButton handles the fallback to terminal if it fails
+                        iconSource: model.exec.split(" ")[0]
                         active: index === 0 // Highlight first match
                         
                         onClicked: {
