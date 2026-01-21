@@ -245,7 +245,7 @@
         ];
       };
 
-      packages.qs-dock = inputs.wrappers.lib.makeWrapper {
+          packages.qs-dock = inputs.wrappers.lib.makeWrapper {
         inherit pkgs;
         package = pkgs.writeShellScriptBin "qs-dock" ''
           # Launch QuickShell Dock
@@ -257,7 +257,7 @@
           # Kill if running to restart/toggle
           "$QS_BIN" kill -p "$QML_FILE" 2>/dev/null || true
 
-          "$QS_BIN" -p "$QML_FILE" &
+          exec "$QS_BIN" -p "$QML_FILE"
         '';
         runtimeInputs = [ pkgs.quickshell ];
       };
@@ -340,8 +340,7 @@
           export QML2_IMPORT_PATH="${pkgs.qt6.qt5compat}/lib/qt-6/qml:$QML2_IMPORT_PATH"
 
           # Run Quickshell and capture stdout
-          # We filter out Quickshell's log messages (starting with INFO:, DEBUG:, etc)
-          # and the qml: prefix from console.log
+          # We filter for our specific result prefix to ignore all logs
           DMENU_INPUT_FILE="$INPUT_FILE" \
           DMENU_PROMPT="$PROMPT" \
           DMENU_LINES="$LINES" \
@@ -350,7 +349,7 @@
           DMENU_SELECTED="$SELECTED" \
           DMENU_PLACEHOLDER="$PLACEHOLDER" \
           DMENU_FILTER="$FILTER" \
-          "$QS_BIN" -p "$QML_FILE" 2>/dev/null | grep -vE "^(INFO|DEBUG|WARN|ERROR):" | sed 's/^qml: //g'
+          "$QS_BIN" -p "$QML_FILE" 2>&1 | grep "QS_DMENU_RESULT:" | sed 's/^.*QS_DMENU_RESULT://'
 
           # Cleanup
           rm -f "$INPUT_FILE"

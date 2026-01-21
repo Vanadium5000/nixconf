@@ -1,18 +1,22 @@
 import QtQuick
 import QtQuick.Layouts
+import Quickshell
+import Quickshell.Widgets
 import "."
 
 Item {
     id: root
 
     property string text: ""
-    property string icon: ""
+    property string icon: "" // Emoji/Text icon (legacy support)
+    property string iconSource: "" // Icon name (e.g. "firefox") or path
     property bool active: false
     property int cornerRadius: Theme.glass.cornerRadiusSmall
     signal clicked()
+    signal rightClicked() // Add right click signal
 
-    implicitWidth: 120
-    implicitHeight: 40
+    implicitWidth: 48
+    implicitHeight: 48
 
     // Hover state
     property bool hovered: hoverHandler.hovered
@@ -86,22 +90,39 @@ Item {
             }
         }
 
-        RowLayout {
-            anchors.centerIn: parent
-            spacing: 8
+        // Content
+        Item {
+            anchors.fill: parent
+            anchors.margins: 4
 
-            // Icon (if present)
+            // 1. IconImage (Preferred)
+            IconImage {
+                anchors.centerIn: parent
+                width: Math.min(parent.width, parent.height) - 16
+                height: width
+                source: root.iconSource
+                visible: root.iconSource !== ""
+                
+                // Colorize symbolic icons if active, otherwise use native colors
+                // Note: For full color application icons, we might not want to mask them.
+                // But for symbolic icons, we want them to follow theme.
+                // Let's assume application icons (svg/png) for dock, so no color overlay by default unless specified.
+            }
+
+            // 2. Text/Emoji Icon (Fallback)
             Text {
-                visible: root.icon !== ""
+                anchors.centerIn: parent
+                visible: root.iconSource === "" && root.icon !== ""
                 text: root.icon
                 font.family: Theme.glass.fontFamily
-                font.pixelSize: Theme.glass.fontSizeLarge
+                font.pixelSize: 24
                 color: root.active ? Theme.glass.accentColorAlt : Theme.glass.textPrimary
             }
 
-            // Label
+            // 3. Text Label (Only if no icon at all, or strictly text button)
             Text {
-                visible: root.text !== "" && root.icon !== root.text // Don't duplicate if text is used as icon
+                anchors.centerIn: parent
+                visible: root.iconSource === "" && root.icon === "" && root.text !== ""
                 text: root.text
                 font.family: Theme.glass.fontFamily
                 font.pixelSize: Theme.glass.fontSizeMedium
@@ -118,6 +139,13 @@ Item {
 
     TapHandler {
         id: tapHandler
-        onTapped: root.clicked()
+        acceptedButtons: Qt.LeftButton | Qt.RightButton
+        onTapped: (eventPoint, button) => {
+            if (button === Qt.RightButton) {
+                root.rightClicked()
+            } else {
+                root.clicked()
+            }
+        }
     }
 }

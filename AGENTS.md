@@ -159,6 +159,25 @@ file = mkPersistent {
 - **Lists:** Single-item lists on one line, multi-item lists = one per line.
 - **Imports:** Grouped at the top of the `let` block or `imports` list.
 
+## Design System: Liquid Glass
+
+We implement the **Liquid Glass** design language (based on Apple's iOS 26 / macOS Tahoe) adapted for a Cyberpunk Electric Dark palette.
+
+### Core Principles
+
+- **Materiality**: Surfaces behave like physical glass.
+- **Depth**: Layered transparency (Blur ≤ 60px, Opacity 10-25%).
+- **Light**: Specular highlights and gradients.
+
+### Design Tokens (Cyberpunk Electric Dark)
+
+- **Background**: `#000000` (Main), `#141420` (Alt)
+- **Accent**: `#5454fc` (Primary), `#54fcfc` (Active)
+- **Glass**: `rgba(8,8,12,0.75)` with 8px blur.
+- **Typography**: JetBrainsMono Nerd Font.
+
+See `modules/LIQUID_GLASS_SPEC.md` for the full specification.
+
 ## Impermanence & Persistence
 
 This system uses ephemeral root storage. You **MUST** explicitly persist files/directories that should survive a reboot.

@@ -94,7 +94,7 @@ QtObject {
         // ---------------------------------------------------------------------
 
         // Specular highlight (top edge reflection)
-        readonly property real highlightOpacity: 0.15
+        readonly property real highlightOpacity: 0.05 // Reduced from 0.15 to avoid white blur
 
         // Inner stroke (cut-glass depth effect)
         readonly property color innerStrokeColor: Qt.rgba(1, 1, 1, 0.06)

@@ -493,10 +493,10 @@ Scope {
 
     /**
      * Output the selected text to stdout and exit.
-     * The shell wrapper strips the "qml: " prefix.
+     * We use a special prefix to distinguish real output from logs.
      */
     function outputAndQuit(text) {
-        console.log(text);
+        console.log("QS_DMENU_RESULT:" + text);
         Qt.quit();
     }
 

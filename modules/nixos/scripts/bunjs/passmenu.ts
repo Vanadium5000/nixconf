@@ -1172,9 +1172,11 @@ async function main(): Promise<void> {
     try {
       if (!selected) throw new Error("Empty selection");
       
-      // Ensure we're using the correct path and handling potential encoding issues
-      const cleanPath = selected.trim();
-      logDebug(`Fetching content for: ${cleanPath}`);
+      // Clean the selection: remove icons (e.g., "📁 ") and trim
+      // This regex removes leading non-alphanumeric chars followed by space, or just trims
+      // Specifically target the folder icon and space we add
+      const cleanPath = selected.replace(/^[\p{Emoji}\u2000-\u3300]\s+/u, "").trim();
+      logDebug(`Fetching content for: ${cleanPath} (raw: ${selected})`);
       
       content = await $`pass show ${cleanPath}`.quiet().text();
     } catch (err) {
