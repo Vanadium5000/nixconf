@@ -11,8 +11,9 @@ Item {
     property bool hasBorder: true
 
     // Customization
-    property real opacityValue: Theme.glassOpacity
-    property int cornerRadius: Theme.rounding
+    property color color: Theme.glass.backgroundColor
+    property real opacityValue: 1.0 // Color already handles alpha, but this can override
+    property int cornerRadius: Theme.glass.cornerRadius
 
     // --- Drop Shadow (rendered first, behind everything) ---
     DropShadow {
@@ -20,10 +21,10 @@ Item {
         source: backgroundRect
         z: -1
         horizontalOffset: 0
-        verticalOffset: 4
-        radius: Theme.shadowRadius
+        verticalOffset: Theme.glass.shadowOffsetY
+        radius: Theme.glass.shadowRadius
         samples: 25
-        color: Qt.rgba(0, 0, 0, Theme.shadowOpacity)
+        color: Qt.rgba(0, 0, 0, Theme.glass.shadowOpacity)
         visible: root.hasShadow
         cached: true
     }
@@ -33,12 +34,7 @@ Item {
         id: backgroundRect
         anchors.fill: parent
         radius: root.cornerRadius
-        color: Qt.rgba(
-            Theme.background.r,
-            Theme.background.g,
-            Theme.background.b,
-            root.opacityValue
-        )
+        color: root.color // Use the provided color directly
         clip: true
 
         // --- Specular Highlight (Top Reflection) ---
@@ -47,40 +43,45 @@ Item {
             anchors.top: parent.top
             anchors.left: parent.left
             anchors.right: parent.right
-            height: parent.height * 0.5
+            height: parent.height * 0.4
             radius: root.cornerRadius
 
             gradient: Gradient {
-                GradientStop { position: 0.0; color: Qt.rgba(1, 1, 1, Theme.highlightOpacity) }
-                GradientStop { position: 0.6; color: Qt.rgba(1, 1, 1, 0.02) }
-                GradientStop { position: 1.0; color: "transparent" }
+                GradientStop {
+                    position: 0.0
+                    color: Qt.rgba(1, 1, 1, Theme.glass.highlightOpacity)
+                }
+                GradientStop {
+                    position: 0.35
+                    color: Qt.rgba(1, 1, 1, Theme.glass.highlightOpacity * 0.3)
+                }
+                GradientStop {
+                    position: 1.0
+                    color: "transparent"
+                }
             }
         }
 
         // --- Inner Stroke (Cut Glass Effect - top edge highlight) ---
         Rectangle {
             anchors.fill: parent
-            radius: root.cornerRadius
+            anchors.margins: 1
+            radius: root.cornerRadius - 1
             color: "transparent"
-            border.color: Theme.innerStrokeColor
-            border.width: Theme.innerStroke
+            border.color: Theme.glass.innerStrokeColor
+            border.width: 1
         }
 
         // --- Outer Border ---
-        border.color: root.hasBorder ? Qt.rgba(
-            Theme.accent.r,
-            Theme.accent.g,
-            Theme.accent.b,
-            Theme.borderOpacity
-        ) : "transparent"
-        border.width: root.hasBorder ? Theme.borderWidth : 0
+        border.color: root.hasBorder ? Qt.rgba(Theme.glass.accentColor.r, Theme.glass.accentColor.g, Theme.glass.accentColor.b, Theme.glass.borderOpacity) : "transparent"
+        border.width: root.hasBorder ? Theme.glass.borderWidth : 0
     }
 
     // Content Container
     Item {
         id: container
         anchors.fill: parent
-        anchors.margins: Theme.gapsIn
+        anchors.margins: Theme.glass.padding
         z: 10
     }
 }

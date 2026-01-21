@@ -72,7 +72,9 @@ QtObject {
 
         // Primary glass background (translucent dark material)
         // Apple uses a slightly blue-tinted dark for depth perception
+        // rgba(15, 15, 23, 0.78)
         readonly property color backgroundColor: Qt.rgba(0.06, 0.06, 0.09, 0.78)
+        readonly property color backgroundSolid: "#1C1C1E"
 
         // Accent colors (Apple Blue for dark mode)
         readonly property color accentColor: "#0A84FF"      // iOS system blue (dark)

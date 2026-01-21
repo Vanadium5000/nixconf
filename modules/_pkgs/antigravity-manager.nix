@@ -2,7 +2,7 @@
 
 let
   pname = "antigravity-manager";
-  version = "3.3.46";
+  version = "3.3.48";
 
   unwrapped = pkgs.stdenv.mkDerivation {
     pname = "${pname}-unwrapped";
@@ -10,7 +10,7 @@ let
 
     src = pkgs.fetchurl {
       url = "https://github.com/lbjlaq/Antigravity-Manager/releases/download/v${version}/Antigravity.Tools-${version}-1.x86_64.rpm";
-      hash = "sha256-qTlifoZdYRm85QJLZ4QKBdwdY+amEF/fz8t7AznQ3QY=";
+      hash = "sha256-jusTZlSOK14csKP/tcmb0rhOKyZTDUrg5GqoG7V4eYQ=";
     };
 
     nativeBuildInputs = with pkgs; [
@@ -77,7 +77,7 @@ in
 
   runScript = "${unwrapped}/bin/antigravity_tools";
 
-    extraInstallCommands = ''
+  extraInstallCommands = ''
     mkdir -p $out/share/applications $out/share/icons/hicolor
 
     # Copy icons from unwrapped derivation
@@ -103,6 +103,9 @@ in
       # license = licenses.unfree;
       platforms = [ "x86_64-linux" ];
     };
-}).overrideAttrs (old: {
-  passthru = (old.passthru or {}) // { inherit unwrapped; };
-})
+}).overrideAttrs
+  (old: {
+    passthru = (old.passthru or { }) // {
+      inherit unwrapped;
+    };
+  })

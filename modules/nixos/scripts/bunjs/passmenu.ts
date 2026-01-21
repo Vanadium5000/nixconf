@@ -213,21 +213,19 @@ async function selectOption(
   if (options.length === 0) return "";
 
   const cmd = [...menuCommand];
-  /* 
-  // qs-dmenu doesn't support -selected-row yet, or handles it differently.
-  // Keeping logic generic or commented out if not supported by qs-dmenu wrapper
-  if (
-    initialIndex !== undefined &&
-    initialIndex >= 0
-  ) {
-    // cmd.push("-selected-row", initialIndex.toString());
-  } 
-  */
+  
+  // Pass selection index via environment variable for dmenu.qml
+  const env = { ...process.env };
+  if (initialIndex !== undefined && initialIndex >= 0) {
+    env["DMENU_SELECTED"] = initialIndex.toString();
+  }
 
   try {
     const result = await $`printf '%s\n' ${options} | ${cmd} -p ${prompt}`
+      .env(env)
       .nothrow()
       .quiet();
+    
     if (result.exitCode !== 0) return "";
     return result.text().trim();
   } catch {
@@ -1172,15 +1170,22 @@ async function main(): Promise<void> {
     // Fetch credential content
     let content = "";
     try {
-      content = await $`pass show ${selected}`.quiet().text();
-    } catch {
+      if (!selected) throw new Error("Empty selection");
+      
+      // Ensure we're using the correct path and handling potential encoding issues
+      const cleanPath = selected.trim();
+      logDebug(`Fetching content for: ${cleanPath}`);
+      
+      content = await $`pass show ${cleanPath}`.quiet().text();
+    } catch (err) {
+      logError(`Failed to read entry: ${selected}`, err);
       // Entry might have been deleted
       if (autoJumped) {
         selected = "";
         autoJumped = false;
         continue;
       }
-      await notify("Failed to read entry", "passmenu");
+      await notify(`Failed to read entry: ${selected}`, "passmenu");
       process.exit(1);
     }
 

@@ -340,6 +340,8 @@
           export QML2_IMPORT_PATH="${pkgs.qt6.qt5compat}/lib/qt-6/qml:$QML2_IMPORT_PATH"
 
           # Run Quickshell and capture stdout
+          # We filter out Quickshell's log messages (starting with INFO:, DEBUG:, etc)
+          # and the qml: prefix from console.log
           DMENU_INPUT_FILE="$INPUT_FILE" \
           DMENU_PROMPT="$PROMPT" \
           DMENU_LINES="$LINES" \
@@ -348,7 +350,7 @@
           DMENU_SELECTED="$SELECTED" \
           DMENU_PLACEHOLDER="$PLACEHOLDER" \
           DMENU_FILTER="$FILTER" \
-          "$QS_BIN" -p "$QML_FILE" 2>/dev/null | sed 's/^qml: //g'
+          "$QS_BIN" -p "$QML_FILE" 2>/dev/null | grep -vE "^(INFO|DEBUG|WARN|ERROR):" | sed 's/^qml: //g'
 
           # Cleanup
           rm -f "$INPUT_FILE"

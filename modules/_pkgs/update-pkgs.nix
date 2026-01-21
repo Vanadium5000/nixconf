@@ -48,7 +48,13 @@ pkgs.writeShellApplication {
     cat > packages.nix <<EOF
     { pkgs ? import <nixpkgs> {} }:
     {
-    $(for pkg in "''${PACKAGES[@]}"; do echo "  $pkg = pkgs.callPackage ./$pkg.nix {};"; done)
+    $(for pkg in "''${PACKAGES[@]}"; do
+      if [ "$pkg" == "antigravity-manager" ]; then
+        echo "  $pkg = (pkgs.callPackage ./$pkg.nix {}).unwrapped;"
+      else
+        echo "  $pkg = pkgs.callPackage ./$pkg.nix {};"
+      fi
+    done)
     }
     EOF
 
@@ -71,7 +77,7 @@ pkgs.writeShellApplication {
         "antigravity-manager")
           # Use specific regex to ignore tags without releases (e.g. .44 tag but .43 release)
           # Target .unwrapped to ensure hash updates correctly
-          ARGS=("antigravity-manager.unwrapped")
+          ARGS=("antigravity-manager")
           ARGS+=("--url" "https://github.com/lbjlaq/Antigravity-Manager" "--use-github-releases")
           ;;
         "daisyui-mcp"|"pomodoro-for-waybar")
