@@ -263,6 +263,23 @@ PanelWindow {
             radius: 8
         }
         
+        delegate: MenuItem {
+            id: menuItem
+            contentItem: Text {
+                text: menuItem.text
+                font.family: Theme.glass.fontFamily
+                font.pixelSize: Theme.glass.fontSizeMedium
+                color: Theme.glass.textPrimary
+                verticalAlignment: Text.AlignVCenter
+            }
+            background: Rectangle {
+                implicitWidth: 200
+                implicitHeight: 36
+                color: menuItem.highlighted ? Qt.rgba(1, 1, 1, 0.1) : "transparent"
+                radius: 4
+            }
+        }
+        
         MenuItem {
             text: contextMenu.isPinned ? "Unpin" : "Pin to Dock"
             onTriggered: {

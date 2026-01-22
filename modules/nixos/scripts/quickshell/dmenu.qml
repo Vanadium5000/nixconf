@@ -515,6 +515,10 @@ Scope {
                                                         cache: true
                                                         fillMode: Image.PreserveAspectCrop
                                                         smooth: true
+                                                        mipmap: true // Use mipmaps for smoother downscaling
+                                                        
+                                                        // Important: Only load if source is valid, otherwise it might reload
+                                                        // Using QQuickImage's native caching behavior
                                                         
                                                         // Placeholder while loading
                                                         Rectangle {
