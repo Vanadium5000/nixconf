@@ -116,7 +116,8 @@
           ];
           enabled_providers = [
             "opencode"
-            "custom-antigravity"
+            "antigravity-gemini"
+            "antigravity-claude"
           ];
           mcp = {
             gh_grep = {
@@ -171,7 +172,9 @@
             quickshell = {
               type = "local";
               command = [
-                "${inputs.self.packages.${pkgs.stdenv.hostPlatform.system}.quickshell-docs-mcp}/bin/quickshell-docs-mcp"
+                "${
+                  inputs.self.packages.${pkgs.stdenv.hostPlatform.system}.quickshell-docs-mcp
+                }/bin/quickshell-docs-mcp"
               ];
               enabled = true;
               timeout = 10000;
@@ -193,23 +196,54 @@
           "$schema" =
             "https://raw.githubusercontent.com/code-yeongyu/oh-my-opencode/master/assets/oh-my-opencode.schema.json";
           "google_auth" = false; # Disable conflicts
-          "oracle" = {
-            "model" = "gemini-3-pro-high"; # claude-opus-4-5-thinking
+
+          # Oh-My-OpenCode provides 10 specialized AI agents. Each has distinct expertise, optimized models, and tool permissions.
+          # Docs: https://github.com/code-yeongyu/oh-my-opencode/blob/dev/docs/features.md
+          "agents" = {
+            "oracle" = {
+              "model" = "antigravity-gemini/gemini-3-pro-high";
+            };
+            "librarian" = {
+              "model" = "antigravity-gemini/gemini-3-flash";
+            };
+            "explore" = {
+              "model" = "antigravity-gemini/gemini-3-flash";
+            };
+            "multimodal-looker" = {
+              "model" = "antigravity-gemini/gemini-3-flash";
+            };
           };
-          "librarian" = {
-            "model" = "gemini-3-flash";
-          };
-          "explore" = {
-            "model" = "gemini-3-flash";
-          };
-          "frontend-ui-ux-engineer" = {
-            "model" = "gemini-3-pro-high";
-          };
-          "document-writer" = {
-            "model" = "gemini-3-flash";
-          };
-          "multimodal-looker" = {
-            "model" = "gemini-3-flash";
+          # Override category models (used by delegate_task)
+          # Docs: https://github.com/code-yeongyu/oh-my-opencode/blob/dev/docs/category-skill-guide.md
+          "categories" = {
+            # Trivial tasks - single file changes, typo fixes, simple modifications
+            "quick" = {
+              "model" = "opencode/grok-code";
+            };
+            # Frontend, UI/UX, design, styling, animation
+            "visual-engineering" = {
+              "model" = "antigravity-gemini/gemini-3-pro-high";
+            };
+            # Deep logical reasoning, complex architecture decisions requiring extensive analysis
+            "ultrabrain" = {
+              "model" = "antigravity-gemini/gemini-3-pro-high";
+            };
+            # Highly creative/artistic tasks, novel ideas
+            "artistry" = {
+              "model" = "antigravity-gemini/gemini-3-pro-high";
+            };
+            # Tasks that don't fit other categories, low effort required
+            "unspecified-low" = {
+              "model" = "antigravity-gemini/gemini-3-flash";
+            };
+            # Tasks that don't fit other categories, high effort required
+            "unspecified-high" = {
+              "model" = "antigravity-gemini/gemini-3-pro-high";
+            };
+            # Documentation, prose, technical writing
+            "writing" = {
+              "model" = "antigravity-gemini/gemini-3-flash";
+            };
           };
         };
       };
