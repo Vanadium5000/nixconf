@@ -90,6 +90,8 @@
         ++ (with pkgs; [
           whisper-cpp
           wtype
+          monero-cli
+          electrum
         ]);
 
       # Declare the HOST as an environment variable for use in scripts, etc.

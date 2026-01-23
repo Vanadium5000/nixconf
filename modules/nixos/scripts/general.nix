@@ -363,8 +363,12 @@
 
           # Default configuration - can be overridden with environment variables
           DAEMON_ADDRESS=''${MONERO_DAEMON_ADDRESS:-"https://xmr.cryptostorm.is:18081"}
-          WALLET_FILE=''${MONERO_WALLET_FILE:-"$HOME/Documents/MainWallet"}
+          WALLET_FILE=''${MONERO_WALLET_FILE:-"$HOME/Shared/Coins/monero/main_wallet"}
           PASSWORD_STORE_PATH=''${MONERO_PASSWORD_STORE_PATH:-"monero/main_password"}
+
+          # Init using: mkdir -p ~/Shared/Coins/monero && monero-wallet-cli \
+              --generate-new-wallet ~/Shared/Coins/monero/main_wallet \
+              --daemon-address https://xmr.cryptostorm.is:18081
 
           # Get password from pass
           if ! PASSWORD=$(${
