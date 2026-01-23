@@ -12,6 +12,7 @@
 import Quickshell
 import Quickshell.Wayland
 import QtQuick
+import Qt5Compat.GraphicalEffects
 import "./lib"
 
 PanelWindow {
@@ -73,9 +74,11 @@ PanelWindow {
             anchors.centerIn: parent
 
             layer.enabled: true
-            layer.effect: RectangularShadow {
+            layer.effect: Glow {
                 radius: 4
+                samples: 9
                 color: root.inputColor
+                spread: 0.5
             }
         }
 

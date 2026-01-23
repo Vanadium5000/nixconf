@@ -24,13 +24,13 @@ Scope {
 
     property var allApps: []
     property var filteredApps: []
-    
+
     function filterApps() {
         var query = searchInput.text.toLowerCase();
         if (query === "") {
             filteredApps = allApps;
         } else {
-            filteredApps = allApps.filter(function(app) {
+            filteredApps = allApps.filter(function (app) {
                 return app.name.toLowerCase().indexOf(query) >= 0;
             });
         }
@@ -96,14 +96,16 @@ Scope {
                     GlassPanel {
                         Layout.fillWidth: true
                         Layout.preferredHeight: 50
-                        cornerRadius: Theme.rounding
+                        cornerRadius: Theme.glass.cornerRadiusSmall
                         opacityValue: 0.3
 
                         TextInput {
                             id: searchInput
-                            anchors.fill: parent
-                            anchors.margins: 10
-                            verticalAlignment: TextInput.AlignVCenter
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            anchors.verticalCenter: parent.verticalCenter
+                            anchors.leftMargin: 14
+                            anchors.rightMargin: 14
 
                             font.family: Theme.fontName
                             font.pixelSize: Theme.fontSizeLarge
@@ -111,15 +113,16 @@ Scope {
 
                             text: ""
                             focus: true
+                            clip: false
 
                             property string placeholder: root.mode === "calc" ? "Calculate..." : "Search Applications..."
 
                             Text {
-                                anchors.fill: parent
+                                anchors.left: parent.left
+                                anchors.verticalCenter: parent.verticalCenter
                                 text: searchInput.placeholder
                                 color: Theme.rgba(Theme.foreground, 0.5)
                                 font: searchInput.font
-                                verticalAlignment: TextInput.AlignVCenter
                                 visible: !searchInput.text && !searchInput.activeFocus
                             }
 
@@ -158,7 +161,7 @@ Scope {
                         visible: root.mode === "calc"
                         Layout.fillWidth: true
                         Layout.preferredHeight: 60
-                        cornerRadius: Theme.rounding
+                        cornerRadius: Theme.glass.cornerRadiusSmall
                         opacityValue: 0.3
 
                         Text {
@@ -193,10 +196,10 @@ Scope {
                         delegate: Column {
                             width: appView.width
                             spacing: 1
-                            
+
                             property bool expanded: false
                             property var appActions: model.actions ? model.actions : []
-                            
+
                             GlassButton {
                                 width: parent.width
                                 height: 44
@@ -206,20 +209,20 @@ Scope {
                                 active: appView.currentIndex === index
 
                                 opacity: hovered ? 1.0 : 0.85
-                                
+
                                 onClicked: {
                                     appView.currentIndex = index;
                                     runner.command = ["setsid", "-f"].concat(model.exec.split(" "));
                                     runner.running = true;
                                     Qt.quit();
                                 }
-                                
+
                                 onRightClicked: {
                                     if (appActions.length > 0) {
                                         expanded = !expanded;
                                     }
                                 }
-                                
+
                                 Text {
                                     anchors.right: parent.right
                                     anchors.rightMargin: 12
@@ -230,10 +233,10 @@ Scope {
                                     opacity: 0.5
                                 }
                             }
-                            
+
                             Repeater {
                                 model: expanded ? appActions : []
-                                
+
                                 GlassButton {
                                     width: parent.width - 24
                                     x: 24
@@ -243,7 +246,7 @@ Scope {
                                     iconSource: ""
                                     opacity: hovered ? 1.0 : 0.7
                                     cornerRadius: 8
-                                    
+
                                     onClicked: {
                                         runner.command = ["setsid", "-f"].concat(modelData.exec.split(" "));
                                         runner.running = true;
@@ -267,32 +270,58 @@ Scope {
 
         Process {
             id: appLoader
-            command: ["bun", "/home/matrix/nixconf/modules/nixos/scripts/quickshell/list_apps.ts"]
+            // Script path is passed via environment variable from the wrapper,
+            // falling back to resolving relative to QML file location
+            property string scriptPath: Quickshell.env("LAUNCHER_SCRIPT_DIR") 
+                ? Quickshell.env("LAUNCHER_SCRIPT_DIR") + "/list_apps.ts"
+                : Qt.resolvedUrl("list_apps.ts").toString().replace("file://", "")
+            
+            command: ["bun", scriptPath]
 
             stdout: StdioCollector {
-                onStreamFinished: {
-                    root.allApps = [];
-                    var lines = text.split("\n");
-                    for (var i = 0; i < lines.length; i++) {
-                        var line = lines[i].trim();
-                        if (!line) continue;
+                id: appCollector
+            }
+            
+            stderr: StdioCollector {
+                id: appErrorCollector
+            }
 
-                        var parts = line.split("\t");
-                        if (parts.length >= 2) {
-                            var actions = [];
-                            if (parts.length > 3 && parts[3]) {
-                                try { actions = JSON.parse(parts[3]); } catch(e) {}
-                            }
-                            root.allApps.push({
-                                "name": parts[0],
-                                "exec": parts[1],
-                                "icon": parts.length > 2 ? parts[2] : "",
-                                "actions": actions
-                            });
-                        }
+            onExited: exitCode => {
+                if (exitCode !== 0) {
+                    console.error("[Launcher] appLoader failed with exit code: " + exitCode);
+                    if (appErrorCollector.text) {
+                        console.error("[Launcher] stderr: " + appErrorCollector.text);
                     }
-                    root.filterApps();
+                    console.error("[Launcher] Attempted script path: " + scriptPath);
+                    return;
                 }
+                
+                console.debug("[Launcher] Loaded " + appCollector.text.split("\n").length + " lines from list_apps.ts");
+
+                root.allApps = [];
+                var lines = appCollector.text.split("\n");
+                for (var i = 0; i < lines.length; i++) {
+                    var line = lines[i].trim();
+                    if (!line)
+                        continue;
+
+                    var parts = line.split("\t");
+                    if (parts.length >= 2) {
+                        var actions = [];
+                        if (parts.length > 3 && parts[3]) {
+                            try {
+                                actions = JSON.parse(parts[3]);
+                            } catch (e) {}
+                        }
+                        root.allApps.push({
+                            "name": parts[0],
+                            "exec": parts[1],
+                            "icon": parts.length > 2 ? parts[2] : "",
+                            "actions": actions
+                        });
+                    }
+                }
+                root.filterApps();
             }
         }
 

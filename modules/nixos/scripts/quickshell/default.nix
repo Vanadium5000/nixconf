@@ -26,6 +26,7 @@
             mkdir -p $out
             ln -s ${./lib} $out/lib
             cp ${src} $out/${name}
+            cp ${./list_apps.ts} $out/list_apps.ts 2>/dev/null || true
           '';
         in
         "${env}/${name}";
@@ -136,24 +137,33 @@
 
       packages.qs-launcher = inputs.wrappers.lib.makeWrapper {
         inherit pkgs;
-        package = pkgs.writeShellScriptBin "qs-launcher" ''
-          # Launch QuickShell Launcher
-          # Usage: qs-launcher [--calc]
+        package =
+          let
+            launcherQml = mkQml "launcher.qml" ./launcher.qml;
+            # Extract the directory from the QML path
+            launcherDir = builtins.dirOf launcherQml;
+          in
+          pkgs.writeShellScriptBin "qs-launcher" ''
+            # Launch QuickShell Launcher
+            # Usage: qs-launcher [--calc]
 
-          MODE="app"
-          if [[ "$1" == "--calc" ]]; then
-              MODE="calc"
-          fi
+            MODE="app"
+            if [[ "$1" == "--calc" ]]; then
+                MODE="calc"
+            fi
 
-          QML_FILE="${mkQml "launcher.qml" ./launcher.qml}"
-          QS_BIN="${pkgs.quickshell}/bin/qs"
-          export QML2_IMPORT_PATH="${pkgs.qt6.qt5compat}/lib/qt-6/qml:$QML2_IMPORT_PATH"
+            QML_FILE="${launcherQml}"
+            QS_BIN="${pkgs.quickshell}/bin/qs"
+            export QML2_IMPORT_PATH="${pkgs.qt6.qt5compat}/lib/qt-6/qml:$QML2_IMPORT_PATH"
 
-          LAUNCHER_MODE="$MODE" "$QS_BIN" -p "$QML_FILE" &
-        '';
+            LAUNCHER_MODE="$MODE" \
+            LAUNCHER_SCRIPT_DIR="${launcherDir}" \
+            "$QS_BIN" -p "$QML_FILE" &
+          '';
         runtimeInputs = [
           pkgs.quickshell
           pkgs.libqalculate
+          pkgs.bun
         ];
       };
 

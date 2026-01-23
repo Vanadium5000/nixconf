@@ -19,6 +19,7 @@ import Quickshell.Wayland
 import Quickshell.Hyprland
 import Quickshell.Io
 import Quickshell.Widgets
+import Qt5Compat.GraphicalEffects
 import "./lib"
 
 PanelWindow {
@@ -271,10 +272,12 @@ PanelWindow {
             
             // Add subtle shadow for depth
             layer.enabled: true
-            layer.effect: RectangularShadow {
-                radius: 8
-                color: Qt.rgba(0,0,0,0.5)
+            layer.effect: DropShadow {
+                horizontalOffset: 0
                 verticalOffset: 2
+                radius: 8
+                samples: 17
+                color: Qt.rgba(0,0,0,0.5)
             }
         }
         

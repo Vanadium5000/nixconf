@@ -122,11 +122,12 @@ Item {
                 property string resolvedIcon: {
                     if (root.iconSource === "") return ""
                     if (root.iconSource.startsWith("/")) return "file://" + root.iconSource
-                    return Quickshell.iconPath(root.iconSource, "")
+                    var resolved = Quickshell.iconPath(root.iconSource, "")
+                    return resolved !== "" ? resolved : Quickshell.iconPath("utilities-terminal", "")
                 }
                 
                 source: resolvedIcon
-                visible: root.iconSource !== "" && resolvedIcon !== ""
+                visible: root.iconSource !== ""
             }
 
             // 2. Text/Emoji Icon (Fallback)
