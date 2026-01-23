@@ -33,10 +33,12 @@ async function getMarkdownFiles(dir: string): Promise<string[]> {
   return Array.prototype.concat(...files).filter((f) => f.endsWith(".md"));
 }
 
-server.tool(
+server.registerTool(
   "list_docs",
-  "List all available Quickshell documentation files.",
-  {},
+  {
+    description: "List all available Quickshell documentation files.",
+    inputSchema: {},
+  },
   async () => {
     try {
       const files = await getMarkdownFiles(DOCS_PATH!);
@@ -59,11 +61,13 @@ server.tool(
   }
 );
 
-server.tool(
+server.registerTool(
   "read_doc",
-  "Read the content of a specific Quickshell documentation file.",
   {
-    path: z.string().describe("The relative path of the file to read (e.g., 'docs/configuration/intro.md')."),
+    description: "Read the content of a specific Quickshell documentation file.",
+    inputSchema: {
+      path: z.string().describe("The relative path of the file to read (e.g., 'docs/configuration/intro.md')."),
+    },
   },
   async ({ path }) => {
     try {
@@ -91,11 +95,13 @@ server.tool(
   }
 );
 
-server.tool(
+server.registerTool(
   "search_docs",
-  "Search for a string in all Quickshell documentation files.",
   {
-    query: z.string().describe("The string to search for."),
+    description: "Search for a string in all Quickshell documentation files.",
+    inputSchema: {
+      query: z.string().describe("The string to search for."),
+    },
   },
   async ({ query }) => {
     try {

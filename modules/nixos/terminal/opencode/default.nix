@@ -160,6 +160,14 @@
               enabled = true;
               timeout = 10000;
             };
+            qmllint = {
+              type = "local";
+              command = [
+                "${inputs.self.packages.${pkgs.stdenv.hostPlatform.system}.qmllint-mcp}/bin/qmllint-mcp"
+              ];
+              enabled = true;
+              timeout = 10000;
+            };
             quickshell = {
               type = "local";
               command = [

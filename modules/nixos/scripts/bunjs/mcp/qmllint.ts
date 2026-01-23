@@ -7,43 +7,23 @@ import { promisify } from "util";
 const execAsync = promisify(exec);
 
 const server = new McpServer({
-  name: "markdown-lint-mcp",
+  name: "qmllint-mcp",
   version: "1.0.0",
 });
 
 server.registerTool(
-  "lint_markdown",
+  "lint_qml",
   {
-    description: "Lint markdown content or a file. Returns linting errors if any.",
+    description: "Lint a QML file using qmllint. Returns linting errors if any.",
     inputSchema: {
-      content: z.string().optional().describe("Markdown content to lint directly."),
-      filePath: z.string().optional().describe("Path to a markdown file to lint."),
+      filePath: z.string().describe("Path to a QML file to lint."),
     },
   },
-  async ({ content, filePath }) => {
-    if (!content && !filePath) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: "Error: Either 'content' or 'filePath' must be provided.",
-          },
-        ],
-        isError: true,
-      };
-    }
-
+  async ({ filePath }) => {
     try {
-      let command: string;
-      
-      if (filePath) {
-        command = `markdownlint --disable MD013 -- "${filePath}" 2>&1`;
-      } else {
-        command = `echo "${content?.replace(/"/g, '\\"')}" | markdownlint --disable MD013 --stdin 2>&1`;
-      }
-
       try {
-        const { stdout, stderr } = await execAsync(command);
+        const { stdout, stderr } = await execAsync(`qmllint -E "${filePath}" 2>&1`);
+        // qmllint -E outputs nothing on success
         return {
           content: [
             {
@@ -53,11 +33,12 @@ server.registerTool(
           ],
         };
       } catch (error: any) {
+        // qmllint returns non-zero exit code on errors
         return {
           content: [
             {
               type: "text",
-              text: error.stderr || error.stdout || error.message,
+              text: error.stdout || error.stderr || error.message,
             },
           ],
           isError: true,

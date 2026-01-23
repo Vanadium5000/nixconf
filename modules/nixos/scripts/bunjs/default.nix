@@ -190,5 +190,18 @@
           pkgs.coreutils
         ];
       };
+
+      packages.qmllint-mcp = inputs.wrappers.lib.makeWrapper {
+        inherit pkgs;
+        package = pkgs.writeShellScriptBin "qmllint-mcp" ''
+          exec ${pkgs.bun}/bin/bun run ${./mcp/qmllint.ts} "$@"
+        '';
+
+        runtimeInputs = [
+          pkgs.bun
+          pkgs.qt6.qtdeclarative # for qmllint
+          pkgs.coreutils
+        ];
+      };
     };
 }
