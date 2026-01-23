@@ -1,3 +1,14 @@
+/*
+ * autoclicker.qml - Visual Indicator for Autoclicker
+ * 
+ * Displays a pulsing ring overlay at the specified coordinates to indicate
+ * active autoclicking behavior. Used in conjunction with a backend script.
+ *
+ * Environment Variables:
+ *   X, Y  - Screen coordinates for the indicator center
+ *   COLOR - Hex color for the indicator ring (default: Theme.error/Red)
+ */
+
 import Quickshell
 import Quickshell.Wayland
 import QtQuick
@@ -5,6 +16,9 @@ import "./lib"
 
 PanelWindow {
     id: root
+    
+    // --- Window Configuration ---
+    // Overlay layer ensures it sits above most application windows
     WlrLayershell.layer: WlrLayer.Overlay
 
     // Read margins as environment variable strings
@@ -12,26 +26,30 @@ PanelWindow {
     property int marginTop: parseInt(Quickshell.env("Y") ?? "0")
     property string inputColor: Quickshell.env("COLOR") ?? Theme.error // Default to Red
 
+    // Small fixed size for the indicator
     implicitWidth: 32
     implicitHeight: 32
     color: "transparent"
+    
+    // Passthrough input to windows below
     exclusiveZone: -1
     exclusionMode: ExclusionMode.Ignore
 
     anchors.left: true
     anchors.top: true
 
+    // Click-through mask
     mask: Region {}
 
-    // x, y position (centered)
+    // Positioning
     margins.left: marginLeft - implicitWidth / 2
     margins.top: marginTop - implicitHeight / 2
 
-    // Autoclicker Indicator
+    // --- Visuals ---
     Item {
         anchors.fill: parent
 
-        // Outer Ring
+        // Outer Ring (Static)
         Rectangle {
             anchors.centerIn: parent
             width: parent.width

@@ -247,7 +247,8 @@ PanelWindow {
     }
 
     // --- Context Menu ---
-    
+    // Custom styled menu matching Liquid Glass design
+    // Uses global Theme for consistency
     Menu {
         id: contextMenu
         property var targetItem: null
@@ -260,17 +261,34 @@ PanelWindow {
             implicitHeight: 40
             color: Theme.glass.backgroundSolid
             border.color: Theme.glass.border
+            border.width: 1
             radius: 8
+            
+            // Add subtle shadow for depth
+            layer.enabled: true
+            layer.effect: RectangularShadow {
+                radius: 8
+                color: Qt.rgba(0,0,0,0.5)
+                verticalOffset: 2
+            }
         }
         
         delegate: MenuItem {
             id: menuItem
+            
+            // Explicitly override any system styling
+            palette.text: Theme.glass.textPrimary
+            palette.windowText: Theme.glass.textPrimary
+            palette.buttonText: Theme.glass.textPrimary
+
             contentItem: Text {
                 text: menuItem.text
                 font.family: Theme.glass.fontFamily
                 font.pixelSize: Theme.glass.fontSizeMedium
-                color: Theme.glass.textPrimary
+                color: Theme.glass.textPrimary 
                 verticalAlignment: Text.AlignVCenter
+                leftPadding: 12
+                elide: Text.ElideRight
             }
             background: Rectangle {
                 implicitWidth: 200

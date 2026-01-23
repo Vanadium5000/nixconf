@@ -1,3 +1,15 @@
+/*
+ * GlassPanel.qml - Base Glass Surface Component
+ *
+ * The fundamental building block of the Liquid Glass UI.
+ * Renders a frosted glass panel with:
+ * - Backdrop blur and transparency
+ * - Specular highlight gradient (top edge)
+ * - "Cut glass" inner stroke effect
+ * - Drop shadow (optional)
+ * - Configurable border and corner radius
+ */
+
 import QtQuick
 import Qt5Compat.GraphicalEffects
 import "."

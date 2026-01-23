@@ -19,6 +19,9 @@ import "./lib"
 Scope {
     id: root
 
+    // --- State ---
+    property string mode: searchInput.text.startsWith("=") ? "calc" : "app"
+
     // --- Single Instance Lock ---
     InstanceLock {
         lockName: "launcher"
@@ -173,6 +176,9 @@ Scope {
                             iconSource: model.exec.split(" ")[0]
                             active: index === 0 // Highlight first match
 
+                            // Liquid Glass hover effect
+                            opacity: hovered ? 1.0 : 0.8
+                            
                             onClicked: {
                                 runner.command = [model.exec];
                                 runner.running = true;
@@ -197,9 +203,19 @@ Scope {
 
         Process {
             id: appSearcher
-            // Find .desktop files, grep Name and Exec, format as JSON-ish lines
-            // Note: This is a rough approximation. A proper implementation needs a dedicated helper.
-            command: ["bash", "-c", "grep -rPh '^Name=|^Exec=' /run/current-system/sw/share/applications | paste - - | grep -i '" + searchInput.text + "' | head -n 10"]
+            // Find .desktop files using a robust awk script to pair Name and Exec
+            // safely handling file boundaries and missing fields.
+            // Search case-insensitive, limit to top 20 results for performance.
+            command: [
+                "bash", "-c", 
+                "find /run/current-system/sw/share/applications -name '*.desktop' -print0 | " +
+                "xargs -0 awk -F= '" +
+                "FNR==1 {if(n&&e) print n\"\\t\"e; n=\"\"; e=\"\"} " +
+                "/^Name=/{n=substr($0,6)} " +
+                "/^Exec=/{e=substr($0,6)} " +
+                "END {if(n&&e) print n\"\\t\"e}' | " +
+                "grep -i '" + searchInput.text + "' | head -n 20"
+            ]
 
             stdout: StdioCollector {
                 onStreamFinished: {

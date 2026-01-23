@@ -1,3 +1,16 @@
+/*
+ * lyrics-overlay.qml - Synced Lyrics Display
+ *
+ * Floating overlay that displays synchronized lyrics from a data source.
+ * Typically driven by 'synced-lyrics' or compatible MPRIS wrappers.
+ *
+ * Features:
+ * - Karaoke-style line highlighting
+ * - Upcoming lines preview
+ * - Mouse interaction (Left: Close, Right: Play/Pause)
+ * - Configurable positioning (Top/Bottom/Center)
+ */
+
 pragma ComponentBehavior: Bound
 
 import Quickshell
@@ -17,7 +30,8 @@ PanelWindow {
 
     WlrLayershell.layer: WlrLayer.Overlay
 
-    // Configuration via environment variables
+    // --- Configuration ---
+    // Read from environment variables with sensible defaults
     property int numLines: parseInt(Quickshell.env("LYRICS_LINES") ?? "3")
     property string positionMode: Quickshell.env("LYRICS_POSITION") ?? "bottom"
     property int fontSize: parseInt(Quickshell.env("LYRICS_FONT_SIZE") ?? Theme.fontSizeLarge.toString())
@@ -28,20 +42,22 @@ PanelWindow {
     property int lineSpacing: parseInt(Quickshell.env("LYRICS_SPACING") ?? "8")
     property int maxLineLength: parseInt(Quickshell.env("LYRICS_LENGTH") ?? "0")
 
-    // Lyrics data
+    // --- State ---
     property string currentLine: ""
     property var upcomingLines: []
     property string trackInfo: ""
     property bool isPlaying: false
 
-    // Window sizing
+    // --- Window Layout ---
     implicitWidth: screen ? screen.width : 1920
     implicitHeight: contentColumn.implicitHeight + 60
     color: "transparent"
+    
+    // Don't reserve space, let windows go under
     exclusiveZone: 0
     exclusionMode: ExclusionMode.Ignore
 
-    // Positioning - use anchors based on position mode
+    // Dynamic anchoring based on configuration
     anchors.left: true
     anchors.right: true
     anchors.bottom: root.positionMode === "bottom"
@@ -52,7 +68,7 @@ PanelWindow {
         top: root.positionMode === "top" ? 80 : 0
     }
 
-    // Allow click-through except on text
+    // Allow click-through except on text (uses empty region mask)
     mask: Region {}
 
     // Background gradient for readability (subtle)

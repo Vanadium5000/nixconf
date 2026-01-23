@@ -1,3 +1,14 @@
+/*
+ * InstanceLock.qml - Single Instance Management
+ *
+ * Ensures only one instance of a Quickshell script runs at a time.
+ * Uses /dev/shm lockfiles to coordinate.
+ *
+ * Modes:
+ * - toggle=true: If running, kill existing instance and exit (toggle off).
+ * - toggle=false: If running, kill existing instance and take over (replace).
+ */
+
 import QtQuick
 import Quickshell.Io
 

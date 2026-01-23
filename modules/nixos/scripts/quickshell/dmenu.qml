@@ -385,10 +385,7 @@ Scope {
                                 property alias count: listView.count
                                 property alias currentIndex: listView.currentIndex
 
-                                // Empty/loading state indicator (parented to Loader's parent or handled in Loader)
-                                // We'll put it in the delegate or outside, but since this is inside Component, 
-                                // we need to reference the root model.
-
+                                // Delegate: Row item
                                 delegate: Rectangle {
                                     id: delegateItem
                                     width: ListView.view.width

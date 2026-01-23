@@ -1,3 +1,15 @@
+/*
+ * crosshair.qml - Gaming Crosshair Overlay
+ *
+ * Renders a customizable crosshair overlay on the screen.
+ * Useful for games that don't provide a native crosshair.
+ *
+ * Features:
+ * - Single instance locking (toggleable)
+ * - Neon glow effect
+ * - Customizable color via environment variable
+ */
+
 import Quickshell
 import Quickshell.Wayland
 import QtQuick
@@ -6,6 +18,7 @@ import "./lib"
 PanelWindow {
     id: root
     
+    // Ensure only one crosshair exists
     InstanceLock {
         lockName: "crosshair"
         toggle: true
@@ -13,7 +26,7 @@ PanelWindow {
     
     WlrLayershell.layer: WlrLayer.Overlay
 
-    // Read margins as environment variable strings
+    // --- Configuration ---
     property int marginLeft: parseInt(Quickshell.env("X") ?? "0")
     property int marginTop: parseInt(Quickshell.env("Y") ?? "0")
     property string inputColor: Quickshell.env("COLOR") ?? Theme.success // Default to Success Green
@@ -21,6 +34,8 @@ PanelWindow {
     implicitWidth: 30
     implicitHeight: 30
     color: "transparent"
+    
+    // Input transparency
     exclusiveZone: -1
     exclusionMode: ExclusionMode.Ignore
 
@@ -29,17 +44,17 @@ PanelWindow {
 
     mask: Region {}
 
-    // x, y position (centered)
+    // Positioning
     margins.left: marginLeft - implicitWidth / 2
     margins.top: marginTop - implicitHeight / 2
 
-    // Crosshair Container
+    // --- Visuals ---
     Item {
         anchors.centerIn: parent
         width: 30
         height: 30
 
-        // Vertical Line (Shadow)
+        // Vertical Line (Shadow/Outline)
         Rectangle {
             width: 3
             height: 30
