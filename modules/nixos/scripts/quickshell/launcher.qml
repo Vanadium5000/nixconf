@@ -104,6 +104,9 @@ Scope {
                                 visible: !searchInput.text && !searchInput.activeFocus
                             }
 
+                            Keys.onUpPressed: appView.decrementCurrentIndex()
+                            Keys.onDownPressed: appView.incrementCurrentIndex()
+
                             onAccepted: {
                                 if (root.mode === "calc") {
                                     // Copy result to clipboard
@@ -113,7 +116,7 @@ Scope {
                                     }
                                 } else {
                                     if (appModel.count > 0) {
-                                        runner.command = [appModel.get(0).exec];
+                                        runner.command = [appModel.get(appView.currentIndex).exec];
                                         runner.running = true;
                                         Qt.quit();
                                     }
@@ -171,15 +174,17 @@ Scope {
                             width: appView.width
                             height: 50
                             text: model.name
+                            contentAlignment: Qt.AlignLeft
                             // Use exec command to resolve icon (often matches binary name), fallback to name
                             // GlassButton handles the fallback to terminal if it fails
                             iconSource: model.exec.split(" ")[0]
-                            active: index === 0 // Highlight first match
+                            active: ListView.isCurrentItem
 
                             // Liquid Glass hover effect
                             opacity: hovered ? 1.0 : 0.8
                             
                             onClicked: {
+                                appView.currentIndex = index;
                                 runner.command = [model.exec];
                                 runner.running = true;
                                 Qt.quit();
@@ -196,10 +201,12 @@ Scope {
             }
         }
 
-        // --- Application Search Logic ---
+            // --- Application Search Logic ---
         // Using a Process to grep desktop files.
         // In a production environment, we'd want a proper indexed service or a C++ plugin.
         // For now, we'll use a simple shell pipeline to find .desktop files and parse names.
+
+        Component.onCompleted: appSearcher.running = true
 
         Process {
             id: appSearcher

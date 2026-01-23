@@ -23,6 +23,7 @@ Item {
     property string iconSource: "" // Icon name (e.g. "firefox") or path
     property bool active: false
     property int cornerRadius: Theme.glass.cornerRadiusSmall
+    property int contentAlignment: Qt.AlignHCenter
     signal clicked()
     signal rightClicked() // Add right click signal
 
@@ -102,27 +103,36 @@ Item {
         }
 
         // Content
-        Item {
-            anchors.fill: parent
-            anchors.margins: 4
+        RowLayout {
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.left: root.contentAlignment === Qt.AlignLeft ? parent.left : undefined
+            anchors.right: (root.contentAlignment === Qt.AlignLeft || root.contentAlignment === Qt.AlignRight) ? parent.right : undefined
+            anchors.horizontalCenter: root.contentAlignment === Qt.AlignHCenter ? parent.horizontalCenter : undefined
+            
+            anchors.margins: 8
+            spacing: 12
 
             // 1. IconImage (Preferred) - Use Quickshell.iconPath() for proper XDG theme lookup
             IconImage {
                 id: mainIcon
-                anchors.centerIn: parent
-                implicitSize: Math.min(parent.width, parent.height) - 8
+                
+                Layout.preferredWidth: Math.min(root.width, root.height) - 16
+                Layout.preferredHeight: Layout.preferredWidth
+                Layout.alignment: Qt.AlignVCenter
                 
                 // Use Quickshell.iconPath with fallback for proper icon theme resolution
-                source: root.iconSource !== "" 
-                    ? Quickshell.iconPath(root.iconSource, "application-x-executable")
-                    : Quickshell.iconPath("application-x-executable")
+                source: {
+                    if (root.iconSource === "") return ""
+                    if (root.iconSource.indexOf("/") >= 0) return root.iconSource
+                    return Quickshell.iconPath(root.iconSource, "application-x-executable")
+                }
                 
-                visible: root.iconSource !== "" || (root.icon === "" && root.text === "")
+                visible: root.iconSource !== ""
             }
 
             // 2. Text/Emoji Icon (Fallback)
             Text {
-                anchors.centerIn: parent
+                Layout.alignment: Qt.AlignVCenter
                 visible: root.iconSource === "" && root.icon !== ""
                 text: root.icon
                 font.family: Theme.glass.fontFamily
@@ -130,15 +140,17 @@ Item {
                 color: root.active ? Theme.glass.accentColorAlt : Theme.glass.textPrimary
             }
 
-            // 3. Text Label (Only if no icon at all, or strictly text button)
+            // 3. Text Label
             Text {
-                anchors.centerIn: parent
-                visible: root.iconSource === "" && root.icon === "" && root.text !== ""
+                Layout.alignment: Qt.AlignVCenter
+                Layout.fillWidth: root.contentAlignment !== Qt.AlignHCenter
+                visible: root.text !== ""
                 text: root.text
                 font.family: Theme.glass.fontFamily
                 font.pixelSize: Theme.glass.fontSizeMedium
                 color: root.active ? Theme.glass.accentColorAlt : Theme.glass.textPrimary
                 font.bold: root.active
+                elide: Text.ElideRight
             }
         }
     }

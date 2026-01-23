@@ -42,8 +42,8 @@ PanelWindow {
     mask: Region {}
 
     // Positioning
-    margins.left: marginLeft - implicitWidth / 2
-    margins.top: marginTop - implicitHeight / 2
+    margins.left: root.marginLeft - implicitWidth / 2
+    margins.top: root.marginTop - implicitHeight / 2
 
     // --- Visuals ---
     Item {
