@@ -1,9 +1,9 @@
 { self }:
 {
   config = {
-    custom-antigravity = {
+    antigravity-gemini = {
       npm = "@ai-sdk/google";
-      name = "Antigravity";
+      name = "Antigravity Gemini";
       options = {
         baseURL = "http://127.0.0.1:8045/v1beta";
         apiKey = self.secrets.ANTIGRAVITY_MANAGER_KEY;
@@ -48,57 +48,6 @@
           limit = {
             context = 1048576;
             output = 65536;
-          };
-          modalities = {
-            input = [
-              "text"
-              "image"
-              "pdf"
-            ];
-            output = [
-              "text"
-            ];
-          };
-        };
-        claude-sonnet-4-5 = {
-          name = "Claude Sonnet 4.5";
-          limit = {
-            context = 200000;
-            output = 64000;
-          };
-          modalities = {
-            input = [
-              "text"
-              "image"
-              "pdf"
-            ];
-            output = [
-              "text"
-            ];
-          };
-        };
-        claude-sonnet-4-5-thinking = {
-          name = "Claude Sonnet 4.5 Thinking";
-          limit = {
-            context = 200000;
-            output = 64000;
-          };
-          modalities = {
-            input = [
-              "text"
-              "image"
-              "pdf"
-            ];
-            output = [
-              "text"
-            ];
-          };
-        };
-        claude-opus-4-5-thinking = {
-          name = "Claude Opus 4.5 Thinking";
-          limit = {
-            context = 200000;
-            output = 64000;
           };
           modalities = {
             input = [
@@ -163,23 +112,84 @@
           };
         };
       };
-      # "gemini-3-pro-image" = {
-      #   name = "Gemini 3 Pro Image";
-      #   limit = {
-      #     context = 1048576;
-      #     output = 65536;
-      #   };
-      #   modalities = {
-      #     input = [
-      #       "text"
-      #       "image"
-      #     ];
-      #     output = [
-      #       "text"
-      #       "image"
-      #     ];
-      #   };
-      # };
+      "gemini-3-pro-image" = {
+        name = "Gemini 3 Pro Image";
+        limit = {
+          context = 1048576;
+          output = 65536;
+        };
+        modalities = {
+          input = [
+            "text"
+            "image"
+          ];
+          output = [
+            "text"
+            "image"
+          ];
+        };
+      };
+    };
+    antigravity-claude = {
+      npm = "@ai-sdk/anthropic";
+      name = "Antigravity Claude";
+      options = {
+        baseURL = "http://127.0.0.1:8045/v1";
+        apiKey = self.secrets.ANTIGRAVITY_MANAGER_KEY;
+      };
+      models = {
+        claude-sonnet-4-5 = {
+          name = "Claude Sonnet 4.5";
+          limit = {
+            context = 200000;
+            output = 64000;
+          };
+          modalities = {
+            input = [
+              "text"
+              "image"
+              "pdf"
+            ];
+            output = [
+              "text"
+            ];
+          };
+        };
+        claude-sonnet-4-5-thinking = {
+          name = "Claude Sonnet 4.5 Thinking";
+          limit = {
+            context = 200000;
+            output = 64000;
+          };
+          modalities = {
+            input = [
+              "text"
+              "image"
+              "pdf"
+            ];
+            output = [
+              "text"
+            ];
+          };
+        };
+        claude-opus-4-5-thinking = {
+          name = "Claude Opus 4.5 Thinking";
+          limit = {
+            context = 200000;
+            output = 64000;
+          };
+          modalities = {
+            input = [
+              "text"
+              "image"
+              "pdf"
+            ];
+            output = [
+              "text"
+            ];
+          };
+        };
+      };
     };
   };
 }
