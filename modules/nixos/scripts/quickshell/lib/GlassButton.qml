@@ -112,7 +112,6 @@ Item {
             anchors.margins: 8
             spacing: 12
 
-            // 1. IconImage (Preferred) - Use Quickshell.iconPath() for proper XDG theme lookup
             IconImage {
                 id: mainIcon
                 
@@ -120,14 +119,14 @@ Item {
                 Layout.preferredHeight: Layout.preferredWidth
                 Layout.alignment: Qt.AlignVCenter
                 
-                // Use Quickshell.iconPath with fallback for proper icon theme resolution
-                source: {
+                property string resolvedIcon: {
                     if (root.iconSource === "") return ""
-                    if (root.iconSource.indexOf("/") >= 0) return root.iconSource
-                    return Quickshell.iconPath(root.iconSource, "application-x-executable")
+                    if (root.iconSource.startsWith("/")) return "file://" + root.iconSource
+                    return Quickshell.iconPath(root.iconSource, "")
                 }
                 
-                visible: root.iconSource !== ""
+                source: resolvedIcon
+                visible: root.iconSource !== "" && resolvedIcon !== ""
             }
 
             // 2. Text/Emoji Icon (Fallback)

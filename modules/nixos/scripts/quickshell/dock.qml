@@ -66,9 +66,14 @@ PanelWindow {
     
     // --- Smart Hide Logic ---
     
-    property bool smartHide: false // Default to false (always visible)
-    property bool isHovered: mouseArea.containsMouse
-    property bool forceShow: false // Controlled by signal or external
+    property bool smartHide: false
+    property bool isHovered: dockContainer.hovered
+    property bool forceShow: false
+    
+    QtObject {
+        id: dockState
+        property bool hidden: false
+    }
     
     // Hide Timer
     Timer {
@@ -369,10 +374,12 @@ PanelWindow {
         color: Qt.rgba(0.06, 0.06, 0.09, 0.85) 
         hasBorder: true
         
-        // Hovering the dock container keeps it awake
         HoverHandler {
+            id: dockHoverHandler
             onHoveredChanged: if (hovered) dockState.hidden = false
         }
+        
+        property bool hovered: dockHoverHandler.hovered
         
         // Content
         RowLayout {

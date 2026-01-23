@@ -22,6 +22,25 @@ Scope {
     // --- State ---
     property string mode: searchInput.text.startsWith("=") ? "calc" : "app"
 
+    property var allApps: []
+    property var filteredApps: []
+    
+    function filterApps() {
+        var query = searchInput.text.toLowerCase();
+        if (query === "") {
+            filteredApps = allApps;
+        } else {
+            filteredApps = allApps.filter(function(app) {
+                return app.name.toLowerCase().indexOf(query) >= 0;
+            });
+        }
+        appModel.clear();
+        for (var i = 0; i < filteredApps.length; i++) {
+            appModel.append(filteredApps[i]);
+        }
+        appView.currentIndex = 0;
+    }
+
     // --- Single Instance Lock ---
     InstanceLock {
         lockName: "launcher"
@@ -116,7 +135,8 @@ Scope {
                                     }
                                 } else {
                                     if (appModel.count > 0) {
-                                        runner.command = [appModel.get(appView.currentIndex).exec];
+                                        var item = appModel.get(appView.currentIndex);
+                                        runner.command = ["setsid", "-f"].concat(item.exec.split(" "));
                                         runner.running = true;
                                         Qt.quit();
                                     }
@@ -125,7 +145,7 @@ Scope {
 
                             onTextChanged: {
                                 if (root.mode === "app") {
-                                    appSearcher.running = true;
+                                    root.filterApps();
                                 } else if (root.mode === "calc") {
                                     calcRunner.running = true;
                                 }
@@ -164,30 +184,72 @@ Scope {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         clip: true
-                        spacing: 4
+                        spacing: 2
 
                         model: ListModel {
                             id: appModel
                         }
 
-                        delegate: GlassButton {
+                        delegate: Column {
                             width: appView.width
-                            height: 50
-                            text: model.name
-                            contentAlignment: Qt.AlignLeft
-                            // Use exec command to resolve icon (often matches binary name), fallback to name
-                            // GlassButton handles the fallback to terminal if it fails
-                            iconSource: model.exec.split(" ")[0]
-                            active: ListView.isCurrentItem
-
-                            // Liquid Glass hover effect
-                            opacity: hovered ? 1.0 : 0.8
+                            spacing: 1
                             
-                            onClicked: {
-                                appView.currentIndex = index;
-                                runner.command = [model.exec];
-                                runner.running = true;
-                                Qt.quit();
+                            property bool expanded: false
+                            property var appActions: model.actions ? model.actions : []
+                            
+                            GlassButton {
+                                width: parent.width
+                                height: 44
+                                text: model.name
+                                contentAlignment: Qt.AlignLeft
+                                iconSource: model.icon
+                                active: appView.currentIndex === index
+
+                                opacity: hovered ? 1.0 : 0.85
+                                
+                                onClicked: {
+                                    appView.currentIndex = index;
+                                    runner.command = ["setsid", "-f"].concat(model.exec.split(" "));
+                                    runner.running = true;
+                                    Qt.quit();
+                                }
+                                
+                                onRightClicked: {
+                                    if (appActions.length > 0) {
+                                        expanded = !expanded;
+                                    }
+                                }
+                                
+                                Text {
+                                    anchors.right: parent.right
+                                    anchors.rightMargin: 12
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: appActions.length > 0 ? (expanded ? "▲" : "▼") : ""
+                                    color: Theme.foreground
+                                    font.pixelSize: 10
+                                    opacity: 0.5
+                                }
+                            }
+                            
+                            Repeater {
+                                model: expanded ? appActions : []
+                                
+                                GlassButton {
+                                    width: parent.width - 24
+                                    x: 24
+                                    height: 36
+                                    text: modelData.name
+                                    contentAlignment: Qt.AlignLeft
+                                    iconSource: ""
+                                    opacity: hovered ? 1.0 : 0.7
+                                    cornerRadius: 8
+                                    
+                                    onClicked: {
+                                        runner.command = ["setsid", "-f"].concat(modelData.exec.split(" "));
+                                        runner.running = true;
+                                        Qt.quit();
+                                    }
+                                }
                             }
                         }
                     }
@@ -201,50 +263,35 @@ Scope {
             }
         }
 
-            // --- Application Search Logic ---
-        // Using a Process to grep desktop files.
-        // In a production environment, we'd want a proper indexed service or a C++ plugin.
-        // For now, we'll use a simple shell pipeline to find .desktop files and parse names.
-
-        Component.onCompleted: appSearcher.running = true
+        Component.onCompleted: appLoader.running = true
 
         Process {
-            id: appSearcher
-            // Find .desktop files using a robust awk script to pair Name and Exec
-            // safely handling file boundaries and missing fields.
-            // Search case-insensitive, limit to top 20 results for performance.
-            command: [
-                "bash", "-c", 
-                "find /run/current-system/sw/share/applications -name '*.desktop' -print0 | " +
-                "xargs -0 awk -F= '" +
-                "FNR==1 {if(n&&e) print n\"\\t\"e; n=\"\"; e=\"\"} " +
-                "/^Name=/{n=substr($0,6)} " +
-                "/^Exec=/{e=substr($0,6)} " +
-                "END {if(n&&e) print n\"\\t\"e}' | " +
-                "grep -i '" + searchInput.text + "' | head -n 20"
-            ]
+            id: appLoader
+            command: ["bun", "/home/matrix/nixconf/modules/nixos/scripts/quickshell/list_apps.ts"]
 
             stdout: StdioCollector {
                 onStreamFinished: {
-                    appModel.clear();
+                    root.allApps = [];
                     var lines = text.split("\n");
                     for (var i = 0; i < lines.length; i++) {
                         var line = lines[i].trim();
-                        if (!line)
-                            continue;
+                        if (!line) continue;
 
-                        // Expecting: Name=Firefox\tExec=firefox %u
                         var parts = line.split("\t");
                         if (parts.length >= 2) {
-                            var name = parts[0].replace("Name=", "");
-                            var exec = parts[1].replace("Exec=", "").replace(/%[fFuU]/, "").trim();
-
-                            appModel.append({
-                                "name": name,
-                                "exec": exec
+                            var actions = [];
+                            if (parts.length > 3 && parts[3]) {
+                                try { actions = JSON.parse(parts[3]); } catch(e) {}
+                            }
+                            root.allApps.push({
+                                "name": parts[0],
+                                "exec": parts[1],
+                                "icon": parts.length > 2 ? parts[2] : "",
+                                "actions": actions
                             });
                         }
                     }
+                    root.filterApps();
                 }
             }
         }

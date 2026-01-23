@@ -9,7 +9,7 @@ import { tmpdir } from "node:os";
 const CACHE_DIR = join(tmpdir(), "synced-lyrics-cache");
 const DEFAULT_PLAYER = "mpd,%any";
 const LRCLIB_API = "https://lrclib.net/api";
-const USER_AGENT = "synced-lyrics/1.0 (https://github.com/user/nixconf)";
+const USER_AGENT = "synced-lyrics/1.0";
 
 // --- Types ---
 interface TrackMetadata {
