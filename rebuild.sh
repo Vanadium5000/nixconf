@@ -6,10 +6,10 @@ shopt -s expand_aliases
 # Core features: Secret loading, colored logging, basic rebuild actions
 # Optional features: Controlled by command-line flags
 
-# Use rofi for askpass
-ROFI_CMD='/run/current-system/sw/bin/rofi-askpass'
-if command -v "$ROFI_CMD" &> /dev/null; then
-    export SUDO_ASKPASS="$ROFI_CMD"
+# Use custom QuickShell menu for askpass
+QS_CMD='/run/current-system/sw/bin/qs-askpass'
+if command -v "$QS_CMD" &> /dev/null; then
+    export SUDO_ASKPASS="$QS_CMD"
     alias sudo='sudo -A'
 fi
 

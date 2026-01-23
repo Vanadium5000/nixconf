@@ -92,12 +92,12 @@ let
   theme = {
     font = "JetBrainsMono Nerd Font";
     blur = true;
-    rounding = 16;
+    rounding = 8;
     opacity = 1.0;
-    gaps-in = 6; # Between windows/buttons
-    gaps-out = 12; # Between windows and display edge
-    border-size = 2;
-    font-size = 13;
+    gaps-in = 2; # Between windows/buttons
+    gaps-out = 4; # Between windows and display edge
+    border-size = 1;
+    font-size = 11;
     system.font-size = 11;
 
     # Liquid Glass reference (for modules that need it)

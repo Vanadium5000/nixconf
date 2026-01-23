@@ -89,7 +89,7 @@
           #!/usr/bin/env bash
           set -euo pipefail
 
-          # Rofi menu options
+          # QS menu options
           options=(
             "Toggle Crosshair"
             "Create Autoclicker"
@@ -158,7 +158,7 @@
               hyprctl hyprpaper preload "$wallPath"
               hyprctl hyprpaper wallpaper ",$wallPath"
 
-              # For rofi & hyprlock wallpaper
+              # For qs-dmenu & hyprlock wallpaper
               cp -f "$wallPath" ~/wallpaper/.current_wallpaper
               exit 0
             fi
@@ -517,9 +517,9 @@
         stop-autoclickers
         toggle-pause-autoclickers
         toggle-crosshair
-        rofi-passmenu
-        rofi-checklist
-        rofi-music-search
+        qs-passmenu
+        qs-checklist
+        qs-music-search
         btrfs-backup
         synced-lyrics
         markdown-lint-mcp

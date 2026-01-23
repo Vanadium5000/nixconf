@@ -233,13 +233,13 @@
           "${shiftMod},B, exec, kitty btop" # btop - system resources
           "${mod},G, exec, xdg-open https://x.com/i/grok" # Open Grok
           # "${shiftMod},M, exec, xdg-open https://music.youtube.com" # Open YouTube Music
-          "${mod},A, exec, pkill nwg-drawer || ${
-            getExe self.packages.${pkgs.stdenv.hostPlatform.system}.nwg-drawer
-          }" # Toggle nwg-drawer
+          # "${mod},A, exec, pkill nwg-drawer || ${
+          #   getExe self.packages.${pkgs.stdenv.hostPlatform.system}.nwg-drawer
+          # }" # Toggle nwg-drawer
 
           "${mod},L, exec, hyprlock" # Lock
 
-          "${mod},TAB, overview:toggle" # Overview (Hyprspace)
+          # "${mod},TAB, overview:toggle" # Overview (Hyprspace)
 
           "${mod},D, exec, qs-dock" # Toggle qs-dock
           "${shiftMod},D, exec, pkill waybar || ${

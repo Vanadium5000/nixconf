@@ -78,7 +78,7 @@
 
       # Environment Variables
       environment.variables = {
-        # PASSWORD_STORE_DIR for stuff like rofi-passmenu
+        # PASSWORD_STORE_DIR for stuff like qs-passmenu
         PASSWORD_STORE_DIR = "$HOME/.local/share/password-store";
         FLAKE = config.preferences.configDirectory; # Config Directory
       };

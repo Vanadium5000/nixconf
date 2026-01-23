@@ -108,7 +108,7 @@
       packages.qs-music-search = inputs.wrappers.lib.makeWrapper {
         inherit pkgs;
         package = pkgs.writeShellScriptBin "qs-music-search" ''
-          export ROFI_IMAGES="${self'.packages.qs-dmenu}/bin/qs-dmenu"
+          export QS_DMENU_IMAGES="${self'.packages.qs-dmenu}/bin/qs-dmenu"
           exec ${pkgs.bun}/bin/bun run ${./music-search.ts} "$@"
         '';
 

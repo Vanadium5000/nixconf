@@ -245,7 +245,7 @@
         ];
       };
 
-          packages.qs-dock = inputs.wrappers.lib.makeWrapper {
+      packages.qs-dock = inputs.wrappers.lib.makeWrapper {
         inherit pkgs;
         package = pkgs.writeShellScriptBin "qs-dock" ''
           # Launch QuickShell Dock
@@ -253,7 +253,7 @@
           QML_FILE="${mkQml "dock.qml" ./dock.qml}"
           QS_BIN="${pkgs.quickshell}/bin/qs"
           export QML2_IMPORT_PATH="${pkgs.qt6.qt5compat}/lib/qt-6/qml:$QML2_IMPORT_PATH"
-          
+
           # Add icon themes to XDG_DATA_DIRS
           export XDG_DATA_DIRS="${pkgs.adwaita-icon-theme}/share:${pkgs.papirus-icon-theme}/share:$XDG_DATA_DIRS"
 
@@ -361,7 +361,11 @@
           # Cleanup
           rm -f "$INPUT_FILE"
         '';
-        runtimeInputs = [ pkgs.quickshell pkgs.coreutils pkgs.gnused ];
+        runtimeInputs = [
+          pkgs.quickshell
+          pkgs.coreutils
+          pkgs.gnused
+        ];
       };
 
       packages.qs-askpass = inputs.wrappers.lib.makeWrapper {

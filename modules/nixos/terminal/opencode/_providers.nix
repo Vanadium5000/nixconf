@@ -2,10 +2,10 @@
 {
   config = {
     custom-antigravity = {
-      npm = "@ai-sdk/anthropic";
+      npm = "@ai-sdk/google";
       name = "Antigravity";
       options = {
-        baseURL = "http://127.0.0.1:8045/v1";
+        baseURL = "http://127.0.0.1:8045/v1beta";
         apiKey = self.secrets.ANTIGRAVITY_MANAGER_KEY;
       };
       models = {

@@ -12,11 +12,11 @@ let
   quickshellSrc = fetchFromGitHub {
     owner = "quickshell-mirror";
     repo = "quickshell";
-    rev = "2fa8ed73c0b22c512b2e3fe4e57a8531d2e58694";
-    hash = "sha256-Tlnr5BulJcMers/cb+YvmBQW4nKHjdKo9loInJkyO2k=";
+    rev = "191085a8821b35680bba16ce5411fc9dbe912237";
+    hash = "sha256-qkU4r+l+UPz4dutMMRZSin64HuVZkEv9iFpu9yMWVY0=";
   };
 
-  # Source for the documentation repo (pinned to 2fa8ed73c0b22c512b2e3fe4e57a8531d2e58694 as of now)
+  # Source for the documentation repo
   docsSrc = fetchFromGitHub {
     owner = "quickshell-mirror";
     repo = "quickshell-docs";
