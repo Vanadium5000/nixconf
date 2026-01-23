@@ -85,8 +85,8 @@
 
       # Add environment packages to system packages
       environment.systemPackages =
-        self.legacyPackages.${pkgs.stdenv.hostPlatform.system}.environmentPackages
-        ++ [ self.packages.${pkgs.stdenv.hostPlatform.system}.update-pkgs ]
+        # Add all packages exported by the Flake
+        [ self.packages.${pkgs.stdenv.hostPlatform.system} ]
         ++ (with pkgs; [
           whisper-cpp
           wtype

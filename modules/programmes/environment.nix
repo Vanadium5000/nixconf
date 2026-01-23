@@ -22,6 +22,7 @@
         # Wrapped programmes
         self'.packages.qalc
         self'.packages.monero-wallet
+        self'.packages.bitcoin-wallet
         self'.packages.git
         self'.packages.starship
         editor
@@ -95,9 +96,6 @@
               cmatrix
               cava
             ]
-          ++
-            # Scripts & tools from the nixconf
-            self.legacyPackages.${pkgs.stdenv.hostPlatform.system}.scripts
         )
       );
     in

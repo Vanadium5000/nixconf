@@ -358,34 +358,196 @@
       };
       packages.monero-wallet = inputs.wrappers.lib.makeWrapper {
         inherit pkgs;
-        package = pkgs.writeShellScriptBin "monero-wallet" ''
-          #!/usr/bin/env bash
+        package =
+          let
+            passCmd = "${(pkgs.pass.withExtensions (exts: [ exts.pass-otp ]))}/bin/pass";
+          in
+          pkgs.writeShellScriptBin "monero-wallet" ''
+            #!/usr/bin/env bash
+            set -euo pipefail
 
-          # Default configuration - can be overridden with environment variables
-          DAEMON_ADDRESS=''${MONERO_DAEMON_ADDRESS:-"https://xmr.cryptostorm.is:18081"}
-          WALLET_FILE=''${MONERO_WALLET_FILE:-"$HOME/Shared/Coins/monero/main_wallet"}
-          PASSWORD_STORE_PATH=''${MONERO_PASSWORD_STORE_PATH:-"monero/main_password"}
+            # Configuration with WALLET env variable support
+            WALLET_NAME="''${WALLET:-main_wallet}"
+            DAEMON_ADDRESS="''${MONERO_DAEMON_ADDRESS:-https://xmr.cryptostorm.is:18081}"
+            WALLET_DIR="''${MONERO_WALLET_DIR:-$HOME/Shared/Coins/monero}"
+            WALLET_FILE="''${MONERO_WALLET_FILE:-$WALLET_DIR/$WALLET_NAME}"
+            PASSWORD_STORE_PATH="''${MONERO_PASSWORD_STORE_PATH:-monero/$WALLET_NAME}"
 
-          # Init using: mkdir -p ~/Shared/Coins/monero && monero-wallet-cli \
-              --generate-new-wallet ~/Shared/Coins/monero/main_wallet \
-              --daemon-address https://xmr.cryptostorm.is:18081
+            # Validate wallet name (alphanumeric, underscore, hyphen only)
+            if [[ ! "$WALLET_NAME" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+                echo "Error: Invalid wallet name '$WALLET_NAME'"
+                echo "Wallet name must contain only alphanumeric characters, underscores, and hyphens"
+                exit 1
+            fi
 
-          # Get password from pass
-          if ! PASSWORD=$(${
-            (pkgs.pass.withExtensions (exts: [ exts.pass-otp ]))
-          }/bin/pass "$PASSWORD_STORE_PATH" 2>/dev/null); then
-              echo "Error: Could not retrieve password from pass store at '$PASSWORD_STORE_PATH'"
-              echo "Make sure the password store entry exists and is accessible"
-              exit 1
-          fi
+            # Check if wallet file exists
+            if [[ ! -f "$WALLET_FILE" ]]; then
+                echo "Warning: Wallet file does not exist: $WALLET_FILE"
+                echo ""
+                echo "To initialize a new wallet, a pass entry for the wallet password is required."
+                echo "If it doesn't exist, create it first with:"
+                echo "   pass insert $PASSWORD_STORE_PATH"
+                echo ""
+                read -rp "Would you like to proceed with wallet initialization? [y/N]: " response
+                case "$response" in
+                    [yY][eE][sS]|[yY])
+                        # Check if pass entry exists before proceeding
+                        if ! ${passCmd} show "$PASSWORD_STORE_PATH" &>/dev/null; then
+                            echo ""
+                            echo "Error: Password store entry '$PASSWORD_STORE_PATH' does not exist."
+                            echo "Please create it first with: pass insert $PASSWORD_STORE_PATH"
+                            exit 1
+                        fi
+                        PASSWORD=$(${passCmd} show "$PASSWORD_STORE_PATH")
 
-          # Launch monero-wallet-cli with proper arguments
-          exec ${pkgs.monero-cli}/bin/monero-wallet-cli \
-              --daemon-address "$DAEMON_ADDRESS" \
-              --password "$PASSWORD" \
-              --wallet-file "$WALLET_FILE" \
-              "$@"
-        '';
+                        # Create wallet directory if it doesn't exist
+                        if [[ ! -d "$WALLET_DIR" ]]; then
+                            echo "Creating wallet directory: $WALLET_DIR"
+                            mkdir -p "$WALLET_DIR"
+                        fi
+
+                        echo "Initializing new wallet..."
+                        exec ${pkgs.monero-cli}/bin/monero-wallet-cli \
+                            --generate-new-wallet "$WALLET_FILE" \
+                            --daemon-address "$DAEMON_ADDRESS" \
+                            --password "$PASSWORD" \
+                            "$@"
+                        ;;
+                    *)
+                        echo "Aborted."
+                        exit 0
+                        ;;
+                esac
+            fi
+
+            # Verify wallet file is readable
+            if [[ ! -r "$WALLET_FILE" ]]; then
+                echo "Error: Wallet file is not readable: $WALLET_FILE"
+                echo "Check file permissions"
+                exit 1
+            fi
+
+            # Check if pass entry exists
+            if ! ${passCmd} show "$PASSWORD_STORE_PATH" &>/dev/null; then
+                echo "Error: Could not retrieve password from pass store at '$PASSWORD_STORE_PATH'"
+                echo "Make sure the password store entry exists and is accessible"
+                echo ""
+                echo "To create the entry, run: pass insert $PASSWORD_STORE_PATH"
+                exit 1
+            fi
+
+            # Get password from pass (already verified it exists above)
+            PASSWORD=$(${passCmd} show "$PASSWORD_STORE_PATH")
+
+            # Validate password is not empty
+            if [[ -z "$PASSWORD" ]]; then
+                echo "Error: Password retrieved from pass store is empty"
+                exit 1
+            fi
+
+            # Launch monero-wallet-cli with proper arguments
+            exec ${pkgs.monero-cli}/bin/monero-wallet-cli \
+                --daemon-address "$DAEMON_ADDRESS" \
+                --password "$PASSWORD" \
+                --wallet-file "$WALLET_FILE" \
+                "$@"
+          '';
+      };
+
+      packages.bitcoin-wallet = inputs.wrappers.lib.makeWrapper {
+        inherit pkgs;
+        package =
+          let
+            passCmd = "${(pkgs.pass.withExtensions (exts: [ exts.pass-otp ]))}/bin/pass";
+          in
+          pkgs.writeShellScriptBin "bitcoin-wallet" ''
+            #!/usr/bin/env bash
+            set -euo pipefail
+
+            # Configuration with WALLET env variable support
+            WALLET_NAME="''${WALLET:-main_wallet}"
+            ELECTRUM_DIR="''${ELECTRUM_DIR:-$HOME/Shared/Coins/bitcoin}"
+            WALLET_FILE="''${ELECTRUM_WALLET_FILE:-$ELECTRUM_DIR/wallets/$WALLET_NAME}"
+            PASSWORD_STORE_PATH="''${ELECTRUM_PASSWORD_STORE_PATH:-bitcoin/$WALLET_NAME}"
+
+            # Validate wallet name (alphanumeric, underscore, hyphen only)
+            if [[ ! "$WALLET_NAME" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+                echo "Error: Invalid wallet name '$WALLET_NAME'"
+                echo "Wallet name must contain only alphanumeric characters, underscores, and hyphens"
+                exit 1
+            fi
+
+            # Check if wallet file exists
+            WALLET_DIR="$(dirname "$WALLET_FILE")"
+            if [[ ! -f "$WALLET_FILE" ]]; then
+                echo "Warning: Wallet file does not exist: $WALLET_FILE"
+                echo ""
+                echo "To initialize a new wallet, a pass entry for the wallet password is required."
+                echo "If it doesn't exist, create it first with:"
+                echo "   pass insert $PASSWORD_STORE_PATH"
+                echo ""
+                read -rp "Would you like to proceed with wallet initialization? [y/N]: " response
+                case "$response" in
+                    [yY][eE][sS]|[yY])
+                        # Check if pass entry exists before proceeding
+                        if ! ${passCmd} show "$PASSWORD_STORE_PATH" &>/dev/null; then
+                            echo ""
+                            echo "Error: Password store entry '$PASSWORD_STORE_PATH' does not exist."
+                            echo "Please create it first with: pass insert $PASSWORD_STORE_PATH"
+                            exit 1
+                        fi
+                        PASSWORD=$(${passCmd} show "$PASSWORD_STORE_PATH")
+
+                        # Create wallet directory if it doesn't exist
+                        if [[ ! -d "$WALLET_DIR" ]]; then
+                            echo "Creating wallet directory: $WALLET_DIR"
+                            mkdir -p "$WALLET_DIR"
+                        fi
+
+                        echo "Creating new wallet..."
+                        # Create wallet with electrum (password set during creation)
+                        ${pkgs.electrum}/bin/electrum --offline create --wallet "$WALLET_FILE" --password "$PASSWORD"
+                        echo ""
+                        echo "Wallet created successfully at: $WALLET_FILE"
+                        echo "IMPORTANT: Please back up your seed phrase!"
+                        echo "Run: electrum --offline --wallet '$WALLET_FILE' getseed --password '\$PASSWORD'"
+                        echo "(where \$PASSWORD is your wallet password from pass)"
+                        echo ""
+                        echo "Starting wallet GUI..."
+                        exec ${pkgs.electrum}/bin/electrum --wallet "$WALLET_FILE" "$@"
+                        ;;
+                    *)
+                        echo "Aborted."
+                        exit 0
+                        ;;
+                esac
+            fi
+
+            # Verify wallet file is readable
+            if [[ ! -r "$WALLET_FILE" ]]; then
+                echo "Error: Wallet file is not readable: $WALLET_FILE"
+                echo "Check file permissions"
+                exit 1
+            fi
+
+            # Check if pass entry exists
+            if ! ${passCmd} show "$PASSWORD_STORE_PATH" &>/dev/null; then
+                echo "Error: Could not retrieve password from pass store at '$PASSWORD_STORE_PATH'"
+                echo "Make sure the password store entry exists and is accessible"
+                echo ""
+                echo "To create the entry, run: pass insert $PASSWORD_STORE_PATH"
+                exit 1
+            fi
+
+            # Password verified to exist - electrum GUI will prompt for it interactively
+            # We verify pass entry exists so user knows their password is available
+            echo "Wallet password available in pass at: $PASSWORD_STORE_PATH"
+            echo "Electrum will prompt for the password in the GUI."
+            echo ""
+
+            # Launch electrum GUI with wallet
+            exec ${pkgs.electrum}/bin/electrum --wallet "$WALLET_FILE" "$@"
+          '';
       };
 
       packages.autoclicker-daemon = inputs.wrappers.lib.makeWrapper {
@@ -497,34 +659,5 @@
           fi
         '';
       };
-
-      legacyPackages.scripts = with self'.packages; [
-        sound-change
-        sound-up
-        sound-up-small
-        sound-down
-        sound-down-small
-        sound-toggle
-        sound-set
-        qs-tools
-        qs-wallpaper
-        qs-wallpaper-selector
-        toggle-lid-inhibit
-        lid-status
-        monero-wallet
-        autoclicker-daemon
-        create-autoclicker
-        stop-autoclickers
-        toggle-pause-autoclickers
-        toggle-crosshair
-        qs-passmenu
-        qs-checklist
-        qs-music-search
-        btrfs-backup
-        synced-lyrics
-        markdown-lint-mcp
-        dictation
-        toggle-lyrics-overlay
-      ];
     };
 }
