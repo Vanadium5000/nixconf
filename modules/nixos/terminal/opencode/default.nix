@@ -201,7 +201,7 @@
           # Docs: https://github.com/code-yeongyu/oh-my-opencode/blob/dev/docs/features.md
           "agents" = {
             "oracle" = {
-              "model" = "antigravity-gemini/gemini-3-pro-high";
+              "model" = "antigravity-gemini/gemini-3-pro-preview";
             };
             "librarian" = {
               "model" = "antigravity-gemini/gemini-3-flash";
@@ -211,6 +211,17 @@
             };
             "multimodal-looker" = {
               "model" = "antigravity-gemini/gemini-3-flash";
+            };
+
+            # Main Agents
+            "atlas" = {
+              "model" = "antigravity-gemini/gemini-3-flash";
+            };
+            "prometheus" = {
+              "model" = "antigravity-gemini/gemini-3-pro-preview";
+            };
+            "sisyphus" = {
+              "model" = "antigravity-gemini/gemini-3-pro-preview";
             };
           };
           # Override category models (used by delegate_task)
@@ -222,15 +233,15 @@
             };
             # Frontend, UI/UX, design, styling, animation
             "visual-engineering" = {
-              "model" = "antigravity-gemini/gemini-3-pro-high";
+              "model" = "antigravity-gemini/gemini-3-pro-preview";
             };
             # Deep logical reasoning, complex architecture decisions requiring extensive analysis
             "ultrabrain" = {
-              "model" = "antigravity-gemini/gemini-3-pro-high";
+              "model" = "antigravity-gemini/gemini-3-pro-preview";
             };
             # Highly creative/artistic tasks, novel ideas
             "artistry" = {
-              "model" = "antigravity-gemini/gemini-3-pro-high";
+              "model" = "antigravity-gemini/gemini-3-pro-preview";
             };
             # Tasks that don't fit other categories, low effort required
             "unspecified-low" = {
@@ -238,7 +249,7 @@
             };
             # Tasks that don't fit other categories, high effort required
             "unspecified-high" = {
-              "model" = "antigravity-gemini/gemini-3-pro-high";
+              "model" = "antigravity-gemini/gemini-3-pro-preview";
             };
             # Documentation, prose, technical writing
             "writing" = {

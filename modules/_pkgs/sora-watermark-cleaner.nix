@@ -1,5 +1,6 @@
 {
   lib,
+  pkgs,
   python312Packages,
   fetchFromGitHub,
   fetchurl,
@@ -116,6 +117,10 @@ stdenv.mkDerivation {
   dontBuild = true;
 
   postPatch = ''
+    # Fix deprecated torch.cuda.amp.autocast which fails in newer torch versions
+    substituteInPlace sorawm/iopaint/model/ldm.py \
+      --replace-fail "@torch.cuda.amp.autocast()" "@torch.amp.autocast('cuda')"
+
     # Patch flow_comp.py to handle missing mmcv.runner (MMCV 2.x compatibility)
     cat > sorawm/models/model/modules/flow_comp_patch.py << 'EOF'
 import numpy as np
@@ -252,6 +257,11 @@ NIXEOF
     makeWrapper ${pythonEnv}/bin/python $out/bin/sora-watermark-cleaner \
       --add-flags "$out/lib/sora-watermark-cleaner/cli.py" \
       --prefix PATH : ${lib.makeBinPath [ ffmpeg ]} \
+      --prefix LD_LIBRARY_PATH : ${lib.makeLibraryPath [
+        pkgs.linuxPackages.nvidia_x11
+        pkgs.cudaPackages.cudatoolkit
+        pkgs.cudaPackages.cudnn
+      ]} \
       --set SORAWM_MODELS_DIR "$out/share/models"
 
     runHook postInstall
