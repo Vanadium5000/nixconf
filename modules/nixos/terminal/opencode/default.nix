@@ -78,7 +78,7 @@
             "oh-my-opencode@latest"
             # "@tarquinen/opencode-dcp@latest"
           ];
-          small_model = "opencode/grok-code";
+          small_model = "opencode/gpt-5-nano";
           autoupdate = false;
           share = "disabled";
           disabled_providers = [
