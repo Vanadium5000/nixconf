@@ -261,7 +261,7 @@ NIXEOF
         pkgs.linuxPackages.nvidia_x11
         pkgs.cudaPackages.cudatoolkit
         pkgs.cudaPackages.cudnn
-      ]} \
+      ]}:/run/opengl-driver/lib \
       --set SORAWM_MODELS_DIR "$out/share/models"
 
     runHook postInstall
