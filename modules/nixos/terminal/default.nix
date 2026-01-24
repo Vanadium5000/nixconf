@@ -3,14 +3,10 @@
   flake.nixosModules.terminal =
     {
       pkgs,
-      # lib,
+      lib,
       config,
       ...
     }:
-    let
-      # inherit (lib) getExe;
-      # selfpkgs = self.packages."${pkgs.stdenv.hostPlatform.system}";
-    in
     {
       imports = [
         # Requirements
@@ -86,12 +82,13 @@
       # Add environment packages to system packages
       environment.systemPackages =
         # Add all packages exported by the Flake
-        [ self.packages.${pkgs.stdenv.hostPlatform.system} ]
+        lib.attrValues self.packages.${pkgs.stdenv.hostPlatform.system}
         ++ (with pkgs; [
           whisper-cpp
           wtype
           monero-cli
           electrum
+          foundry # provides "cast"
         ]);
 
       # Declare the HOST as an environment variable for use in scripts, etc.

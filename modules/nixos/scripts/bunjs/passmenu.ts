@@ -370,7 +370,8 @@ function buildFieldOptions(
 // =============================================================================
 
 const credentialGenerators: Record<string, () => string> = {
-  password: () => crypto.randomBytes(15).toString("base64"),
+  password: () => crypto.randomBytes(32).toString("base64"),
+  "password (small)": () => crypto.randomBytes(15).toString("base64"),
   username: () => faker.internet.username(),
   "full name": () => faker.person.fullName(),
   "phone number": () => faker.phone.number({ style: "international" }),
@@ -775,7 +776,7 @@ async function handleViewMessages(
       body.match(/(?:^|[<>\s])(\d{4,8})(?:$|[<>\s])/g) || [];
 
     // Build options
-    const messageOptions: string[] = ["Copy Full Message"];
+    const messageOptions: string[] = ["Copy Full Message", "Open in Browser"];
 
     for (const link of links) {
       messageOptions.push(`Copy Link: ${link}`);
@@ -810,6 +811,12 @@ async function handleViewMessages(
       }\nDate: ${new Date(msg.createdAt).toLocaleString()}\nBody:\n${body}`;
       await performAction(fullMessage, "copy", copyCmd);
       await notify("Message copied to clipboard", "passmenu");
+    } else if (messageAction === "Open in Browser") {
+      const tmpFile = `/tmp/passmenu-email-${messages[selectedIndex]!.id}.html`;
+      const htmlContent = msg.html || `<pre>${msg.text}</pre>` || "No content";
+      await Bun.write(tmpFile, htmlContent);
+      await $`xdg-open ${tmpFile}`.nothrow();
+      await notify("Opened in browser", "passmenu");
     } else if (messageAction.startsWith("Copy Link: ")) {
       const link = messageAction.slice("Copy Link: ".length);
       await performAction(link, "copy", copyCmd);
@@ -875,14 +882,19 @@ async function manageTempEmails(
 
   // Choose action
   const actions = [
+    `📧 ${selected.email}`,
     "Copy Email",
     "Copy Password",
     "View Messages",
     "Delete Email",
   ];
-  const action = await selectOption(menuCommand, actions, "Choose action:");
-  if (!action) {
-    await notify("No action selected", "passmenu");
+  const action = await selectOption(
+    menuCommand,
+    actions,
+    `Manage: ${selected.email}`
+  );
+  if (!action || action === `📧 ${selected.email}`) {
+    if (!action) await notify("No action selected", "passmenu");
     return;
   }
 
@@ -917,8 +929,16 @@ async function manageTempEmails(
         break;
 
       case "Delete Email":
-        await $`pass rm -f ${selected.path}`;
-        await notify("Temp email deleted", "passmenu");
+        const confirm = await selectOption(
+          menuCommand,
+          ["No, keep it", "Yes, delete permanently"],
+          `Delete ${selected.email}?`
+        );
+
+        if (confirm === "Yes, delete permanently") {
+          await $`pass rm -f ${selected.path}`;
+          await notify("Temp email deleted", "passmenu");
+        }
         break;
     }
   } catch (error) {
@@ -940,6 +960,7 @@ async function generateCredential(
   const fields = [
     "email",
     "password",
+    "password (small)",
     "username",
     "full name",
     "phone number",

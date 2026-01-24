@@ -1,7 +1,6 @@
 {
   lib,
   inputs,
-  self,
   ...
 }:
 {
@@ -23,6 +22,7 @@
         self'.packages.qalc
         self'.packages.monero-wallet
         self'.packages.bitcoin-wallet
+        self'.packages.ethereum-wallet
         self'.packages.git
         self'.packages.starship
         editor

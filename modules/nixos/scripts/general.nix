@@ -550,6 +550,171 @@
           '';
       };
 
+      packages.ethereum-wallet = inputs.wrappers.lib.makeWrapper {
+        inherit pkgs;
+        package =
+          let
+            passCmd = "${(pkgs.pass.withExtensions (exts: [ exts.pass-otp ]))}/bin/pass";
+            castCmd = "${pkgs.foundry}/bin/cast";
+          in
+          pkgs.writeShellScriptBin "ethereum-wallet" ''
+            #!/usr/bin/env bash
+            set -euo pipefail
+
+            # Configuration with environment variable support
+            WALLET_NAME="''${WALLET:-main_wallet}"
+            ETH_WALLET_DIR="''${ETH_WALLET_DIR:-$HOME/Shared/Coins/ethereum}"
+            ETH_WALLET_FILE="''${ETH_WALLET_FILE:-$ETH_WALLET_DIR/$WALLET_NAME}"
+            PASSWORD_STORE_PATH="''${ETH_PASSWORD_STORE_PATH:-ethereum/$WALLET_NAME}"
+            RPC_URL="''${ETH_RPC_URL:-https://eth.llamarpc.com}"
+
+            # Export RPC URL for cast commands
+            export ETH_RPC_URL="$RPC_URL"
+
+            # Validate wallet name (alphanumeric, underscore, hyphen only)
+            if [[ ! "$WALLET_NAME" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+                echo "Error: Invalid wallet name '$WALLET_NAME'"
+                echo "Wallet name must contain only alphanumeric characters, underscores, and hyphens"
+                exit 1
+            fi
+
+            # Check if wallet file exists
+            if [[ ! -f "$ETH_WALLET_FILE" ]]; then
+                echo "Warning: Wallet file does not exist: $ETH_WALLET_FILE"
+                echo ""
+                echo "To initialize a new wallet, a pass entry for the wallet password is required."
+                echo "If it doesn't exist, create it first with:"
+                echo "   pass insert $PASSWORD_STORE_PATH"
+                echo ""
+                read -rp "Would you like to proceed with wallet initialization? [y/N]: " response
+                case "$response" in
+                    [yY][eE][sS]|[yY])
+                        # Check if pass entry exists before proceeding
+                        if ! ${passCmd} show "$PASSWORD_STORE_PATH" &>/dev/null; then
+                            echo ""
+                            echo "Error: Password store entry '$PASSWORD_STORE_PATH' does not exist."
+                            echo "Please create it first with: pass insert $PASSWORD_STORE_PATH"
+                            exit 1
+                        fi
+                        PASSWORD=$(${passCmd} show "$PASSWORD_STORE_PATH")
+
+                        # Validate password is not empty
+                        if [[ -z "$PASSWORD" ]]; then
+                            echo "Error: Password retrieved from pass store is empty"
+                            exit 1
+                        fi
+
+                        # Create wallet directory if it doesn't exist
+                        if [[ ! -d "$ETH_WALLET_DIR" ]]; then
+                            echo "Creating wallet directory: $ETH_WALLET_DIR"
+                            mkdir -p "$ETH_WALLET_DIR"
+                        fi
+
+                        echo "Initializing new Ethereum wallet..."
+                        ${castCmd} wallet new "$ETH_WALLET_DIR" "$WALLET_NAME" --unsafe-password "$PASSWORD"
+
+                        echo ""
+                        echo "Wallet created successfully at: $ETH_WALLET_FILE"
+                        echo ""
+                        echo "IMPORTANT: Back up your keystore file securely!"
+                        echo "Your wallet address:"
+                        ${castCmd} wallet address --keystore "$ETH_WALLET_FILE" --password "$PASSWORD"
+                        exit 0
+                        ;;
+                    *)
+                        echo "Aborted."
+                        exit 0
+                        ;;
+                esac
+            fi
+
+            # Verify wallet file is readable
+            if [[ ! -r "$ETH_WALLET_FILE" ]]; then
+                echo "Error: Wallet file is not readable: $ETH_WALLET_FILE"
+                echo "Check file permissions"
+                exit 1
+            fi
+
+            # Check if pass entry exists
+            if ! ${passCmd} show "$PASSWORD_STORE_PATH" &>/dev/null; then
+                echo "Error: Could not retrieve password from pass store at '$PASSWORD_STORE_PATH'"
+                echo "Make sure the password store entry exists and is accessible"
+                echo ""
+                echo "To create the entry, run: pass insert $PASSWORD_STORE_PATH"
+                exit 1
+            fi
+
+            # Get password from pass
+            PASSWORD=$(${passCmd} show "$PASSWORD_STORE_PATH")
+
+            # Validate password is not empty
+            if [[ -z "$PASSWORD" ]]; then
+                echo "Error: Password retrieved from pass store is empty"
+                exit 1
+            fi
+
+            # If no arguments provided, show wallet address and usage hint
+            if [[ $# -eq 0 ]]; then
+                echo "Ethereum Wallet: $WALLET_NAME"
+                echo "Keystore: $ETH_WALLET_FILE"
+                echo "RPC: $RPC_URL"
+                echo ""
+                echo "Address:"
+                ${castCmd} wallet address --keystore "$ETH_WALLET_FILE" --password "$PASSWORD"
+                echo ""
+                echo "Run 'ethereum-wallet --help' for available commands"
+                exit 0
+            fi
+
+            # Handle --help specially to show both cast help and wrapper info
+            if [[ "$1" == "--help" || "$1" == "-h" ]]; then
+                echo "ethereum-wallet - Ethereum wallet wrapper using cast (foundry)"
+                echo ""
+                echo "USAGE:"
+                echo "  ethereum-wallet [COMMAND] [ARGS...]"
+                echo ""
+                echo "ENVIRONMENT VARIABLES:"
+                echo "  WALLET                    Wallet name (default: main_wallet)"
+                echo "  ETH_WALLET_DIR            Wallet directory (default: ~/Shared/Coins/ethereum)"
+                echo "  ETH_WALLET_FILE           Wallet file path (default: \$ETH_WALLET_DIR/\$WALLET)"
+                echo "  ETH_PASSWORD_STORE_PATH   Pass entry path (default: ethereum/\$WALLET)"
+                echo "  ETH_RPC_URL               RPC endpoint (default: https://eth.llamarpc.com)"
+                echo ""
+                echo "EXAMPLES:"
+                echo "  ethereum-wallet                           # Show wallet address"
+                echo "  ethereum-wallet balance <ADDRESS>         # Check balance"
+                echo "  ethereum-wallet send <TO> --value 0.1ether  # Send ETH"
+                echo "  ethereum-wallet nonce <ADDRESS>           # Get nonce"
+                echo "  WALLET=savings ethereum-wallet            # Use different wallet"
+                echo ""
+                echo "CAST COMMANDS:"
+                ${castCmd} --help
+                exit 0
+            fi
+
+            # For wallet subcommands, inject keystore args
+            if [[ "$1" == "wallet" ]]; then
+                shift
+                exec ${castCmd} wallet "$@" --keystore "$ETH_WALLET_FILE" --password "$PASSWORD"
+            fi
+
+            # For send command, inject keystore args for signing
+            if [[ "$1" == "send" ]]; then
+                shift
+                exec ${castCmd} send "$@" --keystore "$ETH_WALLET_FILE" --password "$PASSWORD"
+            fi
+
+            # For mktx command (build unsigned tx), inject keystore args
+            if [[ "$1" == "mktx" ]]; then
+                shift
+                exec ${castCmd} mktx "$@" --keystore "$ETH_WALLET_FILE" --password "$PASSWORD"
+            fi
+
+            # For other commands, pass through directly (they may not need signing)
+            exec ${castCmd} "$@"
+          '';
+      };
+
       packages.autoclicker-daemon = inputs.wrappers.lib.makeWrapper {
         inherit pkgs;
         package = pkgs.writeShellScriptBin "autoclicker-daemon" ''
