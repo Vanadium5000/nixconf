@@ -161,6 +161,48 @@ stdenv.mkDerivation {
         # Append the original file content (skipping imports) to the patch
         tail -n +9 sorawm/models/model/modules/flow_comp.py >> sorawm/models/model/modules/flow_comp_patch.py
         mv sorawm/models/model/modules/flow_comp_patch.py sorawm/models/model/modules/flow_comp.py
+
+    # Patch devices_utils.py to support env var override
+    cat > sorawm/utils/devices_utils.py << 'EOF'
+from functools import lru_cache
+import torch
+import os
+from loguru import logger
+
+@lru_cache()
+def get_device():
+    if os.environ.get("SORA_DEVICE"):
+        device = os.environ["SORA_DEVICE"]
+        logger.info(f"Forcing device from env: {device}")
+        return torch.device(device)
+
+    device = "cpu"
+    if torch.cuda.is_available():
+        device = "cuda"
+    if torch.backends.mps.is_available():
+        device = "mps"
+    logger.debug(f"Using device: {device}")
+    return torch.device(device)
+EOF
+
+    # Add --device argument to cli.py
+    substituteInPlace cli.py \
+      --replace-fail 'help="🔧 Model to use for watermark removal (default: lama). Options: lama (fast, may flicker), e2fgvi_hq (time consistent, slower)",' \
+                     'help="🔧 Model to use for watermark removal (default: lama). Options: lama (fast, may flicker), e2fgvi_hq (time consistent, slower)",
+    )
+    parser.add_argument(
+        "-d",
+        "--device",
+        type=str,
+        help="🖥️ Device to use (e.g., cuda, cpu). Overrides auto-detection.",'
+
+    # Inject env var setting in cli.py
+    substituteInPlace cli.py \
+      --replace-fail 'args = parser.parse_args()' \
+                     'args = parser.parse_args()
+    if args.device:
+        import os
+        os.environ["SORA_DEVICE"] = args.device'
   '';
 
   installPhase = ''

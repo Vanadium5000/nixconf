@@ -275,6 +275,7 @@
           "${mod},P, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.qs-passmenu}"
           "${shiftMod},P, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.qs-passmenu} -a" # With autotype
           "${mod},M, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.qs-music-search}"
+          "${altMod},M, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.qs-music-local}"
           "${shiftMod},M, exec, mpc status | grep -q 'playing' && mpc stop || { mpc clear && mpc add / && mpc shuffle && mpc play; }" # Toggle shuffle-all-play / stop
           "${mod},C, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.qs-checklist}"
           "${mod},X, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.qs-powermenu}"

@@ -131,6 +131,22 @@
         ];
       };
 
+      packages.qs-music-local = inputs.wrappers.lib.makeWrapper {
+        inherit pkgs;
+        package = pkgs.writeShellScriptBin "qs-music-local" ''
+          export QS_DMENU_IMAGES="${self'.packages.qs-dmenu}/bin/qs-dmenu"
+          exec ${pkgs.bun}/bin/bun run ${./music-local.ts} "$@"
+        '';
+
+        runtimeInputs = [
+          self'.packages.qs-dmenu
+          pkgs.bun
+          pkgs.libnotify
+          pkgs.mpc
+          pkgs.coreutils
+        ];
+      };
+
       packages.synced-lyrics = inputs.wrappers.lib.makeWrapper {
         inherit pkgs;
         package = pkgs.writeShellScriptBin "synced-lyrics" ''
