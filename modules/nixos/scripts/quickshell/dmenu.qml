@@ -37,6 +37,7 @@ Scope {
     property bool caseInsensitive: (Quickshell.env("DMENU_CASE_INSENSITIVE") ?? "true") === "true"
     property int selectedIndex: parseInt(Quickshell.env("DMENU_SELECTED") ?? "0")
     property string placeholderText: Quickshell.env("DMENU_PLACEHOLDER") ?? ""
+    property string messageText: Quickshell.env("DMENU_MESSAGE") ?? ""
     property string filterMode: Quickshell.env("DMENU_FILTER") ?? "fuzzy"
     property string viewMode: Quickshell.env("DMENU_VIEW") ?? "list" // list, grid
     property int gridColumns: parseInt(Quickshell.env("DMENU_GRID_COLS") ?? "3")
@@ -334,6 +335,19 @@ Scope {
                                 visible: !root.passwordMode && itemsModel.count > 0
                             }
                         }
+                    }
+
+                    // Message Text (if present)
+                    Text {
+                        Layout.fillWidth: true
+                        Layout.bottomMargin: 4
+                        visible: root.messageText !== ""
+                        text: root.messageText
+                        font.family: Theme.glass.fontFamily
+                        font.pixelSize: Theme.glass.fontSizeSmall
+                        color: Theme.glass.textSecondary
+                        wrapMode: Text.Wrap
+                        horizontalAlignment: Text.AlignHCenter
                     }
 
                         // Results View (Loader for List or Grid)

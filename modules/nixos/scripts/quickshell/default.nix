@@ -302,6 +302,7 @@
           SELECTED=0
           PLACEHOLDER=""
           FILTER="fuzzy"
+          MESSAGE=""
 
           # Parse args
           while [[ $# -gt 0 ]]; do
@@ -338,6 +339,10 @@
                 FILTER="$2"
                 shift 2
                 ;;
+              -mesg)
+                MESSAGE="$2"
+                shift 2
+                ;;
               -dmenu|-matching|-no-custom|-markup-rows)
                 # Ignored flags for rofi compatibility
                 shift
@@ -366,6 +371,7 @@
           DMENU_SELECTED="$SELECTED" \
           DMENU_PLACEHOLDER="$PLACEHOLDER" \
           DMENU_FILTER="$FILTER" \
+          DMENU_MESSAGE="$MESSAGE" \
           "$QS_BIN" -p "$QML_FILE" 2>&1 | grep "QS_DMENU_RESULT:" | sed 's/^.*QS_DMENU_RESULT://'
 
           # Cleanup

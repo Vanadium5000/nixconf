@@ -59,19 +59,21 @@
         vlc
         mpv
 
-        # GUIs
+        # KDE Core Apps
         kdePackages.dolphin # File Manager
-        kdePackages.ksystemstats
-        kdePackages.kactivitymanagerd
-        kdePackages.libksysguard
-        kdePackages.kio-extras
-        kdePackages.kio-admin
-        kdePackages.polkit-kde-agent-1
-        # FIXME: plasma-systemmonitor is broken
-        kdePackages.plasma-systemmonitor # System Monitor
         kdePackages.ark # Archive Manager
         kdePackages.okular # Document Viewer
         kdePackages.gwenview # Image Viewer
+        kdePackages.plasma-systemmonitor # System Monitor GUI
+
+        # KDE Frameworks & System Utilities
+        kdePackages.ksystemstats # Core system statistics provider
+        kdePackages.libksysguard # System monitoring library
+        kdePackages.kactivitymanagerd # Runtime requirement for KDE apps
+        kdePackages.kio-extras # Additional IO protocols (sftp, smb, thumbnails)
+        kdePackages.kio-admin # Admin actions in Dolphin
+        kdePackages.polkit-kde-agent-1 # Polkit authentication agent (Required)
+
         kitty # Terminal Emulator
 
         # CLIs

@@ -18,16 +18,7 @@
           font_size = 12;
           font_fixed = "JetBrainsMono Nerd Font";
           font_fixed_size = 12;
-        };
-        Palette = {
-          Window = "#232629";
-          WindowText = "#eff0f1";
-          Base = "#1b1e20";
-          AlternateBase = "#232629";
-          Button = "#31363b";
-          ButtonText = "#eff0f1";
-          Highlight = "#3daee9";
-          HighlightedText = "#eff0f1";
+          color_scheme = "${pkgs.kdePackages.breeze}/share/color-schemes/BreezeDark.colors";
         };
         misc = {
           single_click_activate = true;
@@ -46,6 +37,7 @@
       environment.systemPackages = with pkgs; [
         kdePackages.oxygen
         kdePackages.oxygen-icons
+        kdePackages.breeze # Required for BreezeDark.colors
         inputs.hyprqt6engine.packages.${pkgs.stdenv.hostPlatform.system}.default
       ];
 

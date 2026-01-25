@@ -674,7 +674,25 @@ async function runWhisperStream(
     if (!text || text.length < 2) return false;
 
     // Filter parenthetical noise: (music), (beeping), [inaudible], etc.
-    if (/^\(.*\)$/.test(text) || /^\[.*\]$/.test(text)) return false;
+    // We allow brackets generally, but block common hallucination patterns
+    if (/^[\[\(].*[\]\)]$/.test(text)) {
+      const inner = text.slice(1, -1).trim().toLowerCase();
+      // Block timestamps [00:12]
+      if (/^[\d:.]+$/.test(inner)) return false;
+      
+      const noiseTriggers = [
+        "music", "applause", "inaudible", "silence", "noise", "beeping",
+        "laughter", "sound", "foreign", "background", "chatter",
+        "end of recording", "video", "audio", "transcript", "subtitle",
+        "subtitles", "copyright", "caption", "notes", "no audio"
+      ];
+      
+      // If the bracketed text starts with or equals a noise trigger, block it
+      if (noiseTriggers.some(t => inner === t || inner.startsWith(t + " "))) {
+        return false;
+      }
+    }
+
     if (/^\*.*\*$/.test(text)) return false;
 
     // Common Hallucinations
@@ -743,7 +761,8 @@ async function runWhisperStream(
     const parts = cleaned.split(/[\r\n]+/);
 
     for (const part of parts) {
-      const text = part.trim();
+      // Ensure no newlines (safeguard) and trim
+      const text = part.replace(/[\r\n]+/g, " ").trim();
       if (!text) continue;
 
       if (text.includes("Capture device #")) {

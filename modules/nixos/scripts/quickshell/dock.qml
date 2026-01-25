@@ -27,7 +27,7 @@ PanelWindow {
     
     InstanceLock {
         lockName: "dock"
-        toggle: false // Dock should replace old instance, not toggle close
+        toggle: true
     }
     
     // --- Window Configuration ---
@@ -43,13 +43,13 @@ PanelWindow {
     anchors {
         bottom: position === "bottom"
         top: position === "top"
-        left: position === "left" || position === "top" || position === "bottom"
-        right: position === "right" || position === "top" || position === "bottom"
+        left: position === "left"
+        right: position === "right"
     }
-    
-    // Dimensions
-    implicitHeight: (position === "bottom" || position === "top") ? 84 : 0
-    implicitWidth: (position === "left" || position === "right") ? 84 : 0
+
+    // Dynamic window size based on content to prevent input blocking
+    width: (position === "bottom" || position === "top") ? dockContainer.width : undefined
+    height: (position === "left" || position === "right") ? dockContainer.height : undefined
     
     // Layer Configuration
     // User requested: "stop off-setting/reserving space from the windows by default"
