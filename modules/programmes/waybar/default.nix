@@ -10,6 +10,7 @@
     {
       pkgs,
       lib,
+      self',
       ...
     }:
     let
@@ -325,12 +326,12 @@
             }
             # The "_" prefix makes import-tree ignore the nix files
             (import ./_modules/audio.nix pkgs)
-            (import ./_modules/custom.nix pkgs self)
+            (import ./_modules/custom.nix pkgs self')
             (import ./_modules/general.nix pkgs theme)
             (import ./_modules/hyprland.nix pkgs)
-            (import ./_modules/media.nix pkgs self)
+            (import ./_modules/media.nix pkgs self')
             (import ./_modules/networking.nix pkgs)
-            (import ./_modules/pomodoro.nix pkgs self)
+            (import ./_modules/pomodoro.nix pkgs self')
             (import ./_modules/resources.nix pkgs)
             (import ./_modules/system.nix pkgs)
           ]
