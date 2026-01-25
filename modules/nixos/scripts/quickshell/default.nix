@@ -193,7 +193,7 @@
           if [ -n "$SELECTED" ]; then
               EMOJI=$(echo "$SELECTED" | cut -d' ' -f1)
               if [ -n "$EMOJI" ]; then
-                  printf '%s' "$EMOJI" | wl-copy
+                  printf '%s' "$EMOJI" | wl-copy --type text/plain
                   notify-send "Copied" "$EMOJI"
               fi
           fi
@@ -238,7 +238,7 @@
           if [ -n "$SELECTED" ]; then
               ICON=$(echo "$SELECTED" | cut -d' ' -f1)
               if [ -n "$ICON" ]; then
-                  printf '%s' "$ICON" | wl-copy
+                  printf '%s' "$ICON" | wl-copy --type text/plain
                   notify-send "Copied" "$ICON"
               fi
           fi

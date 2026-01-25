@@ -1,7 +1,6 @@
 {
   lib,
   pkgs,
-  python312Packages,
   fetchFromGitHub,
   fetchurl,
   ffmpeg,
@@ -11,6 +10,21 @@
 
 let
   version = "0.0.4";
+
+  # Create a pkgs with torch replaced by torch-bin at the nixpkgs level
+  # This ensures ALL Python packages (including ultralytics) use CUDA torch-bin
+  cudaPkgs = pkgs.extend (
+    final: prev: {
+      python312Packages = prev.python312Packages.override {
+        overrides = pyFinal: pyPrev: {
+          torch = pyPrev.torch-bin;
+          torchvision = pyPrev.torchvision-bin;
+        };
+      };
+    }
+  );
+
+  cudaPython = cudaPkgs.python312Packages;
 
   # Pre-fetch ML models as fixed-output derivations
   yoloModel = fetchurl {
@@ -23,24 +37,24 @@ let
     hash = "sha256-NEx3u8sVjxfdFDBw0eeJ84pmwEICMRrjoljvZmZ6nqk=";
   };
 
-  # Ruptures is missing from nixpkgs, so we package it here
-  ruptures = python312Packages.buildPythonPackage rec {
+  # Ruptures must use the overridden package set to avoid pulling CPU torch
+  ruptures = cudaPython.buildPythonPackage rec {
     pname = "ruptures";
     version = "1.1.9";
     pyproject = true;
 
-    src = python312Packages.fetchPypi {
+    src = cudaPython.fetchPypi {
       inherit pname version;
       hash = "sha256-qpQPPAIjXauUdT/xVon466yhDIPaccspy7f5gd+jYtw=";
     };
 
-    build-system = [
-      python312Packages.setuptools
-      python312Packages.setuptools-scm
-      python312Packages.cython
-      python312Packages.oldest-supported-numpy
+    build-system = with cudaPython; [
+      setuptools
+      setuptools-scm
+      cython
+      oldest-supported-numpy
     ];
-    dependencies = with python312Packages; [
+    dependencies = with cudaPython; [
       numpy
       scipy
     ];
@@ -54,11 +68,11 @@ let
     doCheck = false; # Skip tests to save time/dependencies
   };
 
-  pythonEnv = python312Packages.python.withPackages (
+  pythonEnv = cudaPython.python.withPackages (
     ps: with ps; [
-      # Core ML (use -bin variants for CUDA support)
-      torch-bin
-      torchvision-bin
+      # Core ML - uses torch-bin with cudaSupport passed through
+      torch
+      torchvision
       ultralytics
       diffusers
       transformers
@@ -118,71 +132,71 @@ stdenv.mkDerivation {
   dontBuild = true;
 
   postPatch = ''
-    # Fix deprecated torch.cuda.amp.autocast which fails in newer torch versions
-    substituteInPlace sorawm/iopaint/model/ldm.py \
-      --replace-fail "@torch.cuda.amp.autocast()" "@torch.amp.autocast('cuda')"
+        # Fix deprecated torch.cuda.amp.autocast which fails in newer torch versions
+        substituteInPlace sorawm/iopaint/model/ldm.py \
+          --replace-fail "@torch.cuda.amp.autocast()" "@torch.amp.autocast('cuda')"
 
-    # Patch flow_comp.py to handle missing mmcv.runner (MMCV 2.x compatibility)
-    # In mmcv 2.x, load_checkpoint moved to mmengine.runner
-    cat > sorawm/models/model/modules/flow_comp_patch.py << 'PYEOF'
-import numpy as np
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
+        # Patch flow_comp.py to handle missing mmcv.runner (MMCV 2.x compatibility)
+        # In mmcv 2.x, load_checkpoint moved to mmengine.runner
+        cat > sorawm/models/model/modules/flow_comp_patch.py << 'PYEOF'
+    import numpy as np
+    import torch
+    import torch.nn as nn
+    import torch.nn.functional as F
 
-# MMCV 2.x Compatibility: load_checkpoint moved to mmengine
-from mmcv.cnn import ConvModule
-from mmengine.runner import load_checkpoint
+    # MMCV 2.x Compatibility: load_checkpoint moved to mmengine
+    from mmcv.cnn import ConvModule
+    from mmengine.runner import load_checkpoint
 
-from sorawm.configs import PHY_NET_CHECKPOINT_PATH, PHY_NET_CHECKPOINT_REMOTE_URL
-from sorawm.utils.download_utils import ensure_model_downloaded
-PYEOF
+    from sorawm.configs import PHY_NET_CHECKPOINT_PATH, PHY_NET_CHECKPOINT_REMOTE_URL
+    from sorawm.utils.download_utils import ensure_model_downloaded
+    PYEOF
 
-    # Append the original file content (skipping the first 9 lines which are imports)
-    tail -n +10 sorawm/models/model/modules/flow_comp.py >> sorawm/models/model/modules/flow_comp_patch.py
-    mv sorawm/models/model/modules/flow_comp_patch.py sorawm/models/model/modules/flow_comp.py
+        # Append the original file content (skipping the first 9 lines which are imports)
+        tail -n +10 sorawm/models/model/modules/flow_comp.py >> sorawm/models/model/modules/flow_comp_patch.py
+        mv sorawm/models/model/modules/flow_comp_patch.py sorawm/models/model/modules/flow_comp.py
 
-    # Patch devices_utils.py to support env var override
-    cat > sorawm/utils/devices_utils.py << 'PYEOF'
-from functools import lru_cache
-import torch
-import os
-from loguru import logger
+        # Patch devices_utils.py to support env var override
+        cat > sorawm/utils/devices_utils.py << 'PYEOF'
+    from functools import lru_cache
+    import torch
+    import os
+    from loguru import logger
 
-@lru_cache()
-def get_device():
-    if os.environ.get("SORA_DEVICE"):
-        device = os.environ["SORA_DEVICE"]
-        logger.info(f"Forcing device from env: {device}")
+    @lru_cache()
+    def get_device():
+        if os.environ.get("SORA_DEVICE"):
+            device = os.environ["SORA_DEVICE"]
+            logger.info(f"Forcing device from env: {device}")
+            return torch.device(device)
+
+        device = "cpu"
+        if torch.cuda.is_available():
+            device = "cuda"
+        if torch.backends.mps.is_available():
+            device = "mps"
+        logger.debug(f"Using device: {device}")
         return torch.device(device)
+    PYEOF
 
-    device = "cpu"
-    if torch.cuda.is_available():
-        device = "cuda"
-    if torch.backends.mps.is_available():
-        device = "mps"
-    logger.debug(f"Using device: {device}")
-    return torch.device(device)
-PYEOF
+        # Add --device argument to cli.py
+        substituteInPlace cli.py \
+          --replace-fail 'help="🔧 Model to use for watermark removal (default: lama). Options: lama (fast, may flicker), e2fgvi_hq (time consistent, slower)",' \
+    'help="🔧 Model to use for watermark removal (default: lama). Options: lama (fast, may flicker), e2fgvi_hq (time consistent, slower)",
+        )
+        parser.add_argument(
+            "-d",
+            "--device",
+            type=str,
+            help="🖥️ Device to use (e.g., cuda, cpu). Overrides auto-detection.",'
 
-    # Add --device argument to cli.py
-    substituteInPlace cli.py \
-      --replace-fail 'help="🔧 Model to use for watermark removal (default: lama). Options: lama (fast, may flicker), e2fgvi_hq (time consistent, slower)",' \
-'help="🔧 Model to use for watermark removal (default: lama). Options: lama (fast, may flicker), e2fgvi_hq (time consistent, slower)",
-    )
-    parser.add_argument(
-        "-d",
-        "--device",
-        type=str,
-        help="🖥️ Device to use (e.g., cuda, cpu). Overrides auto-detection.",'
-
-    # Inject env var setting in cli.py
-    substituteInPlace cli.py \
-      --replace-fail 'args = parser.parse_args()' \
-'args = parser.parse_args()
-    if args.device:
-        import os
-        os.environ["SORA_DEVICE"] = args.device'
+        # Inject env var setting in cli.py
+        substituteInPlace cli.py \
+          --replace-fail 'args = parser.parse_args()' \
+    'args = parser.parse_args()
+        if args.device:
+            import os
+            os.environ["SORA_DEVICE"] = args.device'
   '';
 
   installPhase = ''

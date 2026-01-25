@@ -51,7 +51,7 @@ let
     color=$(hyprpicker)
 
     check wl-copy && {
-      echo "$color" | sed -z 's/\n//g' | wl-copy
+      echo "$color" | sed -z 's/\n//g' | wl-copy --type text/plain
     }
 
     prevColors=$(head -n $((limit - 1)) "$loc/colors")
@@ -124,7 +124,7 @@ in
     "format" = "󰅍";
     "interval" = 5;
     "tooltip" = true;
-    "on-click" = "sh -c 'cliphist list | qs-dmenu -p Clipboard | cliphist decode | wl-copy'";
+    "on-click" = "sh -c 'cliphist list | qs-dmenu -p Clipboard | cliphist decode | wl-copy --type text/plain'";
   };
   "custom/nightshift" = {
     exec = "night-shift-status-icon";

@@ -136,7 +136,7 @@ async function getMenuCommand(): Promise<string[]> {
 
 async function getCopyCommand(): Promise<string[]> {
   if (process.env.WAYLAND_DISPLAY && (await commandExists("wl-copy"))) {
-    return ["wl-copy"];
+    return ["wl-copy", "--type", "text/plain"];
   }
   if (await commandExists("xclip")) {
     return ["xclip", "-selection", "clipboard"];

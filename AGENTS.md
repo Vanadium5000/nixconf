@@ -298,3 +298,47 @@ environment.variables = lib.mkIf (config.nixpkgs.config.cudaSupport or false) {
 1. Check `nix log` for detailed error messages.
 2. Verify `path:.` is used (default in `rebuild.sh`) so dirty/ignored files are seen.
 3. Check `impermanence` paths if state is lost on reboot.
+
+## Wayland Clipboard (wl-copy)
+
+**Critical:** When piping data to `wl-copy`, always specify `--type text/plain` to prevent MIME type detection failures.
+
+### The Problem
+
+`wl-copy` auto-detects MIME types when reading from stdin. This detection sometimes fails, resulting in garbage MIME types that applications cannot paste with Ctrl+V (even though `wl-paste` works).
+
+**Symptoms:**
+
+- `wl-paste` returns correct content
+- `wl-paste -l` shows garbage (e.g., `����U`) instead of `text/plain`
+- Ctrl+V doesn't work in applications
+- Content doesn't appear in cliphist
+
+### The Fix
+
+```bash
+# BAD - MIME type may be detected incorrectly
+echo "data" | wl-copy
+
+# GOOD - Explicit MIME type
+echo "data" | wl-copy --type text/plain
+```
+
+### In Nix Scripts
+
+```nix
+# BAD
+printf '%s' "$VALUE" | wl-copy
+
+# GOOD
+printf '%s' "$VALUE" | wl-copy --type text/plain
+```
+
+### In TypeScript/Bun Scripts
+
+```typescript
+// Return the copy command with explicit type
+return ["wl-copy", "--type", "text/plain"];
+```
+
+**Note:** Direct argument usage (`wl-copy "text"`) works fine - only piped stdin has this issue.

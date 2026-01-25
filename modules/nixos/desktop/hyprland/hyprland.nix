@@ -270,7 +270,7 @@
           "${mod},N, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.qs-nerd}" # Nerd Icons
           "${mod},Z, exec, ${pkgs.cliphist}/bin/cliphist list | ${
             getExe self.packages.${pkgs.stdenv.hostPlatform.system}.qs-dmenu
-          } -p 'Clipboard' | ${pkgs.cliphist}/bin/cliphist decode | wl-copy" # Clipboard manager
+          } -p 'Clipboard' | ${pkgs.cliphist}/bin/cliphist decode | wl-copy --type text/plain" # Clipboard manager
           "${mod},W, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.qs-wallpaper}"
           "${mod},P, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.qs-passmenu}"
           "${shiftMod},P, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.qs-passmenu} -a" # With autotype
@@ -291,11 +291,11 @@
           "${mod},S, exec, ${getExe pkgs.grim} -g \"$(${getExe pkgs.slurp} -d)\" - | ${getExe pkgs.swappy} -f -"
           (
             "${shiftMod},S, exec, "
-            + (makeScript "${getExe pkgs.grim} -g \"$(${getExe pkgs.slurp} -d)\" - | ${getExe pkgs.tesseract} - - | ${pkgs.wl-clipboard}/bin/wl-copy && text=$( ${pkgs.wl-clipboard}/bin/wl-paste) && if [ \${#text} -le 120 ]; then ${getExe pkgs.libnotify} \"OCR Result\" \"\$text\"; else ${getExe pkgs.libnotify} \"OCR Result\" \"\${text:0:100}...\${text: -20}\"; fi")
+            + (makeScript "${getExe pkgs.grim} -g \"$(${getExe pkgs.slurp} -d)\" - | ${getExe pkgs.tesseract} - - | ${pkgs.wl-clipboard}/bin/wl-copy --type text/plain && text=$( ${pkgs.wl-clipboard}/bin/wl-paste) && if [ \${#text} -le 120 ]; then ${getExe pkgs.libnotify} \"OCR Result\" \"\$text\"; else ${getExe pkgs.libnotify} \"OCR Result\" \"\${text:0:100}...\${text: -20}\"; fi")
           ) # OCR Screenshot
           (
             "${altMod},S, exec, "
-            + (makeScript "${getExe pkgs.grim} -g \"$(${getExe pkgs.slurp} -d)\" - | ${pkgs.zbar}/bin/zbarimg - | sed 's/^QR-Code:[[:space:]]*//' | ${pkgs.wl-clipboard}/bin/wl-copy && text=$( ${pkgs.wl-clipboard}/bin/wl-paste) && if [ \${#text} -le 120 ]; then ${getExe pkgs.libnotify} \"ZBAR SCAN Result\" \"\$text\"; else ${getExe pkgs.libnotify} \"ZBAR SCAN Result\" \"\${text:0:100}...\${text: -20}\"; fi")
+            + (makeScript "${getExe pkgs.grim} -g \"$(${getExe pkgs.slurp} -d)\" - | ${pkgs.zbar}/bin/zbarimg - | sed 's/^QR-Code:[[:space:]]*//' | ${pkgs.wl-clipboard}/bin/wl-copy --type text/plain && text=$( ${pkgs.wl-clipboard}/bin/wl-paste) && if [ \${#text} -le 120 ]; then ${getExe pkgs.libnotify} \"ZBAR SCAN Result\" \"\$text\"; else ${getExe pkgs.libnotify} \"ZBAR SCAN Result\" \"\${text:0:100}...\${text: -20}\"; fi")
           ) # ZBAR SCAN Screenshot
           "${mod},R, exec, mkdir -p ~/Videos && ${getExe pkgs.wf-recorder} -g \"$(${getExe pkgs.slurp} -d)\" -f ~/Videos/rec_$(date +'%Y-%m-%d_%H-%M-%S').mp4" # Start video recording
           "${shiftMod},R, exec, pkill -SIGINT wf-recorder" # End video recording
