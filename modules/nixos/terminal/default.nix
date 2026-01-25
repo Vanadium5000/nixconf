@@ -7,6 +7,25 @@
       config,
       ...
     }:
+    let
+      # Per-host package exclusions
+      # Add package names (matching pname or derivation name) to exclude from self.packages
+      hostPackageExclusions = {
+        macbook = [
+          "sora-watermark-cleaner"
+        ];
+        # Example: Add more hosts as needed
+        # ionos_vps = [ "some-gui-package" ];
+      };
+
+      # Get exclusions for current host (empty list if not defined)
+      excludedPackages = hostPackageExclusions.${config.preferences.hostName} or [ ];
+
+      # Filter self.packages, removing any that match the exclusion list
+      filteredFlakePackages = lib.filterAttrs (
+        name: _pkg: !builtins.elem name excludedPackages
+      ) self.packages.${pkgs.stdenv.hostPlatform.system};
+    in
     {
       imports = [
         # Requirements
@@ -82,7 +101,7 @@
       # Add environment packages to system packages
       environment.systemPackages =
         # Add all packages exported by the Flake
-        lib.attrValues self.packages.${pkgs.stdenv.hostPlatform.system}
+        lib.attrValues filteredFlakePackages
         ++ (with pkgs; [
           whisper-cpp
           wtype

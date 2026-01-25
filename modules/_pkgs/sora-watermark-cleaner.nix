@@ -56,9 +56,9 @@ let
 
   pythonEnv = python312Packages.python.withPackages (
     ps: with ps; [
-      # Core ML
-      torch
-      torchvision
+      # Core ML (use -bin variants for CUDA support)
+      torch-bin
+      torchvision-bin
       ultralytics
       diffusers
       transformers
