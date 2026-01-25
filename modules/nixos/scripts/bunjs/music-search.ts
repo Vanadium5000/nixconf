@@ -336,15 +336,20 @@ async function showMenu(items: MediaItem[]): Promise<MediaItem | null> {
         // We need to reconstruct the exact string we sent
         const escapedTitle = item.title.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         const escapedUploader = item.uploader.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-        let line = `<b>${escapedTitle}</b> <span size="small" alpha="70%">${escapedUploader} (${item.duration_string})</span>`;
+        const display = `<b>${escapedTitle}</b> <span size="small" alpha="70%">${escapedUploader} (${item.duration_string})</span>`;
+        let line = display;
         if (item.localThumbnail) {
             line += `\0icon\x1f${item.localThumbnail}`;
         }
         
-        if (line.trim() === indexStr.trim()) {
+        // Match against full line (with icon) or just display text (without icon)
+        // This handles cases where dmenu/grep might strip the null-byte icon suffix
+        if (line.trim() === indexStr.trim() || display.trim() === indexStr.trim()) {
             return item;
         }
       }
+      
+      console.warn("Failed to match selection to any item. Selection:", indexStr);
       return null;
 
   } catch (e) {
@@ -451,7 +456,7 @@ async function main() {
     try {
       // Simple input box
       query = (
-        await $`qs-dmenu -p "Search YouTube"`.text()
+        await $`echo -n | qs-dmenu -p "Search YouTube"`.text()
       ).trim();
     } catch {
       return;
