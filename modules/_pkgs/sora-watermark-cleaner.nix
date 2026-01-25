@@ -118,63 +118,32 @@ stdenv.mkDerivation {
   dontBuild = true;
 
   postPatch = ''
-        # Fix deprecated torch.cuda.amp.autocast which fails in newer torch versions
-        substituteInPlace sorawm/iopaint/model/ldm.py \
-          --replace-fail "@torch.cuda.amp.autocast()" "@torch.amp.autocast('cuda')"
+    # Fix deprecated torch.cuda.amp.autocast which fails in newer torch versions
+    substituteInPlace sorawm/iopaint/model/ldm.py \
+      --replace-fail "@torch.cuda.amp.autocast()" "@torch.amp.autocast('cuda')"
 
-        # Patch flow_comp.py to handle missing mmcv.runner (MMCV 2.x compatibility)
-        cat > sorawm/models/model/modules/flow_comp_patch.py << 'EOF'
-    import numpy as np
-    import torch
-    import torch.nn as nn
-    import torch.nn.functional as F
+    # Patch flow_comp.py to handle missing mmcv.runner (MMCV 2.x compatibility)
+    # In mmcv 2.x, load_checkpoint moved to mmengine.runner
+    cat > sorawm/models/model/modules/flow_comp_patch.py << 'PYEOF'
+import numpy as np
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 
-    # MMCV 2.x Compatibility Shim
-    try:
-        from mmcv.cnn import ConvModule
-        # Try importing from mmcv (1.x)
-        from mmcv.runner import load_checkpoint
-    except ImportError:
-        try:
-            # Try importing from mmengine (2.x)
-            from mmengine.runner import load_checkpoint as _load_checkpoint
-            from mmcv.cnn import ConvModule
-            
-            # Wrapper to adapt mmengine checkpoint loader if needed
-            def load_checkpoint(model, filename, map_location=None, strict=False, logger=None):
-                return _load_checkpoint(model, filename, map_location=map_location, strict=strict, logger=logger)
-                
-        except ImportError:
-            # Fallback implementation if neither exists (barebones)
-            class ConvModule(nn.Module):
-                def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=0, dilation=1, groups=1, bias=True, norm_cfg=None, act_cfg=dict(type='ReLU')):
-                    super().__init__()
-                    self.conv = nn.Conv2d(in_channels, out_channels, kernel_size, stride=stride, padding=padding, dilation=dilation, groups=groups, bias=bias)
-                    self.act = nn.ReLU(inplace=True) if act_cfg and act_cfg.get('type') == 'ReLU' else nn.Identity()
-                def forward(self, x):
-                    return self.act(self.conv(x))
-    
-            def load_checkpoint(model, filename, map_location=None, strict=False, logger=None):
-                checkpoint = torch.load(filename, map_location=map_location)
-                if isinstance(checkpoint, dict) and 'state_dict' in checkpoint:
-                    state_dict = checkpoint['state_dict']
-                else:
-                    state_dict = checkpoint
-                if list(state_dict.keys())[0].startswith('module.'):
-                    state_dict = {k[7:]: v for k, v in state_dict.items()}
-                model.load_state_dict(state_dict, strict=strict)
-                return checkpoint
+# MMCV 2.x Compatibility: load_checkpoint moved to mmengine
+from mmcv.cnn import ConvModule
+from mmengine.runner import load_checkpoint
 
-    from sorawm.configs import PHY_NET_CHECKPOINT_PATH, PHY_NET_CHECKPOINT_REMOTE_URL
-    from sorawm.utils.download_utils import ensure_model_downloaded
-    EOF
-          
-        # Append the original file content (skipping imports) to the patch
-        tail -n +9 sorawm/models/model/modules/flow_comp.py >> sorawm/models/model/modules/flow_comp_patch.py
-        mv sorawm/models/model/modules/flow_comp_patch.py sorawm/models/model/modules/flow_comp.py
+from sorawm.configs import PHY_NET_CHECKPOINT_PATH, PHY_NET_CHECKPOINT_REMOTE_URL
+from sorawm.utils.download_utils import ensure_model_downloaded
+PYEOF
+
+    # Append the original file content (skipping the first 9 lines which are imports)
+    tail -n +10 sorawm/models/model/modules/flow_comp.py >> sorawm/models/model/modules/flow_comp_patch.py
+    mv sorawm/models/model/modules/flow_comp_patch.py sorawm/models/model/modules/flow_comp.py
 
     # Patch devices_utils.py to support env var override
-    cat > sorawm/utils/devices_utils.py << 'EOF'
+    cat > sorawm/utils/devices_utils.py << 'PYEOF'
 from functools import lru_cache
 import torch
 import os
@@ -194,12 +163,12 @@ def get_device():
         device = "mps"
     logger.debug(f"Using device: {device}")
     return torch.device(device)
-EOF
+PYEOF
 
     # Add --device argument to cli.py
     substituteInPlace cli.py \
       --replace-fail 'help="🔧 Model to use for watermark removal (default: lama). Options: lama (fast, may flicker), e2fgvi_hq (time consistent, slower)",' \
-                     'help="🔧 Model to use for watermark removal (default: lama). Options: lama (fast, may flicker), e2fgvi_hq (time consistent, slower)",
+'help="🔧 Model to use for watermark removal (default: lama). Options: lama (fast, may flicker), e2fgvi_hq (time consistent, slower)",
     )
     parser.add_argument(
         "-d",
@@ -210,7 +179,7 @@ EOF
     # Inject env var setting in cli.py
     substituteInPlace cli.py \
       --replace-fail 'args = parser.parse_args()' \
-                     'args = parser.parse_args()
+'args = parser.parse_args()
     if args.device:
         import os
         os.environ["SORA_DEVICE"] = args.device'
