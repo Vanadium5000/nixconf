@@ -238,6 +238,8 @@ function normalizeTitle(title: string): string {
       // Remove remaster/remix info
       .replace(/\s*\(Remaster(ed)?\s*\d*\)/gi, "")
       .replace(/\s*-\s*Remaster(ed)?\s*\d*/gi, "")
+      // Remove year (e.g. (1966))
+      .replace(/\s*\(\d{4}\)/g, "")
       // Clean up
       .replace(/\s+/g, " ")
       .trim()
@@ -318,6 +320,43 @@ async function fetchFromLrclib(
         }
       }
     } catch {}
+  }
+
+  // Try parsing "Artist - Title" from title (common in some files)
+  if (title.includes(" - ")) {
+    const parts = title.split(" - ");
+    if (parts.length >= 2) {
+      const extractedArtist = parts[0]!.trim();
+      const extractedTitle = parts.slice(1).join(" - ").trim();
+      const normExtTitle = normalizeTitle(extractedTitle);
+      
+      try {
+        const params = new URLSearchParams({
+          track_name: normExtTitle,
+          artist_name: extractedArtist,
+          duration: duration.toString(),
+        });
+
+        const response = await fetch(`${LRCLIB_API}/get?${params}`, { headers });
+
+        if (response.ok) {
+          const data = (await response.json()) as any;
+          if (data.syncedLyrics) {
+            return {
+              synced: true,
+              lines: parseLrc(data.syncedLyrics),
+            };
+          }
+          if (data.plainLyrics) {
+            return {
+              synced: false,
+              lines: [],
+              plainText: data.plainLyrics,
+            };
+          }
+        }
+      } catch {}
+    }
   }
 
   // Try search as fallback
@@ -477,11 +516,15 @@ function formatWaybarOutput(
     };
   }
 
-  const { current, upcoming } = lyrics?.synced
+    const { current, upcoming } = lyrics?.synced
     ? getCurrentLines(lyrics, metadata.position, options.lines)
     : { current: "", upcoming: [] };
 
-  let text = truncate(current || "♪", options.length);
+  // If no lyrics found (or only plain text), fallback to title
+  // If synced lyrics exist but we're in a gap, show ♪
+  const fallbackText = lyrics?.synced ? "♪" : metadata.title;
+  let text = truncate(current || fallbackText, options.length);
+  
   if (options.progress && metadata.duration > 0) {
     text = `${formatProgress(metadata.position, metadata.duration)} ${text}`;
   }

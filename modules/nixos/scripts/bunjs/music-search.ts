@@ -409,7 +409,9 @@ async function downloadAndPlay(items: MediaItem[]) {
         filename = filename.replace(/\.[^/.]+$/, "") + ".mp3";
       }
 
-      await addToMpd(filename);
+      // Play immediately if it's a single item request
+      const playNow = items.length === 1;
+      await addToMpd(filename, playNow);
       successCount++;
     } catch (e) {
       console.error(`Failed to get filename for ${item.title}`, e);
@@ -421,12 +423,13 @@ async function downloadAndPlay(items: MediaItem[]) {
     await notify(
       `Batch finished. ${successCount} succeeded, ${failCount} failed.`
     );
-  } else {
+  } else if (items.length > 1) {
+    // Only notify "All downloads completed" for batch, single item is obvious (it plays)
     await notify("All downloads completed.");
   }
 }
 
-async function addToMpd(fullPath: string) {
+async function addToMpd(fullPath: string, playNow: boolean = false) {
   const relPath = fullPath.startsWith(MUSIC_DIR)
     ? fullPath.slice(MUSIC_DIR.length + 1)
     : fullPath;
@@ -435,13 +438,63 @@ async function addToMpd(fullPath: string) {
   // mpc update requires path relative to music dir
   await $`mpc update --wait`.nothrow();
 
-  const addRes = await $`mpc add "${relPath}"`.nothrow();
-  if (addRes.exitCode !== 0) {
-    console.warn(
-      `Failed to add ${relPath} to MPD (exit ${addRes.exitCode}). Retrying update...`
-    );
-    await $`mpc update --wait`.nothrow();
-    await $`mpc add "${relPath}"`.nothrow();
+  if (playNow) {
+    // Try to insert after current song and play immediately
+    // Disable random temporarily so 'next' definitely goes to our inserted song
+    await $`mpc random off`.nothrow();
+    
+    // insert returns non-zero if playlist is empty or other errors, fallback to add
+    const insertRes = await $`mpc insert "${relPath}"`.nothrow();
+    
+    if (insertRes.exitCode === 0) {
+        // Inserted successfully (after current song)
+        
+        // Try 'next' - this works if playing/paused
+        const nextRes = await $`mpc next`.nothrow();
+        
+        if (nextRes.exitCode !== 0) {
+            // 'next' failed, which usually means MPD is stopped.
+            // If stopped, we are at 'current'. New song is 'current + 1'.
+            
+            const posStr = (await $`mpc current -f %position%`.text()).trim();
+            const pos = parseInt(posStr);
+            
+            if (!isNaN(pos)) {
+                // Play inserted song directly
+                await $`mpc play ${pos + 1}`.nothrow();
+            } else {
+                // Fallback: If we can't get position, force play (resumes current) then next
+                // This might play a split second of the old song but ensures we advance
+                await $`mpc play`.nothrow();
+                await $`mpc next`.nothrow();
+            }
+        } else {
+            // 'next' succeeded, ensure we are playing
+            await $`mpc play`.nothrow();
+        }
+    } else {
+        // Insert failed (e.g. playlist empty), add to end and play
+        await $`mpc add "${relPath}"`.nothrow();
+        
+        // Play the last song (the one we just added)
+        const playlist = (await $`mpc playlist`.text()).trim();
+        const count = playlist ? playlist.split('\n').length : 0;
+        
+        if (count > 0) {
+            await $`mpc play ${count}`.nothrow();
+        } else {
+            await $`mpc play`.nothrow();
+        }
+    }
+  } else {
+    const addRes = await $`mpc add "${relPath}"`.nothrow();
+    if (addRes.exitCode !== 0) {
+        console.warn(
+        `Failed to add ${relPath} to MPD (exit ${addRes.exitCode}). Retrying update...`
+        );
+        await $`mpc update --wait`.nothrow();
+        await $`mpc add "${relPath}"`.nothrow();
+    }
   }
 }
 
