@@ -14,11 +14,20 @@
         theme = {
           style = "Oxygen";
           icon_theme = "oxygen";
-          color_scheme = "${pkgs.kdePackages.qt6ct}/share/qt6ct/colors/darker.conf";
           font = "JetBrainsMono Nerd Font";
           font_size = 12;
           font_fixed = "JetBrainsMono Nerd Font";
           font_fixed_size = 12;
+        };
+        Palette = {
+          Window = "#232629";
+          WindowText = "#eff0f1";
+          Base = "#1b1e20";
+          AlternateBase = "#232629";
+          Button = "#31363b";
+          ButtonText = "#eff0f1";
+          Highlight = "#3daee9";
+          HighlightedText = "#eff0f1";
         };
         misc = {
           single_click_activate = true;
