@@ -40,8 +40,9 @@
 
       # Open firewall for Local Web Development
       networking.firewall.allowedTCPPorts = [
-        5173
-        3000
+        5173 # Vite - Frontend
+        3000 # Backend
+        4096 # OpenCode
       ];
 
       # Preferences
