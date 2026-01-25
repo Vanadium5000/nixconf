@@ -25,17 +25,25 @@ const STATE_DIR = join(process.env.HOME || "", ".cache", "passmenu");
 const STATE_FILE = join(STATE_DIR, "state.json");
 const STATE_EXPIRY_MS = 60_000; // 60 seconds
 
-/** Fields that indicate a username-type field already exists */
+/** Fields that represent username-type values (used for autotype fallback) */
 const USERNAME_FIELD_ALIASES = ["login", "user", "username"] as const;
 
-/** Fixed display order for credential fields (others appear after these, before otp) */
+/** 
+ * Fixed display order for credential fields.
+ * Fields appear in this order, with other fields after these, before OTP.
+ * "username (from path)" always appears alongside explicit username fields.
+ */
 const FIELD_DISPLAY_ORDER = [
   "username",
   "login",
   "user",
   "username (from path)",
+  "email",
   "password",
 ] as const;
+
+/** Prefix for temp email fields in the field options menu */
+const TEMP_EMAIL_FIELD_PREFIX = "email (from temp emails)" as const;
 
 /** Special menu entries in main menu */
 const SPECIAL_ENTRIES = [
@@ -302,16 +310,10 @@ function parseCredential(content: string, entryPath: string): ParsedCredential {
     }
   }
 
-  // Check if any explicit username field exists
-  const hasUsernameField = USERNAME_FIELD_ALIASES.some(
-    (alias) => alias in fields
-  );
-
-  if (!hasUsernameField) {
-    const filename = entryPath.split("/").pop();
-    if (filename) {
-      fields["username (from path)"] = filename;
-    }
+  // Always add username derived from path, regardless of other username fields
+  const filename = entryPath.split("/").pop();
+  if (filename) {
+    fields["username (from path)"] = filename;
   }
 
   return { password, fields, hasOtpauth };
@@ -385,6 +387,40 @@ function generateFakeEmail(): string {
 // =============================================================================
 // Pass Store Operations
 // =============================================================================
+
+/**
+ * Find all temporary emails associated with a given credential path.
+ * Temp emails are stored at: temp_emails/<associated_path>/<email_address>
+ */
+async function findAssociatedTempEmails(
+  passDir: string,
+  entryPath: string
+): Promise<string[]> {
+  if (!entryPath || entryPath.startsWith("temp_emails/")) {
+    return [];
+  }
+
+  const tempEmailPath = join(passDir, "temp_emails", entryPath);
+
+  try {
+    const result = await $`find ${tempEmailPath} -maxdepth 1 -type f -name '*.gpg' -printf '%f\n' 2>/dev/null`
+      .nothrow()
+      .quiet()
+      .text();
+
+    if (!result.trim()) {
+      return [];
+    }
+
+    return result
+      .trim()
+      .split("\n")
+      .filter(Boolean)
+      .map((filename) => filename.replace(/\.gpg$/, ""));
+  } catch {
+    return [];
+  }
+}
 
 async function appendToPass(
   path: string,

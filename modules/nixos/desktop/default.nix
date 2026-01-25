@@ -39,6 +39,8 @@
         "waybar"
         "swaync"
         "niri-screen-time --daemon"
+        # KDE daemon - hosts kded modules like SolidUiServer for LUKS password prompts
+        "kded6"
       ];
 
       # Enable Localsend, a utility to share data with local devices
@@ -71,6 +73,7 @@
         kdePackages.libksysguard # System monitoring library
         kdePackages.kactivitymanagerd # Runtime requirement for KDE apps
         kdePackages.kded # Required for SolidUiServer (mounting drives)
+        kdePackages.plasma-workspace
         kdePackages.kwallet # Required for storing/prompting credentials
         kdePackages.kio-extras # Additional IO protocols (sftp, smb, thumbnails)
         kdePackages.kio-admin # Admin actions in Dolphin
@@ -93,8 +96,12 @@
       ++ (lib.optional config.nixpkgs.config.cudaSupport pkgs.nvtopPackages.full);
 
       services = {
-        # Register kded DBus service so Dolphin can trigger password prompts (SolidUiServer)
-        dbus.packages = [ pkgs.kdePackages.kded ];
+        # D-Bus activation for KDE services (SolidUiServer requires plasma-workspace)
+        dbus.packages = [
+          pkgs.kdePackages.kded
+          pkgs.kdePackages.plasma-workspace
+        ];
+
         # Battery tool, required by hyprpanel
         upower.enable = true;
         # Enable CUPS printing service
@@ -125,19 +132,11 @@
         enable = true;
         config.common.default = "hyprland";
         xdgOpenUsePortal = true;
-
-        extraPortals = # with pkgs;
-          [
-            # Already added by hyprland
-            #xdg-desktop-portal-hyprland
-          ];
       };
 
-      # Fonts
       fonts.packages = with pkgs; [
         nerd-fonts.jetbrains-mono
-        font-awesome # Icons that some apps require
-
+        font-awesome
         roboto
         work-sans
         comic-neue

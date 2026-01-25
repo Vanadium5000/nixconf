@@ -66,6 +66,7 @@ let
       huggingface-hub
       ruptures
       mmcv
+      mmengine # Required for mmcv 2.x compatibility (load_checkpoint moved here)
 
       # Image/Video processing
       opencv4
