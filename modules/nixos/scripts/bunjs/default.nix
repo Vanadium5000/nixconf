@@ -144,6 +144,7 @@
           pkgs.libnotify
           pkgs.mpc
           pkgs.coreutils
+          pkgs.ffmpeg
         ];
       };
 

@@ -1,18 +1,19 @@
 import { $ } from "bun";
-import { join, dirname, basename } from "node:path";
-import { exists } from "node:fs/promises";
+import { join, dirname, basename, extname } from "node:path";
+import { exists, mkdir } from "node:fs/promises";
 import { homedir } from "node:os";
 
 // --- Configuration ---
 const MUSIC_DIR = join(homedir(), "Shared", "Music");
+const CACHE_DIR = join(homedir(), ".cache", "qs-music-local");
 
 // --- Types ---
 interface MediaItem {
   file: string; // Relative path for MPD
   display: string;
-  icon?: string;
   artist?: string;
   title?: string;
+  icon?: string;
 }
 
 // --- Helpers ---
@@ -24,69 +25,132 @@ async function notify(msg: string, title: string = "Music Local") {
   }
 }
 
+// Hash function for cache filenames (simple numeric hash to hex)
+function hashString(str: string): string {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash |= 0; // Convert to 32bit integer
+  }
+  return (hash >>> 0).toString(16); // Unsigned hex
+}
+
+async function extractThumbnail(inputFile: string, cacheFile: string): Promise<boolean> {
+    try {
+        // Extract and resize to 120px height (matches music-search.ts)
+        // -pix_fmt yuvj420p ensures high compatibility (deprecated but useful for thumb generation)
+        // -an: no audio
+        // -v error: quiet
+        // -y: overwrite
+        const res = await $`ffmpeg -y -v error -i ${inputFile} -an -vf scale=-1:120 -pix_fmt yuvj420p ${cacheFile}`.nothrow();
+        return res.exitCode === 0;
+    } catch (e) {
+        return false;
+    }
+}
+
 async function getItems(): Promise<MediaItem[]> {
   try {
-    // Get all files from MPD
-    const output = await $`mpc listall`.text();
-    const files = output.split("\n").filter((l) => l.trim());
+    // Ensure cache dir exists
+    await mkdir(CACHE_DIR, { recursive: true });
 
-    if (files.length === 0) return [];
+    // Get files with metadata from MPD
+    // Format: file [TAB] artist [TAB] title
+    // We use search filename "" to get all files
+    const output = await $`mpc -f "%file%\t%artist%\t%title%" search filename ""`.text();
+    const lines = output.split("\n").filter((l) => l.trim());
 
-    // Map files to items
-    // We try to find a cover.jpg or folder.jpg in the directory
-    const items = await Promise.all(
-      files.map(async (file) => {
-        const fullPath = join(MUSIC_DIR, file);
-        const dir = dirname(fullPath);
-        
-        // Simple display generation (filename based)
-        // Ideally we would use 'mpc -f' but listall doesn't support format
-        // We could use 'mpc list' but that requires multiple calls
-        // Let's stick to path/filename parsing for speed
-        const filename = basename(file);
-        const name = filename.replace(/\.[^/.]+$/, ""); // strip extension
-        
-        // Try to parse Artist - Title from filename or path
-        // Common formats: "Artist - Title.mp3" or "Artist/Album/Title.mp3"
-        let display = name;
-        let artist = "";
-        
-        if (name.includes(" - ")) {
-            const parts = name.split(" - ");
-            artist = parts[0];
-            display = parts.slice(1).join(" - ");
-        } else {
-            // Try parent directory as artist
-            const parent = basename(dir);
-            if (parent !== "Music" && parent !== "Shared") {
-                artist = parent;
+    if (lines.length === 0) return [];
+
+    const items: MediaItem[] = [];
+    const queue: Promise<void>[] = [];
+    const CONCURRENCY = 8; // Limit ffmpeg processes
+
+    for (const line of lines) {
+        // Wait if queue is full
+        if (queue.length >= CONCURRENCY) {
+            await Promise.race(queue);
+        }
+
+        const task = (async () => {
+            const parts = line.split("\t");
+            const file = parts[0];
+            let artist = parts[1] || "";
+            let title = parts[2] || "";
+            
+            const fullPath = join(MUSIC_DIR, file);
+            const dir = dirname(fullPath);
+
+            // Fallback parsing if tags are missing
+            if (!title) {
+                const filename = basename(file);
+                const name = filename.replace(/\.[^/.]+$/, "");
+                
+                // Try "Artist - Title" pattern
+                if (name.includes(" - ")) {
+                    const p = name.split(" - ");
+                    artist = artist || p[0];
+                    title = p.slice(1).join(" - ");
+                } else {
+                    title = name;
+                }
             }
-        }
 
-        // Check for cover art
-        let icon: string | undefined;
-        // Common cover filenames
-        const covers = ["cover.jpg", "folder.jpg", "cover.png", "folder.png", "artwork.jpg"];
-        
-        // This existence check might be heavy if thousands of files
-        // But Bun is fast. Let's try.
-        for (const cover of covers) {
-          const coverPath = join(dir, cover);
-          if (await exists(coverPath)) {
-            icon = coverPath;
-            break;
-          }
-        }
+            // Cleanup "Unknown"
+            if (artist === "Unknown Artist") artist = "";
+            if (title === "Unknown Title") title = basename(file);
 
-        return {
-          file,
-          display: display,
-          artist: artist,
-          title: display, // roughly
-          icon,
-        };
-      })
-    );
+            // --- Thumbnail Logic ---
+            let icon: string | undefined;
+            
+            // 1. Check for local directory cover (fastest, high quality)
+            const covers = ["cover.jpg", "folder.jpg", "cover.png", "folder.png", "artwork.jpg"];
+            for (const cover of covers) {
+                const coverPath = join(dir, cover);
+                if (await exists(coverPath)) {
+                    icon = coverPath;
+                    break;
+                }
+            }
+
+            // 2. Check for embedded art (extract if needed)
+            if (!icon) {
+                // Create unique cache name based on file path
+                const cacheName = hashString(file) + ".jpg";
+                const cachePath = join(CACHE_DIR, cacheName);
+                
+                if (await exists(cachePath)) {
+                    icon = cachePath;
+                } else {
+                    // Extract asynchronously
+                    // We treat this as a "best effort" - if it fails or takes too long, we might show menu without it
+                    // But here we await it to populate the menu correctly first time
+                    const success = await extractThumbnail(fullPath, cachePath);
+                    if (success) {
+                        icon = cachePath;
+                    }
+                }
+            }
+
+            items.push({
+                file,
+                display: artist ? `${title} - ${artist}` : title,
+                artist,
+                title,
+                icon
+            });
+        })();
+
+        queue.push(task);
+        // Remove from queue when done
+        task.finally(() => {
+            queue.splice(queue.indexOf(task), 1);
+        });
+    }
+
+    // Wait for remaining tasks
+    await Promise.all(queue);
 
     return items;
   } catch (e) {
@@ -102,8 +166,8 @@ async function showMenu(items: MediaItem[]): Promise<MediaItem | null> {
 
   items.forEach((item) => {
     // Escape Pango markup special chars
-    const escapedTitle = item.title?.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;") || "";
-    const escapedArtist = item.artist?.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;") || "";
+    const escapedTitle = (item.title || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const escapedArtist = (item.artist || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     
     // Format: Title - Artist
     // Using Pango markup for styling
@@ -111,8 +175,8 @@ async function showMenu(items: MediaItem[]): Promise<MediaItem | null> {
     if (escapedArtist) {
         display += ` <span size="small" alpha="70%">${escapedArtist}</span>`;
     } else {
-        // Fallback to full relative path if parsing failed
-        display += ` <span size="small" alpha="50%">${item.file}</span>`;
+        // Fallback
+        if (!escapedTitle) display = `<b>${item.file}</b>`;
     }
 
     let line = display;
@@ -164,11 +228,20 @@ async function showMenu(items: MediaItem[]): Promise<MediaItem | null> {
         return itemMap.get(indexStr)!;
     }
     
+    // Last ditch: substring match if display was mangled
+    // (Unlikely with the strict Map logic, but safety net)
+    for (const [key, item] of itemMap) {
+        if (key.includes(indexStr) || indexStr.includes(key)) {
+            return item;
+        }
+    }
+    
     return null;
   } catch (e) {
     return null;
   }
 }
+
 
 async function play(item: MediaItem) {
   await notify(`Playing: ${item.display}`);

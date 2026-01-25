@@ -128,31 +128,41 @@ stdenv.mkDerivation {
     import torch.nn as nn
     import torch.nn.functional as F
 
+    # MMCV 2.x Compatibility Shim
     try:
         from mmcv.cnn import ConvModule
+        # Try importing from mmcv (1.x)
         from mmcv.runner import load_checkpoint
     except ImportError:
-        # Fallback implementation for MMCV 1.x components missing in 2.x or absent
-        class ConvModule(nn.Module):
-            def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=0, dilation=1, groups=1, bias=True, norm_cfg=None, act_cfg=dict(type='ReLU')):
-                super().__init__()
-                self.conv = nn.Conv2d(in_channels, out_channels, kernel_size, stride=stride, padding=padding, dilation=dilation, groups=groups, bias=bias)
-                self.act = nn.ReLU(inplace=True) if act_cfg and act_cfg.get('type') == 'ReLU' else nn.Identity()
-            def forward(self, x):
-                return self.act(self.conv(x))
-
-        def load_checkpoint(model, filename, map_location=None, strict=False, logger=None):
-            checkpoint = torch.load(filename, map_location=map_location)
-            # Handle state_dict or raw checkpoint
-            if isinstance(checkpoint, dict) and 'state_dict' in checkpoint:
-                state_dict = checkpoint['state_dict']
-            else:
-                state_dict = checkpoint
-            # Strip 'module.' prefix if present (DataParallel)
-            if list(state_dict.keys())[0].startswith('module.'):
-                state_dict = {k[7:]: v for k, v in state_dict.items()}
-            model.load_state_dict(state_dict, strict=strict)
-            return checkpoint
+        try:
+            # Try importing from mmengine (2.x)
+            from mmengine.runner import load_checkpoint as _load_checkpoint
+            from mmcv.cnn import ConvModule
+            
+            # Wrapper to adapt mmengine checkpoint loader if needed
+            def load_checkpoint(model, filename, map_location=None, strict=False, logger=None):
+                return _load_checkpoint(model, filename, map_location=map_location, strict=strict, logger=logger)
+                
+        except ImportError:
+            # Fallback implementation if neither exists (barebones)
+            class ConvModule(nn.Module):
+                def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=0, dilation=1, groups=1, bias=True, norm_cfg=None, act_cfg=dict(type='ReLU')):
+                    super().__init__()
+                    self.conv = nn.Conv2d(in_channels, out_channels, kernel_size, stride=stride, padding=padding, dilation=dilation, groups=groups, bias=bias)
+                    self.act = nn.ReLU(inplace=True) if act_cfg and act_cfg.get('type') == 'ReLU' else nn.Identity()
+                def forward(self, x):
+                    return self.act(self.conv(x))
+    
+            def load_checkpoint(model, filename, map_location=None, strict=False, logger=None):
+                checkpoint = torch.load(filename, map_location=map_location)
+                if isinstance(checkpoint, dict) and 'state_dict' in checkpoint:
+                    state_dict = checkpoint['state_dict']
+                else:
+                    state_dict = checkpoint
+                if list(state_dict.keys())[0].startswith('module.'):
+                    state_dict = {k[7:]: v for k, v in state_dict.items()}
+                model.load_state_dict(state_dict, strict=strict)
+                return checkpoint
 
     from sorawm.configs import PHY_NET_CHECKPOINT_PATH, PHY_NET_CHECKPOINT_REMOTE_URL
     from sorawm.utils.download_utils import ensure_model_downloaded
