@@ -201,7 +201,7 @@
           # Docs: https://github.com/code-yeongyu/oh-my-opencode/blob/dev/docs/features.md
           "agents" = {
             "oracle" = {
-              "model" = "antigravity-gemini/gemini-3-pro-preview";
+              "model" = "antigravity-gemini/claude-opus-4-5-thinking";
             };
             "librarian" = {
               "model" = "antigravity-gemini/gemini-3-flash";
@@ -218,18 +218,18 @@
               "model" = "antigravity-gemini/gemini-3-flash";
             };
             "prometheus" = {
-              "model" = "antigravity-gemini/gemini-3-pro-preview";
+              "model" = "antigravity-gemini/claude-opus-4-5-thinking";
             };
             # Plan Consultant
             "metis" = {
-              "model" = "antigravity-gemini/gemini-3-pro-preview";
+              "model" = "antigravity-gemini/claude-opus-4-5-thinking";
             };
             # Plan Reviewer
             "momus" = {
-              "model" = "antigravity-gemini/gemini-3-pro-preview";
+              "model" = "antigravity-gemini/claude-opus-4-5-thinking";
             };
             "sisyphus" = {
-              "model" = "antigravity-gemini/gemini-3-pro-preview";
+              "model" = "antigravity-gemini/claude-opus-4-5-thinking";
             };
           };
           # Override category models (used by delegate_task)
@@ -237,7 +237,7 @@
           "categories" = {
             # Trivial tasks - single file changes, typo fixes, simple modifications
             "quick" = {
-              "model" = "opencode/grok-code";
+              "model" = "opencode/gpt-5-nano";
             };
             # Frontend, UI/UX, design, styling, animation
             "visual-engineering" = {
@@ -245,11 +245,11 @@
             };
             # Deep logical reasoning, complex architecture decisions requiring extensive analysis
             "ultrabrain" = {
-              "model" = "antigravity-gemini/gemini-3-pro-preview";
+              "model" = "antigravity-gemini/claude-opus-4-5-thinking";
             };
             # Highly creative/artistic tasks, novel ideas
             "artistry" = {
-              "model" = "antigravity-gemini/gemini-3-pro-preview";
+              "model" = "antigravity-gemini/claude-opus-4-5-thinking";
             };
             # Tasks that don't fit other categories, low effort required
             "unspecified-low" = {
@@ -257,11 +257,11 @@
             };
             # Tasks that don't fit other categories, high effort required
             "unspecified-high" = {
-              "model" = "antigravity-gemini/gemini-3-pro-preview";
+              "model" = "antigravity-gemini/claude-opus-4-5-thinking";
             };
             # Documentation, prose, technical writing
             "writing" = {
-              "model" = "antigravity-gemini/gemini-3-flash";
+              "model" = "antigravity-gemini/gemini-3-pro-preview";
             };
           };
         };
