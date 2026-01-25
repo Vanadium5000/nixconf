@@ -156,7 +156,7 @@ rec {
               elif [ -f "$TARGET_FILE" ]; then
                  mv "$TARGET_FILE" "$TARGET_FILE.bak.$(date +%Y%m%d%H%M%S)"
               fi
-              
+
               if [ ! -d "$TARGET_FILE" ]; then
                  mkdir -p "$TARGET_FILE"
                  chown ${user}:users "$TARGET_FILE"

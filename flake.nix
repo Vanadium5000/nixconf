@@ -81,7 +81,7 @@
     # Opencode
     opencode = {
       url = "github:anomalyco/opencode";
-      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.nixpkgs.follows = "nixpkgs-unstable"; # Use unstable packages
     };
 
     # HyprQt6Engine

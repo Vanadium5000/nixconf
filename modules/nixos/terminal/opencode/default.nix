@@ -220,6 +220,14 @@
             "prometheus" = {
               "model" = "antigravity-gemini/gemini-3-pro-preview";
             };
+            # Plan Consultant
+            "metis" = {
+              "model" = "antigravity-gemini/gemini-3-pro-preview";
+            };
+            # Plan Reviewer
+            "momus" = {
+              "model" = "antigravity-gemini/gemini-3-pro-preview";
+            };
             "sisyphus" = {
               "model" = "antigravity-gemini/gemini-3-pro-preview";
             };
