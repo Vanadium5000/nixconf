@@ -11,20 +11,13 @@
 let
   version = "0.0.4";
 
-  # Create a pkgs with torch replaced by torch-bin at the nixpkgs level
-  # This ensures ALL Python packages (including ultralytics) use CUDA torch-bin
-  cudaPkgs = pkgs.extend (
-    final: prev: {
-      python312Packages = prev.python312Packages.override {
-        overrides = pyFinal: pyPrev: {
-          torch = pyPrev.torch-bin;
-          torchvision = pyPrev.torchvision-bin;
-        };
-      };
-    }
-  );
-
-  cudaPython = cudaPkgs.python312Packages;
+  # Override python packages to use torch-bin (pre-built binaries)
+  cudaPython = pkgs.python312Packages.override {
+    overrides = pyFinal: pyPrev: {
+      torch = pyPrev.torch-bin;
+      torchvision = pyPrev.torchvision-bin;
+    };
+  };
 
   # Pre-fetch ML models as fixed-output derivations
   yoloModel = fetchurl {
