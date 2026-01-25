@@ -90,15 +90,7 @@
         # adwaita-icon-theme - Removed
       ])
       # GPU monitoring
-      ++ (lib.optional config.nixpkgs.config.cudaSupport pkgs.nvtopPackages.full)
-      # Custom desktop packages
-      ++ (with self.packages.${pkgs.stdenv.hostPlatform.system}; [
-        niri-screen-time
-        #sideloader # Sideloader (iOS) - SideStore for Linux
-        # iloader is preferred
-        iloader # User friendly sideloader (iOS) - SideStore for Linux
-        antigravity-manager # Antigravity Tools
-      ]);
+      ++ (lib.optional config.nixpkgs.config.cudaSupport pkgs.nvtopPackages.full);
 
       services = {
         # Register kded DBus service so Dolphin can trigger password prompts (SolidUiServer)

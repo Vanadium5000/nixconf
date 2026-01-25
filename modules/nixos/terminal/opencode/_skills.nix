@@ -26,31 +26,31 @@ let
       '';
     };
 
-  fetchSkillDir =
-    {
-      name,
-      owner,
-      repo,
-      rev,
-      basePath,
-      hash,
-    }:
-    pkgs.stdenv.mkDerivation {
-      name = "opencode-skill-${name}";
-      src = pkgs.fetchFromGitHub {
-        inherit
-          owner
-          repo
-          rev
-          hash
-          ;
-      };
+  # fetchSkillDir =
+  #   {
+  #     name,
+  #     owner,
+  #     repo,
+  #     rev,
+  #     basePath,
+  #     hash,
+  #   }:
+  #   pkgs.stdenv.mkDerivation {
+  #     name = "opencode-skill-${name}";
+  #     src = pkgs.fetchFromGitHub {
+  #       inherit
+  #         owner
+  #         repo
+  #         rev
+  #         hash
+  #         ;
+  #     };
 
-      installPhase = ''
-        mkdir -p $out
-        cp -r ${basePath}/* $out/
-      '';
-    };
+  #     installPhase = ''
+  #       mkdir -p $out
+  #       cp -r ${basePath}/* $out/
+  #     '';
+  #   };
 
   skills = {
     refactoring-patterns = fetchSkill {

@@ -310,7 +310,16 @@ async function showMenu(items: MediaItem[]): Promise<MediaItem | null> {
         "-p",
         "Select Track",
       ],
-      { stdin: "pipe", stdout: "pipe" }
+      {
+        stdin: "pipe",
+        stdout: "pipe",
+        env: {
+          ...process.env,
+          DMENU_VIEW: "grid",
+          DMENU_GRID_COLS: "3",
+          DMENU_ICON_SIZE: "256",
+        },
+      }
     );
     if (proc.stdin) {
       proc.stdin.write(inputString);

@@ -32,6 +32,11 @@
       environment.variables = {
         QT_QPA_PLATFORM = "wayland";
         QT_QPA_PLATFORMTHEME = "hyprqt6engine";
+        # Help Oxygen style detect proper environment
+        KDE_FULL_SESSION = "true";
+        KDE_SESSION_VERSION = "6";
+        # Force the color scheme path in case the engine fails to apply it from config
+        KDE_COLOR_SCHEME_PATH = "${pkgs.kdePackages.breeze}/share/color-schemes/BreezeDark.colors";
       };
 
       environment.systemPackages = with pkgs; [
