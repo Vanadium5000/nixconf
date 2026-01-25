@@ -70,6 +70,8 @@
         kdePackages.ksystemstats # Core system statistics provider
         kdePackages.libksysguard # System monitoring library
         kdePackages.kactivitymanagerd # Runtime requirement for KDE apps
+        kdePackages.kded # Required for SolidUiServer (mounting drives)
+        kdePackages.kwallet # Required for storing/prompting credentials
         kdePackages.kio-extras # Additional IO protocols (sftp, smb, thumbnails)
         kdePackages.kio-admin # Admin actions in Dolphin
         kdePackages.polkit-kde-agent-1 # Polkit authentication agent (Required)
@@ -99,6 +101,8 @@
       ]);
 
       services = {
+        # Register kded DBus service so Dolphin can trigger password prompts (SolidUiServer)
+        dbus.packages = [ pkgs.kdePackages.kded ];
         # Battery tool, required by hyprpanel
         upower.enable = true;
         # Enable CUPS printing service

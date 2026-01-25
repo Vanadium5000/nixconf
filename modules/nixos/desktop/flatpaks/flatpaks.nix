@@ -4,34 +4,56 @@
     { pkgs, ... }:
     let
       run-flatpak-instance = pkgs.writeShellScriptBin "run-flatpak-instance" ''
-        # Usage: ./run_sober_instance.sh [instance_number] [app_id]
-        # 
-        # instance_number: Required, e.g., 1, 2, 3... (creates isolated instance)
-        # app_id: Optional, defaults to org.vinegarhq.Sober
-        #
-        # This script creates a separate home directory for each instance
-        # allowing multiple isolated runs of Sober (Roblox client on Linux via Flatpak)
-        # to support multiple accounts simultaneously.
-
         set -euo pipefail
 
-        if [[ $# -lt 1 ]]; then
-            echo "Usage: $0 <instance_number> [app_id]"
-            echo "Example: $0 1"
-            echo "         $0 2 org.vinegarhq.Sober"
-            exit 1
+        show_help() {
+          cat <<EOF
+        Usage: $(basename "$0") <APP_ID> <INSTANCE_ID> [ARGS...]
+
+        Runs a Flatpak application with an isolated home directory, allowing multiple
+        instances of the same application to run simultaneously with different configurations.
+
+        Arguments:
+          APP_ID       The Flatpak application ID (e.g., org.mozilla.firefox)
+          INSTANCE_ID  A unique identifier for this instance (e.g., 1, 2, "work", "private")
+          ARGS         Optional arguments to pass to the Flatpak application
+
+        Example:
+          $(basename "$0") org.mozilla.firefox work
+          $(basename "$0") org.telegram.desktop 2
+        EOF
+        }
+
+        if [[ "''${1:-}" == "-h" || "''${1:-}" == "--help" ]]; then
+          show_help
+          exit 0
         fi
 
-        INSTANCE_NUM="$1"
-        APP_ID="''${2:-org.vinegarhq.Sober}"
+        if [[ $# -lt 2 ]]; then
+          echo "Error: Missing required arguments." >&2
+          show_help
+          exit 1
+        fi
 
-        INSTANCE_DIR="$HOME/flatpak-instances/''${APP_ID}-''${INSTANCE_NUM}"
+        APP_ID="$1"
+        INSTANCE_ID="$2"
+        shift 2
+
+        # Sanitize INSTANCE_ID to prevent directory traversal or weird names
+        if [[ ! "$INSTANCE_ID" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+          echo "Error: INSTANCE_ID must only contain alphanumeric characters, underscores, and hyphens." >&2
+          exit 1
+        fi
+
+        INSTANCE_DIR="$HOME/flatpak-instances/''${APP_ID}-''${INSTANCE_ID}"
+
+        echo "Starting $APP_ID (Instance: $INSTANCE_ID)..."
+        echo "Instance Directory: $INSTANCE_DIR"
 
         mkdir -p "$INSTANCE_DIR"
 
-        echo "Launching $APP_ID instance $INSTANCE_NUM with isolated home: $INSTANCE_DIR"
-
-        HOME="$INSTANCE_DIR" flatpak run "$APP_ID"
+        # Run with isolated home
+        HOME="$INSTANCE_DIR" flatpak run "$APP_ID" "$@"
       '';
     in
     {
@@ -72,7 +94,7 @@
 
       # Add the run-flatpak-instance script to packages
       environment.systemPackages = [
-        # run-flatpak-instance
+        run-flatpak-instance
       ];
 
       # Persist flatpak apps
