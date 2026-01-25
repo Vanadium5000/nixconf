@@ -109,8 +109,17 @@ async function selectOption(
       await $`printf '%s\n' ${options} | ${menuCommand} -p ${prompt} ${mesgArg}`.text()
     ).trim();
     return selected;
-  } catch {
-    // User cancelled
+  } catch (error: any) {
+    // Exit code 1 with no stderr typically means user cancelled
+    if (error?.exitCode === 1 && !error?.stderr?.toString().trim()) {
+      return "";
+    }
+    // Actual error - log it for debugging
+    logError(`Menu command failed: ${error?.message || error}`);
+    if (!process.env.WAYLAND_DISPLAY && !process.env.DISPLAY) {
+      logError("No display environment detected. Ensure WAYLAND_DISPLAY or DISPLAY is set.");
+      logError("If using pkexec/sudo, pass display vars: sudo -E btrfs-backup");
+    }
     return "";
   }
 }

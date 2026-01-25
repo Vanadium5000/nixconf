@@ -80,7 +80,13 @@
         package = pkgs.writeShellScriptBin "btrfs-backup" ''
           # Ensure we're running as root
           if [ "$(id -u)" -ne 0 ]; then
-            exec pkexec env HOST="$HOST" ${pkgs.bun}/bin/bun run ${./btrfs-backup.ts} "$@"
+            # Pass display env vars so qs-dmenu can connect to the compositor
+            exec pkexec env \
+              HOST="$HOST" \
+              WAYLAND_DISPLAY="$WAYLAND_DISPLAY" \
+              XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" \
+              DISPLAY="$DISPLAY" \
+              ${pkgs.bun}/bin/bun run ${./btrfs-backup.ts} "$@"
           else
             exec ${pkgs.bun}/bin/bun run ${./btrfs-backup.ts} "$@"
           fi
