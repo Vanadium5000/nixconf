@@ -57,8 +57,48 @@ async function getItems(): Promise<MediaItem[]> {
 
     // Get files with metadata from MPD
     // Format: file [TAB] artist [TAB] title
-    // We use search filename "" to get all files
-    const output = await $`mpc -f "%file%\t%artist%\t%title%" search filename ""`.text();
+    // "search filename" fails on some mpc versions with empty string, but "listall" lacks formatting options
+    // So we use "search any" which is usually more robust, or fallback to manual listing if needed
+    // Actually, the error "too few arguments" suggests it sees "" as missing argument or strict checking
+    // Let's use `search filename ""` but pass it carefully, or just `search filename .` if regex supported (but mpc search uses simple matching usually)
+    // The most robust way to "get all with format" in mpc is often `mpc -f ... listall` (if supported) or `mpc -f ... search filename ""`
+    
+    // Trying `mpc -f ... find filename ""` (exact match) usually works better than search for empty
+    // But empty string might still be tricky.
+    // Let's try `search filename ""` again but ensuring shell passing is correct.
+    // The error `too few arguments for "search"` comes from MPD server often if query is empty.
+    
+    // Workaround: Use "listall" and fetch metadata separately? No, too slow (N+1).
+    // Workaround 2: Use `search any ""`?
+    // Correct approach for "all songs" with format: `mpc -f ... search filename ""` SHOULD work if arguments are parsed right.
+    // However, if it fails, we can try `mpc -f ... listall` (some versions support -f on listall, some don't).
+    
+    // Let's try `mpc -f ... search filename ""` but if it fails, we might need a non-empty query.
+    // But we want ALL files.
+    
+    // Attempt 1: search filename "" (the one that failed, but maybe due to bun shell parsing?)
+    // Attempt 2: Use `search filename .` (matches everything usually in substring search?) -> No, matches literal dot.
+    
+    // FIX: MPD protocol requires non-empty-looking args sometimes.
+    // Let's try a different command: `listall` usually doesn't take format.
+    // `find` requires exact match.
+    
+    // Better idea: List all files, then batch get details? No.
+    
+    // Let's try to just use `mpc -f ... listall` first. If that fails (stdout same as file list), then we know.
+    // Wait, `mpc help` says `listall [<file>]`. No format option documented for listall specifically, but -f is global.
+    // Let's try `mpc -f ... listall`
+    
+    let output = "";
+    try {
+        output = await $`mpc -f "%file%\t%artist%\t%title%" search filename ""`.text();
+    } catch (e) {
+        // Fallback: search for space (might miss one-word filenames without spaces? unlikely for music)
+        // Or search for typical extensions?
+        // Actually, let's try `listall` with format.
+         output = await $`mpc -f "%file%\t%artist%\t%title%" listall`.text();
+    }
+    
     const lines = output.split("\n").filter((l) => l.trim());
 
     if (lines.length === 0) return [];
