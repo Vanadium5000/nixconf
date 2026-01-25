@@ -61,6 +61,12 @@
 
         # GUIs
         kdePackages.dolphin # File Manager
+        kdePackages.ksystemstats
+        kdePackages.kactivitymanagerd
+        kdePackages.libksysguard
+        kdePackages.kio-extras
+        kdePackages.kio-admin
+        kdePackages.polkit-kde-agent-1
         # FIXME: plasma-systemmonitor is broken
         kdePackages.plasma-systemmonitor # System Monitor
         kdePackages.ark # Archive Manager
