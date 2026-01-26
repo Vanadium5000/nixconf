@@ -561,75 +561,195 @@
             #!/usr/bin/env bash
             set -euo pipefail
 
-            # Configuration with WALLET env variable support
+            # Configuration with environment variable support
             WALLET_NAME="''${WALLET:-main_wallet}"
             DOGECOIN_DIR="''${DOGECOIN_DIR:-$HOME/Shared/Coins/dogecoin}"
             WALLET_FILE="''${DOGECOIN_WALLET_FILE:-$DOGECOIN_DIR/$WALLET_NAME.dat}"
             PASSWORD_STORE_PATH="''${DOGECOIN_PASSWORD_STORE_PATH:-dogecoin/$WALLET_NAME}"
 
-            # Validate wallet name (alphanumeric, underscore, hyphen only)
+            # Remote RPC support (optional - uses local daemon by default)
+            RPC_HOST="''${DOGECOIN_RPC_HOST:-127.0.0.1}"
+            RPC_PORT="''${DOGECOIN_RPC_PORT:-22555}"
+            RPC_USER="''${DOGECOIN_RPC_USER:-}"
+            RPC_PASSWORD="''${DOGECOIN_RPC_PASSWORD:-}"
+
+            # Helper: build RPC args
+            build_rpc_args() {
+                local args=()
+                if [[ "$RPC_HOST" != "127.0.0.1" ]]; then
+                    args+=("-rpcconnect=$RPC_HOST" "-rpcport=$RPC_PORT")
+                    [[ -n "$RPC_USER" ]] && args+=("-rpcuser=$RPC_USER")
+                    [[ -n "$RPC_PASSWORD" ]] && args+=("-rpcpassword=$RPC_PASSWORD")
+                else
+                    args+=("-datadir=$DOGECOIN_DIR")
+                fi
+                echo "''${args[@]}"
+            }
+
+            # Helper: check if using remote RPC
+            is_remote() {
+                [[ "$RPC_HOST" != "127.0.0.1" ]]
+            }
+
+            # Helper: run dogecoin-cli with appropriate args
+            doge_cli() {
+                local rpc_args
+                read -ra rpc_args <<< "$(build_rpc_args)"
+                ${dogecoinPkg}/bin/dogecoin-cli "''${rpc_args[@]}" "$@"
+            }
+
+            # Helper: ensure local daemon is running
+            ensure_daemon() {
+                if is_remote; then
+                    return 0
+                fi
+                if ! doge_cli getblockchaininfo &>/dev/null; then
+                    echo "Starting local dogecoind..."
+                    ${dogecoinPkg}/bin/dogecoind -datadir="$DOGECOIN_DIR" -daemon
+                    echo "Waiting for daemon to start..."
+                    for i in {1..30}; do
+                        sleep 1
+                        if doge_cli getblockchaininfo &>/dev/null; then
+                            echo "Daemon started."
+                            return 0
+                        fi
+                    done
+                    echo "Error: Daemon failed to start within 30 seconds"
+                    exit 1
+                fi
+            }
+
+            # Helper: unlock wallet
+            unlock_wallet() {
+                local duration="''${1:-60}"
+                if ! ${passCmd} show "$PASSWORD_STORE_PATH" &>/dev/null; then
+                    echo "Warning: Cannot unlock wallet - password not found in pass"
+                    return 1
+                fi
+                local password
+                password=$(${passCmd} show "$PASSWORD_STORE_PATH")
+                doge_cli walletpassphrase "$password" "$duration" 2>/dev/null || true
+            }
+
+            # Show help
+            show_help() {
+                cat <<'EOF'
+            dogecoin-wallet - Dogecoin wallet manager
+
+            USAGE:
+              dogecoin-wallet [COMMAND] [ARGS...]
+
+            COMMANDS:
+              (no command)     Show wallet status and balance
+              balance          Show current balance
+              receive          Generate a new receiving address
+              send <addr> <amount>  Send DOGE to an address
+              history          Show recent transactions
+              address          Show current receiving address
+              addresses        List all addresses in wallet
+              sync             Show blockchain sync status
+              start            Start the local daemon
+              stop             Stop the local daemon
+              backup           Backup wallet to ~/dogecoin-backup-<date>.dat
+              help             Show this help message
+              cli <cmd>        Run any dogecoin-cli command directly
+
+            ENVIRONMENT VARIABLES:
+              WALLET                      Wallet name (default: main_wallet)
+              DOGECOIN_DIR                Data directory (default: ~/Shared/Coins/dogecoin)
+              DOGECOIN_PASSWORD_STORE_PATH  Pass entry (default: dogecoin/$WALLET)
+
+              Remote RPC (optional - for connecting to external node):
+              DOGECOIN_RPC_HOST           RPC host (default: 127.0.0.1 = local)
+              DOGECOIN_RPC_PORT           RPC port (default: 22555)
+              DOGECOIN_RPC_USER           RPC username
+              DOGECOIN_RPC_PASSWORD       RPC password
+
+            EXAMPLES:
+              dogecoin-wallet                     # Show balance and status
+              dogecoin-wallet receive             # Get address to receive DOGE
+              dogecoin-wallet send DAddr 100      # Send 100 DOGE
+              dogecoin-wallet history             # View transactions
+              WALLET=savings dogecoin-wallet      # Use different wallet
+              dogecoin-wallet cli getpeerinfo     # Run raw CLI command
+            EOF
+                exit 0
+            }
+
+            # Validate wallet name
             if [[ ! "$WALLET_NAME" =~ ^[a-zA-Z0-9_-]+$ ]]; then
                 echo "Error: Invalid wallet name '$WALLET_NAME'"
                 echo "Wallet name must contain only alphanumeric characters, underscores, and hyphens"
                 exit 1
             fi
 
-            # Check if wallet file exists
-            if [[ ! -f "$WALLET_FILE" ]]; then
-                echo "Warning: Wallet file does not exist: $WALLET_FILE"
+            # Handle help first (doesn't need wallet)
+            if [[ "''${1:-}" == "help" || "''${1:-}" == "--help" || "''${1:-}" == "-h" ]]; then
+                show_help
+            fi
+
+            # For local mode, check wallet initialization
+            if ! is_remote && [[ ! -f "$WALLET_FILE" ]]; then
+                echo "Wallet not found: $WALLET_FILE"
                 echo ""
-                echo "To initialize a new wallet, a pass entry for the wallet password is required."
+                echo "To initialize a new wallet, you need a password in pass store."
                 echo "If it doesn't exist, create it first with:"
                 echo "   pass insert $PASSWORD_STORE_PATH"
                 echo ""
-                read -rp "Would you like to proceed with wallet initialization? [y/N]: " response
+                read -rp "Initialize new wallet? [y/N]: " response
                 case "$response" in
                     [yY][eE][sS]|[yY])
-                        # Check if pass entry exists before proceeding
                         if ! ${passCmd} show "$PASSWORD_STORE_PATH" &>/dev/null; then
                             echo ""
                             echo "Error: Password store entry '$PASSWORD_STORE_PATH' does not exist."
                             echo "Please create it first with: pass insert $PASSWORD_STORE_PATH"
                             exit 1
                         fi
-                        PASSWORD=$(${passCmd} show "$PASSWORD_STORE_PATH")
 
-                        # Create wallet directory if it doesn't exist
-                        if [[ ! -d "$DOGECOIN_DIR" ]]; then
-                            echo "Creating wallet directory: $DOGECOIN_DIR"
-                            mkdir -p "$DOGECOIN_DIR"
+                        PASSWORD=$(${passCmd} show "$PASSWORD_STORE_PATH")
+                        if [[ -z "$PASSWORD" ]]; then
+                            echo "Error: Password is empty"
+                            exit 1
                         fi
 
-                        echo "Initializing new Dogecoin wallet..."
-                        echo "Starting dogecoind with wallet encryption..."
+                        # Create wallet directory
+                        mkdir -p "$DOGECOIN_DIR"
 
-                        # Create a temporary config for initialization
-                        TEMP_CONF=$(mktemp)
-                        cat > "$TEMP_CONF" <<CONF
+                        echo "Initializing Dogecoin wallet..."
+
+                        # Create config
+                        CONF_FILE="$DOGECOIN_DIR/dogecoin.conf"
+                        RPC_PASS=$(head -c 32 /dev/urandom | base64 | tr -dc 'a-zA-Z0-9')
+                        cat > "$CONF_FILE" <<CONF
             datadir=$DOGECOIN_DIR
             wallet=$WALLET_NAME
-            server=0
+            server=1
             listen=0
+            rpcuser=dogecoin
+            rpcpassword=$RPC_PASS
             CONF
+                        chmod 600 "$CONF_FILE"
 
-                        # Start daemon briefly to create wallet, then encrypt it
-                        ${dogecoinPkg}/bin/dogecoind -conf="$TEMP_CONF" -daemon
-                        sleep 3
+                        # Start daemon to create wallet
+                        ${dogecoinPkg}/bin/dogecoind -datadir="$DOGECOIN_DIR" -daemon
+                        echo "Waiting for wallet creation..."
+                        sleep 5
 
-                        # Encrypt the wallet with the password
-                        ${dogecoinPkg}/bin/dogecoin-cli -conf="$TEMP_CONF" encryptwallet "$PASSWORD" || true
+                        # Encrypt wallet
+                        echo "Encrypting wallet..."
+                        doge_cli encryptwallet "$PASSWORD" || true
                         sleep 2
 
-                        # Stop the daemon (encryptwallet auto-stops it, but just in case)
-                        ${dogecoinPkg}/bin/dogecoin-cli -conf="$TEMP_CONF" stop 2>/dev/null || true
-                        rm -f "$TEMP_CONF"
-
+                        # Daemon auto-stops after encryption
                         echo ""
-                        echo "Wallet created successfully at: $DOGECOIN_DIR"
-                        echo "IMPORTANT: Back up your wallet.dat file!"
+                        echo "✓ Wallet created at: $DOGECOIN_DIR"
+                        echo "✓ Wallet encrypted with password from pass"
                         echo ""
-                        echo "To get a new receiving address, run:"
-                        echo "   dogecoin-wallet getnewaddress"
+                        echo "IMPORTANT: Back up $WALLET_FILE"
+                        echo ""
+                        echo "Next steps:"
+                        echo "  dogecoin-wallet receive   # Get receiving address"
+                        echo "  dogecoin-wallet           # Check balance"
                         exit 0
                         ;;
                     *)
@@ -639,103 +759,146 @@
                 esac
             fi
 
-            # Verify wallet directory is readable
-            if [[ ! -r "$DOGECOIN_DIR" ]]; then
-                echo "Error: Wallet directory is not readable: $DOGECOIN_DIR"
-                echo "Check file permissions"
-                exit 1
-            fi
-
-            # Check if pass entry exists
-            if ! ${passCmd} show "$PASSWORD_STORE_PATH" &>/dev/null; then
-                echo "Error: Could not retrieve password from pass store at '$PASSWORD_STORE_PATH'"
-                echo "Make sure the password store entry exists and is accessible"
-                echo ""
-                echo "To create the entry, run: pass insert $PASSWORD_STORE_PATH"
-                exit 1
-            fi
-
-            # Get password from pass
-            PASSWORD=$(${passCmd} show "$PASSWORD_STORE_PATH")
-
-            # Validate password is not empty
-            if [[ -z "$PASSWORD" ]]; then
-                echo "Error: Password retrieved from pass store is empty"
-                exit 1
-            fi
-
-            # Create config file for this session
-            CONF_FILE="$DOGECOIN_DIR/dogecoin.conf"
-            if [[ ! -f "$CONF_FILE" ]]; then
-                cat > "$CONF_FILE" <<CONF
+            # Ensure config exists for local mode
+            if ! is_remote; then
+                CONF_FILE="$DOGECOIN_DIR/dogecoin.conf"
+                if [[ ! -f "$CONF_FILE" ]]; then
+                    RPC_PASS=$(head -c 32 /dev/urandom | base64 | tr -dc 'a-zA-Z0-9')
+                    cat > "$CONF_FILE" <<CONF
             datadir=$DOGECOIN_DIR
             wallet=$WALLET_NAME
             server=1
+            listen=0
             rpcuser=dogecoin
-            rpcpassword=$(head -c 32 /dev/urandom | base64 | tr -dc 'a-zA-Z0-9')
+            rpcpassword=$RPC_PASS
             CONF
-                chmod 600 "$CONF_FILE"
-            fi
-
-            # If no arguments, show wallet info
-            if [[ $# -eq 0 ]]; then
-                echo "Dogecoin Wallet: $WALLET_NAME"
-                echo "Data directory: $DOGECOIN_DIR"
-                echo ""
-                echo "Starting daemon if not running..."
-
-                # Check if daemon is running
-                if ! ${dogecoinPkg}/bin/dogecoin-cli -datadir="$DOGECOIN_DIR" getblockchaininfo &>/dev/null; then
-                    ${dogecoinPkg}/bin/dogecoind -datadir="$DOGECOIN_DIR" -daemon
-                    sleep 3
+                    chmod 600 "$CONF_FILE"
                 fi
-
-                # Unlock wallet for operations
-                ${dogecoinPkg}/bin/dogecoin-cli -datadir="$DOGECOIN_DIR" walletpassphrase "$PASSWORD" 60 2>/dev/null || true
-
-                echo "Balance:"
-                ${dogecoinPkg}/bin/dogecoin-cli -datadir="$DOGECOIN_DIR" getbalance
-                echo ""
-                echo "Run 'dogecoin-wallet help' for available commands"
-                exit 0
             fi
 
-            # Handle help
-            if [[ "$1" == "--help" || "$1" == "-h" ]]; then
-                echo "dogecoin-wallet - Dogecoin Core wallet wrapper"
-                echo ""
-                echo "USAGE:"
-                echo "  dogecoin-wallet [COMMAND] [ARGS...]"
-                echo ""
-                echo "ENVIRONMENT VARIABLES:"
-                echo "  WALLET                     Wallet name (default: main_wallet)"
-                echo "  DOGECOIN_DIR               Data directory (default: ~/Shared/Coins/dogecoin)"
-                echo "  DOGECOIN_PASSWORD_STORE_PATH  Pass entry path (default: dogecoin/\$WALLET)"
-                echo ""
-                echo "EXAMPLES:"
-                echo "  dogecoin-wallet                    # Show balance"
-                echo "  dogecoin-wallet getnewaddress      # Get new receiving address"
-                echo "  dogecoin-wallet sendtoaddress <addr> <amount>  # Send DOGE"
-                echo "  dogecoin-wallet listtransactions   # List recent transactions"
-                echo "  WALLET=savings dogecoin-wallet     # Use different wallet"
-                echo ""
-                echo "DOGECOIN-CLI COMMANDS:"
-                ${dogecoinPkg}/bin/dogecoin-cli --help
-                exit 0
-            fi
+            # Command dispatch
+            case "''${1:-}" in
+                ""|balance)
+                    ensure_daemon
+                    unlock_wallet 10
+                    echo "Dogecoin Wallet: $WALLET_NAME"
+                    if is_remote; then
+                        echo "Connected to: $RPC_HOST:$RPC_PORT"
+                    else
+                        echo "Data directory: $DOGECOIN_DIR"
+                    fi
+                    echo ""
+                    BALANCE=$(doge_cli getbalance 2>/dev/null || echo "0")
+                    UNCONFIRMED=$(doge_cli getunconfirmedbalance 2>/dev/null || echo "0")
+                    echo "Balance: Ð $BALANCE"
+                    [[ "$UNCONFIRMED" != "0" ]] && echo "Pending: Ð $UNCONFIRMED"
+                    ;;
 
-            # Ensure daemon is running
-            if ! ${dogecoinPkg}/bin/dogecoin-cli -datadir="$DOGECOIN_DIR" getblockchaininfo &>/dev/null; then
-                echo "Starting dogecoind..."
-                ${dogecoinPkg}/bin/dogecoind -datadir="$DOGECOIN_DIR" -daemon
-                sleep 3
-            fi
+                receive)
+                    ensure_daemon
+                    unlock_wallet 10
+                    ADDRESS=$(doge_cli getnewaddress)
+                    echo "Send DOGE to this address:"
+                    echo ""
+                    echo "  $ADDRESS"
+                    echo ""
+                    echo "(Address copied if wl-copy available)"
+                    echo "$ADDRESS" | ${pkgs.wl-clipboard}/bin/wl-copy --type text/plain 2>/dev/null || true
+                    ;;
 
-            # Unlock wallet for 60 seconds for any operation that needs it
-            ${dogecoinPkg}/bin/dogecoin-cli -datadir="$DOGECOIN_DIR" walletpassphrase "$PASSWORD" 60 2>/dev/null || true
+                send)
+                    if [[ $# -lt 3 ]]; then
+                        echo "Usage: dogecoin-wallet send <address> <amount>"
+                        echo "Example: dogecoin-wallet send DH5yaieqoZN36fDVciNyRueRGvGLR3mr7L 100"
+                        exit 1
+                    fi
+                    TO_ADDR="$2"
+                    AMOUNT="$3"
+                    ensure_daemon
+                    unlock_wallet 60
+                    echo "Sending Ð $AMOUNT to $TO_ADDR..."
+                    TXID=$(doge_cli sendtoaddress "$TO_ADDR" "$AMOUNT")
+                    echo "✓ Sent! Transaction ID:"
+                    echo "  $TXID"
+                    ;;
 
-            # Pass through to dogecoin-cli
-            exec ${dogecoinPkg}/bin/dogecoin-cli -datadir="$DOGECOIN_DIR" "$@"
+                history)
+                    ensure_daemon
+                    COUNT="''${2:-10}"
+                    echo "Last $COUNT transactions:"
+                    echo ""
+                    doge_cli listtransactions "*" "$COUNT" | ${pkgs.jq}/bin/jq -r '.[] | "\(.category): Ð \(.amount) (\(.confirmations) conf) - \(.txid[0:16])..."'
+                    ;;
+
+                address)
+                    ensure_daemon
+                    doge_cli getaccountaddress ""
+                    ;;
+
+                addresses)
+                    ensure_daemon
+                    echo "Wallet addresses:"
+                    doge_cli listaddressgroupings | ${pkgs.jq}/bin/jq -r '.[][] | .[0]'
+                    ;;
+
+                sync)
+                    ensure_daemon
+                    INFO=$(doge_cli getblockchaininfo)
+                    BLOCKS=$(echo "$INFO" | ${pkgs.jq}/bin/jq -r '.blocks')
+                    HEADERS=$(echo "$INFO" | ${pkgs.jq}/bin/jq -r '.headers')
+                    PROGRESS=$(echo "$INFO" | ${pkgs.jq}/bin/jq -r '.verificationprogress')
+                    PERCENT=$(echo "$PROGRESS * 100" | ${pkgs.bc}/bin/bc -l | cut -c1-5)
+                    echo "Blockchain sync status:"
+                    echo "  Blocks: $BLOCKS / $HEADERS"
+                    echo "  Progress: $PERCENT%"
+                    ;;
+
+                start)
+                    if is_remote; then
+                        echo "Cannot start daemon in remote mode"
+                        exit 1
+                    fi
+                    if doge_cli getblockchaininfo &>/dev/null; then
+                        echo "Daemon already running"
+                    else
+                        ${dogecoinPkg}/bin/dogecoind -datadir="$DOGECOIN_DIR" -daemon
+                        echo "Daemon started"
+                    fi
+                    ;;
+
+                stop)
+                    if is_remote; then
+                        echo "Cannot stop remote daemon"
+                        exit 1
+                    fi
+                    doge_cli stop 2>/dev/null && echo "Daemon stopped" || echo "Daemon not running"
+                    ;;
+
+                backup)
+                    BACKUP_FILE="$HOME/dogecoin-backup-$(date +%Y%m%d-%H%M%S).dat"
+                    if [[ -f "$WALLET_FILE" ]]; then
+                        cp "$WALLET_FILE" "$BACKUP_FILE"
+                        echo "Wallet backed up to: $BACKUP_FILE"
+                    else
+                        echo "Error: Wallet file not found"
+                        exit 1
+                    fi
+                    ;;
+
+                cli)
+                    shift
+                    ensure_daemon
+                    unlock_wallet 60
+                    doge_cli "$@"
+                    ;;
+
+                *)
+                    # Pass through unknown commands to dogecoin-cli
+                    ensure_daemon
+                    unlock_wallet 60
+                    doge_cli "$@"
+                    ;;
+            esac
           '';
       };
 

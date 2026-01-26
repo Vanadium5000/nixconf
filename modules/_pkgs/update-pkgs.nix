@@ -324,6 +324,15 @@ pkgs.writeShellApplication {
           fi
           ;;
 
+        "dogecoin")
+          # Has versioned URL from GitHub releases
+          if update_versioned_url_package "$pkg" "dogecoin" "dogecoin"; then
+            UPDATED+=("$pkg")
+          else
+            SKIPPED+=("$pkg")
+          fi
+          ;;
+
         "quickshell-docs-markdown")
           # Has multiple GitHub sources - use multi-source updater
           if update_multi_source_package "$pkg"; then
