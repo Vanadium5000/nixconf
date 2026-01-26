@@ -187,95 +187,42 @@
         ];
       };
 
-      # Build bundled MCP servers with dependencies included
-      packages.markdown-lint-mcp =
-        let
-          bundle = pkgs.stdenv.mkDerivation {
-            pname = "markdown-lint-mcp-bundle";
-            version = "1.0.0";
-            src = ./mcp;
-            nativeBuildInputs = [ pkgs.bun pkgs.nodejs_latest ];
-            buildPhase = ''
-              export HOME=$TMPDIR
-              cd $src/..
-              ${pkgs.bun}/bin/bun build ${./mcp/markdown-lint.ts} --bundle --target=bun --outfile=$TMPDIR/bundle.js
-            '';
-            installPhase = ''
-              mkdir -p $out
-              cp $TMPDIR/bundle.js $out/bundle.js
-            '';
-          };
-        in
-        inputs.wrappers.lib.makeWrapper {
-          inherit pkgs;
-          package = pkgs.writeShellScriptBin "markdown-lint-mcp" ''
-            exec ${pkgs.bun}/bin/bun run ${bundle}/bundle.js "$@"
-          '';
-          runtimeInputs = [
-            pkgs.bun
-            pkgs.nodePackages.markdownlint-cli
-            pkgs.coreutils
-          ];
-        };
+      # MCP servers - use pre-bundled JS with all dependencies included
+      # Bundles generated via: bun build ./mcp/<name>.ts --bundle --target=bun --outfile=./mcp/dist/<name>.js
+      packages.markdown-lint-mcp = inputs.wrappers.lib.makeWrapper {
+        inherit pkgs;
+        package = pkgs.writeShellScriptBin "markdown-lint-mcp" ''
+          exec ${pkgs.bun}/bin/bun run ${./mcp/dist/markdown-lint.js} "$@"
+        '';
+        runtimeInputs = [
+          pkgs.bun
+          pkgs.nodePackages.markdownlint-cli
+          pkgs.coreutils
+        ];
+      };
 
-      packages.quickshell-docs-mcp =
-        let
-          bundle = pkgs.stdenv.mkDerivation {
-            pname = "quickshell-docs-mcp-bundle";
-            version = "1.0.0";
-            src = ./mcp;
-            nativeBuildInputs = [ pkgs.bun pkgs.nodejs_latest ];
-            buildPhase = ''
-              export HOME=$TMPDIR
-              cd $src/..
-              ${pkgs.bun}/bin/bun build ${./mcp/quickshell-docs.ts} --bundle --target=bun --outfile=$TMPDIR/bundle.js
-            '';
-            installPhase = ''
-              mkdir -p $out
-              cp $TMPDIR/bundle.js $out/bundle.js
-            '';
-          };
-        in
-        inputs.wrappers.lib.makeWrapper {
-          inherit pkgs;
-          package = pkgs.writeShellScriptBin "quickshell-docs-mcp" ''
-            export QUICKSHELL_DOCS_PATH="${self'.packages.quickshell-docs-markdown}"
-            exec ${pkgs.bun}/bin/bun run ${bundle}/bundle.js "$@"
-          '';
-          runtimeInputs = [
-            pkgs.bun
-            pkgs.coreutils
-          ];
-        };
+      packages.quickshell-docs-mcp = inputs.wrappers.lib.makeWrapper {
+        inherit pkgs;
+        package = pkgs.writeShellScriptBin "quickshell-docs-mcp" ''
+          export QUICKSHELL_DOCS_PATH="${self'.packages.quickshell-docs-markdown}"
+          exec ${pkgs.bun}/bin/bun run ${./mcp/dist/quickshell-docs.js} "$@"
+        '';
+        runtimeInputs = [
+          pkgs.bun
+          pkgs.coreutils
+        ];
+      };
 
-      packages.qmllint-mcp =
-        let
-          bundle = pkgs.stdenv.mkDerivation {
-            pname = "qmllint-mcp-bundle";
-            version = "1.0.0";
-            src = ./mcp;
-            nativeBuildInputs = [ pkgs.bun pkgs.nodejs_latest ];
-            buildPhase = ''
-              export HOME=$TMPDIR
-              cd $src/..
-              ${pkgs.bun}/bin/bun build ${./mcp/qmllint.ts} --bundle --target=bun --outfile=$TMPDIR/bundle.js
-            '';
-            installPhase = ''
-              mkdir -p $out
-              cp $TMPDIR/bundle.js $out/bundle.js
-            '';
-          };
-        in
-        inputs.wrappers.lib.makeWrapper {
-          inherit pkgs;
-          package = pkgs.writeShellScriptBin "qmllint-mcp" ''
-            exec ${pkgs.bun}/bin/bun run ${bundle}/bundle.js "$@"
-          '';
-          runtimeInputs = [
-            pkgs.bun
-            pkgs.qt6.qtdeclarative # for qmllint
-            pkgs.coreutils
-          ];
-        };
+      packages.qmllint-mcp = inputs.wrappers.lib.makeWrapper {
+        inherit pkgs;
+        package = pkgs.writeShellScriptBin "qmllint-mcp" ''
+          exec ${pkgs.bun}/bin/bun run ${./mcp/dist/qmllint.js} "$@"
+        '';
+        runtimeInputs = [
+          pkgs.bun
+          pkgs.qt6.qtdeclarative # for qmllint
+          pkgs.coreutils
+        ];
+      };
     };
 }
