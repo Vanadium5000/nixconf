@@ -601,16 +601,16 @@
                         fi
 
                         echo "Creating new wallet..."
-                        # Create wallet with electrum-ltc (password set during creation)
-                        ${pkgs.electrum-ltc}/bin/electrum-ltc --offline create --wallet "$WALLET_FILE" --password "$PASSWORD"
+                        # Create wallet with electrum-ltc (uses -w for wallet path, -W for password)
+                        ${pkgs.electrum-ltc}/bin/electrum-ltc create -o -w "$WALLET_FILE" -W "$PASSWORD"
                         echo ""
                         echo "Wallet created successfully at: $WALLET_FILE"
                         echo "IMPORTANT: Please back up your seed phrase!"
-                        echo "Run: electrum-ltc --offline --wallet '$WALLET_FILE' getseed --password '\$PASSWORD'"
+                        echo "Run: electrum-ltc -o -w '$WALLET_FILE' getseed -W '\$PASSWORD'"
                         echo "(where \$PASSWORD is your wallet password from pass)"
                         echo ""
                         echo "Starting wallet GUI..."
-                        exec ${pkgs.electrum-ltc}/bin/electrum-ltc --wallet "$WALLET_FILE" "$@"
+                        exec ${pkgs.electrum-ltc}/bin/electrum-ltc gui -w "$WALLET_FILE" "$@"
                         ;;
                     *)
                         echo "Aborted."
@@ -641,8 +641,8 @@
             echo "Electrum-LTC will prompt for the password in the GUI."
             echo ""
 
-            # Launch electrum-ltc GUI with wallet
-            exec ${pkgs.electrum-ltc}/bin/electrum-ltc --wallet "$WALLET_FILE" "$@"
+            # Launch electrum-ltc GUI with wallet (uses gui subcommand with -w for wallet path)
+            exec ${pkgs.electrum-ltc}/bin/electrum-ltc gui -w "$WALLET_FILE" "$@"
           '';
       };
 

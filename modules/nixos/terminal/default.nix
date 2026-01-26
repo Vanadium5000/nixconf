@@ -107,6 +107,7 @@
           wtype
           monero-cli
           electrum
+          electrum-ltc
           foundry # provides "cast"
         ]);
 
