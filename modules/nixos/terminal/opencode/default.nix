@@ -74,7 +74,7 @@
           "$schema" = "https://opencode.ai/config.json";
           plugin = [
             # "opencode-antigravity-auth@latest"
-            "@mohak34/opencode-notifier@latest"
+            # "@mohak34/opencode-notifier@latest" # Not needed when Web-UI is used
             "oh-my-opencode@latest"
             # "@tarquinen/opencode-dcp@latest"
           ];
@@ -221,7 +221,7 @@
 
             # Main Agents
             "atlas" = {
-              "model" = "antigravity-gemini/gemini-3-flash";
+              "model" = "antigravity-gemini/claude-opus-4-5-thinking"; # Maybe a tad excessive
             };
             "prometheus" = {
               "model" = "antigravity-gemini/claude-opus-4-5-thinking";

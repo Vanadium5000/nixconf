@@ -3,6 +3,7 @@ result-bin
 result-man
 target
 .devenv
+.sisyphus
 .direnv
 .vscode
 *.qcow2
