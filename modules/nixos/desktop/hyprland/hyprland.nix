@@ -235,9 +235,6 @@
           "${shiftMod},B, exec, kitty btop" # btop - system resources
           "${mod},G, exec, xdg-open https://x.com/i/grok" # Open Grok
           # "${shiftMod},M, exec, xdg-open https://music.youtube.com" # Open YouTube Music
-          # "${mod},A, exec, pkill nwg-drawer || ${
-          #   getExe self.packages.${pkgs.stdenv.hostPlatform.system}.nwg-drawer
-          # }" # Toggle nwg-drawer
 
           "${mod},L, exec, hyprlock" # Lock
 
@@ -249,7 +246,7 @@
           }" # Toggle Hyprpanel (bar)
 
           "${mod},Q, killactive," # Close window
-          # "${mod},T, togglefloating," # Toggle Floating (Disabled for Dictation)
+          "${altMod},T, togglefloating," # Toggle Floating (Disabled for Dictation)
           "${mod},F, fullscreen" # Toggle Fullscreen
           "${mod},left, movefocus, l" # Move focus left
           "${mod},right, movefocus, r" # Move focus Right
