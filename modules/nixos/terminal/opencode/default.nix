@@ -81,6 +81,12 @@
           small_model = "opencode/gpt-5-nano";
           autoupdate = false;
           share = "disabled";
+          permission = {
+            read = {
+              # Don't allow the AI to read *.redacted.*, e.g. .../script.redacted.ts
+              "*.redacted.*" = "deny";
+            };
+          };
           disabled_providers = [
             "amazon-bedrock"
             "anthropic"

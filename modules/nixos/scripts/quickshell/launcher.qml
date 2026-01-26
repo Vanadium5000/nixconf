@@ -150,7 +150,13 @@ Scope {
                                 if (root.mode === "app") {
                                     root.filterApps();
                                 } else if (root.mode === "calc") {
-                                    calcRunner.running = true;
+                                    var expr = text.substring(1).trim();
+                                    if (expr.length > 0) {
+                                        calcRunner.command = ["qalc", "-t", expr];
+                                        calcRunner.running = true;
+                                    } else {
+                                        calcResult.text = "";
+                                    }
                                 }
                             }
                         }
@@ -327,7 +333,6 @@ Scope {
 
         Process {
             id: calcRunner
-            command: ["qalc", "-t", searchInput.text]
             running: false
             stdout: StdioCollector {
                 onStreamFinished: {
