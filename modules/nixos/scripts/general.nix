@@ -550,6 +550,102 @@
           '';
       };
 
+      packages.litecoin-wallet = inputs.wrappers.lib.makeWrapper {
+        inherit pkgs;
+        package =
+          let
+            passCmd = "${(pkgs.pass.withExtensions (exts: [ exts.pass-otp ]))}/bin/pass";
+          in
+          pkgs.writeShellScriptBin "litecoin-wallet" ''
+            #!/usr/bin/env bash
+            set -euo pipefail
+
+            # Configuration with WALLET env variable support
+            WALLET_NAME="''${WALLET:-main_wallet}"
+            ELECTRUM_LTC_DIR="''${ELECTRUM_LTC_DIR:-$HOME/Shared/Coins/litecoin}"
+            WALLET_FILE="''${ELECTRUM_LTC_WALLET_FILE:-$ELECTRUM_LTC_DIR/wallets/$WALLET_NAME}"
+            PASSWORD_STORE_PATH="''${ELECTRUM_LTC_PASSWORD_STORE_PATH:-litecoin/$WALLET_NAME}"
+
+            # Validate wallet name (alphanumeric, underscore, hyphen only)
+            if [[ ! "$WALLET_NAME" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+                echo "Error: Invalid wallet name '$WALLET_NAME'"
+                echo "Wallet name must contain only alphanumeric characters, underscores, and hyphens"
+                exit 1
+            fi
+
+            # Check if wallet file exists
+            WALLET_DIR="$(dirname "$WALLET_FILE")"
+            if [[ ! -f "$WALLET_FILE" ]]; then
+                echo "Warning: Wallet file does not exist: $WALLET_FILE"
+                echo ""
+                echo "To initialize a new wallet, a pass entry for the wallet password is required."
+                echo "If it doesn't exist, create it first with:"
+                echo "   pass insert $PASSWORD_STORE_PATH"
+                echo ""
+                read -rp "Would you like to proceed with wallet initialization? [y/N]: " response
+                case "$response" in
+                    [yY][eE][sS]|[yY])
+                        # Check if pass entry exists before proceeding
+                        if ! ${passCmd} show "$PASSWORD_STORE_PATH" &>/dev/null; then
+                            echo ""
+                            echo "Error: Password store entry '$PASSWORD_STORE_PATH' does not exist."
+                            echo "Please create it first with: pass insert $PASSWORD_STORE_PATH"
+                            exit 1
+                        fi
+                        PASSWORD=$(${passCmd} show "$PASSWORD_STORE_PATH")
+
+                        # Create wallet directory if it doesn't exist
+                        if [[ ! -d "$WALLET_DIR" ]]; then
+                            echo "Creating wallet directory: $WALLET_DIR"
+                            mkdir -p "$WALLET_DIR"
+                        fi
+
+                        echo "Creating new wallet..."
+                        # Create wallet with electrum-ltc (password set during creation)
+                        ${pkgs.electrum-ltc}/bin/electrum-ltc --offline create --wallet "$WALLET_FILE" --password "$PASSWORD"
+                        echo ""
+                        echo "Wallet created successfully at: $WALLET_FILE"
+                        echo "IMPORTANT: Please back up your seed phrase!"
+                        echo "Run: electrum-ltc --offline --wallet '$WALLET_FILE' getseed --password '\$PASSWORD'"
+                        echo "(where \$PASSWORD is your wallet password from pass)"
+                        echo ""
+                        echo "Starting wallet GUI..."
+                        exec ${pkgs.electrum-ltc}/bin/electrum-ltc --wallet "$WALLET_FILE" "$@"
+                        ;;
+                    *)
+                        echo "Aborted."
+                        exit 0
+                        ;;
+                esac
+            fi
+
+            # Verify wallet file is readable
+            if [[ ! -r "$WALLET_FILE" ]]; then
+                echo "Error: Wallet file is not readable: $WALLET_FILE"
+                echo "Check file permissions"
+                exit 1
+            fi
+
+            # Check if pass entry exists
+            if ! ${passCmd} show "$PASSWORD_STORE_PATH" &>/dev/null; then
+                echo "Error: Could not retrieve password from pass store at '$PASSWORD_STORE_PATH'"
+                echo "Make sure the password store entry exists and is accessible"
+                echo ""
+                echo "To create the entry, run: pass insert $PASSWORD_STORE_PATH"
+                exit 1
+            fi
+
+            # Password verified to exist - electrum-ltc GUI will prompt for it interactively
+            # We verify pass entry exists so user knows their password is available
+            echo "Wallet password available in pass at: $PASSWORD_STORE_PATH"
+            echo "Electrum-LTC will prompt for the password in the GUI."
+            echo ""
+
+            # Launch electrum-ltc GUI with wallet
+            exec ${pkgs.electrum-ltc}/bin/electrum-ltc --wallet "$WALLET_FILE" "$@"
+          '';
+      };
+
       packages.ethereum-wallet = inputs.wrappers.lib.makeWrapper {
         inherit pkgs;
         package =

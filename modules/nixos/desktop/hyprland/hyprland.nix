@@ -414,7 +414,6 @@
         hyprpicker # color picker
 
         nwg-displays # displays/outputs settings gui
-        protonvpn-gui # proton vpn gui
 
         # Utilities for eye & health protection
         hyprsunset # Blue light filter
