@@ -187,12 +187,12 @@
         ];
       };
 
-      # MCP servers - use pre-bundled JS with all dependencies included
-      # Bundles generated via: bun build ./mcp/<name>.ts --bundle --target=bun --outfile=./mcp/dist/<name>.js
+      # MCP servers - run from absolute path for live editing
+      # Requires: bun install in /home/matrix/nixconf/modules/nixos/scripts/bunjs
       packages.markdown-lint-mcp = inputs.wrappers.lib.makeWrapper {
         inherit pkgs;
         package = pkgs.writeShellScriptBin "markdown-lint-mcp" ''
-          exec ${pkgs.bun}/bin/bun run ${./mcp/dist/markdown-lint.js} "$@"
+          exec ${pkgs.bun}/bin/bun run /home/matrix/nixconf/modules/nixos/scripts/bunjs/mcp/markdown-lint.ts "$@"
         '';
         runtimeInputs = [
           pkgs.bun
@@ -205,7 +205,7 @@
         inherit pkgs;
         package = pkgs.writeShellScriptBin "quickshell-docs-mcp" ''
           export QUICKSHELL_DOCS_PATH="${self'.packages.quickshell-docs-markdown}"
-          exec ${pkgs.bun}/bin/bun run ${./mcp/dist/quickshell-docs.js} "$@"
+          exec ${pkgs.bun}/bin/bun run /home/matrix/nixconf/modules/nixos/scripts/bunjs/mcp/quickshell-docs.ts "$@"
         '';
         runtimeInputs = [
           pkgs.bun
@@ -216,7 +216,7 @@
       packages.qmllint-mcp = inputs.wrappers.lib.makeWrapper {
         inherit pkgs;
         package = pkgs.writeShellScriptBin "qmllint-mcp" ''
-          exec ${pkgs.bun}/bin/bun run ${./mcp/dist/qmllint.js} "$@"
+          exec ${pkgs.bun}/bin/bun run /home/matrix/nixconf/modules/nixos/scripts/bunjs/mcp/qmllint.ts "$@"
         '';
         runtimeInputs = [
           pkgs.bun
