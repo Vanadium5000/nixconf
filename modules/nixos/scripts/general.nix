@@ -635,13 +635,20 @@
                 exit 1
             fi
 
-            # Password verified to exist - electrum-ltc GUI will prompt for it interactively
-            # We verify pass entry exists so user knows their password is available
-            echo "Wallet password available in pass at: $PASSWORD_STORE_PATH"
-            echo "Electrum-LTC will prompt for the password in the GUI."
-            echo ""
+            # Get password from pass
+            PASSWORD=$(${passCmd} show "$PASSWORD_STORE_PATH")
 
-            # Launch electrum-ltc GUI with wallet (uses gui subcommand with -w for wallet path)
+            # Validate password is not empty
+            if [[ -z "$PASSWORD" ]]; then
+                echo "Error: Password retrieved from pass store is empty"
+                exit 1
+            fi
+
+            # Start daemon if not running, load wallet with password, then launch GUI
+            ${pkgs.electrum-ltc}/bin/electrum-ltc daemon -d 2>/dev/null || true
+            ${pkgs.electrum-ltc}/bin/electrum-ltc load_wallet -w "$WALLET_FILE" -W "$PASSWORD"
+
+            # Launch GUI (wallet already loaded and unlocked via daemon)
             exec ${pkgs.electrum-ltc}/bin/electrum-ltc gui -w "$WALLET_FILE" "$@"
           '';
       };
@@ -792,6 +799,65 @@
             if [[ "$1" == "wallet" ]]; then
                 shift
                 exec ${castCmd} wallet "$@" --keystore "$ETH_WALLET_FILE" --password "$PASSWORD"
+            fi
+
+            # For balance command, default to ether display
+            if [[ "$1" == "balance" ]]; then
+                shift
+                exec ${castCmd} balance "$@" --ether
+            fi
+
+            # Transfer command: simple ETH transfer with value in ether
+            if [[ "$1" == "transfer" ]]; then
+                shift
+                if [[ $# -lt 2 ]]; then
+                    echo "Usage: ethereum-wallet transfer <DESTINATION> <AMOUNT>"
+                    echo ""
+                    echo "Arguments:"
+                    echo "  DESTINATION  Recipient address (0x...)"
+                    echo "  AMOUNT       Amount in ETH (e.g., 0.1, 1.5)"
+                    echo ""
+                    echo "Examples:"
+                    echo "  ethereum-wallet transfer 0x1234...abcd 0.5"
+                    echo "  ethereum-wallet transfer vitalik.eth 1.0"
+                    exit 1
+                fi
+
+                DEST="$1"
+                AMOUNT="$2"
+                shift 2
+
+                # Validate amount is a number
+                if ! [[ "$AMOUNT" =~ ^[0-9]*\.?[0-9]+$ ]]; then
+                    echo "Error: Invalid amount '$AMOUNT'"
+                    echo "Amount must be a number (e.g., 0.1, 1.5)"
+                    exit 1
+                fi
+
+                # Get sender address
+                FROM_ADDR=$(${castCmd} wallet address --keystore "$ETH_WALLET_FILE" --password "$PASSWORD")
+
+                # Get current balance
+                BALANCE=$(${castCmd} balance "$FROM_ADDR" --ether)
+
+                echo "Transfer Details:"
+                echo "  From:   $FROM_ADDR"
+                echo "  To:     $DEST"
+                echo "  Amount: $AMOUNT ETH"
+                echo "  Balance: $BALANCE ETH"
+                echo ""
+
+                read -rp "Confirm transfer? [y/N]: " response
+                case "$response" in
+                    [yY][eE][sS]|[yY])
+                        echo "Sending transaction..."
+                        exec ${castCmd} send "$DEST" --value "''${AMOUNT}ether" --keystore "$ETH_WALLET_FILE" --password "$PASSWORD" "$@"
+                        ;;
+                    *)
+                        echo "Transfer cancelled."
+                        exit 0
+                        ;;
+                esac
             fi
 
             # For send command, inject keystore args for signing
