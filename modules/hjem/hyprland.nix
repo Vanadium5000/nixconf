@@ -22,9 +22,43 @@ in
         mapAttrsToList
         getExe
         mkAfter
+        types
         ;
       user = config.preferences.user.username;
       cfg = config.home.programs.hyprland;
+
+      # Generate a flat list of keybinds with descriptions for the help overlay
+      flattenKeybinds =
+        prefix: keymap:
+        builtins.concatLists (
+          mapAttrsToList (
+            keyName: keyOptions:
+            let
+              fullKey = if prefix == "" then keyName else "${prefix} → ${keyName}";
+            in
+            if builtins.hasAttr "exec" keyOptions || builtins.hasAttr "package" keyOptions then
+              [
+                {
+                  key = fullKey;
+                  description = keyOptions.description or "No description";
+                  hasExec = builtins.hasAttr "exec" keyOptions;
+                }
+              ]
+            else
+              flattenKeybinds fullKey keyOptions
+          ) keymap
+        );
+
+      # Combine keybinds from preferences.keymap AND keybindDescriptions
+      allKeybinds =
+        (flattenKeybinds "" config.preferences.keymap)
+        ++ (map (kb: {
+          key = kb.key;
+          description = kb.description;
+          category = kb.category or "General";
+        }) cfg.keybindDescriptions);
+
+      keybindsJson = builtins.toJSON allKeybinds;
     in
     {
       options.home.programs.hyprland = {
@@ -47,6 +81,28 @@ in
         finalConfig = mkOption {
           default = "";
         };
+
+        keybindDescriptions = mkOption {
+          type = types.listOf (types.submodule {
+            options = {
+              key = mkOption {
+                type = types.str;
+                description = "Keybind (e.g., 'SUPER + Q')";
+              };
+              description = mkOption {
+                type = types.str;
+                description = "Human-readable description";
+              };
+              category = mkOption {
+                type = types.str;
+                default = "General";
+                description = "Category for grouping in help display";
+              };
+            };
+          });
+          default = [ ];
+          description = "List of keybind descriptions for the help overlay";
+        };
       };
 
       config = mkIf cfg.enable {
@@ -54,6 +110,8 @@ in
 
         hjem.users.${user} = {
           files.".config/hypr/hyprland.conf".text = cfg.finalConfig;
+          # Generate keybinds JSON for the help overlay
+          files.".config/hypr/keybinds.json".text = keybindsJson;
         };
 
         home.programs.hyprland.settings.exec-once = builtins.map (

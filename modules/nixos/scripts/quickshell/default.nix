@@ -447,5 +447,151 @@
           pkgs.hyprlock
         ];
       };
+
+      packages.qs-vpn = inputs.wrappers.lib.makeWrapper {
+        inherit pkgs;
+        package = pkgs.writeShellScriptBin "qs-vpn" ''
+          # Quickshell VPN Toggle (AirVPN via NetworkManager)
+          # Usage: qs-vpn [connect|disconnect|toggle|status]
+
+          VPN_NAME="AirVPN"
+          # OVPN config path is set via environment variable from networking.nix
+          OVPN_CONFIG="''${AIRVPN_OVPN_PATH:-}"
+
+          # Check if VPN connection exists in NetworkManager
+          vpn_exists() {
+            nmcli connection show "$VPN_NAME" &>/dev/null
+          }
+
+          # Check if VPN is currently active
+          vpn_active() {
+            nmcli connection show --active | grep -q "$VPN_NAME"
+          }
+
+          # Import VPN config if not already imported
+          ensure_vpn_imported() {
+            if ! vpn_exists; then
+              if [ -n "$OVPN_CONFIG" ] && [ -f "$OVPN_CONFIG" ]; then
+                notify-send "VPN" "Importing AirVPN configuration..."
+                if nmcli connection import type openvpn file "$OVPN_CONFIG"; then
+                  # Rename to friendly name
+                  nmcli connection modify "$(basename "$OVPN_CONFIG" .ovpn)" connection.id "$VPN_NAME" 2>/dev/null || true
+                  notify-send "VPN" "Configuration imported successfully"
+                else
+                  notify-send -u critical "VPN Error" "Failed to import VPN configuration"
+                  exit 1
+                fi
+              else
+                notify-send -u critical "VPN Error" "OVPN config not found. Check AIRVPN_OVPN_PATH env var."
+                exit 1
+              fi
+            fi
+          }
+
+          connect_vpn() {
+            ensure_vpn_imported
+            if vpn_active; then
+              notify-send "VPN" "Already connected to $VPN_NAME"
+            else
+              notify-send "VPN" "Connecting to $VPN_NAME..."
+              if nmcli connection up "$VPN_NAME"; then
+                notify-send "VPN" "Connected to $VPN_NAME"
+              else
+                notify-send -u critical "VPN Error" "Failed to connect to $VPN_NAME"
+              fi
+            fi
+          }
+
+          disconnect_vpn() {
+            if vpn_active; then
+              notify-send "VPN" "Disconnecting from $VPN_NAME..."
+              if nmcli connection down "$VPN_NAME"; then
+                notify-send "VPN" "Disconnected from $VPN_NAME"
+              else
+                notify-send -u critical "VPN Error" "Failed to disconnect from $VPN_NAME"
+              fi
+            else
+              notify-send "VPN" "Not connected to $VPN_NAME"
+            fi
+          }
+
+          toggle_vpn() {
+            ensure_vpn_imported
+            if vpn_active; then
+              disconnect_vpn
+            else
+              connect_vpn
+            fi
+          }
+
+          show_status() {
+            if vpn_active; then
+              echo "connected"
+              notify-send "VPN Status" "Connected to $VPN_NAME"
+            else
+              echo "disconnected"
+              notify-send "VPN Status" "Not connected to $VPN_NAME"
+            fi
+          }
+
+          case "''${1:-toggle}" in
+            connect)
+              connect_vpn
+              ;;
+            disconnect)
+              disconnect_vpn
+              ;;
+            toggle)
+              toggle_vpn
+              ;;
+            status)
+              show_status
+              ;;
+            *)
+              echo "Usage: qs-vpn [connect|disconnect|toggle|status]"
+              exit 1
+              ;;
+          esac
+        '';
+        runtimeInputs = [
+          pkgs.networkmanager
+          pkgs.libnotify
+          pkgs.gnugrep
+          pkgs.coreutils
+        ];
+      };
+
+      packages.qs-keybinds = inputs.wrappers.lib.makeWrapper {
+        inherit pkgs;
+        package = pkgs.writeShellScriptBin "qs-keybinds" ''
+          # Quickshell Keybind Help (using qs-dmenu)
+          # Reads keybinds from ~/.config/hypr/keybinds.json and displays them
+
+          KEYBINDS_FILE="$HOME/.config/hypr/keybinds.json"
+
+          if [ ! -f "$KEYBINDS_FILE" ]; then
+            notify-send -u critical "Keybind Help" "Keybinds file not found at $KEYBINDS_FILE"
+            exit 1
+          fi
+
+          # Format keybinds for display: "KEY → Description"
+          # Using jq to parse JSON and format nicely
+          FORMATTED=$(jq -r '.[] | "\(.key)  ›  \(.description)"' "$KEYBINDS_FILE" | sort)
+
+          if [ -z "$FORMATTED" ]; then
+            notify-send "Keybind Help" "No keybinds configured"
+            exit 0
+          fi
+
+          # Display using qs-dmenu (read-only, just for viewing)
+          echo "$FORMATTED" | ${lib.getExe self'.packages.qs-dmenu} -p "Keybinds" -mesg "Press Enter to dismiss"
+        '';
+        runtimeInputs = [
+          self'.packages.qs-dmenu
+          pkgs.jq
+          pkgs.libnotify
+          pkgs.coreutils
+        ];
+      };
     };
 }

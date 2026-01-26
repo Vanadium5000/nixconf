@@ -52,6 +52,97 @@
       };
 
       home.programs.hyprland.enable = true;
+
+      # Keybind descriptions for the help overlay
+      home.programs.hyprland.keybindDescriptions = [
+        # Window Management
+        { key = "SUPER + Q"; description = "Close active window"; category = "Windows"; }
+        { key = "ALT + T"; description = "Toggle floating mode"; category = "Windows"; }
+        { key = "SUPER + F"; description = "Toggle fullscreen"; category = "Windows"; }
+        { key = "SUPER + ←"; description = "Focus window left"; category = "Windows"; }
+        { key = "SUPER + →"; description = "Focus window right"; category = "Windows"; }
+        { key = "SUPER + ↑"; description = "Focus window up"; category = "Windows"; }
+        { key = "SUPER + ↓"; description = "Focus window down"; category = "Windows"; }
+        { key = "SUPER + SHIFT + ↑"; description = "Focus previous monitor"; category = "Windows"; }
+        { key = "SUPER + SHIFT + ↓"; description = "Focus next monitor"; category = "Windows"; }
+        { key = "SUPER + SHIFT + ←"; description = "Add window to master"; category = "Windows"; }
+        { key = "SUPER + SHIFT + →"; description = "Remove window from master"; category = "Windows"; }
+        { key = "SUPER + Mouse Left"; description = "Move window (drag)"; category = "Windows"; }
+        { key = "SUPER + Mouse Right"; description = "Resize window (drag)"; category = "Windows"; }
+
+        # Workspaces
+        { key = "SUPER + 1-9"; description = "Switch to workspace 1-9"; category = "Workspaces"; }
+        { key = "SUPER + SHIFT + 1-9"; description = "Move window to workspace 1-9"; category = "Workspaces"; }
+
+        # Applications
+        { key = "SUPER + Return"; description = "Open terminal"; category = "Apps"; }
+        { key = "SUPER + B"; description = "Open Librewolf browser"; category = "Apps"; }
+        { key = "SUPER + SHIFT + B"; description = "Open btop (system monitor)"; category = "Apps"; }
+        { key = "SUPER + G"; description = "Open Grok AI"; category = "Apps"; }
+        { key = "SUPER + L"; description = "Lock screen"; category = "Apps"; }
+
+        # Menus & Launchers
+        { key = "SUPER + Space"; description = "App launcher"; category = "Menus"; }
+        { key = "SUPER + E"; description = "Emoji picker"; category = "Menus"; }
+        { key = "SUPER + N"; description = "Nerd font icons picker"; category = "Menus"; }
+        { key = "SUPER + Z"; description = "Clipboard history"; category = "Menus"; }
+        { key = "SUPER + W"; description = "Wallpaper selector"; category = "Menus"; }
+        { key = "SUPER + P"; description = "Password manager"; category = "Menus"; }
+        { key = "SUPER + SHIFT + P"; description = "Password manager (autotype)"; category = "Menus"; }
+        { key = "SUPER + M"; description = "Music search (YouTube)"; category = "Menus"; }
+        { key = "ALT + M"; description = "Music search (local)"; category = "Menus"; }
+        { key = "SUPER + SHIFT + M"; description = "Toggle shuffle all / stop"; category = "Menus"; }
+        { key = "SUPER + C"; description = "Checklist"; category = "Menus"; }
+        { key = "SUPER + X"; description = "Power menu"; category = "Menus"; }
+        { key = "SUPER + V"; description = "Tools menu"; category = "Menus"; }
+        { key = "SUPER + D"; description = "Toggle dock"; category = "Menus"; }
+        { key = "SUPER + SHIFT + D"; description = "Toggle waybar"; category = "Menus"; }
+
+        # Screenshots & Recording
+        { key = "SUPER + Print"; description = "Screenshot area (save)"; category = "Capture"; }
+        { key = "Print"; description = "Screenshot monitor (save)"; category = "Capture"; }
+        { key = "SUPER + SHIFT + Print"; description = "Screenshot to text (OCR)"; category = "Capture"; }
+        { key = "SUPER + S"; description = "Screenshot area (edit with Swappy)"; category = "Capture"; }
+        { key = "SUPER + SHIFT + S"; description = "OCR screenshot to clipboard"; category = "Capture"; }
+        { key = "ALT + S"; description = "QR code scan to clipboard"; category = "Capture"; }
+        { key = "SUPER + R"; description = "Start video recording"; category = "Capture"; }
+        { key = "SUPER + SHIFT + R"; description = "Stop video recording"; category = "Capture"; }
+
+        # Dictation & Accessibility
+        { key = "SUPER + T"; description = "Toggle dictation"; category = "Accessibility"; }
+        { key = "SUPER + -"; description = "Zoom out"; category = "Accessibility"; }
+        { key = "SUPER + ="; description = "Zoom in"; category = "Accessibility"; }
+
+        # Autoclickers
+        { key = "SUPER + SHIFT + V"; description = "Stop all autoclickers"; category = "Tools"; }
+        { key = "ALT + V"; description = "Toggle pause autoclickers"; category = "Tools"; }
+        { key = "ALT + N"; description = "Toggle VPN connection"; category = "Tools"; }
+
+        # Help
+        { key = "SUPER + H"; description = "Show keybind help"; category = "Help"; }
+
+        # Media Keys
+        { key = "XF86AudioMute"; description = "Toggle mute"; category = "Media"; }
+        { key = "XF86AudioRaiseVolume"; description = "Volume up"; category = "Media"; }
+        { key = "XF86AudioLowerVolume"; description = "Volume down"; category = "Media"; }
+        { key = "SHIFT + XF86AudioRaiseVolume"; description = "Volume up (small)"; category = "Media"; }
+        { key = "SHIFT + XF86AudioLowerVolume"; description = "Volume down (small)"; category = "Media"; }
+        { key = "XF86AudioPlay"; description = "Play/Pause media"; category = "Media"; }
+        { key = "XF86AudioNext"; description = "Next track"; category = "Media"; }
+        { key = "XF86AudioPrev"; description = "Previous track"; category = "Media"; }
+
+        # Brightness
+        { key = "XF86MonBrightnessUp"; description = "Screen brightness up"; category = "Brightness"; }
+        { key = "XF86MonBrightnessDown"; description = "Screen brightness down"; category = "Brightness"; }
+        { key = "SHIFT + XF86MonBrightnessUp"; description = "Screen brightness up (small)"; category = "Brightness"; }
+        { key = "SHIFT + XF86MonBrightnessDown"; description = "Screen brightness down (small)"; category = "Brightness"; }
+        { key = "XF86KbdBrightnessUp"; description = "Keyboard backlight up"; category = "Brightness"; }
+        { key = "XF86KbdBrightnessDown"; description = "Keyboard backlight down"; category = "Brightness"; }
+
+        # System
+        { key = "Lid Close"; description = "Lock screen and mute"; category = "System"; }
+      ];
+
       home.programs.hyprland.settings = {
         # unscale XWayland - fix rendering issues/blurry xwayland apps
         xwayland = {
@@ -281,7 +372,11 @@
           "${mod},T, exec, dictation toggle" # Dictation Toggle
           "${altMod},V, exec, ${
             getExe self.packages.${pkgs.stdenv.hostPlatform.system}.toggle-pause-autoclickers
-          }"
+          }" # Toggle pause autoclickers
+
+          # VPN & Help
+          "${mod},H, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.qs-keybinds}" # Keybind help
+          "${altMod},N, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.qs-vpn} toggle" # Toggle VPN
           # "${mod},W, exec, rofi -show processlist" # TODO: WIP
 
           # Recordings

@@ -1,4 +1,8 @@
 {
+  self,
+  ...
+}:
+{
   flake.nixosModules.common =
     {
       pkgs,
@@ -9,6 +13,14 @@
     }:
     let
       cfg = config.preferences;
+
+      # Write OVPN config to a user-accessible location for nmcli import
+      # Uses mode 0644 so the user can read it for import
+      ovpnConfig = pkgs.writeTextFile {
+        name = "airvpn.ovpn";
+        text = self.secrets.AIRVPN_OVPN or "";
+        destination = "/airvpn.ovpn";
+      };
     in
     {
       config = lib.mkIf cfg.enable {
@@ -84,6 +96,15 @@
 
           # llmnr = "true"; # full LLMNR responder and resolver support
         };
+
+        # VPN: Make OVPN config available for import
+        # Stored in nix store (world-readable) - credentials are encrypted within the ovpn file
+        environment.variables.AIRVPN_OVPN_PATH = "${ovpnConfig}/airvpn.ovpn";
+
+        # VPN packages
+        environment.systemPackages = with pkgs; [
+          openvpn
+        ];
 
         # Local device discovery
         # services.avahi = {

@@ -108,12 +108,7 @@ declare -A SECRETS_MAP=(
     ["MONGODB_PASSWORD"]="system/mongodb_password"
     ["MONGO_EXPRESS_PASSWORD"]="system/mongo_express_password"
     ["ANTIGRAVITY_MANAGER_KEY"]="system/antigravity-manager-key"
-    # Example additional secrets (uncomment and modify as needed):
-    # ["API_KEY"]="services/api/key"
-    # ["DATABASE_PASSWORD"]="database/prod/password"
-    # ["SSH_PRIVATE_KEY"]="ssh/private_key"
-    # ["WIFI_PASSWORD"]="network/wifi/home"
-    # ["EMAIL_PASSWORD"]="email/personal"
+    ["AIRVPN_OVPN"]="system/vpn/airvpn"
 )
 
 # Load a single secret from password-store
