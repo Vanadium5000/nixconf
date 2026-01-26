@@ -732,15 +732,36 @@
 
                         # Start daemon to create wallet
                         ${dogecoinPkg}/bin/dogecoind -datadir="$DOGECOIN_DIR" -daemon
-                        echo "Waiting for wallet creation..."
-                        sleep 5
+                        echo "Waiting for daemon to be ready..."
+
+                        # Wait for daemon to be fully ready (not just started, but wallet loaded)
+                        for i in {1..60}; do
+                            sleep 1
+                            # getwalletinfo only succeeds when wallet is fully loaded
+                            if doge_cli getwalletinfo &>/dev/null; then
+                                echo "Daemon ready."
+                                break
+                            fi
+                            if [[ $i -eq 60 ]]; then
+                                echo "Error: Daemon failed to become ready within 60 seconds"
+                                doge_cli stop 2>/dev/null || true
+                                exit 1
+                            fi
+                            printf "."
+                        done
+                        echo ""
 
                         # Encrypt wallet
                         echo "Encrypting wallet..."
-                        doge_cli encryptwallet "$PASSWORD" || true
+                        if ! doge_cli encryptwallet "$PASSWORD"; then
+                            echo "Error: Failed to encrypt wallet"
+                            doge_cli stop 2>/dev/null || true
+                            exit 1
+                        fi
+
+                        # Daemon auto-stops after encryption, wait for it
                         sleep 2
 
-                        # Daemon auto-stops after encryption
                         echo ""
                         echo "✓ Wallet created at: $DOGECOIN_DIR"
                         echo "✓ Wallet encrypted with password from pass"
