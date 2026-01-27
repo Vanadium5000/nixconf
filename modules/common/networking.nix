@@ -1,5 +1,5 @@
-# Networking module with encrypted DNS via dnscrypt-proxy2
-# Falls back to router/DHCP DNS ONLY if dnscrypt-proxy2 is down
+# Networking module with encrypted DNS via dnscrypt-proxy
+# Falls back to router/DHCP DNS ONLY if dnscrypt-proxy is down
 {
   ...
 }:
@@ -21,7 +21,7 @@
           hostName = config.environment.variables.HOST;
 
           # Use systemd-resolved stub
-          # Primary DNS is dnscrypt-proxy2 (127.0.0.1)
+          # Primary DNS is dnscrypt-proxy (127.0.0.1)
           # Fallback DNS comes from DHCP (router)
           nameservers = [
             "127.0.0.1"
@@ -47,9 +47,6 @@
             settings = {
               # Very important: prevents sending your real hostname to every network
               connection.dhcp-send-hostname = false;
-
-              # Bonus: strong IPv6 privacy
-              ipv6.ip6-privacy = 2;
             };
 
             plugins = with pkgs; [
@@ -78,14 +75,14 @@
           enable = true;
 
           # Router/DHCP DNS used ONLY if 127.0.0.1/::1 is unreachable
-          # dnscrypt-proxy2 is the primary resolver
+          # dnscrypt-proxy is the primary resolver
           fallbackDns = [ ];
         };
 
         # ============================================================================
-        # Encrypted DNS via dnscrypt-proxy2
+        # Encrypted DNS via dnscrypt-proxy
         # ============================================================================
-        services.dnscrypt-proxy2 = {
+        services.dnscrypt-proxy = {
           enable = true;
 
           settings = {
@@ -130,7 +127,7 @@
                 "https://raw.githubusercontent.com/DNSCrypt/dnscrypt-resolvers/master/v3/public-resolvers.md"
                 "https://download.dnscrypt.info/resolvers-list/v3/public-resolvers.md"
               ];
-              cache_file = "/var/lib/dnscrypt-proxy2/public-resolvers.md";
+              cache_file = "/var/lib/dnscrypt-proxy/public-resolvers.md";
               minisign_key = "RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3";
               refresh_delay = 72; # Hours between updates
             };
@@ -149,9 +146,9 @@
           };
         };
 
-        # Ensure dnscrypt-proxy2 can write its state (server lists, cache)
-        systemd.services.dnscrypt-proxy2.serviceConfig = {
-          StateDirectory = "dnscrypt-proxy2";
+        # Ensure dnscrypt-proxy can write its state (server lists, cache)
+        systemd.services.dnscrypt-proxy.serviceConfig = {
+          StateDirectory = "dnscrypt-proxy";
         };
 
         # ============================================================================
@@ -161,13 +158,13 @@
         # Check active resolvers + fallback state:
         #   resolvectl status
         #
-        # Query via dnscrypt-proxy2 explicitly (IPv4):
+        # Query via dnscrypt-proxy explicitly (IPv4):
         #   resolvectl query example.com @127.0.0.1
         #
-        # Query via dnscrypt-proxy2 explicitly (IPv6):
+        # Query via dnscrypt-proxy explicitly (IPv6):
         #   resolvectl query example.com @::1
         #
-        # Force router/DHCP DNS (bypass dnscrypt-proxy2):
+        # Force router/DHCP DNS (bypass dnscrypt-proxy):
         #   resolvectl query example.com --legend=no
         #
         # Direct dnscrypt-proxy internal test:
