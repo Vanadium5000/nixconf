@@ -475,30 +475,39 @@
             echo "''${FLAGS[$code]:-❓}"
           }
 
-          # Extract country code from filename or content
-          # Handles patterns like: "AirVPN_AT_Vienna", "AirVPN AT Vienna", "us-server", "UK_London"
+          # Extract country code from filename
+          # Handles: "AirVPN GB London Alathfar", "AirVPN_AT_Vienna", "us-server", "UK_London"
           get_country_code() {
             local filename="$1"
             local basename
             basename=$(basename "$filename" .ovpn)
             
-            # Pattern 1: Look for standalone 2-letter country code after common prefixes
+            # Pattern 1: Standalone 2-letter code surrounded by separators
             # e.g., "AirVPN_AT_Vienna" or "AirVPN AT Vienna" -> "AT"
             if [[ "$basename" =~ [_[:space:]]([A-Z]{2})[_[:space:]] ]]; then
               echo "''${BASH_REMATCH[1]}"
               return
             fi
             
-            # Pattern 2: Country code at start with separator (e.g., "us-server", "UK_London")
+            # Pattern 2: "Provider CC City" format (code followed by space+word)
+            # e.g., "AirVPN GB London Alathfar" -> "GB"
+            if [[ "$basename" =~ [_[:space:]]([A-Z]{2})[[:space:]][A-Z] ]]; then
+              echo "''${BASH_REMATCH[1]}"
+              return
+            fi
+            
+            # Pattern 3: Country code at start with separator (e.g., "us-server", "UK_London")
             if [[ "$basename" =~ ^([a-zA-Z]{2})[-_[:space:]] ]]; then
               echo "''${BASH_REMATCH[1]}"
               return
             fi
             
-            # Pattern 3: Look for known country codes anywhere in the name
+            # Pattern 4: Known codes as whole words only (word boundaries)
             local upper_name="''${basename^^}"
-            for code in AT BE BG CH CZ DE DK EE ES FI FR GB GR HR HU IE IS IT LT LU LV MT NL NO PL PT RO RS SE SI SK UA UK US CA AU NZ JP KR SG HK TW CN TH VN MY PH ID IL AE TR; do
-              if [[ "$upper_name" == *"$code"* ]]; then
+            upper_name="''${upper_name//[-_]/ }"  # normalize separators to spaces
+            for code in GB UK US CA AU NZ DE FR NL BE AT CH SE NO FI DK IE IT ES PT PL CZ RO BG HR HU GR SI SK LT LV EE LU MT IS UA RS ME MK MD CY TR RU JP KR SG HK TW CN TH VN MY PH ID IN IL AE BR MX AR CL CO ZA; do
+              # Match as whole word: start/space before, space/end after
+              if [[ " $upper_name " == *" $code "* ]]; then
                 echo "$code"
                 return
               fi
@@ -574,43 +583,91 @@
             fi
           }
 
-          # Main logic
-          main() {
-            # Ensure VPN directory exists
-            mkdir -p "$VPN_DIR"
-
-            # Find all ovpn files
+          # Cache location (RAM-backed tmpfs for speed)
+          CACHE_DIR="/dev/shm/qs-vpn-$UID"
+          CACHE_FILE="$CACHE_DIR/vpn-cache"
+          
+          # Check if cache is valid (VPN dir hasn't changed)
+          cache_valid() {
+            [ -f "$CACHE_FILE" ] || return 1
+            [ -d "$VPN_DIR" ] || return 1
+            
+            # Compare cache mtime with VPN dir mtime
+            local cache_mtime dir_mtime
+            cache_mtime=$(stat -c %Y "$CACHE_FILE" 2>/dev/null) || return 1
+            dir_mtime=$(stat -c %Y "$VPN_DIR" 2>/dev/null) || return 1
+            
+            # Also check newest .ovpn file
+            local newest_file
+            newest_file=$(find "$VPN_DIR" -name "*.ovpn" -type f -printf '%T@\n' 2>/dev/null | sort -rn | head -1)
+            [ -n "$newest_file" ] || return 1
+            
+            # Cache valid if newer than both dir and newest file
+            [[ "$cache_mtime" -gt "$dir_mtime" ]] && [[ "$cache_mtime" -gt "''${newest_file%.*}" ]]
+          }
+          
+          # Build and cache VPN entries
+          build_cache() {
+            mkdir -p "$CACHE_DIR"
+            
             mapfile -t OVPN_FILES < <(find "$VPN_DIR" -name "*.ovpn" -type f 2>/dev/null | sort)
-
+            
             if [ ''${#OVPN_FILES[@]} -eq 0 ]; then
-              notify-send "VPN" "No .ovpn files found in $VPN_DIR\nAdd your VPN configs there."
-              exit 0
+              return 1
             fi
-
-            # Get currently active VPN (full name)
-            ACTIVE_VPN=$(get_active_vpn)
-
-            # Build menu entries
-            MENU_ENTRIES=""
-            declare -A FILE_MAP
-            declare -A NAME_MAP
-
+            
+            # Build cache: "flag|display_name|filepath" per line
+            : > "$CACHE_FILE"
             for ovpn_file in "''${OVPN_FILES[@]}"; do
               country_code=$(get_country_code "$ovpn_file")
               flag=$(get_flag "$country_code")
               display_name=$(get_display_name "$ovpn_file")
-
+              echo "$flag|$display_name|$ovpn_file" >> "$CACHE_FILE"
+            done
+          }
+          
+          # Load entries from cache into arrays
+          load_from_cache() {
+            declare -gA FILE_MAP
+            declare -gA NAME_MAP
+            MENU_ENTRIES=""
+            
+            while IFS='|' read -r flag display_name filepath; do
+              [ -z "$flag" ] && continue
+              
               # Mark active VPN
               if [ -n "$ACTIVE_VPN" ] && [ "$display_name" = "$ACTIVE_VPN" ]; then
                 entry="$flag $display_name ✓"
               else
                 entry="$flag $display_name"
               fi
-
+              
               MENU_ENTRIES+="$entry"$'\n'
-              FILE_MAP["$flag $display_name"]="$ovpn_file"
+              FILE_MAP["$flag $display_name"]="$filepath"
               NAME_MAP["$flag $display_name"]="$display_name"
-            done
+            done < "$CACHE_FILE"
+          }
+
+          # Main logic
+          main() {
+            # Ensure VPN directory exists
+            mkdir -p "$VPN_DIR"
+            
+            # Get currently active VPN first (needed for menu building)
+            ACTIVE_VPN=$(get_active_vpn)
+            
+            # Use cache if valid, otherwise rebuild
+            if ! cache_valid; then
+              if ! build_cache; then
+                notify-send "VPN" "No .ovpn files found in $VPN_DIR\nAdd your VPN configs there."
+                exit 0
+              fi
+            fi
+            
+            # Load from cache
+            declare -A FILE_MAP
+            declare -A NAME_MAP
+            load_from_cache
 
             # Add disconnect option if connected
             if [ -n "$ACTIVE_VPN" ]; then
