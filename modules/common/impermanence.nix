@@ -142,9 +142,9 @@
           };
         };
 
-        # Fix "/var/lib/private" has too permissive permissions (0700) errors
+        # Fix "/var/lib/private" has too permissive permissions (0755 rather than 0700) errors
         systemd.tmpfiles.rules = [
-          "d /var/lib/private 0755 root root -"
+          "d /var/lib/private 0700 root root -"
         ];
 
         boot.initrd.postResumeCommands = lib.mkAfter ''
