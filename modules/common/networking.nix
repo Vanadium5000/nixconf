@@ -23,7 +23,10 @@
           # Use systemd-resolved stub
           # Primary DNS is dnscrypt-proxy2 (127.0.0.1)
           # Fallback DNS comes from DHCP (router)
-          nameservers = [ "127.0.0.1" ];
+          nameservers = [
+            "127.0.0.1"
+            "::1" # IPv6 loopback support
+          ];
 
           # CLI/TUI for connecting to networks
           networkmanager = {
@@ -74,7 +77,7 @@
         services.resolved = {
           enable = true;
 
-          # Router/DHCP DNS used ONLY if 127.0.0.1 is unreachable
+          # Router/DHCP DNS used ONLY if 127.0.0.1/::1 is unreachable
           # dnscrypt-proxy2 is the primary resolver
           fallbackDns = [ ];
         };
@@ -89,6 +92,7 @@
             # Listen on localhost for both IPv4 and IPv6
             listen_addresses = [
               "127.0.0.1:53"
+              "[::1]:53" # IPv6 loopback listener
             ];
 
             # Server selection criteria - only use servers that meet ALL requirements
@@ -98,7 +102,7 @@
 
             # Protocol support
             ipv4_servers = true;
-            ipv6_servers = false; # Enable if you have working IPv6
+            ipv6_servers = true;
             doh_servers = true; # DNS-over-HTTPS (most firewall-friendly)
             dnscrypt_servers = true; # DNSCrypt protocol
 
@@ -106,8 +110,11 @@
             # If these fail, falls back to auto-selected servers from the public list
             server_names = [
               "cloudflare"
+              "cloudflare-ipv6" # Explicit IPv6 variant for Cloudflare
               "quad9-dnscrypt-ip4-nofilter-pri"
+              "quad9-dnscrypt-ip6-nofilter-pri"
               "quad9-doh-ip4-nofilter-pri"
+              "quad9-doh-ip6-nofilter-pri"
             ];
 
             cache = true;
@@ -154,8 +161,11 @@
         # Check active resolvers + fallback state:
         #   resolvectl status
         #
-        # Query via dnscrypt-proxy2 explicitly:
+        # Query via dnscrypt-proxy2 explicitly (IPv4):
         #   resolvectl query example.com @127.0.0.1
+        #
+        # Query via dnscrypt-proxy2 explicitly (IPv6):
+        #   resolvectl query example.com @::1
         #
         # Force router/DHCP DNS (bypass dnscrypt-proxy2):
         #   resolvectl query example.com --legend=no
