@@ -172,6 +172,11 @@
         #
 
         environment.variables.VPN_DIR = "/home/${config.preferences.user.username}/Shared/VPNs";
+
+        # Packages
+        environment.systemPackages = with pkgs; [
+          dnscrypt-proxy
+        ];
       };
     };
 }

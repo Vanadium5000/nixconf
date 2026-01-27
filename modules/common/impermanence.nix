@@ -142,6 +142,11 @@
           };
         };
 
+        # Fix "/var/lib/private" has too permissive permissions (0700) errors
+        systemd.tmpfiles.rules = [
+          "d /var/lib/private 0755 root root -"
+        ];
+
         boot.initrd.postResumeCommands = lib.mkAfter ''
           mkdir /btrfs_tmp
           mount /dev/${cfg.volumeGroup}/root /btrfs_tmp

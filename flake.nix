@@ -33,8 +33,7 @@
     };
 
     # Module for managing impermanent (ephemeral) file systems
-    # TODO: Switch to mainstream Impermanence when it is fixed
-    impermanence.url = "github:vanadium5000/impermanence";
+    impermanence.url = "github:nix-community/impermanence";
 
     # Tool for retroactive persistence in NixOS configurations
     persist-retro.url = "github:Geometer1729/persist-retro";
