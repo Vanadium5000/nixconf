@@ -158,6 +158,36 @@
         };
 
         # ============================================================================
+        # Prevent VPNs from hijacking DNS
+        # ============================================================================
+        # VPNs set +DefaultRoute which overrides our global ~. routing domain,
+        # sending ALL DNS to the VPN's DNS server instead of dnscrypt-proxy.
+        # This dispatcher script removes the default route flag from VPN interfaces,
+        # allowing split DNS to work correctly (VPN DNS only for VPN-specific domains).
+        networking.networkmanager.dispatcherScripts = [
+          {
+            source = pkgs.writeShellScript "dns-no-default-route" ''
+              INTERFACE="$1"
+              ACTION="$2"
+
+              # Only act on VPN interfaces coming up
+              if [[ "$ACTION" != "vpn-up" && "$ACTION" != "up" ]]; then
+                exit 0
+              fi
+
+              # Only target tun/tap interfaces (VPNs), not physical interfaces
+              case "$INTERFACE" in
+                tun*|tap*|wg*)
+                  # Remove default route flag - VPN DNS only handles its own domains
+                  ${pkgs.systemd}/bin/resolvectl default-route "$INTERFACE" false
+                  ;;
+              esac
+            '';
+            type = "basic";
+          }
+        ];
+
+        # ============================================================================
         # Manual DNS testing
         # ============================================================================
         #
