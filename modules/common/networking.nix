@@ -77,6 +77,12 @@
           # Router/DHCP DNS used ONLY if 127.0.0.1/::1 is unreachable
           # dnscrypt-proxy is the primary resolver
           fallbackDns = [ ];
+
+          # CRITICAL: Route ALL DNS through global resolver, ignoring per-link domains
+          # Without this, DHCP-pushed search domains cause split DNS routing to internal
+          # servers that may be unreachable, resulting in queries hanging forever
+          # instead of using dnscrypt-proxy
+          domains = [ "~." ];
         };
 
         # ============================================================================
