@@ -1,11 +1,5 @@
 # Networking module with encrypted DNS via dnscrypt-proxy2
-#
-# Why dnscrypt-proxy2 over systemd-resolved?
-# - More reliable: no service restart issues after network changes
-# - Better encryption: supports DNSCrypt protocol + DNS-over-HTTPS (DoH)
-# - Memory-safe: written in Go vs C
-# - Auto server selection: picks fastest responding servers
-# - Built-in caching and DNSSEC validation
+# Falls back to router/DHCP DNS ONLY if dnscrypt-proxy2 is down
 {
   ...
 }:
@@ -26,23 +20,20 @@
         networking = {
           hostName = config.environment.variables.HOST;
 
-          # Point all DNS queries to local dnscrypt-proxy2 instance
-          # IMPORTANT: Must be static to prevent DHCP/NetworkManager override
-          nameservers = [
-            "127.0.0.1"
-            "::1"
-          ];
+          # Use systemd-resolved stub
+          # Primary DNS is dnscrypt-proxy2 (127.0.0.1)
+          # Fallback DNS comes from DHCP (router)
+          nameservers = [ "127.0.0.1" ];
 
           # CLI/TUI for connecting to networks
           networkmanager = {
             enable = true;
 
-            # Disable NetworkManager's DNS handling - we use dnscrypt-proxy2
-            # Options: "default" | "dnsmasq" | "systemd-resolved" | "none"
-            dns = "none";
+            # Let NetworkManager feed DHCP DNS to systemd-resolved
+            dns = "systemd-resolved";
 
             wifi = {
-              macAddress = "random"; # Randomize MAC for Wi-Fi connections
+              macAddress = "stable"; # Randomize MAC for Wi-Fi connections - "random" breaks networks
               scanRandMacAddress = true; # Also randomize during Wi-Fi scans for extra privacy
             };
 
@@ -78,22 +69,18 @@
         };
 
         # ============================================================================
-        # Encrypted DNS via dnscrypt-proxy2
+        # systemd-resolved (fallback-only)
         # ============================================================================
-        # Provides: DNSCrypt + DNS-over-HTTPS (DoH) + DNSSEC + caching
-        #
-        # Troubleshooting:
-        #   systemctl status dnscrypt-proxy2     # Check service status
-        #   journalctl -u dnscrypt-proxy2 -f     # Watch logs in real-time
-        #   dig @127.0.0.1 example.com           # Test local DNS resolution
-        #   cat /var/lib/dnscrypt-proxy2/*.md   # View downloaded server lists
-        #
-        # Common issues:
-        #   - "connection refused": service not running, check journalctl
-        #   - Slow first query: server list downloading, wait ~30s after boot
-        #   - Captive portals broken: temporarily use `nmcli con mod <wifi> ipv4.dns "8.8.8.8"`
-        #
-        # Config reference: https://github.com/DNSCrypt/dnscrypt-proxy/blob/master/dnscrypt-proxy/example-dnscrypt-proxy.toml
+        services.resolved = {
+          enable = true;
+
+          # Router/DHCP DNS used ONLY if 127.0.0.1 is unreachable
+          # dnscrypt-proxy2 is the primary resolver
+          fallbackDns = [ ];
+        };
+
+        # ============================================================================
+        # Encrypted DNS via dnscrypt-proxy2
         # ============================================================================
         services.dnscrypt-proxy2 = {
           enable = true;
@@ -102,7 +89,6 @@
             # Listen on localhost for both IPv4 and IPv6
             listen_addresses = [
               "127.0.0.1:53"
-              "[::1]:53"
             ];
 
             # Server selection criteria - only use servers that meet ALL requirements
@@ -120,12 +106,10 @@
             # If these fail, falls back to auto-selected servers from the public list
             server_names = [
               "cloudflare"
-              "cloudflare-ipv6"
               "quad9-dnscrypt-ip4-nofilter-pri"
               "quad9-doh-ip4-nofilter-pri"
             ];
 
-            # Caching - reduces latency and external queries
             cache = true;
             cache_size = 4096; # Number of cached entries
             cache_min_ttl = 2400; # 40 minutes minimum cache
@@ -150,7 +134,7 @@
               "1.1.1.1:53"
               "9.9.9.9:53"
             ];
-            ignore_system_dns = true; # Don't fall back to system DNS
+            ignore_system_dns = true;
 
             # Connection settings
             timeout = 5000; # Query timeout in ms
@@ -163,23 +147,24 @@
           StateDirectory = "dnscrypt-proxy2";
         };
 
-        # VPN directory for .ovpn config files
+        # ============================================================================
+        # Manual DNS testing
+        # ============================================================================
+        #
+        # Check active resolvers + fallback state:
+        #   resolvectl status
+        #
+        # Query via dnscrypt-proxy2 explicitly:
+        #   resolvectl query example.com @127.0.0.1
+        #
+        # Force router/DHCP DNS (bypass dnscrypt-proxy2):
+        #   resolvectl query example.com --legend=no
+        #
+        # Direct dnscrypt-proxy internal test:
+        #   dnscrypt-proxy -resolve example.com
+        #
+
         environment.variables.VPN_DIR = "/home/${config.preferences.user.username}/Shared/VPNs";
-
-        # VPN packages
-        environment.systemPackages = with pkgs; [
-          openvpn
-        ];
-
-        # Local device discovery
-        # services.avahi = {
-        #   enable = true;
-        #   nssmdns4 = true;
-        #   openFirewall = true;
-        # };
-
-        # NTP and NTS client and server implementation
-        # services.chrony.enable = true;
       };
     };
 }
