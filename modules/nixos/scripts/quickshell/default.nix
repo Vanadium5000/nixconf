@@ -694,7 +694,7 @@
             fi
 
             # Show menu with keybind support
-            SELECTION=$(echo -e "$MENU_ENTRIES" | qs-dmenu -p "VPN" -mesg "Press 'k' to copy SOCKS5 proxy link" -keybinds '{"k":"copy-proxy"}')
+            SELECTION=$(echo -e "$MENU_ENTRIES" | qs-dmenu -p "VPN" -mesg "Press 'k' to copy SOCKS5 proxy link (auto-activates on use)" -keybinds '{"k":"copy-proxy"}')
 
             [ -z "$SELECTION" ] && exit 0
 
@@ -704,16 +704,11 @@
               if [[ "$action" == "copy-proxy" ]]; then
                 # Extract the VPN name from selection (strip flag emoji and checkmark)
                 CLEAN_NAME=$(echo "$selected_vpn" | sed 's/^[^ ]* //' | sed 's/ ✓$//')
-                # Allocate port based on VPN index in cache
-                PORT_INDEX=$(grep -n "^[^|]*|$CLEAN_NAME|" "$CACHE_FILE" 2>/dev/null | cut -d: -f1 | head -1)
-                if [ -n "$PORT_INDEX" ]; then
-                  PORT=$((10799 + PORT_INDEX))
-                  PROXY_LINK="socks5://127.0.0.1:$PORT"
-                  printf '%s' "$PROXY_LINK" | wl-copy --type text/plain
-                  notify-send "VPN Proxy" "Copied: $PROXY_LINK\n($CLEAN_NAME)"
-                else
-                  notify-send -u warning "VPN Proxy" "Could not determine port for: $CLEAN_NAME"
-                fi
+                # URL-encode the VPN name for use as SOCKS5 username
+                ENCODED_NAME=$(printf '%s' "$CLEAN_NAME" | sed 's/ /%20/g')
+                PROXY_LINK="socks5://$ENCODED_NAME@127.0.0.1:10800"
+                printf '%s' "$PROXY_LINK" | wl-copy --type text/plain
+                notify-send "VPN Proxy" "Copied: $PROXY_LINK\n\nVPN activates automatically on first use"
               fi
               exit 0
             fi

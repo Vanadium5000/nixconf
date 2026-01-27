@@ -342,3 +342,105 @@ return ["wl-copy", "--type", "text/plain"];
 ```
 
 **Note:** Direct argument usage (`wl-copy "text"`) works fine - only piped stdin has this issue.
+
+## VPN SOCKS5 Proxy System
+
+A modular SOCKS5 proxy system that routes traffic through OpenVPN configurations with network namespace isolation and zero IP leak guarantee.
+
+### Architecture
+
+```text
+Application ───► SOCKS5 Proxy (localhost:10800)
+                       │
+                 ┌─────┴─────┐
+                 │ Extract   │
+                 │ Username  │
+                 └─────┬─────┘
+                       │
+        ┌──────────────┼──────────────┐
+        ▼              ▼              ▼
+   "random"       "VPN Slug"      Invalid
+   (or empty)     (exact match)   → notify
+        │              │              │
+        └──────────────┼──────────────┘
+                       ▼
+              Get/Create Namespace
+                       │
+    ┌──────────────────┼──────────────────┐
+    ▼                  ▼                  ▼
+┌─────────────┐  ┌─────────────┐  ┌─────────────┐
+│ vpn-proxy-0 │  │ vpn-proxy-1 │  │ vpn-proxy-N │
+│ OpenVPN     │  │ OpenVPN     │  │ OpenVPN     │
+│ + kill-sw   │  │ + kill-sw   │  │ + kill-sw   │
+└─────────────┘  └─────────────┘  └─────────────┘
+```
+
+### How It Works
+
+1. **Single Port**: SOCKS5 proxy listens on `localhost:10800`
+2. **Username = VPN**: The SOCKS5 username field specifies which VPN to use
+3. **On-Demand**: VPNs start automatically on first request
+4. **Auto-Cleanup**: Idle VPNs (5 min) are torn down completely
+
+### Components
+
+| Package | Location | Purpose |
+|---------|----------|---------|
+| `vpn-resolver` | `bunjs/vpn-resolver.ts` | VPN config parsing, caching, slug resolution |
+| `vpn-proxy` | `bunjs/vpn-proxy.ts` | SOCKS5 server with username-based VPN routing |
+| `vpn-proxy-cleanup` | `bunjs/vpn-proxy-cleanup.ts` | Idle cleanup daemon, random rotation |
+| `vpn-proxy-netns` | `bunjs/vpn-proxy-netns.sh` | Network namespace setup with kill-switch |
+
+### Usage
+
+```bash
+# Specific VPN via username
+curl --proxy "socks5://AirVPN%20AT%20Vienna@127.0.0.1:10800" https://api.ipify.org
+
+# Random VPN (any of these work)
+curl --proxy "socks5://random@127.0.0.1:10800" https://api.ipify.org
+curl --proxy "socks5://127.0.0.1:10800" https://api.ipify.org
+
+# Check status (only CLI command available)
+vpn-proxy status
+```
+
+### Configuration
+
+| Environment Variable | Default | Description |
+|---------------------|---------|-------------|
+| `VPN_DIR` | `~/Shared/VPNs` | Directory containing `.ovpn` files |
+| `VPN_PROXY_PORT` | `10800` | Single listening port |
+| `VPN_PROXY_IDLE_TIMEOUT` | `300` | Seconds before idle cleanup (5 min) |
+| `VPN_PROXY_RANDOM_ROTATION` | `300` | Random VPN rotation interval (5 min) |
+
+### Security Model
+
+1. **Network Namespace Isolation**: Each VPN runs in isolated namespace with own network stack
+2. **Kill-Switch**: nftables rules DROP all OUTPUT except `tun0` and VPN handshake
+3. **DNS Isolation**: Per-namespace `/etc/netns/<name>/resolv.conf` prevents DNS leaks
+4. **Zero IP Leak**: If VPN disconnects, all traffic is blocked (no fallback to host IP)
+
+### Integration with qs-vpn
+
+The `qs-vpn` script supports keybinds via the qs-dmenu framework:
+
+- **Enter**: Connect to VPN via NetworkManager (existing behavior)
+- **k**: Copy SOCKS5 proxy link (`socks5://VPN%20Name@127.0.0.1:10800`) to clipboard
+
+The VPN activates automatically when the proxy link is first used - no manual start needed.
+
+### State Location
+
+All runtime state is stored in `/dev/shm/vpn-proxy-$UID/`:
+
+- `state.json`: Namespace tracking, last-used timestamps, random state
+- `resolver-cache.json`: VPN config cache with mtime validation
+- `openvpn-*.log`: Per-namespace OpenVPN logs
+
+### Cleanup Behavior
+
+- Proxies unused for 5 minutes are automatically torn down
+- Namespace, veth pairs, iptables rules, and processes are fully cleaned
+- Random VPN rotates every 5 minutes while in use
+- Run `vpn-proxy stop-all` for emergency cleanup

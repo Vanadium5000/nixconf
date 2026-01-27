@@ -1,8 +1,4 @@
 #!/usr/bin/env bun
-/**
- * VPN Proxy Cleanup Daemon
- * Periodically cleans up idle proxies and rotates random VPN selection
- */
 
 import { cleanupIdleProxies, rotateRandom } from "./vpn-proxy";
 
@@ -17,36 +13,27 @@ async function runCleanupCycle(): Promise<void> {
   try {
     const cleaned = await cleanupIdleProxies();
     if (cleaned > 0) {
-      log("INFO", `Cleaned up ${cleaned} idle proxies`);
+      log("INFO", `Cleaned ${cleaned} idle proxies`);
     }
-    
     await rotateRandom();
   } catch (error) {
-    log("ERROR", `Cleanup cycle failed: ${error}`);
+    log("ERROR", `Cleanup failed: ${error}`);
   }
 }
 
 async function main(): Promise<void> {
-  log("INFO", `Starting cleanup daemon (interval: ${CLEANUP_INTERVAL / 1000}s)`);
+  log("INFO", `Cleanup daemon started (interval: ${CLEANUP_INTERVAL / 1000}s)`);
   
   await runCleanupCycle();
-  
   setInterval(runCleanupCycle, CLEANUP_INTERVAL);
   
-  process.on("SIGTERM", () => {
-    log("INFO", "Received SIGTERM, shutting down");
-    process.exit(0);
-  });
-  
-  process.on("SIGINT", () => {
-    log("INFO", "Received SIGINT, shutting down");
-    process.exit(0);
-  });
+  process.on("SIGTERM", () => process.exit(0));
+  process.on("SIGINT", () => process.exit(0));
 }
 
 if (import.meta.main) {
   main().catch((error) => {
-    log("ERROR", `Fatal error: ${error}`);
+    log("ERROR", `Fatal: ${error}`);
     process.exit(1);
   });
 }

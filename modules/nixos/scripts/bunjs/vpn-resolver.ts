@@ -501,6 +501,15 @@ export function invalidateCache(): void {
   log("INFO", "Cache invalidated");
 }
 
+/**
+ * Check if a slug is a valid VPN name (without resolving)
+ */
+export async function isValidSlug(slug: string): Promise<boolean> {
+  if (!slug || slug === "random") return true;
+  const vpns = await listVpns();
+  return vpns.some((v) => v.slug === slug || v.displayName === slug);
+}
+
 // ============================================================================
 // CLI Interface
 // ============================================================================
