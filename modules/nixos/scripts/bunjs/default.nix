@@ -224,5 +224,53 @@
           pkgs.coreutils
         ];
       };
+
+      packages.vpn-resolver = inputs.wrappers.lib.makeWrapper {
+        inherit pkgs;
+        package = pkgs.writeShellScriptBin "vpn-resolver" ''
+          exec ${pkgs.bun}/bin/bun run ${./vpn-resolver.ts} "$@"
+        '';
+        runtimeInputs = [
+          pkgs.bun
+          pkgs.coreutils
+        ];
+      };
+
+      packages.vpn-proxy = inputs.wrappers.lib.makeWrapper {
+        inherit pkgs;
+        package = pkgs.writeShellScriptBin "vpn-proxy" ''
+          export VPN_PROXY_NETNS_SCRIPT="${./vpn-proxy-netns.sh}"
+          exec ${pkgs.bun}/bin/bun run ${./vpn-proxy.ts} "$@"
+        '';
+        runtimeInputs = [
+          pkgs.bun
+          pkgs.iproute2
+          pkgs.iptables
+          pkgs.nftables
+          pkgs.openvpn
+          pkgs.microsocks
+          pkgs.libnotify
+          pkgs.jq
+          pkgs.coreutils
+        ];
+      };
+
+      packages.vpn-proxy-netns = pkgs.writeShellScriptBin "vpn-proxy-netns" ''
+        exec ${pkgs.bash}/bin/bash ${./vpn-proxy-netns.sh} "$@"
+      '';
+
+      packages.vpn-proxy-cleanup = inputs.wrappers.lib.makeWrapper {
+        inherit pkgs;
+        package = pkgs.writeShellScriptBin "vpn-proxy-cleanup" ''
+          exec ${pkgs.bun}/bin/bun run ${./vpn-proxy-cleanup.ts} "$@"
+        '';
+        runtimeInputs = [
+          pkgs.bun
+          pkgs.iproute2
+          pkgs.iptables
+          pkgs.nftables
+          pkgs.coreutils
+        ];
+      };
     };
 }

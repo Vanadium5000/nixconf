@@ -42,6 +42,8 @@ Scope {
     property string viewMode: Quickshell.env("DMENU_VIEW") ?? "list" // list, grid
     property int gridColumns: parseInt(Quickshell.env("DMENU_GRID_COLS") ?? "3")
     property int gridIconSize: parseInt(Quickshell.env("DMENU_ICON_SIZE") ?? "128")
+    property string keybindsJson: Quickshell.env("DMENU_KEYBINDS") ?? "{}"
+    property var keybinds: JSON.parse(keybindsJson)
 
     // Track loading state
     property bool isLoading: true
@@ -322,6 +324,17 @@ Scope {
                                     } else if (event.key === Qt.Key_PageUp) {
                                         viewLoader.pageUp();
                                         event.accepted = true;
+                                    } else {
+                                        var keyChar = event.text.toLowerCase();
+                                        if (keyChar && root.keybinds[keyChar]) {
+                                            var selectedItem = viewLoader.getCurrentItem();
+                                            if (selectedItem) {
+                                                var keybindName = root.keybinds[keyChar];
+                                                console.log("QS_DMENU_KEYBIND:" + keyChar + ":" + keybindName + ":" + (selectedItem.originalText || selectedItem.text));
+                                                Qt.quit();
+                                            }
+                                            event.accepted = true;
+                                        }
                                     }
                                 }
                             }

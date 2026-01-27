@@ -303,6 +303,7 @@
           PLACEHOLDER=""
           FILTER="fuzzy"
           MESSAGE=""
+          KEYBINDS="{}"
 
           # Parse args
           while [[ $# -gt 0 ]]; do
@@ -343,6 +344,10 @@
                 MESSAGE="$2"
                 shift 2
                 ;;
+              -keybinds)
+                KEYBINDS="$2"
+                shift 2
+                ;;
               -dmenu|-matching|-no-custom|-markup-rows)
                 # Ignored flags for rofi compatibility
                 shift
@@ -372,7 +377,8 @@
           DMENU_PLACEHOLDER="$PLACEHOLDER" \
           DMENU_FILTER="$FILTER" \
           DMENU_MESSAGE="$MESSAGE" \
-          "$QS_BIN" -p "$QML_FILE" 2>&1 | grep "QS_DMENU_RESULT:" | sed 's/^.*QS_DMENU_RESULT://'
+          DMENU_KEYBINDS="$KEYBINDS" \
+          "$QS_BIN" -p "$QML_FILE" 2>&1 | grep -E "QS_DMENU_(RESULT|KEYBIND):" | sed 's/^.*QS_DMENU_//'
 
           # Cleanup
           rm -f "$INPUT_FILE"
@@ -687,10 +693,30 @@
               MENU_ENTRIES="🔌 Disconnect ($ACTIVE_VPN)"$'\n'"$MENU_ENTRIES"
             fi
 
-            # Show menu
-            SELECTION=$(echo -e "$MENU_ENTRIES" | qs-dmenu -p "VPN")
+            # Show menu with keybind support
+            SELECTION=$(echo -e "$MENU_ENTRIES" | qs-dmenu -p "VPN" -mesg "Press 'k' to copy SOCKS5 proxy link" -keybinds '{"k":"copy-proxy"}')
 
             [ -z "$SELECTION" ] && exit 0
+
+            # Handle keybind result (format: KEYBIND:key:action:selection)
+            if [[ "$SELECTION" == KEYBIND:* ]]; then
+              IFS=':' read -r _ key action selected_vpn <<< "$SELECTION"
+              if [[ "$action" == "copy-proxy" ]]; then
+                # Extract the VPN name from selection (strip flag emoji and checkmark)
+                CLEAN_NAME=$(echo "$selected_vpn" | sed 's/^[^ ]* //' | sed 's/ ✓$//')
+                # Allocate port based on VPN index in cache
+                PORT_INDEX=$(grep -n "^[^|]*|$CLEAN_NAME|" "$CACHE_FILE" 2>/dev/null | cut -d: -f1 | head -1)
+                if [ -n "$PORT_INDEX" ]; then
+                  PORT=$((10799 + PORT_INDEX))
+                  PROXY_LINK="socks5://127.0.0.1:$PORT"
+                  printf '%s' "$PROXY_LINK" | wl-copy --type text/plain
+                  notify-send "VPN Proxy" "Copied: $PROXY_LINK\n($CLEAN_NAME)"
+                else
+                  notify-send -u warning "VPN Proxy" "Could not determine port for: $CLEAN_NAME"
+                fi
+              fi
+              exit 0
+            fi
 
             # Handle disconnect
             if [[ "$SELECTION" == "🔌 Disconnect"* ]]; then
