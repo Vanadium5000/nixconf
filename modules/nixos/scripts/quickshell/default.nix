@@ -456,13 +456,17 @@
 
           VPN_DIR="''${VPN_DIR:-$HOME/Shared/VPNs}"
 
-          # Country code to flag emoji mapping
+          # Country code to flag emoji mapping (ISO 3166-1 alpha-2)
           declare -A FLAGS=(
             [us]="🇺🇸" [gb]="🇬🇧" [uk]="🇬🇧" [de]="🇩🇪" [fr]="🇫🇷" [nl]="🇳🇱" [ca]="🇨🇦"
             [au]="🇦🇺" [jp]="🇯🇵" [sg]="🇸🇬" [ch]="🇨🇭" [se]="🇸🇪" [no]="🇳🇴" [fi]="🇫🇮"
             [it]="🇮🇹" [es]="🇪🇸" [br]="🇧🇷" [mx]="🇲🇽" [in]="🇮🇳" [kr]="🇰🇷" [hk]="🇭🇰"
             [ie]="🇮🇪" [at]="🇦🇹" [be]="🇧🇪" [dk]="🇩🇰" [pl]="🇵🇱" [cz]="🇨🇿" [ro]="🇷🇴"
             [za]="🇿🇦" [nz]="🇳🇿" [ar]="🇦🇷" [cl]="🇨🇱" [co]="🇨🇴" [pt]="🇵🇹" [ru]="🇷🇺"
+            [bg]="🇧🇬" [hr]="🇭🇷" [cy]="🇨🇾" [ee]="🇪🇪" [gr]="🇬🇷" [hu]="🇭🇺" [is]="🇮🇸"
+            [lv]="🇱🇻" [lt]="🇱🇹" [lu]="🇱🇺" [mt]="🇲🇹" [md]="🇲🇩" [me]="🇲🇪" [mk]="🇲🇰"
+            [rs]="🇷🇸" [sk]="🇸🇰" [si]="🇸🇮" [ua]="🇺🇦" [tr]="🇹🇷" [il]="🇮🇱" [ae]="🇦🇪"
+            [th]="🇹🇭" [vn]="🇻🇳" [my]="🇲🇾" [ph]="🇵🇭" [id]="🇮🇩" [tw]="🇹🇼" [cn]="🇨🇳"
           )
 
           # Get flag emoji for country code
@@ -471,18 +475,37 @@
             echo "''${FLAGS[$code]:-❓}"
           }
 
-          # Extract country code from filename (first 2 chars, or pattern like us-, gb-)
+          # Extract country code from filename or content
+          # Handles patterns like: "AirVPN_AT_Vienna", "AirVPN AT Vienna", "us-server", "UK_London"
           get_country_code() {
             local filename="$1"
             local basename
             basename=$(basename "$filename" .ovpn)
-            # Try to extract 2-letter code from start (e.g., "us-server" -> "us")
-            if [[ "$basename" =~ ^([a-zA-Z]{2})[-_] ]]; then
+            
+            # Pattern 1: Look for standalone 2-letter country code after common prefixes
+            # e.g., "AirVPN_AT_Vienna" or "AirVPN AT Vienna" -> "AT"
+            if [[ "$basename" =~ [_[:space:]]([A-Z]{2})[_[:space:]] ]]; then
               echo "''${BASH_REMATCH[1]}"
-            else
-              # Just use first 2 chars
-              echo "''${basename:0:2}"
+              return
             fi
+            
+            # Pattern 2: Country code at start with separator (e.g., "us-server", "UK_London")
+            if [[ "$basename" =~ ^([a-zA-Z]{2})[-_[:space:]] ]]; then
+              echo "''${BASH_REMATCH[1]}"
+              return
+            fi
+            
+            # Pattern 3: Look for known country codes anywhere in the name
+            local upper_name="''${basename^^}"
+            for code in AT BE BG CH CZ DE DK EE ES FI FR GB GR HR HU IE IS IT LT LU LV MT NL NO PL PT RO RS SE SI SK UA UK US CA AU NZ JP KR SG HK TW CN TH VN MY PH ID IL AE TR; do
+              if [[ "$upper_name" == *"$code"* ]]; then
+                echo "$code"
+                return
+              fi
+            done
+            
+            # Fallback: first 2 chars
+            echo "''${basename:0:2}"
           }
 
           # Get friendly name from ovpn filename
@@ -501,14 +524,10 @@
             nmcli connection show "$1" &>/dev/null
           }
 
-          # Check if VPN is currently active
-          vpn_active() {
-            nmcli connection show --active | grep -q "^$1 "
-          }
-
-          # Get currently active VPN name (if any)
+          # Get currently active VPN connection name (full name with spaces)
           get_active_vpn() {
-            nmcli connection show --active | grep vpn | awk '{print $1}' | head -1
+            # Get VPN connections that are currently active - extract full NAME field
+            nmcli -t -f NAME,TYPE connection show --active | grep ':vpn$' | cut -d: -f1 | head -1
           }
 
           # Import and configure VPN for persistence
@@ -568,12 +587,13 @@
               exit 0
             fi
 
-            # Get currently active VPN
+            # Get currently active VPN (full name)
             ACTIVE_VPN=$(get_active_vpn)
 
             # Build menu entries
             MENU_ENTRIES=""
             declare -A FILE_MAP
+            declare -A NAME_MAP
 
             for ovpn_file in "''${OVPN_FILES[@]}"; do
               country_code=$(get_country_code "$ovpn_file")
@@ -588,8 +608,8 @@
               fi
 
               MENU_ENTRIES+="$entry"$'\n'
-              FILE_MAP["$entry"]="$ovpn_file"
-              FILE_MAP["$flag $display_name"]="$ovpn_file"  # Also map without checkmark
+              FILE_MAP["$flag $display_name"]="$ovpn_file"
+              NAME_MAP["$flag $display_name"]="$display_name"
             done
 
             # Add disconnect option if connected
@@ -611,17 +631,15 @@
             # Get selected file (strip checkmark suffix if present)
             CLEAN_SELECTION="''${SELECTION% ✓}"
             SELECTED_FILE="''${FILE_MAP[$CLEAN_SELECTION]}"
+            VPN_NAME="''${NAME_MAP[$CLEAN_SELECTION]}"
 
             if [ -z "$SELECTED_FILE" ]; then
               notify-send -u critical "VPN Error" "Could not find config for: $SELECTION"
               exit 1
             fi
 
-            # Extract VPN name from selection (remove flag emoji)
-            VPN_NAME="''${CLEAN_SELECTION#* }"  # Remove flag and space
-
             # If already connected to this VPN, disconnect
-            if [ "$VPN_NAME" = "$ACTIVE_VPN" ]; then
+            if [ -n "$ACTIVE_VPN" ] && [ "$VPN_NAME" = "$ACTIVE_VPN" ]; then
               disconnect_vpn "$VPN_NAME"
               exit 0
             fi
