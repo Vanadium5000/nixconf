@@ -378,7 +378,7 @@
           DMENU_FILTER="$FILTER" \
           DMENU_MESSAGE="$MESSAGE" \
           DMENU_KEYBINDS="$KEYBINDS" \
-          "$QS_BIN" -p "$QML_FILE" 2>&1 | grep -E "QS_DMENU_(RESULT|KEYBIND):" | sed 's/^.*QS_DMENU_//'
+          "$QS_BIN" -p "$QML_FILE" 2>&1 | grep -E "QS_DMENU_(RESULT|KEYBIND):" | sed 's/^.*QS_DMENU_RESULT://; s/^.*QS_DMENU_KEYBIND:/KEYBIND:/'
 
           # Cleanup
           rm -f "$INPUT_FILE"

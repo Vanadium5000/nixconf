@@ -220,57 +220,87 @@
         '';
         runtimeInputs = [
           pkgs.bun
-          pkgs.qt6.qtdeclarative # for qmllint
+          pkgs.qt6.qtdeclarative
           pkgs.coreutils
         ];
       };
 
       packages.vpn-resolver = inputs.wrappers.lib.makeWrapper {
         inherit pkgs;
-        package = pkgs.writeShellScriptBin "vpn-resolver" ''
-          exec ${pkgs.bun}/bin/bun run ${./vpn-resolver.ts} "$@"
-        '';
+        package =
+          let
+            vpnProxyEnv = pkgs.runCommandLocal "vpn-proxy-env" { } ''
+              mkdir -p $out
+              cp ${./vpn-resolver.ts} $out/vpn-resolver.ts
+              cp ${./vpn-proxy.ts} $out/vpn-proxy.ts
+              cp ${./vpn-proxy-cleanup.ts} $out/vpn-proxy-cleanup.ts
+              cp ${./vpn-proxy-netns.sh} $out/vpn-proxy-netns.sh
+            '';
+          in
+          pkgs.writeShellScriptBin "vpn-resolver" ''
+            exec ${pkgs.bun}/bin/bun run ${vpnProxyEnv}/vpn-resolver.ts "$@"
+          '';
         runtimeInputs = [
           pkgs.bun
           pkgs.coreutils
         ];
       };
 
-      packages.vpn-proxy = inputs.wrappers.lib.makeWrapper {
-        inherit pkgs;
-        package = pkgs.writeShellScriptBin "vpn-proxy" ''
-          export VPN_PROXY_NETNS_SCRIPT="${./vpn-proxy-netns.sh}"
-          exec ${pkgs.bun}/bin/bun run ${./vpn-proxy.ts} "$@"
-        '';
-        runtimeInputs = [
-          pkgs.bun
-          pkgs.iproute2
-          pkgs.iptables
-          pkgs.nftables
-          pkgs.openvpn
-          pkgs.socat
-          pkgs.libnotify
-          pkgs.jq
-          pkgs.coreutils
-        ];
-      };
+      packages.vpn-proxy =
+        let
+          vpnProxyEnv = pkgs.runCommandLocal "vpn-proxy-env" { } ''
+            mkdir -p $out
+            cp ${./vpn-resolver.ts} $out/vpn-resolver.ts
+            cp ${./vpn-proxy.ts} $out/vpn-proxy.ts
+            cp ${./vpn-proxy-cleanup.ts} $out/vpn-proxy-cleanup.ts
+            cp ${./vpn-proxy-netns.sh} $out/vpn-proxy-netns.sh
+          '';
+        in
+        inputs.wrappers.lib.makeWrapper {
+          inherit pkgs;
+          package = pkgs.writeShellScriptBin "vpn-proxy" ''
+            export VPN_PROXY_NETNS_SCRIPT="${vpnProxyEnv}/vpn-proxy-netns.sh"
+            exec ${pkgs.bun}/bin/bun run ${vpnProxyEnv}/vpn-proxy.ts "$@"
+          '';
+          runtimeInputs = [
+            pkgs.bun
+            pkgs.iproute2
+            pkgs.iptables
+            pkgs.nftables
+            pkgs.openvpn
+            pkgs.socat
+            pkgs.libnotify
+            pkgs.jq
+            pkgs.coreutils
+          ];
+        };
 
       packages.vpn-proxy-netns = pkgs.writeShellScriptBin "vpn-proxy-netns" ''
         exec ${pkgs.bash}/bin/bash ${./vpn-proxy-netns.sh} "$@"
       '';
 
-      packages.vpn-proxy-cleanup = inputs.wrappers.lib.makeWrapper {
-        inherit pkgs;
-        package = pkgs.writeShellScriptBin "vpn-proxy-cleanup" ''
-          exec ${pkgs.bun}/bin/bun run ${./vpn-proxy-cleanup.ts} "$@"
-        '';
-        runtimeInputs = [
-          pkgs.bun
-          pkgs.iproute2
-          pkgs.iptables
-          pkgs.nftables
-          pkgs.coreutils
-        ];
-      };
+      packages.vpn-proxy-cleanup =
+        let
+          vpnProxyEnv = pkgs.runCommandLocal "vpn-proxy-env" { } ''
+            mkdir -p $out
+            cp ${./vpn-resolver.ts} $out/vpn-resolver.ts
+            cp ${./vpn-proxy.ts} $out/vpn-proxy.ts
+            cp ${./vpn-proxy-cleanup.ts} $out/vpn-proxy-cleanup.ts
+            cp ${./vpn-proxy-netns.sh} $out/vpn-proxy-netns.sh
+          '';
+        in
+        inputs.wrappers.lib.makeWrapper {
+          inherit pkgs;
+          package = pkgs.writeShellScriptBin "vpn-proxy-cleanup" ''
+            exec ${pkgs.bun}/bin/bun run ${vpnProxyEnv}/vpn-proxy-cleanup.ts "$@"
+          '';
+          runtimeInputs = [
+            pkgs.bun
+            pkgs.iproute2
+            pkgs.iptables
+            pkgs.nftables
+            pkgs.coreutils
+          ];
+        };
     };
 }

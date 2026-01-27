@@ -454,7 +454,41 @@ async function startServer(): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  const command = process.argv[2];
+  const args = process.argv.slice(2);
+  const command = args[0];
+
+  if (args.includes("--help") || args.includes("-h")) {
+    console.log(`VPN SOCKS5 Proxy - Routes traffic through VPNs via username authentication
+
+Usage:
+  vpn-proxy [command]
+
+Commands:
+  serve       Start the SOCKS5 proxy server (default if no command)
+  status      Show active VPN proxies and their idle times
+  stop-all    Stop all VPN proxies and clean up namespaces
+
+Options:
+  -h, --help  Show this help message
+
+Environment:
+  VPN_DIR                    VPN configs directory (default: ~/Shared/VPNs)
+  VPN_PROXY_PORT             Listening port (default: 10800)
+  VPN_PROXY_IDLE_TIMEOUT     Idle cleanup timeout in seconds (default: 300)
+  VPN_PROXY_RANDOM_ROTATION  Random VPN rotation interval (default: 300)
+
+Examples:
+  vpn-proxy serve                    # Start the proxy server
+  vpn-proxy status                   # Check active VPNs
+  
+  # Use with curl (VPN name as username)
+  curl --proxy "socks5://AirVPN%20AT%20Vienna@127.0.0.1:10800" https://api.ipify.org
+  
+  # Random VPN
+  curl --proxy "socks5://random@127.0.0.1:10800" https://api.ipify.org
+`);
+    return;
+  }
 
   switch (command) {
     case "status":
@@ -465,7 +499,13 @@ async function main(): Promise<void> {
       console.log("All proxies stopped");
       break;
     case "serve":
+      await startServer();
+      break;
     default:
+      if (command && command !== "serve") {
+        console.error(`Unknown command: ${command}\nRun 'vpn-proxy --help' for usage.`);
+        process.exit(1);
+      }
       await startServer();
       break;
   }
