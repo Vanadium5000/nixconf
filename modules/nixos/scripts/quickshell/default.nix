@@ -451,113 +451,201 @@
       packages.qs-vpn = inputs.wrappers.lib.makeWrapper {
         inherit pkgs;
         package = pkgs.writeShellScriptBin "qs-vpn" ''
-          # Quickshell VPN Toggle (AirVPN via NetworkManager)
-          # Usage: qs-vpn [connect|disconnect|toggle|status]
+          # Quickshell VPN Selector - Multi-config with flag emojis
+          # Opens qs-dmenu to select VPN from ~/Shared/VPNs/*.ovpn
 
-          VPN_NAME="AirVPN"
-          # OVPN config path is set via environment variable from networking.nix
-          OVPN_CONFIG="''${AIRVPN_OVPN_PATH:-}"
+          VPN_DIR="''${VPN_DIR:-$HOME/Shared/VPNs}"
+
+          # Country code to flag emoji mapping
+          declare -A FLAGS=(
+            [us]="🇺🇸" [gb]="🇬🇧" [uk]="🇬🇧" [de]="🇩🇪" [fr]="🇫🇷" [nl]="🇳🇱" [ca]="🇨🇦"
+            [au]="🇦🇺" [jp]="🇯🇵" [sg]="🇸🇬" [ch]="🇨🇭" [se]="🇸🇪" [no]="🇳🇴" [fi]="🇫🇮"
+            [it]="🇮🇹" [es]="🇪🇸" [br]="🇧🇷" [mx]="🇲🇽" [in]="🇮🇳" [kr]="🇰🇷" [hk]="🇭🇰"
+            [ie]="🇮🇪" [at]="🇦🇹" [be]="🇧🇪" [dk]="🇩🇰" [pl]="🇵🇱" [cz]="🇨🇿" [ro]="🇷🇴"
+            [za]="🇿🇦" [nz]="🇳🇿" [ar]="🇦🇷" [cl]="🇨🇱" [co]="🇨🇴" [pt]="🇵🇹" [ru]="🇷🇺"
+          )
+
+          # Get flag emoji for country code
+          get_flag() {
+            local code="''${1,,}"  # lowercase
+            echo "''${FLAGS[$code]:-❓}"
+          }
+
+          # Extract country code from filename (first 2 chars, or pattern like us-, gb-)
+          get_country_code() {
+            local filename="$1"
+            local basename
+            basename=$(basename "$filename" .ovpn)
+            # Try to extract 2-letter code from start (e.g., "us-server" -> "us")
+            if [[ "$basename" =~ ^([a-zA-Z]{2})[-_] ]]; then
+              echo "''${BASH_REMATCH[1]}"
+            else
+              # Just use first 2 chars
+              echo "''${basename:0:2}"
+            fi
+          }
+
+          # Get friendly name from ovpn filename
+          get_display_name() {
+            local filepath="$1"
+            local basename
+            basename=$(basename "$filepath" .ovpn)
+            # Replace dashes/underscores with spaces for readability
+            basename="''${basename//-/ }"
+            basename="''${basename//_/ }"
+            echo "$basename"
+          }
 
           # Check if VPN connection exists in NetworkManager
           vpn_exists() {
-            nmcli connection show "$VPN_NAME" &>/dev/null
+            nmcli connection show "$1" &>/dev/null
           }
 
           # Check if VPN is currently active
           vpn_active() {
-            nmcli connection show --active | grep -q "$VPN_NAME"
+            nmcli connection show --active | grep -q "^$1 "
           }
 
-          # Import VPN config if not already imported
-          ensure_vpn_imported() {
-            if ! vpn_exists; then
-              if [ -n "$OVPN_CONFIG" ] && [ -f "$OVPN_CONFIG" ]; then
-                notify-send "VPN" "Importing AirVPN configuration..."
-                if nmcli connection import type openvpn file "$OVPN_CONFIG"; then
-                  # Rename to friendly name
-                  nmcli connection modify "$(basename "$OVPN_CONFIG" .ovpn)" connection.id "$VPN_NAME" 2>/dev/null || true
-                  notify-send "VPN" "Configuration imported successfully"
-                else
-                  notify-send -u critical "VPN Error" "Failed to import VPN configuration"
-                  exit 1
-                fi
+          # Get currently active VPN name (if any)
+          get_active_vpn() {
+            nmcli connection show --active | grep vpn | awk '{print $1}' | head -1
+          }
+
+          # Import and configure VPN for persistence
+          import_vpn() {
+            local ovpn_file="$1"
+            local vpn_name="$2"
+
+            if ! vpn_exists "$vpn_name"; then
+              notify-send "VPN" "Importing $vpn_name..."
+              if nmcli connection import type openvpn file "$ovpn_file"; then
+                # Rename to friendly name and enable autoconnect for persistence
+                local imported_name
+                imported_name=$(basename "$ovpn_file" .ovpn)
+                nmcli connection modify "$imported_name" connection.id "$vpn_name" 2>/dev/null || true
+                nmcli connection modify "$vpn_name" connection.autoconnect yes 2>/dev/null || true
+                nmcli connection modify "$vpn_name" connection.autoconnect-retries 0 2>/dev/null || true
+                notify-send "VPN" "$vpn_name imported successfully"
               else
-                notify-send -u critical "VPN Error" "OVPN config not found. Check AIRVPN_OVPN_PATH env var."
-                exit 1
+                notify-send -u critical "VPN Error" "Failed to import $vpn_name"
+                return 1
               fi
             fi
           }
 
+          # Connect to VPN
           connect_vpn() {
-            ensure_vpn_imported
-            if vpn_active; then
-              notify-send "VPN" "Already connected to $VPN_NAME"
+            local vpn_name="$1"
+            notify-send "VPN" "Connecting to $vpn_name..."
+            if nmcli connection up "$vpn_name"; then
+              notify-send "VPN" "Connected to $vpn_name"
             else
-              notify-send "VPN" "Connecting to $VPN_NAME..."
-              if nmcli connection up "$VPN_NAME"; then
-                notify-send "VPN" "Connected to $VPN_NAME"
-              else
-                notify-send -u critical "VPN Error" "Failed to connect to $VPN_NAME"
-              fi
+              notify-send -u critical "VPN Error" "Failed to connect to $vpn_name"
             fi
           }
 
+          # Disconnect from VPN
           disconnect_vpn() {
-            if vpn_active; then
-              notify-send "VPN" "Disconnecting from $VPN_NAME..."
-              if nmcli connection down "$VPN_NAME"; then
-                notify-send "VPN" "Disconnected from $VPN_NAME"
+            local vpn_name="$1"
+            notify-send "VPN" "Disconnecting from $vpn_name..."
+            if nmcli connection down "$vpn_name"; then
+              notify-send "VPN" "Disconnected from $vpn_name"
+            else
+              notify-send -u critical "VPN Error" "Failed to disconnect from $vpn_name"
+            fi
+          }
+
+          # Main logic
+          main() {
+            # Ensure VPN directory exists
+            mkdir -p "$VPN_DIR"
+
+            # Find all ovpn files
+            mapfile -t OVPN_FILES < <(find "$VPN_DIR" -name "*.ovpn" -type f 2>/dev/null | sort)
+
+            if [ ''${#OVPN_FILES[@]} -eq 0 ]; then
+              notify-send "VPN" "No .ovpn files found in $VPN_DIR\nAdd your VPN configs there."
+              exit 0
+            fi
+
+            # Get currently active VPN
+            ACTIVE_VPN=$(get_active_vpn)
+
+            # Build menu entries
+            MENU_ENTRIES=""
+            declare -A FILE_MAP
+
+            for ovpn_file in "''${OVPN_FILES[@]}"; do
+              country_code=$(get_country_code "$ovpn_file")
+              flag=$(get_flag "$country_code")
+              display_name=$(get_display_name "$ovpn_file")
+
+              # Mark active VPN
+              if [ -n "$ACTIVE_VPN" ] && [ "$display_name" = "$ACTIVE_VPN" ]; then
+                entry="$flag $display_name ✓"
               else
-                notify-send -u critical "VPN Error" "Failed to disconnect from $VPN_NAME"
+                entry="$flag $display_name"
               fi
-            else
-              notify-send "VPN" "Not connected to $VPN_NAME"
-            fi
-          }
 
-          toggle_vpn() {
-            ensure_vpn_imported
-            if vpn_active; then
-              disconnect_vpn
-            else
-              connect_vpn
-            fi
-          }
+              MENU_ENTRIES+="$entry"$'\n'
+              FILE_MAP["$entry"]="$ovpn_file"
+              FILE_MAP["$flag $display_name"]="$ovpn_file"  # Also map without checkmark
+            done
 
-          show_status() {
-            if vpn_active; then
-              echo "connected"
-              notify-send "VPN Status" "Connected to $VPN_NAME"
-            else
-              echo "disconnected"
-              notify-send "VPN Status" "Not connected to $VPN_NAME"
+            # Add disconnect option if connected
+            if [ -n "$ACTIVE_VPN" ]; then
+              MENU_ENTRIES="🔌 Disconnect ($ACTIVE_VPN)"$'\n'"$MENU_ENTRIES"
             fi
-          }
 
-          case "''${1:-toggle}" in
-            connect)
-              connect_vpn
-              ;;
-            disconnect)
-              disconnect_vpn
-              ;;
-            toggle)
-              toggle_vpn
-              ;;
-            status)
-              show_status
-              ;;
-            *)
-              echo "Usage: qs-vpn [connect|disconnect|toggle|status]"
+            # Show menu
+            SELECTION=$(echo -e "$MENU_ENTRIES" | qs-dmenu -p "VPN")
+
+            [ -z "$SELECTION" ] && exit 0
+
+            # Handle disconnect
+            if [[ "$SELECTION" == "🔌 Disconnect"* ]]; then
+              disconnect_vpn "$ACTIVE_VPN"
+              exit 0
+            fi
+
+            # Get selected file (strip checkmark suffix if present)
+            CLEAN_SELECTION="''${SELECTION% ✓}"
+            SELECTED_FILE="''${FILE_MAP[$CLEAN_SELECTION]}"
+
+            if [ -z "$SELECTED_FILE" ]; then
+              notify-send -u critical "VPN Error" "Could not find config for: $SELECTION"
               exit 1
-              ;;
-          esac
+            fi
+
+            # Extract VPN name from selection (remove flag emoji)
+            VPN_NAME="''${CLEAN_SELECTION#* }"  # Remove flag and space
+
+            # If already connected to this VPN, disconnect
+            if [ "$VPN_NAME" = "$ACTIVE_VPN" ]; then
+              disconnect_vpn "$VPN_NAME"
+              exit 0
+            fi
+
+            # Disconnect from current VPN if any
+            if [ -n "$ACTIVE_VPN" ]; then
+              nmcli connection down "$ACTIVE_VPN" 2>/dev/null || true
+            fi
+
+            # Import if needed and connect
+            import_vpn "$SELECTED_FILE" "$VPN_NAME"
+            connect_vpn "$VPN_NAME"
+          }
+
+          main
         '';
         runtimeInputs = [
           pkgs.networkmanager
           pkgs.libnotify
           pkgs.gnugrep
           pkgs.coreutils
+          pkgs.findutils
+          pkgs.gawk
+          self'.packages.qs-dmenu
         ];
       };
 

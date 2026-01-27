@@ -11,9 +11,7 @@
       ...
     }:
     let
-      inherit (lib)
-        getExe
-        ;
+      inherit (lib) getExe;
 
       inherit (self) theme colorsNoHash;
 
@@ -24,6 +22,355 @@
       systemSettings = config.preferences.system;
 
       makeScript = script: builtins.toString (pkgs.writeScriptBin "script" script) + "/bin/script";
+
+      # ═══════════════════════════════════════════════════════════════════
+      # UNIFIED KEYBIND DEFINITIONS - Single source of truth
+      # Each keybind has: key (hyprland format), exec, description, category
+      # ═══════════════════════════════════════════════════════════════════
+
+      # Helper to create a keybind entry
+      kb = key: exec: description: category: {
+        inherit
+          key
+          exec
+          description
+          category
+          ;
+      };
+
+      # All keybinds defined in one place
+      keybinds = {
+        # ── Apps ──
+        apps = [
+          (kb "${mod},RETURN" "exec, ${getExe terminal}" "Open terminal" "Apps")
+          (kb "${mod},B" "exec, librewolf" "Open Librewolf browser" "Apps")
+          (kb "${shiftMod},B" "exec, kitty btop" "Open btop (system monitor)" "Apps")
+          (kb "${mod},G" "exec, xdg-open https://x.com/i/grok" "Open Grok AI" "Apps")
+          (kb "${mod},L" "exec, hyprlock" "Lock screen" "Apps")
+        ];
+
+        # ── Windows ──
+        windows = [
+          (kb "${mod},Q" "killactive," "Close active window" "Windows")
+          (kb "${altMod},T" "togglefloating," "Toggle floating mode" "Windows")
+          (kb "${mod},F" "fullscreen" "Toggle fullscreen" "Windows")
+          (kb "${mod},left" "movefocus, l" "Focus window left" "Windows")
+          (kb "${mod},right" "movefocus, r" "Focus window right" "Windows")
+          (kb "${mod},up" "movefocus, u" "Focus window up" "Windows")
+          (kb "${mod},down" "movefocus, d" "Focus window down" "Windows")
+          (kb "${shiftMod},up" "focusmonitor, -1" "Focus previous monitor" "Windows")
+          (kb "${shiftMod},down" "focusmonitor, 1" "Focus next monitor" "Windows")
+          (kb "${shiftMod},left" "layoutmsg, addmaster" "Add window to master" "Windows")
+          (kb "${shiftMod},right" "layoutmsg, removemaster" "Remove window from master" "Windows")
+        ];
+
+        # ── Menus ──
+        menus = [
+          (kb "${mod},D" "exec, qs-dock" "Toggle dock" "Menus")
+          (kb "${shiftMod},D" "exec, pkill waybar || ${
+            getExe self.packages.${pkgs.stdenv.hostPlatform.system}.waybar
+          }" "Toggle waybar" "Menus")
+          (kb "${mod},SPACE" "exec, ${
+            getExe self.packages.${pkgs.stdenv.hostPlatform.system}.qs-launcher
+          }" "App launcher" "Menus")
+          (kb "${mod},E" "exec, ${
+            getExe self.packages.${pkgs.stdenv.hostPlatform.system}.qs-emoji
+          }" "Emoji picker" "Menus")
+          (kb "${mod},N" "exec, ${
+            getExe self.packages.${pkgs.stdenv.hostPlatform.system}.qs-nerd
+          }" "Nerd font icons picker" "Menus")
+          (kb "${mod},Z"
+            "exec, ${pkgs.cliphist}/bin/cliphist list | ${
+              getExe self.packages.${pkgs.stdenv.hostPlatform.system}.qs-dmenu
+            } -p 'Clipboard' | ${pkgs.cliphist}/bin/cliphist decode | wl-copy --type text/plain"
+            "Clipboard history"
+            "Menus"
+          )
+          (kb "${mod},W" "exec, ${
+            getExe self.packages.${pkgs.stdenv.hostPlatform.system}.qs-wallpaper
+          }" "Wallpaper selector" "Menus")
+          (kb "${mod},P" "exec, ${
+            getExe self.packages.${pkgs.stdenv.hostPlatform.system}.qs-passmenu
+          }" "Password manager" "Menus")
+          (kb "${shiftMod},P" "exec, ${
+            getExe self.packages.${pkgs.stdenv.hostPlatform.system}.qs-passmenu
+          } -a" "Password manager (autotype)" "Menus")
+          (kb "${mod},M" "exec, ${
+            getExe self.packages.${pkgs.stdenv.hostPlatform.system}.qs-music-search
+          }" "Music search (YouTube)" "Menus")
+          (kb "${altMod},M" "exec, ${
+            getExe self.packages.${pkgs.stdenv.hostPlatform.system}.qs-music-local
+          }" "Music search (local)" "Menus")
+          (kb "${shiftMod},M"
+            "exec, mpc status | grep -q 'playing' && mpc stop || { mpc clear && mpc add / && mpc shuffle && mpc play; }"
+            "Toggle shuffle all / stop"
+            "Menus"
+          )
+          (kb "${mod},C" "exec, ${
+            getExe self.packages.${pkgs.stdenv.hostPlatform.system}.qs-checklist
+          }" "Checklist" "Menus")
+          (kb "${mod},X" "exec, ${
+            getExe self.packages.${pkgs.stdenv.hostPlatform.system}.qs-powermenu
+          }" "Power menu" "Menus")
+          (kb "${mod},V" "exec, qs-tools" "Tools menu" "Menus")
+        ];
+
+        # ── Tools ──
+        tools = [
+          (kb "${shiftMod},V" "exec, stop-autoclickers" "Stop all autoclickers" "Tools")
+          (kb "${altMod},V" "exec, ${
+            getExe self.packages.${pkgs.stdenv.hostPlatform.system}.toggle-pause-autoclickers
+          }" "Toggle pause autoclickers" "Tools")
+          (kb "${altMod},N" "exec, ${
+            getExe self.packages.${pkgs.stdenv.hostPlatform.system}.qs-vpn
+          }" "VPN selector" "Tools")
+        ];
+
+        # ── Accessibility ──
+        accessibility = [
+          (kb "${mod},T" "exec, dictation toggle" "Toggle dictation" "Accessibility")
+          (kb "${mod},MINUS"
+            ''exec, hyprctl keyword cursor:zoom_factor $(awk "BEGIN {print $(hyprctl getoption cursor:zoom_factor | grep 'float:' | awk '{print $2}') - 0.1}")''
+            "Zoom out"
+            "Accessibility"
+          )
+          (kb "${mod},EQUAL"
+            ''exec, hyprctl keyword cursor:zoom_factor $(awk "BEGIN {print $(hyprctl getoption cursor:zoom_factor | grep 'float:' | awk '{print $2}') + 0.1}")''
+            "Zoom in"
+            "Accessibility"
+          )
+        ];
+
+        # ── Help ──
+        help = [
+          (kb "${mod},H" "exec, ${
+            getExe self.packages.${pkgs.stdenv.hostPlatform.system}.qs-keybinds
+          }" "Show keybind help" "Help")
+        ];
+
+        # ── Capture ──
+        capture = [
+          (kb "${mod},PRINT" "exec, screenshot area" "Screenshot area (save)" "Capture")
+          (kb ",PRINT" "exec, screenshot monitor" "Screenshot monitor (save)" "Capture")
+          (kb "${shiftMod},PRINT" "exec, screenshot area toText" "Screenshot to text (OCR)" "Capture")
+          (kb "${mod},S"
+            ''exec, ${getExe pkgs.grim} -g "$(${getExe pkgs.slurp} -d)" - | ${getExe pkgs.swappy} -f -''
+            "Screenshot area (edit with Swappy)"
+            "Capture"
+          )
+          (kb "${mod},R"
+            ''exec, mkdir -p ~/Videos && ${getExe pkgs.wf-recorder} -g "$(${getExe pkgs.slurp} -d)" -f ~/Videos/rec_$(date +'%Y-%m-%d_%H-%M-%S').mp4''
+            "Start video recording"
+            "Capture"
+          )
+          (kb "${shiftMod},R" "exec, pkill -SIGINT wf-recorder" "Stop video recording" "Capture")
+        ];
+
+        # ── Capture (complex scripts) ──
+        captureScripts = [
+          {
+            key = "${shiftMod},S";
+            exec =
+              "exec, "
+              + (makeScript ''${getExe pkgs.grim} -g "$(${getExe pkgs.slurp} -d)" - | ${getExe pkgs.tesseract} - - | ${pkgs.wl-clipboard}/bin/wl-copy --type text/plain && text=$( ${pkgs.wl-clipboard}/bin/wl-paste) && if [ ''${#text} -le 120 ]; then ${getExe pkgs.libnotify} "OCR Result" "$text"; else ${getExe pkgs.libnotify} "OCR Result" "''${text:0:100}...''${text: -20}"; fi'');
+            description = "OCR screenshot to clipboard";
+            category = "Capture";
+          }
+          {
+            key = "${altMod},S";
+            exec =
+              "exec, "
+              + (makeScript ''${getExe pkgs.grim} -g "$(${getExe pkgs.slurp} -d)" - | ${pkgs.zbar}/bin/zbarimg - | sed 's/^QR-Code:[[:space:]]*//' | ${pkgs.wl-clipboard}/bin/wl-copy --type text/plain && text=$( ${pkgs.wl-clipboard}/bin/wl-paste) && if [ ''${#text} -le 120 ]; then ${getExe pkgs.libnotify} "ZBAR SCAN Result" "$text"; else ${getExe pkgs.libnotify} "ZBAR SCAN Result" "''${text:0:100}...''${text: -20}"; fi'');
+            description = "QR code scan to clipboard";
+            category = "Capture";
+          }
+        ];
+
+        # ── Mouse bindings (bindm) ──
+        mouse = [
+          (kb "${mod},mouse:273" "resizewindow" "Resize window (drag)" "Windows")
+          (kb "${mod},mouse:272" "movewindow" "Move window (drag)" "Windows")
+        ];
+
+        # ── Media keys (bindl - locked) ──
+        media = [
+          (kb ",XF86AudioMute" "exec, ${
+            getExe self.packages.${pkgs.stdenv.hostPlatform.system}.sound-toggle
+          }" "Toggle mute" "Media")
+          (kb ",XF86AudioPlay" "exec, ${pkgs.playerctl}/bin/playerctl play-pause" "Play/Pause media" "Media")
+          (kb ",XF86AudioNext" "exec, ${pkgs.playerctl}/bin/playerctl next" "Next track" "Media")
+          (kb ",XF86AudioPrev" "exec, ${pkgs.playerctl}/bin/playerctl previous" "Previous track" "Media")
+        ];
+
+        # ── System (bindl - locked) ──
+        system = [
+          (kb ",switch:Lid Switch" "exec, hyprlock" "Lock screen on lid close" "System")
+          (kb ",switch:Lid Switch" "exec, wpctl set-volume @DEFAULT_AUDIO_SINK@ 0" "Mute on lid close"
+            "System"
+          )
+        ];
+
+        # ── Volume (bindle - repeat) ──
+        volume = [
+          (kb ",XF86AudioRaiseVolume" "exec, ${
+            getExe self.packages.${pkgs.stdenv.hostPlatform.system}.sound-up
+          }" "Volume up" "Media")
+          (kb ",XF86AudioLowerVolume" "exec, ${
+            getExe self.packages.${pkgs.stdenv.hostPlatform.system}.sound-down
+          }" "Volume down" "Media")
+          (kb "SHIFT,XF86AudioRaiseVolume" "exec, ${
+            getExe self.packages.${pkgs.stdenv.hostPlatform.system}.sound-up-small
+          }" "Volume up (small)" "Media")
+          (kb "SHIFT,XF86AudioLowerVolume" "exec, ${
+            getExe self.packages.${pkgs.stdenv.hostPlatform.system}.sound-down-small
+          }" "Volume down (small)" "Media")
+        ];
+
+        # ── Brightness (bindle - repeat) ──
+        brightness = [
+          (kb ",XF86MonBrightnessUp"
+            "exec, ${getExe pkgs.brightnessctl} set --device=${systemSettings.backlightDevice} 5%+"
+            "Screen brightness up"
+            "Brightness"
+          )
+          (kb ",XF86MonBrightnessDown"
+            "exec, ${getExe pkgs.brightnessctl} set --device=${systemSettings.backlightDevice} 5%-"
+            "Screen brightness down"
+            "Brightness"
+          )
+          (kb "SHIFT,XF86MonBrightnessUp"
+            "exec, ${getExe pkgs.brightnessctl} set --device=${systemSettings.backlightDevice} 1%+"
+            "Screen brightness up (small)"
+            "Brightness"
+          )
+          (kb "SHIFT,XF86MonBrightnessDown"
+            "exec, ${getExe pkgs.brightnessctl} set --device=${systemSettings.backlightDevice} 1%-"
+            "Screen brightness down (small)"
+            "Brightness"
+          )
+          (kb ",XF86KbdBrightnessUp"
+            "exec, ${getExe pkgs.brightnessctl} set --device=${systemSettings.keyboardBacklightDevice} 5%+"
+            "Keyboard backlight up"
+            "Brightness"
+          )
+          (kb ",XF86KbdBrightnessDown"
+            "exec, ${getExe pkgs.brightnessctl} set --device=${systemSettings.keyboardBacklightDevice} 5%-"
+            "Keyboard backlight down"
+            "Brightness"
+          )
+          (kb "SHIFT,XF86KbdBrightnessUp"
+            "exec, ${getExe pkgs.brightnessctl} set --device=${systemSettings.keyboardBacklightDevice} 1%+"
+            "Keyboard backlight up (small)"
+            "Brightness"
+          )
+          (kb "SHIFT,XF86KbdBrightnessDown"
+            "exec, ${getExe pkgs.brightnessctl} set --device=${systemSettings.keyboardBacklightDevice} 1%-"
+            "Keyboard backlight down (small)"
+            "Brightness"
+          )
+        ];
+      };
+
+      # Flatten all keybinds into lists for hyprland config generation
+      allBindKeybinds =
+        keybinds.apps
+        ++ keybinds.windows
+        ++ keybinds.menus
+        ++ keybinds.tools
+        ++ keybinds.accessibility
+        ++ keybinds.help
+        ++ keybinds.capture
+        ++ keybinds.captureScripts;
+
+      # Convert keybind to hyprland bind string
+      toBindString = kb: "${kb.key}, ${kb.exec}";
+
+      # Convert key from hyprland format to human-readable for help overlay
+      humanizeKey =
+        key:
+        let
+          # Replace common patterns
+          replaced =
+            builtins.replaceStrings
+              [
+                "${mod},"
+                "${shiftMod},"
+                "${altMod},"
+                "SHIFT,"
+                ",XF86"
+                "XF86"
+                ",switch:"
+                "switch:"
+                ",PRINT"
+                "PRINT"
+                ",mouse:"
+                "mouse:"
+              ]
+              [
+                "SUPER + "
+                "SUPER + SHIFT + "
+                "ALT + "
+                "SHIFT + "
+                ""
+                ""
+                ""
+                "Lid "
+                ""
+                "Print"
+                "Mouse "
+                "Mouse "
+              ]
+              key;
+        in
+        builtins.replaceStrings
+          [
+            "left"
+            "right"
+            "up"
+            "down"
+            "RETURN"
+            "MINUS"
+            "EQUAL"
+          ]
+          [
+            "←"
+            "→"
+            "↑"
+            "↓"
+            "Return"
+            "-"
+            "="
+          ]
+          replaced;
+
+      # Generate keybindDescriptions from unified keybinds
+      allKeybindDescriptions =
+        let
+          allKbs =
+            allBindKeybinds
+            ++ keybinds.mouse
+            ++ keybinds.media
+            ++ keybinds.system
+            ++ keybinds.volume
+            ++ keybinds.brightness;
+        in
+        map (kb: {
+          key = humanizeKey kb.key;
+          inherit (kb) description category;
+        }) allKbs
+        # Add workspace keybinds
+        ++ [
+          {
+            key = "SUPER + 1-9";
+            description = "Switch to workspace 1-9";
+            category = "Workspaces";
+          }
+          {
+            key = "SUPER + SHIFT + 1-9";
+            description = "Move window to workspace 1-9";
+            category = "Workspaces";
+          }
+        ];
     in
     {
       # Persist nwg-displays diplay settings
@@ -53,95 +400,8 @@
 
       home.programs.hyprland.enable = true;
 
-      # Keybind descriptions for the help overlay
-      home.programs.hyprland.keybindDescriptions = [
-        # Window Management
-        { key = "SUPER + Q"; description = "Close active window"; category = "Windows"; }
-        { key = "ALT + T"; description = "Toggle floating mode"; category = "Windows"; }
-        { key = "SUPER + F"; description = "Toggle fullscreen"; category = "Windows"; }
-        { key = "SUPER + ←"; description = "Focus window left"; category = "Windows"; }
-        { key = "SUPER + →"; description = "Focus window right"; category = "Windows"; }
-        { key = "SUPER + ↑"; description = "Focus window up"; category = "Windows"; }
-        { key = "SUPER + ↓"; description = "Focus window down"; category = "Windows"; }
-        { key = "SUPER + SHIFT + ↑"; description = "Focus previous monitor"; category = "Windows"; }
-        { key = "SUPER + SHIFT + ↓"; description = "Focus next monitor"; category = "Windows"; }
-        { key = "SUPER + SHIFT + ←"; description = "Add window to master"; category = "Windows"; }
-        { key = "SUPER + SHIFT + →"; description = "Remove window from master"; category = "Windows"; }
-        { key = "SUPER + Mouse Left"; description = "Move window (drag)"; category = "Windows"; }
-        { key = "SUPER + Mouse Right"; description = "Resize window (drag)"; category = "Windows"; }
-
-        # Workspaces
-        { key = "SUPER + 1-9"; description = "Switch to workspace 1-9"; category = "Workspaces"; }
-        { key = "SUPER + SHIFT + 1-9"; description = "Move window to workspace 1-9"; category = "Workspaces"; }
-
-        # Applications
-        { key = "SUPER + Return"; description = "Open terminal"; category = "Apps"; }
-        { key = "SUPER + B"; description = "Open Librewolf browser"; category = "Apps"; }
-        { key = "SUPER + SHIFT + B"; description = "Open btop (system monitor)"; category = "Apps"; }
-        { key = "SUPER + G"; description = "Open Grok AI"; category = "Apps"; }
-        { key = "SUPER + L"; description = "Lock screen"; category = "Apps"; }
-
-        # Menus & Launchers
-        { key = "SUPER + Space"; description = "App launcher"; category = "Menus"; }
-        { key = "SUPER + E"; description = "Emoji picker"; category = "Menus"; }
-        { key = "SUPER + N"; description = "Nerd font icons picker"; category = "Menus"; }
-        { key = "SUPER + Z"; description = "Clipboard history"; category = "Menus"; }
-        { key = "SUPER + W"; description = "Wallpaper selector"; category = "Menus"; }
-        { key = "SUPER + P"; description = "Password manager"; category = "Menus"; }
-        { key = "SUPER + SHIFT + P"; description = "Password manager (autotype)"; category = "Menus"; }
-        { key = "SUPER + M"; description = "Music search (YouTube)"; category = "Menus"; }
-        { key = "ALT + M"; description = "Music search (local)"; category = "Menus"; }
-        { key = "SUPER + SHIFT + M"; description = "Toggle shuffle all / stop"; category = "Menus"; }
-        { key = "SUPER + C"; description = "Checklist"; category = "Menus"; }
-        { key = "SUPER + X"; description = "Power menu"; category = "Menus"; }
-        { key = "SUPER + V"; description = "Tools menu"; category = "Menus"; }
-        { key = "SUPER + D"; description = "Toggle dock"; category = "Menus"; }
-        { key = "SUPER + SHIFT + D"; description = "Toggle waybar"; category = "Menus"; }
-
-        # Screenshots & Recording
-        { key = "SUPER + Print"; description = "Screenshot area (save)"; category = "Capture"; }
-        { key = "Print"; description = "Screenshot monitor (save)"; category = "Capture"; }
-        { key = "SUPER + SHIFT + Print"; description = "Screenshot to text (OCR)"; category = "Capture"; }
-        { key = "SUPER + S"; description = "Screenshot area (edit with Swappy)"; category = "Capture"; }
-        { key = "SUPER + SHIFT + S"; description = "OCR screenshot to clipboard"; category = "Capture"; }
-        { key = "ALT + S"; description = "QR code scan to clipboard"; category = "Capture"; }
-        { key = "SUPER + R"; description = "Start video recording"; category = "Capture"; }
-        { key = "SUPER + SHIFT + R"; description = "Stop video recording"; category = "Capture"; }
-
-        # Dictation & Accessibility
-        { key = "SUPER + T"; description = "Toggle dictation"; category = "Accessibility"; }
-        { key = "SUPER + -"; description = "Zoom out"; category = "Accessibility"; }
-        { key = "SUPER + ="; description = "Zoom in"; category = "Accessibility"; }
-
-        # Autoclickers
-        { key = "SUPER + SHIFT + V"; description = "Stop all autoclickers"; category = "Tools"; }
-        { key = "ALT + V"; description = "Toggle pause autoclickers"; category = "Tools"; }
-        { key = "ALT + N"; description = "Toggle VPN connection"; category = "Tools"; }
-
-        # Help
-        { key = "SUPER + H"; description = "Show keybind help"; category = "Help"; }
-
-        # Media Keys
-        { key = "XF86AudioMute"; description = "Toggle mute"; category = "Media"; }
-        { key = "XF86AudioRaiseVolume"; description = "Volume up"; category = "Media"; }
-        { key = "XF86AudioLowerVolume"; description = "Volume down"; category = "Media"; }
-        { key = "SHIFT + XF86AudioRaiseVolume"; description = "Volume up (small)"; category = "Media"; }
-        { key = "SHIFT + XF86AudioLowerVolume"; description = "Volume down (small)"; category = "Media"; }
-        { key = "XF86AudioPlay"; description = "Play/Pause media"; category = "Media"; }
-        { key = "XF86AudioNext"; description = "Next track"; category = "Media"; }
-        { key = "XF86AudioPrev"; description = "Previous track"; category = "Media"; }
-
-        # Brightness
-        { key = "XF86MonBrightnessUp"; description = "Screen brightness up"; category = "Brightness"; }
-        { key = "XF86MonBrightnessDown"; description = "Screen brightness down"; category = "Brightness"; }
-        { key = "SHIFT + XF86MonBrightnessUp"; description = "Screen brightness up (small)"; category = "Brightness"; }
-        { key = "SHIFT + XF86MonBrightnessDown"; description = "Screen brightness down (small)"; category = "Brightness"; }
-        { key = "XF86KbdBrightnessUp"; description = "Keyboard backlight up"; category = "Brightness"; }
-        { key = "XF86KbdBrightnessDown"; description = "Keyboard backlight down"; category = "Brightness"; }
-
-        # System
-        { key = "Lid Close"; description = "Lock screen and mute"; category = "System"; }
-      ];
+      # Keybind descriptions generated from unified keybind definitions
+      home.programs.hyprland.keybindDescriptions = allKeybindDescriptions;
 
       home.programs.hyprland.settings = {
         # unscale XWayland - fix rendering issues/blurry xwayland apps
@@ -320,142 +580,39 @@
           # ];
         };
 
-        bind = [
-          "${mod},RETURN, exec, ${getExe terminal}"
-          "${mod},B, exec, librewolf" # Librewolf
-          "${shiftMod},B, exec, kitty btop" # btop - system resources
-          "${mod},G, exec, xdg-open https://x.com/i/grok" # Open Grok
-          # "${shiftMod},M, exec, xdg-open https://music.youtube.com" # Open YouTube Music
+        # Keybinds generated from unified definitions
+        bind =
+          (map toBindString allBindKeybinds)
+          ++ [
+            # Disable middle-click paste
+            ", mouse:274, exec, "
+          ]
+          ++ (builtins.concatLists (
+            builtins.genList (
+              i:
+              let
+                ws = i + 1;
+              in
+              [
+                "${mod},code:1${toString i}, workspace, ${toString ws}"
+                "${shiftMod},code:1${toString i}, movetoworkspace, ${toString ws}"
+              ]
+            ) 9
+          ));
 
-          "${mod},L, exec, hyprlock" # Lock
-
-          # "${mod},TAB, overview:toggle" # Overview (Hyprspace)
-
-          "${mod},D, exec, qs-dock" # Toggle qs-dock
-          "${shiftMod},D, exec, pkill waybar || ${
-            getExe self.packages.${pkgs.stdenv.hostPlatform.system}.waybar
-          }" # Toggle Hyprpanel (bar)
-
-          "${mod},Q, killactive," # Close window
-          "${altMod},T, togglefloating," # Toggle Floating (Disabled for Dictation)
-          "${mod},F, fullscreen" # Toggle Fullscreen
-          "${mod},left, movefocus, l" # Move focus left
-          "${mod},right, movefocus, r" # Move focus Right
-          "${mod},up, movefocus, u" # Move focus Up
-          "${mod},down, movefocus, d" # Move focus Down
-          "${shiftMod},up, focusmonitor, -1" # Focus previous monitor
-          "${shiftMod},down, focusmonitor, 1" # Focus next monitor
-          "${shiftMod},left, layoutmsg, addmaster" # Add to master
-          "${shiftMod},right, layoutmsg, removemaster" # Remove from master
-
-          "${mod},PRINT, exec, screenshot area" # Screenshot area & copy/save
-          ",PRINT, exec, screenshot monitor" # Screenshot monitor & copy/save
-          "${shiftMod},PRINT, exec, screenshot area toText" # Screenshot area & copy as text
-
-          # Menus - mainly quickshell
-          "${mod},SPACE, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.qs-launcher}" # Apps
-          "${mod},E, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.qs-emoji}" # Emojis
-          "${mod},N, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.qs-nerd}" # Nerd Icons
-          "${mod},Z, exec, ${pkgs.cliphist}/bin/cliphist list | ${
-            getExe self.packages.${pkgs.stdenv.hostPlatform.system}.qs-dmenu
-          } -p 'Clipboard' | ${pkgs.cliphist}/bin/cliphist decode | wl-copy --type text/plain" # Clipboard manager
-          "${mod},W, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.qs-wallpaper}"
-          "${mod},P, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.qs-passmenu}"
-          "${shiftMod},P, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.qs-passmenu} -a" # With autotype
-          "${mod},M, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.qs-music-search}"
-          "${altMod},M, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.qs-music-local}"
-          "${shiftMod},M, exec, mpc status | grep -q 'playing' && mpc stop || { mpc clear && mpc add / && mpc shuffle && mpc play; }" # Toggle shuffle-all-play / stop
-          "${mod},C, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.qs-checklist}"
-          "${mod},X, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.qs-powermenu}"
-          "${mod},V, exec, qs-tools"
-          "${shiftMod},V, exec, stop-autoclickers" # Autoclicker Safety
-          "${mod},T, exec, dictation toggle" # Dictation Toggle
-          "${altMod},V, exec, ${
-            getExe self.packages.${pkgs.stdenv.hostPlatform.system}.toggle-pause-autoclickers
-          }" # Toggle pause autoclickers
-
-          # VPN & Help
-          "${mod},H, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.qs-keybinds}" # Keybind help
-          "${altMod},N, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.qs-vpn} toggle" # Toggle VPN
-          # "${mod},W, exec, rofi -show processlist" # TODO: WIP
-
-          # Recordings
-          "${mod},S, exec, ${getExe pkgs.grim} -g \"$(${getExe pkgs.slurp} -d)\" - | ${getExe pkgs.swappy} -f -"
-          (
-            "${shiftMod},S, exec, "
-            + (makeScript "${getExe pkgs.grim} -g \"$(${getExe pkgs.slurp} -d)\" - | ${getExe pkgs.tesseract} - - | ${pkgs.wl-clipboard}/bin/wl-copy --type text/plain && text=$( ${pkgs.wl-clipboard}/bin/wl-paste) && if [ \${#text} -le 120 ]; then ${getExe pkgs.libnotify} \"OCR Result\" \"\$text\"; else ${getExe pkgs.libnotify} \"OCR Result\" \"\${text:0:100}...\${text: -20}\"; fi")
-          ) # OCR Screenshot
-          (
-            "${altMod},S, exec, "
-            + (makeScript "${getExe pkgs.grim} -g \"$(${getExe pkgs.slurp} -d)\" - | ${pkgs.zbar}/bin/zbarimg - | sed 's/^QR-Code:[[:space:]]*//' | ${pkgs.wl-clipboard}/bin/wl-copy --type text/plain && text=$( ${pkgs.wl-clipboard}/bin/wl-paste) && if [ \${#text} -le 120 ]; then ${getExe pkgs.libnotify} \"ZBAR SCAN Result\" \"\$text\"; else ${getExe pkgs.libnotify} \"ZBAR SCAN Result\" \"\${text:0:100}...\${text: -20}\"; fi")
-          ) # ZBAR SCAN Screenshot
-          "${mod},R, exec, mkdir -p ~/Videos && ${getExe pkgs.wf-recorder} -g \"$(${getExe pkgs.slurp} -d)\" -f ~/Videos/rec_$(date +'%Y-%m-%d_%H-%M-%S').mp4" # Start video recording
-          "${shiftMod},R, exec, pkill -SIGINT wf-recorder" # End video recording
-
-          # Screen zooming on shiftMod + mouse_scroll
-          "${mod},MINUS, exec, hyprctl keyword cursor:zoom_factor $(awk \"BEGIN {print $(hyprctl getoption cursor:zoom_factor | grep 'float:' | awk '{print $2}') - 0.1}\")"
-          "${mod},EQUAL, exec, hyprctl keyword cursor:zoom_factor $(awk \"BEGIN {print $(hyprctl getoption cursor:zoom_factor | grep 'float:' | awk '{print $2}') + 0.1}\")"
-
-          # Disable middle-click, it is so annoying
-          ", mouse:274, exec, "
-        ]
-        ++ (builtins.concatLists (
-          builtins.genList (
-            i:
-            let
-              ws = i + 1;
-            in
-            [
-              "${mod},code:1${toString i}, workspace, ${toString ws}"
-              "${shiftMod},code:1${toString i}, movetoworkspace, ${toString ws}"
-            ]
-          ) 9
-        ));
-
-        bindm = [
-          # Move/resize windows with mainMod + LMB/RMB and dragging
-          "${mod},mouse:273, resizewindow"
-          "${mod},mouse:272, movewindow" # Move Window (mouse)
-          "${mod},R, resizewindow" # Resize Window (mouse)
-        ];
+        # Mouse bindings generated from unified definitions
+        bindm = map toBindString keybinds.mouse;
 
         bindr = [
           # Released bindings
         ];
 
-        bindl = [
-          ",XF86AudioMute, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.sound-toggle}" # Toggle Mute
-          ",XF86AudioPlay, exec, ${pkgs.playerctl}/bin/playerctl play-pause" # Play/Pause Song
-          ",XF86AudioNext, exec, ${pkgs.playerctl}/bin/playerctl next" # Next Song
-          ",XF86AudioPrev, exec, ${pkgs.playerctl}/bin/playerctl previous" # Previous Song
+        # Locked bindings generated from unified definitions
+        bindl = (map toBindString keybinds.media) ++ (map toBindString keybinds.system);
 
-          # Lock when closing Lid
-          ",switch:Lid Switch, exec, hyprlock"
-          ",switch:Lid Switch, exec, wpctl set-volume @DEFAULT_AUDIO_SINK@ 0" # Also set volume to 0
-        ];
+        # Repeat bindings generated from unified definitions
+        bindle = (map toBindString keybinds.volume) ++ (map toBindString keybinds.brightness);
 
-        bindle = [
-          ",XF86AudioRaiseVolume, exec, ${getExe self.packages.${pkgs.stdenv.hostPlatform.system}.sound-up}" # Sound Up
-          ",XF86AudioLowerVolume, exec, ${
-            getExe self.packages.${pkgs.stdenv.hostPlatform.system}.sound-down
-          }" # Sound Down
-          "SHIFT,XF86AudioRaiseVolume, exec, ${
-            getExe self.packages.${pkgs.stdenv.hostPlatform.system}.sound-up-small
-          }" # Sound Up Small
-          "SHIFT,XF86AudioLowerVolume, exec, ${
-            getExe self.packages.${pkgs.stdenv.hostPlatform.system}.sound-down-small
-          }" # Sound Down Small
-
-          ",XF86MonBrightnessUp, exec, ${getExe pkgs.brightnessctl} set --device=${systemSettings.backlightDevice} 5%+" # Brightness Up
-          ",XF86MonBrightnessDown, exec, ${getExe pkgs.brightnessctl} set --device=${systemSettings.backlightDevice} 5%-" # Brightness Down
-          "SHIFT,XF86MonBrightnessUp, exec, exec, ${getExe pkgs.brightnessctl} set --device=${systemSettings.backlightDevice} 1%+" # Brightness Up Small
-          "SHIFT,XF86MonBrightnessDown, exec, exec, ${getExe pkgs.brightnessctl} set --device=${systemSettings.backlightDevice} 1%-" # Brightness Down Small
-
-          ",XF86KbdBrightnessUp, exec, ${getExe pkgs.brightnessctl} set --device=${systemSettings.keyboardBacklightDevice} 5%+" # Kbd Brightness Up
-          ",XF86KbdBrightnessDown, exec, ${getExe pkgs.brightnessctl} set --device=${systemSettings.keyboardBacklightDevice} 5%-" # Kbd Brightness Down
-          "SHIFT,XF86KbdBrightnessUp, exec, exec, ${getExe pkgs.brightnessctl} set --device=${systemSettings.keyboardBacklightDevice} 1%+" # Kbd Brightness Up Small
-          "SHIFT,XF86KbdBrightnessDown, exec, exec, ${getExe pkgs.brightnessctl} set --device=${systemSettings.keyboardBacklightDevice} 1%-" # Kbd Brightness Down Small
-        ];
         # GUI-session Environment Variables
         env = [
           "XDG_SESSION_TYPE,wayland"
