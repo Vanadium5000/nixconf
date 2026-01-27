@@ -31,7 +31,7 @@
       ];
 
       preferences.autostart = [
-        "${pkgs.mpdris2}/bin/mpDris2 --musicDirectory=${config.services.mpd.musicDirectory}"
+        "${pkgs.mpdris2}/bin/mpDris2 --music-dir=${config.services.mpd.musicDirectory}"
       ];
 
       # Music Player Daemon

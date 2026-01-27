@@ -539,25 +539,33 @@
             nmcli -t -f NAME,TYPE connection show --active | grep ':vpn$' | cut -d: -f1 | head -1
           }
 
-          # Import and configure VPN for persistence
+          # Import and configure VPN (overwrites existing config)
           import_vpn() {
             local ovpn_file="$1"
             local vpn_name="$2"
 
-            if ! vpn_exists "$vpn_name"; then
-              notify-send "VPN" "Importing $vpn_name..."
-              if nmcli connection import type openvpn file "$ovpn_file"; then
-                # Rename to friendly name and enable autoconnect for persistence
-                local imported_name
-                imported_name=$(basename "$ovpn_file" .ovpn)
-                nmcli connection modify "$imported_name" connection.id "$vpn_name" 2>/dev/null || true
-                nmcli connection modify "$vpn_name" connection.autoconnect yes 2>/dev/null || true
-                nmcli connection modify "$vpn_name" connection.autoconnect-retries 0 2>/dev/null || true
-                notify-send "VPN" "$vpn_name imported successfully"
-              else
-                notify-send -u critical "VPN Error" "Failed to import $vpn_name"
-                return 1
-              fi
+            # Delete existing config to ensure fresh import with latest .ovpn
+            if vpn_exists "$vpn_name"; then
+              nmcli connection delete "$vpn_name" 2>/dev/null || true
+            fi
+            
+            # Also check for connection with original filename (pre-rename)
+            local imported_name
+            imported_name=$(basename "$ovpn_file" .ovpn)
+            if vpn_exists "$imported_name"; then
+              nmcli connection delete "$imported_name" 2>/dev/null || true
+            fi
+
+            notify-send "VPN" "Importing $vpn_name..."
+            if nmcli connection import type openvpn file "$ovpn_file"; then
+              # Rename to friendly name and enable autoconnect for persistence
+              nmcli connection modify "$imported_name" connection.id "$vpn_name" 2>/dev/null || true
+              nmcli connection modify "$vpn_name" connection.autoconnect yes 2>/dev/null || true
+              nmcli connection modify "$vpn_name" connection.autoconnect-retries 0 2>/dev/null || true
+              notify-send "VPN" "$vpn_name imported successfully"
+            else
+              notify-send -u critical "VPN Error" "Failed to import $vpn_name"
+              return 1
             fi
           }
 
@@ -572,12 +580,17 @@
             fi
           }
 
-          # Disconnect from VPN
+          # Disconnect from VPN and remove config from NetworkManager
           disconnect_vpn() {
             local vpn_name="$1"
             notify-send "VPN" "Disconnecting from $vpn_name..."
-            if nmcli connection down "$vpn_name"; then
-              notify-send "VPN" "Disconnected from $vpn_name"
+            if nmcli connection down "$vpn_name" 2>/dev/null; then
+              # Clean up the connection from NetworkManager
+              if nmcli connection delete "$vpn_name" 2>/dev/null; then
+                notify-send "VPN" "Disconnected and removed $vpn_name"
+              else
+                notify-send "VPN" "Disconnected from $vpn_name (config retained)"
+              fi
             else
               notify-send -u critical "VPN Error" "Failed to disconnect from $vpn_name"
             fi
