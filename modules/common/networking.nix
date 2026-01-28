@@ -175,43 +175,53 @@
         };
 
         # ============================================================================
-        # Force ALL interfaces to use global DNS (not DHCP/VPN-pushed DNS)
+        # Force ALL connections to ignore DHCP-provided DNS
         # ============================================================================
         # NetworkManager's dns=none only affects /etc/resolv.conf management.
         # The internal DHCP client STILL pushes per-link DNS to systemd-resolved
-        # via DBus. This dispatcher clears that immediately after any interface
-        # comes up, ensuring all DNS goes through global (127.0.0.1 → dnscrypt-proxy).
+        # via DBus. The ONLY reliable fix is setting ignore-auto-dns on each
+        # connection profile. This dispatcher does that on first activation.
         networking.networkmanager.dispatcherScripts = [
           {
-            source = pkgs.writeShellScript "force-global-dns" ''
+            source = pkgs.writeShellScript "force-ignore-auto-dns" ''
               INTERFACE="$1"
               ACTION="$2"
+              CONNECTION_UUID="$3"
 
-              # Act on any event that might set DNS
+              # Only act on connection up events
               case "$ACTION" in
-                up|vpn-up|dhcp4-change|dhcp6-change|connectivity-change)
+                up|vpn-up)
                   ;;
                 *)
                   exit 0
                   ;;
               esac
 
-              # Skip loopback and tailscale (tailscale manages its own DNS correctly)
+              # Skip if no connection UUID
+              [ -z "$CONNECTION_UUID" ] && exit 0
+
+              # Skip tailscale (manages its own DNS correctly with routing domains)
               case "$INTERFACE" in
-                lo|tailscale*)
+                tailscale*)
                   exit 0
                   ;;
               esac
 
-              # Force interface to NOT be default route for DNS
-              # This ensures global DNS (127.0.0.1 → dnscrypt-proxy) always wins
-              ${pkgs.systemd}/bin/resolvectl default-route "$INTERFACE" false 2>/dev/null || true
+              # Check if ignore-auto-dns is already set
+              IPV4_IGNORE=$(${pkgs.networkmanager}/bin/nmcli -g ipv4.ignore-auto-dns connection show "$CONNECTION_UUID" 2>/dev/null)
+              IPV6_IGNORE=$(${pkgs.networkmanager}/bin/nmcli -g ipv6.ignore-auto-dns connection show "$CONNECTION_UUID" 2>/dev/null)
 
-              # Clear any per-link DNS servers pushed by DHCP
-              ${pkgs.systemd}/bin/resolvectl dns "$INTERFACE" "" 2>/dev/null || true
+              # Set ignore-auto-dns if not already set
+              if [ "$IPV4_IGNORE" != "yes" ] || [ "$IPV6_IGNORE" != "yes" ]; then
+                ${pkgs.networkmanager}/bin/nmcli connection modify "$CONNECTION_UUID" \
+                  ipv4.ignore-auto-dns yes \
+                  ipv6.ignore-auto-dns yes 2>/dev/null || true
 
-              # Clear any per-link search/routing domains
-              ${pkgs.systemd}/bin/resolvectl domain "$INTERFACE" "" 2>/dev/null || true
+                # Reactivate to apply (only for non-VPN, VPNs auto-apply)
+                if [ "$ACTION" = "up" ]; then
+                  ${pkgs.networkmanager}/bin/nmcli connection up "$CONNECTION_UUID" 2>/dev/null &
+                fi
+              fi
             '';
             type = "basic";
           }
