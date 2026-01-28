@@ -17,7 +17,8 @@
       # Instead, we create a derivation that mimics the source structure:
       # $out/
       #   ├── script.qml
-      #   └── lib -> /nix/store/.../lib
+      #   ├── lib -> /nix/store/.../lib
+      #   └── notifications -> /nix/store/.../notifications (for notification center)
       # This allows 'import "./lib"' in the QML to work natively.
       mkQml =
         name: src:
@@ -25,6 +26,7 @@
           env = pkgs.runCommandLocal "qs-${name}" { } ''
             mkdir -p $out
             ln -s ${./lib} $out/lib
+            ln -s ${./notifications} $out/notifications 2>/dev/null || true
             cp ${src} $out/${name}
             cp ${./list_apps.ts} $out/list_apps.ts 2>/dev/null || true
           '';

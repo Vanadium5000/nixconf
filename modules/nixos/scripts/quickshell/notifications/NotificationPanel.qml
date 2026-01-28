@@ -1,11 +1,5 @@
 /*
  * NotificationPanel.qml - Full notification center panel
- *
- * Expandable sidebar panel showing all notifications with:
- * - Header with count, DND toggle, clear all
- * - Scrollable notification list grouped by app
- * - Settings panel for ding sounds
- * - Empty state
  */
 
 import QtQuick
@@ -13,9 +7,7 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Widgets
-import Quickshell.Services.Notifications
-import Qt5Compat.GraphicalEffects
-import "."
+import "../lib"
 
 PanelWindow {
     id: root
@@ -99,11 +91,6 @@ PanelWindow {
                     active: root.notificationService.dndEnabled
                     cornerRadius: 18
                     onClicked: root.notificationService.toggleDnd()
-
-                    ToolTip {
-                        visible: parent.hovered
-                        text: root.notificationService.dndEnabled ? "Disable Do Not Disturb" : "Enable Do Not Disturb"
-                    }
                 }
 
                 // Settings toggle
@@ -124,11 +111,6 @@ PanelWindow {
                     icon: "󰆴"
                     cornerRadius: 18
                     onClicked: root.notificationService.dismissAll()
-
-                    ToolTip {
-                        visible: parent.hovered
-                        text: "Clear all notifications"
-                    }
                 }
 
                 // Close panel
@@ -214,12 +196,6 @@ PanelWindow {
                     onActionInvoked: (actionId) => root.notificationService.invokeAction(modelData.id, actionId)
                     onCopyRequested: (text) => root.notificationService.copyToClipboard(text)
                 }
-
-                // Scroll indicators
-                ScrollBar.vertical: ScrollBar {
-                    active: true
-                    policy: ScrollBar.AsNeeded
-                }
             }
         }
     }
@@ -246,7 +222,7 @@ PanelWindow {
                     color: Theme.glass.textPrimary
                 }
 
-                // Volume slider
+                // Volume slider row
                 RowLayout {
                     Layout.fillWidth: true
                     spacing: 12
@@ -258,42 +234,53 @@ PanelWindow {
                         color: Theme.glass.textSecondary
                     }
 
-                    Slider {
+                    // Custom slider
+                    Item {
                         id: volumeSlider
                         Layout.fillWidth: true
-                        from: 0
-                        to: 1
-                        value: root.notificationService.soundVolume
-                        onMoved: {
-                            root.notificationService.soundVolume = value
-                            root.notificationService.saveSettings()
-                        }
+                        implicitHeight: 20
 
-                        background: Rectangle {
-                            x: volumeSlider.leftPadding
-                            y: volumeSlider.topPadding + volumeSlider.availableHeight / 2 - height / 2
-                            width: volumeSlider.availableWidth
+                        property real value: root.notificationService.soundVolume
+
+                        Rectangle {
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            anchors.verticalCenter: parent.verticalCenter
                             height: 4
                             radius: 2
                             color: Theme.glass.separatorOpaque
 
                             Rectangle {
-                                width: volumeSlider.visualPosition * parent.width
+                                width: volumeSlider.value * parent.width
                                 height: parent.height
                                 radius: 2
                                 color: Theme.glass.accentColor
                             }
                         }
 
-                        handle: Rectangle {
-                            x: volumeSlider.leftPadding + volumeSlider.visualPosition * (volumeSlider.availableWidth - width)
-                            y: volumeSlider.topPadding + volumeSlider.availableHeight / 2 - height / 2
+                        Rectangle {
+                            x: volumeSlider.value * (parent.width - width)
+                            anchors.verticalCenter: parent.verticalCenter
                             width: 16
                             height: 16
                             radius: 8
-                            color: volumeSlider.pressed ? Theme.glass.accentColorAlt : Theme.glass.textPrimary
+                            color: volumeSliderMouse.pressed ? Theme.glass.accentColorAlt : Theme.glass.textPrimary
                             border.color: Theme.glass.accentColor
                             border.width: 2
+                        }
+
+                        MouseArea {
+                            id: volumeSliderMouse
+                            anchors.fill: parent
+                            onPressed: (mouse) => updateValue(mouse)
+                            onPositionChanged: (mouse) => { if (pressed) updateValue(mouse) }
+
+                            function updateValue(mouse) {
+                                var pos = Math.max(0, Math.min(1, mouse.x / width))
+                                volumeSlider.value = pos
+                                root.notificationService.soundVolume = pos
+                                root.notificationService.saveSettings()
+                            }
                         }
                     }
 
@@ -359,96 +346,9 @@ PanelWindow {
                     onToggled: root.notificationService.setDingForUrgency("critical", checked)
                 }
 
-                Rectangle {
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 1
-                    color: Theme.glass.separator
-                }
-
-                // Per-app overrides
-                Text {
-                    text: "App Overrides"
-                    font.family: Theme.glass.fontFamily
-                    font.pixelSize: Theme.glass.fontSizeLarge
-                    font.bold: true
-                    color: Theme.glass.textPrimary
-                }
-
-                Text {
-                    Layout.fillWidth: true
-                    text: "Override sound settings for specific apps. Use the ⋮ menu on notifications to configure."
-                    font.family: Theme.glass.fontFamily
-                    font.pixelSize: Theme.glass.fontSizeSmall
-                    color: Theme.glass.textTertiary
-                    wrapMode: Text.Wrap
-                }
-
-                // List of app overrides
-                Repeater {
-                    model: Object.keys(root.notificationService.appDingOverrides)
-
-                    RowLayout {
-                        required property string modelData
-                        Layout.fillWidth: true
-                        spacing: 10
-
-                        Text {
-                            Layout.fillWidth: true
-                            text: modelData
-                            font.family: Theme.glass.fontFamily
-                            font.pixelSize: Theme.glass.fontSizeMedium
-                            color: Theme.glass.textSecondary
-                            elide: Text.ElideRight
-                        }
-
-                        Text {
-                            text: root.notificationService.appDingOverrides[modelData] ? "Sound On" : "Sound Off"
-                            font.family: Theme.glass.fontFamily
-                            font.pixelSize: Theme.glass.fontSizeSmall
-                            color: root.notificationService.appDingOverrides[modelData] ? Theme.colors.green : Theme.glass.textTertiary
-                        }
-
-                        GlassButton {
-                            implicitWidth: 28
-                            implicitHeight: 28
-                            icon: "󰅖"
-                            cornerRadius: 14
-                            onClicked: {
-                                delete root.notificationService.appDingOverrides[modelData]
-                                root.notificationService.appDingOverrides = Object.assign({}, root.notificationService.appDingOverrides)
-                                root.notificationService.saveSettings()
-                            }
-                        }
-                    }
-                }
-
                 // Spacer
                 Item { Layout.fillHeight: true }
             }
-        }
-    }
-
-    // ToolTip component
-    component ToolTip: Rectangle {
-        id: tooltip
-        property string text: ""
-        
-        visible: false
-        width: tooltipText.implicitWidth + 16
-        height: tooltipText.implicitHeight + 8
-        radius: 4
-        color: Theme.glass.backgroundSolid
-        border.color: Theme.glass.separator
-        border.width: 1
-        z: 1000
-
-        Text {
-            id: tooltipText
-            anchors.centerIn: parent
-            text: tooltip.text
-            font.family: Theme.glass.fontFamily
-            font.pixelSize: Theme.glass.fontSizeSmall
-            color: Theme.glass.textPrimary
         }
     }
 
@@ -510,37 +410,6 @@ PanelWindow {
                     checked = !checked
                     toggled()
                 }
-            }
-        }
-    }
-
-    // Slider component (QtQuick.Controls not imported, so define inline)
-    component Slider: Item {
-        id: slider
-        property real from: 0
-        property real to: 1
-        property real value: 0.5
-        property real visualPosition: (value - from) / (to - from)
-        property bool pressed: sliderMouse.pressed
-        property int leftPadding: 0
-        property int topPadding: 0
-        property int availableWidth: width
-        property int availableHeight: height
-        signal moved()
-
-        implicitHeight: 20
-
-        MouseArea {
-            id: sliderMouse
-            anchors.fill: parent
-            
-            onPressed: updateValue(mouse)
-            onPositionChanged: if (pressed) updateValue(mouse)
-
-            function updateValue(mouse) {
-                var pos = Math.max(0, Math.min(1, mouse.x / width))
-                slider.value = slider.from + pos * (slider.to - slider.from)
-                slider.moved()
             }
         }
     }

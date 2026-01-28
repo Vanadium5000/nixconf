@@ -69,7 +69,9 @@
 
             # Network monitoring TUI tools
             termshark # TUI packet analyzer (uses tshark backend)
-            snitch # TUI for inspecting network connections (netstat for humans)
+          ]
+          ++ [
+            self'.packages.snitch # TUI for inspecting network connections (netstat for humans)
           ]
           ++
             # Language runtimes/compilers

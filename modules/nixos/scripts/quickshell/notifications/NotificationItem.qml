@@ -1,23 +1,12 @@
 /*
  * NotificationItem.qml - Individual notification display component
- *
- * Displays a single notification with:
- * - App icon and name
- * - Summary and body text
- * - Timestamp
- * - Action buttons
- * - Copy button
- * - Swipe to dismiss
- * - Expandable body for long content
  */
 
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Widgets
-import Quickshell.Services.Notifications
-import Qt5Compat.GraphicalEffects
-import "."
+import "../lib"
 
 GlassPanel {
     id: root
@@ -49,11 +38,9 @@ GlassPanel {
 
     // Urgency-based accent
     property color urgencyColor: {
-        switch (notification.urgency) {
-            case NotificationUrgency.Critical: return Theme.colors.red
-            case NotificationUrgency.Low: return Theme.colors.base04
-            default: return Theme.glass.accentColor
-        }
+        if (root.notification.urgency === 2) return Theme.colors.red
+        if (root.notification.urgency === 0) return Theme.colors.base04
+        return Theme.glass.accentColor
     }
 
     ColumnLayout {
@@ -77,13 +64,13 @@ GlassPanel {
                     anchors.fill: parent
                     
                     property string resolvedIcon: {
-                        if (!notification.appIcon || notification.appIcon === "") {
+                        if (!root.notification.appIcon || root.notification.appIcon === "") {
                             return Quickshell.iconPath("dialog-information", "")
                         }
-                        if (notification.appIcon.startsWith("/")) {
-                            return "file://" + notification.appIcon
+                        if (root.notification.appIcon.startsWith("/")) {
+                            return "file://" + root.notification.appIcon
                         }
-                        var resolved = Quickshell.iconPath(notification.appIcon, "")
+                        var resolved = Quickshell.iconPath(root.notification.appIcon, "")
                         return resolved !== "" ? resolved : Quickshell.iconPath("dialog-information", "")
                     }
                     
@@ -95,7 +82,7 @@ GlassPanel {
                 Text {
                     anchors.centerIn: parent
                     visible: appIcon.source === ""
-                    text: notification.appName.charAt(0).toUpperCase()
+                    text: root.notification.appName ? root.notification.appName.charAt(0).toUpperCase() : "N"
                     font.pixelSize: 14
                     font.bold: true
                     color: Theme.glass.textPrimary
@@ -105,7 +92,7 @@ GlassPanel {
             // App name
             Text {
                 Layout.fillWidth: true
-                text: notification.appName || "Notification"
+                text: root.notification.appName || "Notification"
                 font.family: Theme.glass.fontFamily
                 font.pixelSize: Theme.glass.fontSizeSmall
                 font.bold: true
@@ -115,7 +102,7 @@ GlassPanel {
 
             // Time ago
             Text {
-                text: notification.timeAgo
+                text: root.notification.timeAgo || "now"
                 font.family: Theme.glass.fontFamily
                 font.pixelSize: Theme.glass.fontSizeSmall
                 color: Theme.glass.textTertiary
@@ -131,30 +118,11 @@ GlassPanel {
             }
         }
 
-        // Notification image (if present)
-        Image {
-            id: notifImage
-            Layout.fillWidth: true
-            Layout.preferredHeight: visible ? 120 : 0
-            visible: notification.image && notification.image !== ""
-            source: notification.image ? (notification.image.startsWith("/") ? "file://" + notification.image : notification.image) : ""
-            fillMode: Image.PreserveAspectCrop
-            
-            layer.enabled: true
-            layer.effect: OpacityMask {
-                maskSource: Rectangle {
-                    width: notifImage.width
-                    height: notifImage.height
-                    radius: Theme.glass.cornerRadiusSmall
-                }
-            }
-        }
-
         // Summary
         Text {
             Layout.fillWidth: true
-            visible: notification.summary && notification.summary !== ""
-            text: notification.summary
+            visible: root.notification.summary && root.notification.summary !== ""
+            text: root.notification.summary
             font.family: Theme.glass.fontFamily
             font.pixelSize: Theme.glass.fontSizeMedium
             font.bold: true
@@ -167,8 +135,8 @@ GlassPanel {
         // Body
         Text {
             Layout.fillWidth: true
-            visible: notification.body && notification.body !== ""
-            text: notification.body.replace(/\n/g, "<br/>")
+            visible: root.notification.body && root.notification.body !== ""
+            text: root.notification.body.replace(/\n/g, "<br/>")
             font.family: Theme.glass.fontFamily
             font.pixelSize: Theme.glass.fontSizeSmall
             color: Theme.glass.textSecondary
@@ -178,18 +146,12 @@ GlassPanel {
             textFormat: Text.RichText
             
             onLinkActivated: (link) => Qt.openUrlExternally(link)
-
-            MouseArea {
-                anchors.fill: parent
-                cursorShape: parent.hoveredLink ? Qt.PointingHandCursor : Qt.ArrowCursor
-                acceptedButtons: Qt.NoButton
-            }
         }
 
         // Expand/collapse button for long content
         GlassButton {
             Layout.alignment: Qt.AlignHCenter
-            visible: notification.body && notification.body.length > 150
+            visible: root.notification.body && root.notification.body.length > 150
             implicitWidth: 100
             implicitHeight: 28
             text: root.expanded ? "Show less" : "Show more"
@@ -200,11 +162,11 @@ GlassPanel {
         // Actions row
         RowLayout {
             Layout.fillWidth: true
-            visible: notification.actions && notification.actions.length > 0
+            visible: root.notification.actions && root.notification.actions.length > 0
             spacing: 8
 
             Repeater {
-                model: notification.actions
+                model: root.notification.actions
 
                 GlassButton {
                     required property var modelData
@@ -227,15 +189,15 @@ GlassPanel {
                 id: copyButton
                 Layout.fillWidth: true
                 implicitHeight: 32
-                icon: copyIcon.copied ? "󰄬" : "󰆏"
-                text: copyIcon.copied ? "Copied" : "Copy"
+                icon: copied ? "󰄬" : "󰆏"
+                text: copied ? "Copied" : "Copy"
                 cornerRadius: Theme.glass.cornerRadiusSmall
                 contentAlignment: Qt.AlignHCenter
                 
                 property bool copied: false
 
                 onClicked: {
-                    root.copyRequested(notification.body || notification.summary)
+                    root.copyRequested(root.notification.body || root.notification.summary)
                     copied = true
                     copyResetTimer.restart()
                 }
@@ -268,7 +230,7 @@ GlassPanel {
         width: 3
         radius: 1.5
         color: root.urgencyColor
-        visible: notification.urgency === NotificationUrgency.Critical
+        visible: root.notification.urgency === 2
     }
 
     // Mouse handling for swipe
@@ -293,7 +255,6 @@ GlassPanel {
         onReleased: {
             dragging = false
             if (Math.abs(root.dragX) > root.dragThreshold) {
-                // Animate off screen then dismiss
                 root.dragX = root.dragX > 0 ? root.width + 50 : -root.width - 50
                 dismissTimer.start()
             } else {

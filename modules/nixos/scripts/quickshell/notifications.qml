@@ -6,25 +6,38 @@
  */
 
 import QtQuick
+import QtMultimedia
 import Quickshell
 import Quickshell.Wayland
 import "./lib"
+import "./notifications"
 
 ShellRoot {
     id: root
 
-    // The notification service singleton
-    NotificationCenter {
-        id: notificationService
+    // Sound player (in main file so it works properly)
+    MediaPlayer {
+        id: dingPlayer
+        source: "file:///run/current-system/sw/share/sounds/freedesktop/stereo/message.oga"
+        audioOutput: AudioOutput {
+            volume: NotificationCenter.soundVolume
+        }
+    }
+
+    Connections {
+        target: NotificationCenter
+        function onPlayDingSignal() {
+            dingPlayer.play()
+        }
     }
 
     // Popup notifications (corner popups)
     NotificationPopup {
-        notificationService: notificationService
+        notificationService: NotificationCenter
     }
 
     // Full notification panel
     NotificationPanel {
-        notificationService: notificationService
+        notificationService: NotificationCenter
     }
 }

@@ -32,7 +32,7 @@
 
             # Prevent NetworkManager from pushing per-link DNS to systemd-resolved
             # This ensures ALL DNS goes through global (127.0.0.1 → dnscrypt-proxy)
-            dns = "none";
+            dns = lib.mkForce "none";
 
             wifi = {
               macAddress = "stable"; # Randomize MAC for Wi-Fi connections - "random" breaks networks
@@ -175,24 +175,43 @@
         };
 
         # ============================================================================
-        # Force VPNs to use global DNS (not VPN-pushed DNS)
+        # Force ALL interfaces to use global DNS (not DHCP/VPN-pushed DNS)
         # ============================================================================
-        # OpenVPN and other VPNs often push their own DNS servers via DHCP options.
-        # This dispatcher ensures VPN interfaces also use dnscrypt-proxy.
+        # NetworkManager's dns=none only affects /etc/resolv.conf management.
+        # The internal DHCP client STILL pushes per-link DNS to systemd-resolved
+        # via DBus. This dispatcher clears that immediately after any interface
+        # comes up, ensuring all DNS goes through global (127.0.0.1 → dnscrypt-proxy).
         networking.networkmanager.dispatcherScripts = [
           {
-            source = pkgs.writeShellScript "force-global-dns-vpn" ''
+            source = pkgs.writeShellScript "force-global-dns" ''
               INTERFACE="$1"
               ACTION="$2"
 
+              # Act on any event that might set DNS
               case "$ACTION" in
-                vpn-up)
-                  # Force VPN interface to NOT be default route for DNS
-                  ${pkgs.systemd}/bin/resolvectl default-route "$INTERFACE" false 2>/dev/null || true
-                  ${pkgs.systemd}/bin/resolvectl dns "$INTERFACE" "" 2>/dev/null || true
-                  ${pkgs.systemd}/bin/resolvectl domain "$INTERFACE" "" 2>/dev/null || true
+                up|vpn-up|dhcp4-change|dhcp6-change|connectivity-change)
+                  ;;
+                *)
+                  exit 0
                   ;;
               esac
+
+              # Skip loopback and tailscale (tailscale manages its own DNS correctly)
+              case "$INTERFACE" in
+                lo|tailscale*)
+                  exit 0
+                  ;;
+              esac
+
+              # Force interface to NOT be default route for DNS
+              # This ensures global DNS (127.0.0.1 → dnscrypt-proxy) always wins
+              ${pkgs.systemd}/bin/resolvectl default-route "$INTERFACE" false 2>/dev/null || true
+
+              # Clear any per-link DNS servers pushed by DHCP
+              ${pkgs.systemd}/bin/resolvectl dns "$INTERFACE" "" 2>/dev/null || true
+
+              # Clear any per-link search/routing domains
+              ${pkgs.systemd}/bin/resolvectl domain "$INTERFACE" "" 2>/dev/null || true
             '';
             type = "basic";
           }

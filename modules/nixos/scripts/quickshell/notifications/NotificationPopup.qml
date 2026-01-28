@@ -1,8 +1,5 @@
 /*
  * NotificationPopup.qml - Popup notification display
- *
- * Shows individual notifications as popups in the corner of the screen.
- * Auto-dismisses after timeout, supports actions and swipe-to-dismiss.
  */
 
 import QtQuick
@@ -10,8 +7,7 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Widgets
-import Qt5Compat.GraphicalEffects
-import "."
+import "../lib"
 
 PanelWindow {
     id: root

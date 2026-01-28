@@ -1,34 +1,17 @@
 /*
- * notification-center.qml - Liquid Glass Notification Center
+ * NotificationCenter.qml - Notification Service Singleton
  *
- * A full-featured notification daemon and center implementing the Liquid Glass
- * design language. Replaces swaync with native Quickshell implementation.
- *
- * Features:
- * - Popup notifications with configurable timeout
- * - Expandable notification center panel
- * - Notification actions (buttons)
- * - App icon rendering
- * - Copy body to clipboard
- * - Notification grouping by app
- * - Persistent storage across restarts
- * - Ding sound support with per-app settings
- * - Do Not Disturb mode
+ * Core notification service that manages the notification server,
+ * persistence, and sound system.
  */
 
 pragma Singleton
 pragma ComponentBehavior: Bound
 
 import QtQuick
-import QtQuick.Layouts
-import QtMultimedia
 import Quickshell
 import Quickshell.Io
-import Quickshell.Wayland
-import Quickshell.Widgets
 import Quickshell.Services.Notifications
-import Qt5Compat.GraphicalEffects
-import "./lib"
 
 Singleton {
     id: root
@@ -37,8 +20,8 @@ Singleton {
     // Public Properties
     // =========================================================================
 
-    property list<NotificationWrapper> notifications: []
-    readonly property list<NotificationWrapper> popups: notifications.filter(n => n.isPopup)
+    property var notifications: []
+    readonly property var popups: notifications.filter(n => n.isPopup)
     readonly property int count: notifications.length
     readonly property int unreadCount: notifications.filter(n => !n.read).length
 
@@ -63,6 +46,7 @@ Singleton {
     signal notificationReceived(var notification)
     signal notificationDismissed(int id)
     signal panelToggled(bool visible)
+    signal playDingSignal()
 
     // =========================================================================
     // Public Functions
@@ -87,7 +71,7 @@ Singleton {
         panelToggled(false)
     }
 
-    function dismissNotification(id: int) {
+    function dismissNotification(id) {
         const index = notifications.findIndex(n => n.id === id)
         if (index !== -1) {
             const notif = notifications[index]
@@ -95,7 +79,7 @@ Singleton {
                 notif.notification.dismiss()
             }
             notifications.splice(index, 1)
-            notifications = notifications.slice() // Trigger update
+            notifications = notifications.slice()
             notificationDismissed(id)
             saveNotifications()
         }
@@ -116,7 +100,7 @@ Singleton {
         notifications = notifications.slice()
     }
 
-    function invokeAction(notifId: int, actionIdentifier: string) {
+    function invokeAction(notifId, actionIdentifier) {
         const notif = notifications.find(n => n.id === notifId)
         if (notif && notif.notification) {
             const action = notif.notification.actions.find(a => a.identifier === actionIdentifier)
@@ -127,17 +111,17 @@ Singleton {
         dismissNotification(notifId)
     }
 
-    function copyToClipboard(text: string) {
+    function copyToClipboard(text) {
         Quickshell.clipboardText = text
     }
 
-    function setDingForApp(appName: string, enabled: bool) {
+    function setDingForApp(appName, enabled) {
         appDingOverrides[appName] = enabled
         appDingOverrides = Object.assign({}, appDingOverrides)
         saveSettings()
     }
 
-    function setDingForUrgency(urgency: string, enabled: bool) {
+    function setDingForUrgency(urgency, enabled) {
         dingSoundSettings[urgency] = enabled
         dingSoundSettings = Object.assign({}, dingSoundSettings)
         saveSettings()
@@ -148,76 +132,46 @@ Singleton {
         saveSettings()
     }
 
-    // =========================================================================
-    // Notification Wrapper Component
-    // =========================================================================
-
-    component NotificationWrapper: QtObject {
-        id: wrapper
-
-        required property int id
-        property Notification notification
-        property bool isPopup: false
-        property bool read: false
-        property date time: new Date()
-
-        // Cached properties for persistence
-        property string summary: notification?.summary ?? ""
-        property string body: notification?.body ?? ""
-        property string appName: notification?.appName ?? ""
-        property string appIcon: notification?.appIcon ?? ""
-        property string image: notification?.image ?? ""
-        property int urgency: notification?.urgency ?? NotificationUrgency.Normal
-        property list<var> actions: notification?.actions.map(a => ({
-            identifier: a.identifier,
-            text: a.text
-        })) ?? []
-
-        readonly property string urgencyString: {
-            switch (urgency) {
-                case NotificationUrgency.Low: return "low"
-                case NotificationUrgency.Critical: return "critical"
-                default: return "normal"
-            }
-        }
-
-        readonly property string timeAgo: {
-            const now = new Date()
-            const diff = Math.floor((now - time) / 1000)
-            if (diff < 60) return "now"
-            if (diff < 3600) return Math.floor(diff / 60) + "m"
-            if (diff < 86400) return Math.floor(diff / 3600) + "h"
-            return Math.floor(diff / 86400) + "d"
-        }
-
-        property Timer popupTimer: Timer {
-            interval: 7000
-            running: wrapper.isPopup
-            onTriggered: {
-                wrapper.isPopup = false
-                root.notifications = root.notifications.slice()
-            }
-        }
-
-        onNotificationChanged: {
-            if (notification) {
-                summary = notification.summary
-                body = notification.body
-                appName = notification.appName
-                appIcon = notification.appIcon
-                image = notification.image
-                urgency = notification.urgency
-                actions = notification.actions.map(a => ({
-                    identifier: a.identifier,
-                    text: a.text
-                }))
-            }
-        }
+    function playDing() {
+        playDingSignal()
     }
 
-    Component {
-        id: notificationWrapperComponent
-        NotificationWrapper {}
+    // =========================================================================
+    // Internal: Create notification wrapper object
+    // =========================================================================
+
+    function createNotificationWrapper(id, notification, isPopup, time) {
+        var urgencyVal = notification ? notification.urgency : 1
+        var urgencyStr = "normal"
+        if (urgencyVal === 0) urgencyStr = "low"
+        else if (urgencyVal === 2) urgencyStr = "critical"
+
+        return {
+            id: id,
+            notification: notification,
+            isPopup: isPopup,
+            read: false,
+            time: time || new Date(),
+            summary: notification ? notification.summary : "",
+            body: notification ? notification.body : "",
+            appName: notification ? notification.appName : "",
+            appIcon: notification ? notification.appIcon : "",
+            image: notification ? notification.image : "",
+            urgency: urgencyVal,
+            urgencyString: urgencyStr,
+            actions: notification ? notification.actions.map(a => ({
+                identifier: a.identifier,
+                text: a.text
+            })) : [],
+            get timeAgo() {
+                const now = new Date()
+                const diff = Math.floor((now - this.time) / 1000)
+                if (diff < 60) return "now"
+                if (diff < 3600) return Math.floor(diff / 60) + "m"
+                if (diff < 86400) return Math.floor(diff / 3600) + "h"
+                return Math.floor(diff / 86400) + "d"
+            }
+        }
     }
 
     // =========================================================================
@@ -242,12 +196,20 @@ Singleton {
             notification.tracked = true
 
             const newId = notification.id + root.idOffset
-            const wrapper = notificationWrapperComponent.createObject(root, {
-                id: newId,
-                notification: notification,
-                isPopup: !root.dndEnabled && !root.panelVisible,
-                time: new Date()
-            })
+            const wrapper = root.createNotificationWrapper(
+                newId,
+                notification,
+                !root.dndEnabled && !root.panelVisible,
+                new Date()
+            )
+
+            // Set up popup timeout
+            if (wrapper.isPopup) {
+                Qt.callLater(() => {
+                    popupTimer.notifId = newId
+                    popupTimer.restart()
+                })
+            }
 
             root.notifications = [wrapper, ...root.notifications]
             root.notificationReceived(wrapper)
@@ -259,37 +221,40 @@ Singleton {
         }
     }
 
+    Timer {
+        id: popupTimer
+        property int notifId: -1
+        interval: 7000
+        onTriggered: {
+            if (notifId >= 0) {
+                const index = root.notifications.findIndex(n => n.id === notifId)
+                if (index !== -1) {
+                    root.notifications[index].isPopup = false
+                    root.notifications = root.notifications.slice()
+                }
+            }
+        }
+    }
+
     // =========================================================================
     // Sound System
     // =========================================================================
 
-    MediaPlayer {
-        id: dingPlayer
-        source: "file:///run/current-system/sw/share/sounds/freedesktop/stereo/message.oga"
-        audioOutput: AudioOutput {
-            volume: root.soundVolume
-        }
-    }
-
-    function maybePlayDing(notif: NotificationWrapper) {
+    function maybePlayDing(notif) {
         if (root.dndEnabled) return
 
         // Check app-specific override first
         if (notif.appName in root.appDingOverrides) {
             if (root.appDingOverrides[notif.appName]) {
-                dingPlayer.play()
+                root.playDingSignal()
             }
             return
         }
 
         // Fall back to urgency-based setting
         if (root.dingSoundSettings[notif.urgencyString]) {
-            dingPlayer.play()
+            root.playDingSignal()
         }
-    }
-
-    function playDing() {
-        dingPlayer.play()
     }
 
     // =========================================================================
@@ -311,7 +276,7 @@ Singleton {
             urgency: n.urgency,
             time: n.time.getTime(),
             read: n.read,
-            actions: []  // Actions can't be invoked after restart
+            actions: []
         }))
         notifStorage.setText(JSON.stringify(data, null, 2))
     }
@@ -336,18 +301,14 @@ Singleton {
                 let maxId = 0
                 data.forEach(n => {
                     maxId = Math.max(maxId, n.id)
-                    const wrapper = notificationWrapperComponent.createObject(root, {
-                        id: n.id,
-                        summary: n.summary,
-                        body: n.body,
-                        appName: n.appName,
-                        appIcon: n.appIcon,
-                        image: n.image,
-                        urgency: n.urgency,
-                        time: new Date(n.time),
-                        read: n.read,
-                        isPopup: false
-                    })
+                    const wrapper = root.createNotificationWrapper(n.id, null, false, new Date(n.time))
+                    wrapper.summary = n.summary
+                    wrapper.body = n.body
+                    wrapper.appName = n.appName
+                    wrapper.appIcon = n.appIcon
+                    wrapper.image = n.image
+                    wrapper.urgency = n.urgency
+                    wrapper.read = n.read
                     root.notifications.push(wrapper)
                 })
                 root.idOffset = maxId
