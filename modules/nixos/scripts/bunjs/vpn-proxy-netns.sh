@@ -57,9 +57,21 @@ create_namespace() {
         destroy_namespace "$ns"
     fi
     
+    # Wait for namespace file to be fully released after destroy
     if [[ -f "/var/run/netns/$ns" ]]; then
-        log "Removing stale namespace file for $ns"
-        run rm -f "/var/run/netns/$ns"
+        log "Waiting for stale namespace file to be released: $ns"
+        local retries=10
+        while [[ -f "/var/run/netns/$ns" ]] && [[ $retries -gt 0 ]]; do
+            run umount "/var/run/netns/$ns" 2>/dev/null || true
+            run rm -f "/var/run/netns/$ns" 2>/dev/null || true
+            if [[ -f "/var/run/netns/$ns" ]]; then
+                sleep 0.5
+                ((retries--))
+            fi
+        done
+        if [[ -f "/var/run/netns/$ns" ]]; then
+            die "Cannot remove stale namespace file /var/run/netns/$ns - still busy after retries"
+        fi
     fi
     
     run ip netns add "$ns" || die "Failed to create namespace $ns"
@@ -175,7 +187,14 @@ destroy_namespace() {
     if [[ -n "$pids" ]]; then
         log "Killing processes in namespace: $pids"
         echo "$pids" | xargs -r run kill -9 2>/dev/null || true
-        sleep 1
+        # Wait for processes to fully terminate
+        local wait_count=0
+        while [[ $wait_count -lt 10 ]]; do
+            pids=$(run ip netns pids "$ns" 2>/dev/null || true)
+            [[ -z "$pids" ]] && break
+            sleep 0.3
+            ((wait_count++))
+        done
     fi
     
     run umount "/etc/netns/$ns/resolv.conf" 2>/dev/null || true
