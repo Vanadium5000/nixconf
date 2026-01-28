@@ -89,6 +89,46 @@
             PrivateTmp = true;
           };
         };
+
+        systemd.services.vpn-proxy-cleanup = {
+          description = "VPN SOCKS5 Proxy Cleanup Daemon";
+          wantedBy = [ "multi-user.target" ];
+          after = [ "vpn-proxy.service" ];
+          requires = [ "vpn-proxy.service" ];
+
+          path = [
+            pkgs.bash
+            pkgs.iproute2
+            pkgs.iptables
+            pkgs.nftables
+            pkgs.coreutils
+            pkgs.jq
+            pkgs.util-linux
+            pkgs.gnugrep
+            pkgs.gawk
+            pkgs.findutils
+          ];
+
+          environment = {
+            VPN_DIR = cfg.vpnDir;
+            VPN_PROXY_IDLE_TIMEOUT = toString cfg.idleTimeout;
+            VPN_PROXY_RANDOM_ROTATION = toString cfg.randomRotation;
+            VPN_PROXY_CLEANUP_INTERVAL = "60";
+          };
+
+          serviceConfig = {
+            Type = "simple";
+            ExecStart = "${self.packages.${pkgs.system}.vpn-proxy-cleanup}/bin/vpn-proxy-cleanup";
+            Restart = "on-failure";
+            RestartSec = 10;
+
+            NoNewPrivileges = false;
+            ProtectSystem = "full";
+            ProtectHome = "read-only";
+            ReadWritePaths = [ "/dev/shm" "/run/netns" "/var/run/netns" "/etc/netns" ];
+            PrivateTmp = true;
+          };
+        };
       };
     };
 }

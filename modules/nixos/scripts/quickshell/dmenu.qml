@@ -325,12 +325,26 @@ Scope {
                                         viewLoader.pageUp();
                                         event.accepted = true;
                                     } else {
+                                        // Build keybind string with modifiers
+                                        var keyParts = [];
+                                        if (event.modifiers & Qt.ControlModifier) keyParts.push("ctrl");
+                                        if (event.modifiers & Qt.AltModifier) keyParts.push("alt");
+                                        if (event.modifiers & Qt.ShiftModifier) keyParts.push("shift");
+                                        if (event.modifiers & Qt.MetaModifier) keyParts.push("meta");
+                                        
                                         var keyChar = event.text.toLowerCase();
-                                        if (keyChar && root.keybinds[keyChar]) {
+                                        if (keyChar) keyParts.push(keyChar);
+                                        
+                                        var keyCombo = keyParts.join("+");
+                                        
+                                        // Check both with and without modifiers
+                                        var matchedKeybind = root.keybinds[keyCombo] || (keyChar && root.keybinds[keyChar]);
+                                        var matchedKey = root.keybinds[keyCombo] ? keyCombo : keyChar;
+                                        
+                                        if (matchedKeybind) {
                                             var selectedItem = viewLoader.getCurrentItem();
                                             if (selectedItem) {
-                                                var keybindName = root.keybinds[keyChar];
-                                                console.log("QS_DMENU_KEYBIND:" + keyChar + ":" + keybindName + ":" + (selectedItem.originalText || selectedItem.text));
+                                                console.log("QS_DMENU_KEYBIND:" + matchedKey + ":" + matchedKeybind + ":" + (selectedItem.originalText || selectedItem.text));
                                                 Qt.quit();
                                             }
                                             event.accepted = true;

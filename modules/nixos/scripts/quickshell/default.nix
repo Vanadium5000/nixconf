@@ -694,7 +694,7 @@
             fi
 
             # Show menu with keybind support
-            SELECTION=$(echo -e "$MENU_ENTRIES" | qs-dmenu -p "VPN" -mesg "Press 'k' to copy SOCKS5 proxy link (auto-activates on use)" -keybinds '{"k":"copy-proxy"}')
+            SELECTION=$(echo -e "$MENU_ENTRIES" | qs-dmenu -p "VPN" -mesg "Press Alt+K to copy SOCKS5 proxy link (auto-activates on use)" -keybinds '{"alt+k":"copy-proxy"}')
 
             [ -z "$SELECTION" ] && exit 0
 
