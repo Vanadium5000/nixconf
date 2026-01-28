@@ -60,7 +60,8 @@ async function saveState(state: ProxyState): Promise<void> {
 }
 
 function runNetnsScript(args: string[]): { success: boolean; output: string } {
-  const result = spawnSync(["bash", NETNS_SCRIPT, ...args]);
+  const sudoPrefix = process.getuid() === 0 ? [] : ["sudo"];
+  const result = spawnSync([...sudoPrefix, "bash", NETNS_SCRIPT, ...args]);
   const output = result.stdout.toString() + result.stderr.toString();
   return { success: result.exitCode === 0, output };
 }
@@ -112,9 +113,10 @@ async function startOpenVPN(nsName: string, vpn: VpnConfig): Promise<number> {
   const pidFile = join(STATE_DIR, `openvpn-${nsName}.pid`);
   const logFile = join(STATE_DIR, `openvpn-${nsName}.log`);
 
+  const sudoPrefix = process.getuid() === 0 ? [] : ["sudo"];
   const proc = spawn({
     cmd: [
-      "sudo", "ip", "netns", "exec", nsName,
+      ...sudoPrefix, "ip", "netns", "exec", nsName,
       "openvpn", "--config", vpn.ovpnPath, "--dev", "tun0",
       "--daemon", "--writepid", pidFile, "--log", logFile,
     ],
@@ -142,8 +144,9 @@ async function startOpenVPN(nsName: string, vpn: VpnConfig): Promise<number> {
 
 async function waitForTunnel(nsName: string, timeout = 30000): Promise<boolean> {
   const start = Date.now();
+  const sudoPrefix = process.getuid() === 0 ? [] : ["sudo"];
   while (Date.now() - start < timeout) {
-    const result = spawnSync(["sudo", "ip", "netns", "exec", nsName, "ip", "addr", "show", "tun0"]);
+    const result = spawnSync([...sudoPrefix, "ip", "netns", "exec", nsName, "ip", "addr", "show", "tun0"]);
     if (result.exitCode === 0) {
       log("INFO", `Tunnel tun0 up in ${nsName}`);
       return true;
@@ -225,31 +228,20 @@ async function connectThroughNamespace(
   nsInfo: NamespaceInfo,
   targetHost: string,
   targetPort: number
-): Promise<Socket> {
-  return new Promise((resolve, reject) => {
-    const args = [
-      "sudo", "ip", "netns", "exec", nsInfo.nsName,
-      "socat", "-", `TCP:${targetHost}:${targetPort}`
-    ];
-    
-    const proc = spawn({ cmd: args, stdin: "pipe", stdout: "pipe", stderr: "pipe" });
-    
-    const socket = new (require("net").Socket)();
-    
-    proc.stdout.pipeTo(new WritableStream({
-      write(chunk) { socket.push(chunk); }
-    }));
-    
-    socket.on("data", (data: Buffer) => {
-      proc.stdin.write(data);
-    });
-    
-    socket.on("close", () => {
-      proc.stdin.end();
-    });
-    
-    resolve(socket);
-  });
+): Promise<{ readable: ReadableStream; writable: WritableStream; proc: ReturnType<typeof spawn> }> {
+  const sudoPrefix = process.getuid() === 0 ? [] : ["sudo"];
+  const args = [
+    ...sudoPrefix, "ip", "netns", "exec", nsInfo.nsName,
+    "socat", "-", `TCP:${targetHost}:${targetPort}`
+  ];
+  
+  const proc = spawn({ cmd: args, stdin: "pipe", stdout: "pipe", stderr: "pipe" });
+  
+  return {
+    readable: proc.stdout as ReadableStream,
+    writable: proc.stdin as unknown as WritableStream,
+    proc
+  };
 }
 
 async function handleConnection(clientSocket: Socket, state: ProxyState): Promise<void> {
@@ -332,15 +324,39 @@ async function handleSocks5Request(
       const reply = Buffer.from([0x05, 0x00, 0x00, 0x01, 0, 0, 0, 0, 0, 0]);
       clientSocket.write(reply);
 
-      const targetSocket = await connectThroughNamespace(nsInfo, targetHost, targetPort);
+      const { readable, writable, proc } = await connectThroughNamespace(nsInfo, targetHost, targetPort);
       
-      clientSocket.pipe(targetSocket);
-      targetSocket.pipe(clientSocket);
+      const writer = writable.getWriter();
+      clientSocket.on("data", (chunk: Buffer) => {
+        writer.write(chunk).catch(() => {});
+      });
+      
+      const reader = readable.getReader();
+      (async () => {
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            if (!clientSocket.destroyed) {
+              clientSocket.write(Buffer.from(value));
+            }
+          }
+        } catch {}
+        clientSocket.end();
+      })();
 
-      clientSocket.on("close", () => targetSocket.destroy());
-      targetSocket.on("close", () => clientSocket.destroy());
-      clientSocket.on("error", () => targetSocket.destroy());
-      targetSocket.on("error", () => clientSocket.destroy());
+      clientSocket.on("close", () => {
+        writer.close().catch(() => {});
+        proc.kill();
+      });
+      clientSocket.on("error", () => {
+        writer.close().catch(() => {});
+        proc.kill();
+      });
+      
+      proc.exited.then(() => {
+        if (!clientSocket.destroyed) clientSocket.end();
+      });
 
     } catch (error) {
       log("ERROR", `Request error: ${error}`);

@@ -13,6 +13,14 @@ VPN_SERVER_PORT="${5:-1194}"
 STATE_DIR="/dev/shm/vpn-proxy-$(id -u)"
 LOG_PREFIX="[netns-setup]"
 
+run() {
+    if [[ $(id -u) -eq 0 ]]; then
+        "$@"
+    else
+        sudo "$@"
+    fi
+}
+
 log() {
     echo "$(date -Iseconds) $LOG_PREFIX $*" >&2
 }
@@ -30,45 +38,47 @@ create_namespace() {
     
     log "Creating namespace: $ns (index=$idx, vpn=$vpn_ip:$vpn_port)"
     
-    # Create the namespace
-    sudo ip netns add "$ns" || die "Failed to create namespace $ns"
+    if run ip netns list 2>/dev/null | grep -q "^$ns"; then
+        log "Namespace $ns already exists, destroying first"
+        destroy_namespace "$ns"
+    fi
     
-    # Create veth pair
+    if [[ -f "/var/run/netns/$ns" ]]; then
+        log "Removing stale namespace file for $ns"
+        run rm -f "/var/run/netns/$ns"
+    fi
+    
+    run ip netns add "$ns" || die "Failed to create namespace $ns"
+    
     local veth_host="veth-h-$idx"
     local veth_ns="veth-n-$idx"
     
-    sudo ip link add "$veth_host" type veth peer name "$veth_ns" || die "Failed to create veth pair"
+    run ip link delete "$veth_host" 2>/dev/null || true
+    run ip link delete "$veth_ns" 2>/dev/null || true
     
-    # Move one end into namespace
-    sudo ip link set "$veth_ns" netns "$ns" || die "Failed to move veth to namespace"
+    run ip link add "$veth_host" type veth peer name "$veth_ns" || die "Failed to create veth pair"
+    run ip link set "$veth_ns" netns "$ns" || die "Failed to move veth to namespace"
     
-    # Configure host-side IP (10.200.X.1/24)
     local host_ip="10.200.$idx.1"
     local ns_ip="10.200.$idx.2"
     
-    sudo ip addr add "$host_ip/24" dev "$veth_host" || die "Failed to set host IP"
-    sudo ip link set "$veth_host" up || die "Failed to bring up host veth"
+    run ip addr add "$host_ip/24" dev "$veth_host" || die "Failed to set host IP"
+    run ip link set "$veth_host" up || die "Failed to bring up host veth"
     
-    # Configure namespace-side
-    sudo ip netns exec "$ns" ip addr add "$ns_ip/24" dev "$veth_ns" || die "Failed to set namespace IP"
-    sudo ip netns exec "$ns" ip link set "$veth_ns" up || die "Failed to bring up namespace veth"
-    sudo ip netns exec "$ns" ip link set lo up || die "Failed to bring up loopback"
+    run ip netns exec "$ns" ip addr add "$ns_ip/24" dev "$veth_ns" || die "Failed to set namespace IP"
+    run ip netns exec "$ns" ip link set "$veth_ns" up || die "Failed to bring up namespace veth"
+    run ip netns exec "$ns" ip link set lo up || die "Failed to bring up loopback"
+    run ip netns exec "$ns" ip route add default via "$host_ip" || die "Failed to set default route"
     
-    # Set default route in namespace to go through host (for VPN handshake)
-    sudo ip netns exec "$ns" ip route add default via "$host_ip" || die "Failed to set default route"
+    run sysctl -w net.ipv4.ip_forward=1 >/dev/null
     
-    # Enable IP forwarding on host
-    sudo sysctl -w net.ipv4.ip_forward=1 >/dev/null
+    run iptables -t nat -A POSTROUTING -s "10.200.$idx.0/24" -j MASQUERADE
+    run iptables -A FORWARD -i "$veth_host" -j ACCEPT
+    run iptables -A FORWARD -o "$veth_host" -j ACCEPT
     
-    # NAT masquerade for namespace traffic
-    sudo iptables -t nat -A POSTROUTING -s "10.200.$idx.0/24" -j MASQUERADE
-    sudo iptables -A FORWARD -i "$veth_host" -j ACCEPT
-    sudo iptables -A FORWARD -o "$veth_host" -j ACCEPT
-    
-    # Create per-namespace DNS config (prevents DNS leaks)
-    sudo mkdir -p "/etc/netns/$ns"
-    echo "nameserver 1.1.1.1" | sudo tee "/etc/netns/$ns/resolv.conf" >/dev/null
-    echo "nameserver 1.0.0.1" | sudo tee -a "/etc/netns/$ns/resolv.conf" >/dev/null
+    run mkdir -p "/etc/netns/$ns"
+    echo "nameserver 1.1.1.1" | run tee "/etc/netns/$ns/resolv.conf" >/dev/null
+    echo "nameserver 1.0.0.1" | run tee -a "/etc/netns/$ns/resolv.conf" >/dev/null
     
     # Apply kill-switch firewall rules inside namespace
     apply_killswitch "$ns" "$vpn_ip" "$vpn_port"
@@ -101,7 +111,7 @@ apply_killswitch() {
     log "Applying kill-switch firewall rules for $ns"
     
     # Use nftables for the kill-switch
-    sudo ip netns exec "$ns" nft -f - <<EOF
+    run ip netns exec "$ns" nft -f - <<EOF
 table inet vpn_killswitch {
     chain output {
         type filter hook output priority 0; policy drop;
@@ -134,49 +144,49 @@ destroy_namespace() {
     
     log "Destroying namespace: $ns"
     
-    # Load namespace info
     local info_file="$STATE_DIR/ns-$ns.json"
     if [[ -f "$info_file" ]]; then
         local idx veth_host
         idx=$(jq -r '.index' "$info_file")
         veth_host=$(jq -r '.vethHost' "$info_file")
         
-        # Remove NAT rules
-        sudo iptables -t nat -D POSTROUTING -s "10.200.$idx.0/24" -j MASQUERADE 2>/dev/null || true
-        sudo iptables -D FORWARD -i "$veth_host" -j ACCEPT 2>/dev/null || true
-        sudo iptables -D FORWARD -o "$veth_host" -j ACCEPT 2>/dev/null || true
-        
-        # Remove veth from host
-        sudo ip link delete "$veth_host" 2>/dev/null || true
+        run iptables -t nat -D POSTROUTING -s "10.200.$idx.0/24" -j MASQUERADE 2>/dev/null || true
+        run iptables -D FORWARD -i "$veth_host" -j ACCEPT 2>/dev/null || true
+        run iptables -D FORWARD -o "$veth_host" -j ACCEPT 2>/dev/null || true
+        run ip link delete "$veth_host" 2>/dev/null || true
         
         rm -f "$info_file"
     fi
     
-    # Kill all processes in namespace
     local pids
-    pids=$(sudo ip netns pids "$ns" 2>/dev/null || true)
+    pids=$(run ip netns pids "$ns" 2>/dev/null || true)
     if [[ -n "$pids" ]]; then
         log "Killing processes in namespace: $pids"
-        echo "$pids" | xargs -r sudo kill -9 2>/dev/null || true
-        sleep 0.5
+        echo "$pids" | xargs -r run kill -9 2>/dev/null || true
+        sleep 1
     fi
     
-    # Delete namespace
-    sudo ip netns delete "$ns" 2>/dev/null || true
+    run umount "/etc/netns/$ns/resolv.conf" 2>/dev/null || true
+    run rm -rf "/etc/netns/$ns" 2>/dev/null || true
     
-    # Remove DNS config
-    sudo rm -rf "/etc/netns/$ns" 2>/dev/null || true
+    run ip netns delete "$ns" 2>/dev/null || true
+    
+    if [[ -f "/var/run/netns/$ns" ]]; then
+        sleep 0.5
+        run umount "/var/run/netns/$ns" 2>/dev/null || true
+        run rm -f "/var/run/netns/$ns" 2>/dev/null || true
+    fi
     
     log "Namespace $ns destroyed"
 }
 
 list_namespaces() {
-    sudo ip netns list 2>/dev/null | grep "^vpn-proxy-" || true
+    run ip netns list 2>/dev/null | grep "^vpn-proxy-" || true
 }
 
 check_namespace() {
     local ns="$1"
-    sudo ip netns list 2>/dev/null | grep -q "^$ns " && echo "exists" || echo "missing"
+    run ip netns list 2>/dev/null | grep -q "^$ns " && echo "exists" || echo "missing"
 }
 
 case "$ACTION" in

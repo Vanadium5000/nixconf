@@ -34,7 +34,7 @@ interface CacheData {
 // ============================================================================
 
 const VPN_DIR = process.env.VPN_DIR || join(homedir(), "Shared/VPNs");
-const STATE_DIR = `/dev/shm/vpn-proxy-${process.getuid()}`;
+const STATE_DIR = `/dev/shm/vpn-proxy-${process.getuid!()}`;
 const CACHE_FILE = join(STATE_DIR, "resolver-cache.json");
 
 // Country code to flag emoji mapping (ISO 3166-1 alpha-2)
@@ -201,19 +201,19 @@ function getCountryCode(filename: string): string {
   // e.g., "AirVPN_AT_Vienna" or "AirVPN AT Vienna" -> "AT"
   const pattern1 = /[_\s]([A-Z]{2})[_\s]/;
   const match1 = baseName.match(pattern1);
-  if (match1) return match1[1];
+  if (match1) return match1[1]!;
 
   // Pattern 2: "Provider CC City" format (code followed by space+word)
   // e.g., "AirVPN GB London Alathfar" -> "GB"
   const pattern2 = /[_\s]([A-Z]{2})\s[A-Z]/;
   const match2 = baseName.match(pattern2);
-  if (match2) return match2[1];
+  if (match2) return match2[1]!;
 
   // Pattern 3: Country code at start with separator
   // e.g., "us-server", "UK_London"
   const pattern3 = /^([a-zA-Z]{2})[-_\s]/;
   const match3 = baseName.match(pattern3);
-  if (match3) return match3[1].toUpperCase();
+  if (match3) return match3[1]!.toUpperCase();
 
   // Pattern 4: Known codes as whole words only
   const normalizedName = baseName.toUpperCase().replace(/[-_]/g, " ");
@@ -265,8 +265,8 @@ async function parseOvpnFile(
 
     if (remoteMatch) {
       return {
-        serverIp: remoteMatch[1],
-        serverPort: parseInt(remoteMatch[2], 10),
+        serverIp: remoteMatch[1]!,
+        serverPort: parseInt(remoteMatch[2]!, 10),
       };
     }
 
@@ -274,7 +274,7 @@ async function parseOvpnFile(
     const hostOnlyMatch = content.match(/^remote\s+(\S+)/m);
     if (hostOnlyMatch) {
       return {
-        serverIp: hostOnlyMatch[1],
+        serverIp: hostOnlyMatch[1]!,
         serverPort: 1194, // Default OpenVPN port
       };
     }
@@ -315,29 +315,17 @@ async function saveCache(data: CacheData): Promise<void> {
 
 async function isCacheValid(cache: CacheData): Promise<boolean> {
   try {
-    // Check if VPN directory still exists
-    const dirStat = await stat(VPN_DIR);
-    if (dirStat.mtimeMs !== cache.dirMtime) {
-      log("DEBUG", "Cache invalid: directory mtime changed");
-      return false;
-    }
+    const ovpnFiles = await findOvpnFilesRecursive(VPN_DIR);
 
-    // Check if any file mtime changed
-    const files = await readdir(VPN_DIR);
-    const ovpnFiles = files.filter((f) => f.endsWith(".ovpn"));
-
-    // Check if file count changed
     if (ovpnFiles.length !== Object.keys(cache.filesMtime).length) {
       log("DEBUG", "Cache invalid: file count changed");
       return false;
     }
 
-    // Check individual file mtimes
-    for (const file of ovpnFiles) {
-      const filepath = join(VPN_DIR, file);
+    for (const filepath of ovpnFiles) {
       const fileStat = await stat(filepath);
       if (cache.filesMtime[filepath] !== fileStat.mtimeMs) {
-        log("DEBUG", `Cache invalid: ${file} mtime changed`);
+        log("DEBUG", `Cache invalid: ${basename(filepath)} mtime changed`);
         return false;
       }
     }
@@ -353,8 +341,34 @@ async function isCacheValid(cache: CacheData): Promise<boolean> {
 // VPN Discovery
 // ============================================================================
 
+/**
+ * Recursively find all .ovpn files in a directory
+ */
+async function findOvpnFilesRecursive(dir: string): Promise<string[]> {
+  const results: string[] = [];
+
+  try {
+    const entries = await readdir(dir, { withFileTypes: true });
+
+    for (const entry of entries) {
+      const fullPath = join(dir, entry.name);
+
+      if (entry.isDirectory()) {
+        const subFiles = await findOvpnFilesRecursive(fullPath);
+        results.push(...subFiles);
+      } else if (entry.isFile() && entry.name.endsWith(".ovpn")) {
+        results.push(fullPath);
+      }
+    }
+  } catch (error) {
+    log("WARN", `Failed to read directory ${dir}: ${error}`);
+  }
+
+  return results;
+}
+
 async function discoverVpns(): Promise<VpnConfig[]> {
-  log("INFO", `Discovering VPNs in ${VPN_DIR}`);
+  log("INFO", `Discovering VPNs in ${VPN_DIR} (recursive)`);
 
   try {
     await stat(VPN_DIR);
@@ -363,11 +377,10 @@ async function discoverVpns(): Promise<VpnConfig[]> {
     return [];
   }
 
-  const files = await readdir(VPN_DIR);
-  const ovpnFiles = files.filter((f) => f.endsWith(".ovpn")).sort();
+  const ovpnFiles = (await findOvpnFilesRecursive(VPN_DIR)).sort();
 
   if (ovpnFiles.length === 0) {
-    log("WARN", `No .ovpn files found in ${VPN_DIR}`);
+    log("WARN", `No .ovpn files found in ${VPN_DIR} or subdirectories`);
     return [];
   }
 
@@ -375,10 +388,9 @@ async function discoverVpns(): Promise<VpnConfig[]> {
 
   const vpns: VpnConfig[] = [];
 
-  for (const file of ovpnFiles) {
-    const filepath = join(VPN_DIR, file);
+  for (const filepath of ovpnFiles) {
     const displayName = getDisplayName(filepath);
-    const countryCode = getCountryCode(file);
+    const countryCode = getCountryCode(basename(filepath));
     const flag = getFlag(countryCode);
     const { serverIp, serverPort } = await parseOvpnFile(filepath);
 
@@ -478,7 +490,7 @@ export async function getRandomVpn(): Promise<VpnConfig | null> {
   }
 
   const index = Math.floor(Math.random() * vpns.length);
-  const vpn = vpns[index];
+  const vpn = vpns[index]!;
   log("INFO", `Selected random VPN: ${vpn.displayName}`);
   return vpn;
 }

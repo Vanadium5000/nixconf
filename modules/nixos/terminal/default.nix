@@ -39,7 +39,13 @@
         self.nixosModules.tailscale
         self.nixosModules.virtualisation
         self.nixosModules.unison
+
+        # VPN SOCKS5 Proxy Service
+        self.nixosModules.vpn-proxy-service
       ];
+
+      # VPN SOCKS5 Proxy
+      services.vpn-proxy.enable = true;
 
       security.polkit.enable = true;
 

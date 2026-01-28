@@ -74,7 +74,7 @@
           "$schema" = "https://opencode.ai/config.json";
           plugin = [
             # "opencode-antigravity-auth@latest"
-            # "@mohak34/opencode-notifier@latest" # Not needed when Web-UI is used
+            "@mohak34/opencode-notifier@latest"
             "oh-my-opencode@latest"
             # "@tarquinen/opencode-dcp@latest"
           ];
