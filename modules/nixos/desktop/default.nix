@@ -31,9 +31,6 @@
         self.nixosModules.qt
       ];
 
-      # Wireshark - QT Version for Desktop
-      programs.wireshark.package = lib.mkForce pkgs.wireshark;
-
       # Automatically start waybar & swaync & niri-screen-time daemon
       preferences.autostart = [
         "waybar"

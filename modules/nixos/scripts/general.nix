@@ -563,14 +563,26 @@
                 exit 1
             fi
 
-            # Password verified to exist - electrum GUI will prompt for it interactively
-            # We verify pass entry exists so user knows their password is available
-            echo "Wallet password available in pass at: $PASSWORD_STORE_PATH"
-            echo "Electrum will prompt for the password in the GUI."
-            echo ""
+            # Get password from pass
+            PASSWORD=$(${passCmd} show "$PASSWORD_STORE_PATH")
 
-            # Launch electrum GUI with wallet
-            exec ${pkgs.electrum}/bin/electrum --wallet "$WALLET_FILE" "''${PROXY_ARGS[@]}" "$@"
+            # Validate password is not empty
+            if [[ -z "$PASSWORD" ]]; then
+                echo "Error: Password retrieved from pass store is empty"
+                exit 1
+            fi
+
+            # Stop any existing daemon to avoid conflicts
+            ${pkgs.electrum}/bin/electrum stop 2>/dev/null || true
+
+            # Start daemon, load wallet, unlock with password
+            ${pkgs.electrum}/bin/electrum daemon -d "''${PROXY_ARGS[@]}" 2>/dev/null || true
+            sleep 0.5
+            ${pkgs.electrum}/bin/electrum load_wallet -w "$WALLET_FILE"
+            ${pkgs.electrum}/bin/electrum unlock -w "$WALLET_FILE" --password "$PASSWORD"
+
+            # Launch GUI with --daemon to keep daemon running after GUI closes
+            exec ${pkgs.electrum}/bin/electrum gui --daemon -w "$WALLET_FILE" "''${PROXY_ARGS[@]}" "$@"
           '';
       };
 
@@ -676,12 +688,16 @@
                 exit 1
             fi
 
-            # Start daemon if not running, load wallet with password, then launch GUI
+            # Stop any existing daemon to avoid conflicts
+            ${pkgs.electrum-ltc}/bin/electrum-ltc stop 2>/dev/null || true
+
+            # Start daemon, load wallet with password
             ${pkgs.electrum-ltc}/bin/electrum-ltc daemon -d "''${PROXY_ARGS[@]}" 2>/dev/null || true
+            sleep 0.5
             ${pkgs.electrum-ltc}/bin/electrum-ltc load_wallet -w "$WALLET_FILE" -W "$PASSWORD"
 
-            # Launch GUI (wallet already loaded and unlocked via daemon)
-            exec ${pkgs.electrum-ltc}/bin/electrum-ltc gui -w "$WALLET_FILE" "''${PROXY_ARGS[@]}" "$@"
+            # Launch GUI with --daemon to keep daemon running after GUI closes
+            exec ${pkgs.electrum-ltc}/bin/electrum-ltc gui --daemon -w "$WALLET_FILE" "''${PROXY_ARGS[@]}" "$@"
           '';
       };
 

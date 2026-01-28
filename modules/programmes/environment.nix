@@ -67,8 +67,9 @@
             nix-tree # Nix storage info
             speedtest-go # Internet speed test using speedtest.net
 
-            # Requires wireshark
-            termshark # Terminal UI for wireshark-cli, inspired by Wireshark
+            # Network monitoring TUI tools
+            termshark # TUI packet analyzer (uses tshark backend)
+            snitch # TUI for inspecting network connections (netstat for humans)
           ]
           ++
             # Language runtimes/compilers

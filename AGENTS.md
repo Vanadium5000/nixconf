@@ -1,5 +1,41 @@
 # AGENTS.md - NixOS Configuration Repository
 
+> **NEVER RUN REBUILD COMMANDS FOR THE USER. DO NOT EXECUTE `./rebuild.sh`, `nixos-rebuild`, OR ANY VARIANT. THE USER WILL REBUILD MANUALLY.**
+
+## Coding Standards
+
+All code contributions must adhere to the following engineering standards:
+
+### Modularisation
+
+- **Single Responsibility**: Each module/file should do one thing well.
+- **Composability**: Modules should be independently importable and composable.
+- **Encapsulation**: Internal implementation details should not leak; expose clean interfaces via `options`.
+- **Directory Structure**: Group related functionality in directories; use `import-tree` for automatic loading.
+
+### Technical Inline Commenting
+
+- **Explain "Why", Not "What"**: Comments describe the reasoning behind non-obvious decisions, not what the code literally does.
+- **Document Edge Cases**: Note workarounds, hardware quirks, upstream bugs, or NixOS-specific gotchas.
+- **Reference Sources**: Link to relevant issues, documentation, or discussions when implementing workarounds.
+- **Module Headers**: Every top-level module should have a brief header comment explaining its purpose and dependencies.
+
+### DRY (Don't Repeat Yourself)
+
+- **Extract Common Patterns**: Use `self.lib` for reusable functions (persistence helpers, generators, etc.).
+- **Centralise Configuration**: Use `config.preferences` for values referenced in multiple places.
+- **Avoid Copy-Paste**: If the same logic appears twice, extract it into a function or module.
+- **Use `mkMerge` and `mkIf`**: Compose conditional configurations cleanly rather than duplicating blocks.
+
+### Code Quality
+
+- **Type Safety**: Use `lib.types` for all option definitions; be specific (e.g., `types.port` not `types.int`).
+- **Fail Fast**: Use `lib.assertMsg` for configuration validation; catch errors at eval time, not runtime.
+- **Idempotency**: Modules should produce identical results on repeated evaluations.
+- **Minimal Dependencies**: Import only what's needed; prefer `inherit` for selective imports.
+
+---
+
 This is a NixOS configuration flake using `flake-parts` and `import-tree` for modular system configuration. It relies on `path:.` for flake operations to include gitignored files (like `secrets.nix`).
 
 ## Repository Structure

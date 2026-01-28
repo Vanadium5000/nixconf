@@ -88,14 +88,21 @@
       # Enable Unison synchronization
       services.unison-sync.enable = true;
 
-      # Wireshark - Powerful network protocol analyzer
-      programs.wireshark = {
-        enable = true;
-        package = pkgs.wireshark-cli; # CLI only for terminal environments
-        dumpcap = {
-          enable = true; # ← gives cap_net_raw/cap_net_admin to dumpcap wrapper
-        };
+      # Network monitoring tools
+      # - snitch: TUI for inspecting network connections (netstat for humans)
+      # - mitmproxy: HTTPS traffic inspection via proxy (apps must trust its CA)
+      # - termshark: TUI packet analyzer (in environment.nix, uses tshark)
+
+      # Grant network capture capabilities for packet sniffing tools
+      security.wrappers.dumpcap = {
+        source = "${pkgs.wireshark-cli}/bin/dumpcap";
+        capabilities = "cap_net_raw,cap_net_admin+eip";
+        owner = "root";
+        group = "wireshark";
       };
+
+      # Keep wireshark group for capture permissions (used by termshark)
+      users.groups.wireshark = { };
 
       # Environment Variables
       environment.variables = {
@@ -109,6 +116,7 @@
         # Add all packages exported by the Flake
         lib.attrValues filteredFlakePackages
         ++ (with pkgs; [
+          mitmproxy # HTTPS interception proxy - run `mitmproxy` or `mitmweb`
           whisper-cpp
           wtype
           monero-cli

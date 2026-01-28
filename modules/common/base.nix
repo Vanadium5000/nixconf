@@ -90,7 +90,7 @@
             "ollama"
             "ydotool" # Wayland automation tool
             "pipewire"
-            "wireshark" # Wireshark capturing
+            "wireshark" # Network capture permissions (for termshark/dumpcap)
           ]
           ++ cfg.user.extraGroups;
           shell = self.packages.${pkgs.stdenv.hostPlatform.system}.environment;
