@@ -77,8 +77,8 @@ Item {
         // --- Inner Stroke (Cut Glass Effect - top edge highlight) ---
         Rectangle {
             anchors.fill: parent
-            anchors.margins: 1
-            radius: root.cornerRadius - 1
+            anchors.margins: Theme.glass.borderWidth
+            radius: root.cornerRadius - Theme.glass.borderWidth
             color: "transparent"
             border.color: Theme.glass.innerStrokeColor
             border.width: 1

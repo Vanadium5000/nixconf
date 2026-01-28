@@ -45,6 +45,10 @@
           backlightDevice = "intel_backlight";
           keyboardBacklightDevice = "platform::kbd_backlight";
         };
+        git = {
+          username = "Vanadium5000";
+          email = "vanadium5000@gmail.com";
+        };
       };
 
       # Plymouth

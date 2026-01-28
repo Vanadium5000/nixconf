@@ -55,6 +55,10 @@
           backlightDevice = "acpi_video0";
           keyboardBacklightDevice = "apple::kbd_backlight";
         };
+        git = {
+          username = "Vanadium5000";
+          email = "vanadium5000@gmail.com";
+        };
       };
 
       # Plymouth

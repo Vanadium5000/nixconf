@@ -55,11 +55,13 @@ PanelWindow {
 
                 Text {
                     Layout.fillWidth: true
+                    Layout.minimumWidth: 100
                     text: root.showSettings ? "Settings" : "Notifications"
                     font.family: Theme.glass.fontFamily
                     font.pixelSize: Theme.glass.fontSizeTitle
                     font.bold: true
                     color: Theme.glass.textPrimary
+                    elide: Text.ElideRight
                 }
 
                 // Notification count badge
@@ -175,26 +177,209 @@ PanelWindow {
                 }
             }
 
-            // Notification list
+            // Grouped notification list
             ListView {
+                id: groupedList
                 anchors.fill: parent
                 visible: root.notificationService.count > 0
-                spacing: 8
+                spacing: 12
                 clip: true
 
-                model: root.notificationService.notifications
+                // Group notifications by app name
+                property var groupedModel: {
+                    var groups = {}
+                    var notifs = root.notificationService.notifications
+                    for (var i = 0; i < notifs.length; i++) {
+                        var n = notifs[i]
+                        var appName = n.appName || "Unknown"
+                        if (!groups[appName]) {
+                            groups[appName] = {
+                                appName: appName,
+                                appIcon: n.appIcon,
+                                notifications: [],
+                                collapsed: false
+                            }
+                        }
+                        groups[appName].notifications.push(n)
+                    }
+                    // Convert to array and sort by most recent notification
+                    var result = Object.values(groups)
+                    result.sort((a, b) => {
+                        var aTime = a.notifications[0].time
+                        var bTime = b.notifications[0].time
+                        return bTime - aTime
+                    })
+                    return result
+                }
 
-                delegate: NotificationItem {
+                model: groupedModel
+
+                delegate: ColumnLayout {
+                    id: groupDelegate
                     required property var modelData
                     required property int index
 
                     width: ListView.view.width
-                    notification: modelData
-                    isPopup: false
+                    spacing: 6
 
-                    onDismissed: root.notificationService.dismissNotification(modelData.id)
-                    onActionInvoked: (actionId) => root.notificationService.invokeAction(modelData.id, actionId)
-                    onCopyRequested: (text) => root.notificationService.copyToClipboard(text)
+                    property bool collapsed: modelData.notifications.length > 2
+
+                    // Group header (only show if more than 1 notification from this app)
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: modelData.notifications.length > 1 ? 36 : 0
+                        visible: modelData.notifications.length > 1
+                        radius: Theme.glass.cornerRadiusSmall
+                        color: Qt.rgba(Theme.glass.accentColor.r, Theme.glass.accentColor.g, Theme.glass.accentColor.b, 0.1)
+                        border.color: Qt.rgba(Theme.glass.accentColor.r, Theme.glass.accentColor.g, Theme.glass.accentColor.b, 0.2)
+                        border.width: 1
+
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.margins: 8
+                            spacing: 8
+
+                            // App letter avatar
+                            Rectangle {
+                                Layout.preferredWidth: 20
+                                Layout.preferredHeight: 20
+                                radius: 4
+                                color: Qt.rgba(Theme.glass.accentColor.r, Theme.glass.accentColor.g, Theme.glass.accentColor.b, 0.3)
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: modelData.appName.charAt(0).toUpperCase()
+                                    font.family: Theme.glass.fontFamily
+                                    font.pixelSize: 10
+                                    font.bold: true
+                                    color: Theme.glass.accentColor
+                                }
+                            }
+
+                            // App name
+                            Text {
+                                Layout.fillWidth: true
+                                text: modelData.appName
+                                font.family: Theme.glass.fontFamily
+                                font.pixelSize: Theme.glass.fontSizeSmall
+                                font.bold: true
+                                color: Theme.glass.textPrimary
+                                elide: Text.ElideRight
+                            }
+
+                            // Count badge
+                            Rectangle {
+                                Layout.preferredWidth: countBadgeText.implicitWidth + 12
+                                Layout.preferredHeight: 20
+                                radius: 10
+                                color: Theme.glass.accentColor
+
+                                Text {
+                                    id: countBadgeText
+                                    anchors.centerIn: parent
+                                    text: modelData.notifications.length
+                                    font.family: Theme.glass.fontFamily
+                                    font.pixelSize: 10
+                                    font.bold: true
+                                    color: Theme.glass.textPrimary
+                                }
+                            }
+
+                            // Expand/collapse button
+                            Rectangle {
+                                visible: modelData.notifications.length > 2
+                                Layout.preferredWidth: 24
+                                Layout.preferredHeight: 20
+                                radius: 4
+                                color: "transparent"
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: groupDelegate.collapsed ? "󰅀" : "󰅃"
+                                    font.family: Theme.glass.fontFamily
+                                    font.pixelSize: 14
+                                    color: Theme.glass.textSecondary
+                                }
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: groupDelegate.collapsed = !groupDelegate.collapsed
+                                }
+                            }
+
+                            // Dismiss all for this app
+                            Rectangle {
+                                Layout.preferredWidth: 24
+                                Layout.preferredHeight: 20
+                                radius: 4
+                                color: dismissAllMouse.containsMouse ? Qt.rgba(Theme.colors.red.r, Theme.colors.red.g, Theme.colors.red.b, 0.2) : "transparent"
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: "󰆴"
+                                    font.family: Theme.glass.fontFamily
+                                    font.pixelSize: 12
+                                    color: dismissAllMouse.containsMouse ? Theme.colors.red : Theme.glass.textSecondary
+                                }
+
+                                MouseArea {
+                                    id: dismissAllMouse
+                                    anchors.fill: parent
+                                    cursorShape: Qt.PointingHandCursor
+                                    hoverEnabled: true
+                                    onClicked: {
+                                        // Dismiss all notifications from this app
+                                        var notifs = modelData.notifications
+                                        for (var i = 0; i < notifs.length; i++) {
+                                            root.notificationService.dismissNotification(notifs[i].id)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Notifications in this group
+                    Repeater {
+                        model: groupDelegate.collapsed ? modelData.notifications.slice(0, 2) : modelData.notifications
+
+                        NotificationItem {
+                            required property var modelData
+                            required property int index
+
+                            Layout.fillWidth: true
+                            notification: modelData
+                            isPopup: false
+
+                            onDismissed: root.notificationService.dismissNotification(modelData.id)
+                            onActionInvoked: (actionId) => root.notificationService.invokeAction(modelData.id, actionId)
+                            onCopyRequested: (text) => root.notificationService.copyToClipboard(text)
+                        }
+                    }
+
+                    // "Show N more" indicator when collapsed
+                    Rectangle {
+                        visible: groupDelegate.collapsed && modelData.notifications.length > 2
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 28
+                        radius: Theme.glass.cornerRadiusSmall
+                        color: Theme.glass.separatorOpaque
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: "+" + (modelData.notifications.length - 2) + " more notifications"
+                            font.family: Theme.glass.fontFamily
+                            font.pixelSize: Theme.glass.fontSizeSmall
+                            color: Theme.glass.textSecondary
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: groupDelegate.collapsed = false
+                        }
+                    }
                 }
             }
         }
@@ -344,6 +529,315 @@ PanelWindow {
                     description: "Urgent notifications"
                     checked: root.notificationService.dingSoundSettings["critical"] ?? true
                     onToggled: root.notificationService.setDingForUrgency("critical", checked)
+                }
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 1
+                    Layout.topMargin: 8
+                    color: Theme.glass.separator
+                }
+
+                // Regex patterns section
+                Text {
+                    text: "Always Ding Patterns"
+                    font.family: Theme.glass.fontFamily
+                    font.pixelSize: Theme.glass.fontSizeLarge
+                    font.bold: true
+                    color: Theme.glass.textPrimary
+                }
+
+                Text {
+                    Layout.fillWidth: true
+                    text: "Regex patterns matching app name or summary"
+                    font.family: Theme.glass.fontFamily
+                    font.pixelSize: Theme.glass.fontSizeSmall
+                    color: Theme.glass.textTertiary
+                    wrapMode: Text.Wrap
+                }
+
+                // Add pattern input
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 8
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 36
+                        radius: Theme.glass.cornerRadiusSmall
+                        color: Theme.glass.separatorOpaque
+                        border.color: patternInput.activeFocus ? Theme.glass.accentColor : Theme.glass.separator
+                        border.width: 1
+
+                        TextInput {
+                            id: patternInput
+                            anchors.fill: parent
+                            anchors.margins: 8
+                            font.family: Theme.glass.fontFamily
+                            font.pixelSize: Theme.glass.fontSizeMedium
+                            color: Theme.glass.textPrimary
+                            clip: true
+                            verticalAlignment: TextInput.AlignVCenter
+
+                            property string placeholderText: "e.g. OpenCode.*"
+
+                            Text {
+                                anchors.fill: parent
+                                anchors.verticalCenter: parent.verticalCenter
+                                visible: !patternInput.text && !patternInput.activeFocus
+                                text: patternInput.placeholderText
+                                font: patternInput.font
+                                color: Theme.glass.textTertiary
+                                verticalAlignment: Text.AlignVCenter
+                            }
+
+                            onAccepted: {
+                                if (text.trim() !== "") {
+                                    root.notificationService.addDingPattern(text.trim())
+                                    text = ""
+                                }
+                            }
+                        }
+                    }
+
+                    GlassButton {
+                        implicitWidth: 36
+                        implicitHeight: 36
+                        icon: "󰐕"
+                        cornerRadius: Theme.glass.cornerRadiusSmall
+                        onClicked: {
+                            if (patternInput.text.trim() !== "") {
+                                root.notificationService.addDingPattern(patternInput.text.trim())
+                                patternInput.text = ""
+                            }
+                        }
+                    }
+                }
+
+                // Pattern list
+                Repeater {
+                    model: root.notificationService.dingPatterns
+
+                    RowLayout {
+                        required property string modelData
+                        required property int index
+                        Layout.fillWidth: true
+                        spacing: 8
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 32
+                            radius: Theme.glass.cornerRadiusSmall
+                            color: Qt.rgba(Theme.glass.accentColor.r, Theme.glass.accentColor.g, Theme.glass.accentColor.b, 0.1)
+                            border.color: Qt.rgba(Theme.glass.accentColor.r, Theme.glass.accentColor.g, Theme.glass.accentColor.b, 0.3)
+                            border.width: 1
+
+                            Text {
+                                anchors.fill: parent
+                                anchors.margins: 8
+                                text: modelData
+                                font.family: Theme.glass.fontFamily
+                                font.pixelSize: Theme.glass.fontSizeSmall
+                                color: Theme.glass.textPrimary
+                                elide: Text.ElideRight
+                                verticalAlignment: Text.AlignVCenter
+                            }
+                        }
+
+                        GlassButton {
+                            implicitWidth: 28
+                            implicitHeight: 28
+                            icon: "󰅖"
+                            cornerRadius: 14
+                            onClicked: root.notificationService.removeDingPattern(modelData)
+                        }
+                    }
+                }
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 1
+                    Layout.topMargin: 8
+                    color: Theme.glass.separator
+                }
+
+                // Per-app ding overrides section
+                Text {
+                    text: "Per-App Sound Settings"
+                    font.family: Theme.glass.fontFamily
+                    font.pixelSize: Theme.glass.fontSizeLarge
+                    font.bold: true
+                    color: Theme.glass.textPrimary
+                }
+
+                Text {
+                    Layout.fillWidth: true
+                    text: "Override sound settings for specific apps"
+                    font.family: Theme.glass.fontFamily
+                    font.pixelSize: Theme.glass.fontSizeSmall
+                    color: Theme.glass.textTertiary
+                    wrapMode: Text.Wrap
+                }
+
+                // Get unique app names from notifications
+                Repeater {
+                    id: appOverridesRepeater
+                    model: {
+                        // Get unique app names from current notifications
+                        var apps = {}
+                        var notifs = root.notificationService.notifications
+                        for (var i = 0; i < notifs.length; i++) {
+                            var appName = notifs[i].appName
+                            if (appName && appName !== "") {
+                                apps[appName] = true
+                            }
+                        }
+                        // Also include any already-overridden apps
+                        var overrides = root.notificationService.appDingOverrides
+                        for (var app in overrides) {
+                            apps[app] = true
+                        }
+                        return Object.keys(apps).sort()
+                    }
+
+                    RowLayout {
+                        required property string modelData
+                        Layout.fillWidth: true
+                        spacing: 8
+
+                        // App letter avatar
+                        Rectangle {
+                            Layout.preferredWidth: 28
+                            Layout.preferredHeight: 28
+                            radius: 6
+                            color: Qt.rgba(Theme.glass.accentColor.r, Theme.glass.accentColor.g, Theme.glass.accentColor.b, 0.2)
+                            border.color: Qt.rgba(Theme.glass.accentColor.r, Theme.glass.accentColor.g, Theme.glass.accentColor.b, 0.4)
+                            border.width: 1
+
+                            Text {
+                                anchors.centerIn: parent
+                                text: modelData.charAt(0).toUpperCase()
+                                font.family: Theme.glass.fontFamily
+                                font.pixelSize: 12
+                                font.bold: true
+                                color: Theme.glass.accentColor
+                            }
+                        }
+
+                        // App name
+                        Text {
+                            Layout.fillWidth: true
+                            text: modelData
+                            font.family: Theme.glass.fontFamily
+                            font.pixelSize: Theme.glass.fontSizeMedium
+                            color: Theme.glass.textPrimary
+                            elide: Text.ElideRight
+                        }
+
+                        // Three-state toggle: Default / On / Off
+                        Row {
+                            spacing: 4
+
+                            property var currentState: {
+                                var overrides = root.notificationService.appDingOverrides
+                                if (modelData in overrides) {
+                                    return overrides[modelData] ? "on" : "off"
+                                }
+                                return "default"
+                            }
+
+                            // Default button
+                            Rectangle {
+                                width: 28
+                                height: 24
+                                radius: 6
+                                color: parent.currentState === "default" ? Theme.glass.accentColor : Theme.glass.separatorOpaque
+                                border.color: parent.currentState === "default" ? Theme.glass.accentColor : Theme.glass.separator
+                                border.width: 1
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: "D"
+                                    font.family: Theme.glass.fontFamily
+                                    font.pixelSize: 10
+                                    font.bold: true
+                                    color: parent.parent.currentState === "default" ? Theme.glass.textPrimary : Theme.glass.textTertiary
+                                }
+
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: {
+                                            // Remove override to use default
+                                            var overrides = root.notificationService.appDingOverrides
+                                            delete overrides[modelData]
+                                            root.notificationService.appDingOverrides = Object.assign({}, overrides)
+                                            root.notificationService.saveSettings()
+                                        }
+                                    }
+                                }
+
+                            // On button
+                            Rectangle {
+                                width: 28
+                                height: 24
+                                radius: 6
+                                color: parent.currentState === "on" ? Theme.colors.green : Theme.glass.separatorOpaque
+                                border.color: parent.currentState === "on" ? Theme.colors.green : Theme.glass.separator
+                                border.width: 1
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: "󰂚"
+                                    font.family: Theme.glass.fontFamily
+                                    font.pixelSize: 12
+                                    color: parent.parent.currentState === "on" ? Theme.glass.textPrimary : Theme.glass.textTertiary
+                                }
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: root.notificationService.setDingForApp(modelData, true)
+                                }
+                            }
+
+                            // Off button
+                            Rectangle {
+                                width: 28
+                                height: 24
+                                radius: 6
+                                color: parent.currentState === "off" ? Theme.colors.red : Theme.glass.separatorOpaque
+                                border.color: parent.currentState === "off" ? Theme.colors.red : Theme.glass.separator
+                                border.width: 1
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: "󰂛"
+                                    font.family: Theme.glass.fontFamily
+                                    font.pixelSize: 12
+                                    color: parent.parent.currentState === "off" ? Theme.glass.textPrimary : Theme.glass.textTertiary
+                                }
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: root.notificationService.setDingForApp(modelData, false)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Empty state for per-app settings
+                Text {
+                    visible: appOverridesRepeater.count === 0
+                    Layout.fillWidth: true
+                    text: "No apps with notifications yet"
+                    font.family: Theme.glass.fontFamily
+                    font.pixelSize: Theme.glass.fontSizeSmall
+                    font.italic: true
+                    color: Theme.glass.textTertiary
+                    horizontalAlignment: Text.AlignHCenter
                 }
 
                 // Spacer

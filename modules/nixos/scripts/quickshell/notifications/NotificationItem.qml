@@ -43,6 +43,9 @@ GlassPanel {
         return Theme.glass.accentColor
     }
 
+    // Check if notification has an image
+    property bool hasImage: root.notification.image && root.notification.image !== ""
+
     ColumnLayout {
         id: contentColumn
         anchors.fill: parent
@@ -64,28 +67,40 @@ GlassPanel {
                     anchors.fill: parent
                     
                     property string resolvedIcon: {
+                        // No icon provided - use fallback
                         if (!root.notification.appIcon || root.notification.appIcon === "") {
-                            return Quickshell.iconPath("dialog-information", "")
+                            return ""
                         }
+                        // Absolute path - use file:// protocol
                         if (root.notification.appIcon.startsWith("/")) {
                             return "file://" + root.notification.appIcon
                         }
+                        // Try to resolve icon name via theme
                         var resolved = Quickshell.iconPath(root.notification.appIcon, "")
-                        return resolved !== "" ? resolved : Quickshell.iconPath("dialog-information", "")
+                        return resolved !== "" ? resolved : ""
                     }
                     
                     source: resolvedIcon
-                    visible: resolvedIcon !== ""
+                    visible: resolvedIcon !== "" && status === Image.Ready
                 }
 
-                // Fallback text icon
-                Text {
-                    anchors.centerIn: parent
-                    visible: appIcon.source === ""
-                    text: root.notification.appName ? root.notification.appName.charAt(0).toUpperCase() : "N"
-                    font.pixelSize: 14
-                    font.bold: true
-                    color: Theme.glass.textPrimary
+                // Fallback: letter avatar when icon fails or unavailable
+                Rectangle {
+                    anchors.fill: parent
+                    visible: !appIcon.visible || appIcon.status !== Image.Ready
+                    radius: 4 - 1 // Adjust for border width
+                    color: Qt.rgba(Theme.glass.accentColor.r, Theme.glass.accentColor.g, Theme.glass.accentColor.b, 0.2)
+                    border.color: Qt.rgba(Theme.glass.accentColor.r, Theme.glass.accentColor.g, Theme.glass.accentColor.b, 0.4)
+                    border.width: 1
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: root.notification.appName ? root.notification.appName.charAt(0).toUpperCase() : "N"
+                        font.family: Theme.glass.fontFamily
+                        font.pixelSize: 12
+                        font.bold: true
+                        color: Theme.glass.accentColor
+                    }
                 }
             }
 
@@ -130,6 +145,25 @@ GlassPanel {
             wrapMode: Text.Wrap
             elide: Text.ElideRight
             maximumLineCount: 2
+        }
+
+        // Notification image (if present)
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.preferredHeight: root.hasImage && notifImage.status === Image.Ready ? Math.min(notifImage.sourceSize.height * (width / notifImage.sourceSize.width), 200) : 0
+            Layout.maximumHeight: 200
+            visible: root.hasImage
+            radius: Theme.glass.cornerRadiusSmall
+            color: "transparent"
+            clip: true
+
+            Image {
+                id: notifImage
+                anchors.fill: parent
+                source: root.hasImage ? (root.notification.image.startsWith("/") ? "file://" + root.notification.image : root.notification.image) : ""
+                fillMode: Image.PreserveAspectFit
+                asynchronous: true
+            }
         }
 
         // Body
@@ -182,6 +216,7 @@ GlassPanel {
         // Bottom action bar
         RowLayout {
             Layout.fillWidth: true
+            Layout.bottomMargin: 4
             spacing: 8
 
             // Copy button

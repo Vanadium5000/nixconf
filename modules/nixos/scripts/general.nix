@@ -409,9 +409,10 @@
                         fi
 
                         # Build proxy args if VPN_PROXY is set
+                        # When using --proxy with HTTPS daemons, SSL cert verification is required
                         PROXY_ARGS=()
                         if [[ -n "$VPN_PROXY" && "$VPN_PROXY" != "none" ]]; then
-                            PROXY_ARGS=(--proxy "127.0.0.1:$VPN_PROXY_PORT")
+                            PROXY_ARGS=(--proxy "127.0.0.1:$VPN_PROXY_PORT" --daemon-ssl-allow-any-cert)
                         fi
 
                         echo "Initializing new wallet..."
@@ -455,9 +456,10 @@
             fi
 
             # Build proxy args if VPN_PROXY is set
+            # When using --proxy with HTTPS daemons, SSL cert verification is required
             PROXY_ARGS=()
             if [[ -n "$VPN_PROXY" && "$VPN_PROXY" != "none" ]]; then
-                PROXY_ARGS=(--proxy "127.0.0.1:$VPN_PROXY_PORT")
+                PROXY_ARGS=(--proxy "127.0.0.1:$VPN_PROXY_PORT" --daemon-ssl-allow-any-cert)
             fi
 
             # Launch monero-wallet-cli with proper arguments
@@ -574,12 +576,19 @@
 
             # Stop any existing daemon to avoid conflicts
             ${pkgs.electrum}/bin/electrum stop 2>/dev/null || true
+            sleep 0.3  # Give daemon time to shut down
 
-            # Start daemon, load wallet, unlock with password
+            # Start daemon with proxy settings
             ${pkgs.electrum}/bin/electrum daemon -d "''${PROXY_ARGS[@]}" 2>/dev/null || true
             sleep 0.5
-            ${pkgs.electrum}/bin/electrum load_wallet -w "$WALLET_FILE"
-            ${pkgs.electrum}/bin/electrum unlock -w "$WALLET_FILE" --password "$PASSWORD"
+
+            # Load wallet - include password if set (for encrypted wallets)
+            if [[ -n "$PASSWORD" ]]; then
+                ${pkgs.electrum}/bin/electrum load_wallet -w "$WALLET_FILE" --password "$PASSWORD" 2>/dev/null || \
+                    ${pkgs.electrum}/bin/electrum load_wallet -w "$WALLET_FILE"  # Fallback for passwordless wallets
+            else
+                ${pkgs.electrum}/bin/electrum load_wallet -w "$WALLET_FILE"
+            fi
 
             # Launch GUI with --daemon to keep daemon running after GUI closes
             exec ${pkgs.electrum}/bin/electrum gui --daemon -w "$WALLET_FILE" "''${PROXY_ARGS[@]}" "$@"
@@ -690,11 +699,23 @@
 
             # Stop any existing daemon to avoid conflicts
             ${pkgs.electrum-ltc}/bin/electrum-ltc stop 2>/dev/null || true
+            sleep 0.3  # Give daemon time to shut down
 
-            # Start daemon, load wallet with password
+            # Kill any remaining daemon processes (electrum-ltc stop can be unreliable)
+            pkill -f "electrum-ltc.*daemon" 2>/dev/null || true
+            sleep 0.2
+
+            # Start daemon with proxy settings
             ${pkgs.electrum-ltc}/bin/electrum-ltc daemon -d "''${PROXY_ARGS[@]}" 2>/dev/null || true
             sleep 0.5
-            ${pkgs.electrum-ltc}/bin/electrum-ltc load_wallet -w "$WALLET_FILE" -W "$PASSWORD"
+
+            # Load wallet with password (electrum-ltc uses -W for password)
+            if [[ -n "$PASSWORD" ]]; then
+                ${pkgs.electrum-ltc}/bin/electrum-ltc load_wallet -w "$WALLET_FILE" -W "$PASSWORD" 2>/dev/null || \
+                    ${pkgs.electrum-ltc}/bin/electrum-ltc load_wallet -w "$WALLET_FILE"  # Fallback for passwordless
+            else
+                ${pkgs.electrum-ltc}/bin/electrum-ltc load_wallet -w "$WALLET_FILE"
+            fi
 
             # Launch GUI with --daemon to keep daemon running after GUI closes
             exec ${pkgs.electrum-ltc}/bin/electrum-ltc gui --daemon -w "$WALLET_FILE" "''${PROXY_ARGS[@]}" "$@"

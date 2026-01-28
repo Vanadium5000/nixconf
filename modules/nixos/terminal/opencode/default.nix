@@ -185,6 +185,13 @@
               enabled = true;
               timeout = 10000;
             };
+            # Exa MCP - high-quality parallel web search with deep research capabilities
+            websearch = {
+              type = "remote";
+              url = "https://mcp.exa.ai/mcp?exaApiKey=${self.secrets.EXA_API_KEY}&tools=web_search_exa,deep_search_exa,get_code_context_exa,crawling_exa,deep_researcher_start,deep_researcher_check";
+              enabled = true;
+              timeout = 30000; # 30s for deep searches
+            };
           };
           formatter = languages.formatter;
           lsp = languages.lsp;
@@ -202,6 +209,8 @@
           "$schema" =
             "https://raw.githubusercontent.com/code-yeongyu/oh-my-opencode/master/assets/oh-my-opencode.schema.json";
           "google_auth" = false; # Disable conflicts
+          # Disable oh-my-opencode's default websearch_exa - replaced with full Exa MCP in config.json
+          "disabled_mcps" = [ "websearch" ];
 
           # Oh-My-OpenCode provides 10 specialized AI agents. Each has distinct expertise, optimized models, and tool permissions.
           # Docs: https://github.com/code-yeongyu/oh-my-opencode/blob/dev/docs/features.md

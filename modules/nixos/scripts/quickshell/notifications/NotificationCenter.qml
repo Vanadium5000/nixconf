@@ -39,6 +39,9 @@ Singleton {
     // Per-app ding overrides (appName -> bool)
     property var appDingOverrides: ({})
 
+    // Regex patterns that always trigger ding (array of pattern strings)
+    property var dingPatterns: []
+
     // =========================================================================
     // Signals
     // =========================================================================
@@ -124,6 +127,18 @@ Singleton {
     function setDingForUrgency(urgency, enabled) {
         dingSoundSettings[urgency] = enabled
         dingSoundSettings = Object.assign({}, dingSoundSettings)
+        saveSettings()
+    }
+
+    function addDingPattern(pattern) {
+        if (pattern && pattern.trim() !== "" && !dingPatterns.includes(pattern)) {
+            dingPatterns = [...dingPatterns, pattern]
+            saveSettings()
+        }
+    }
+
+    function removeDingPattern(pattern) {
+        dingPatterns = dingPatterns.filter(p => p !== pattern)
         saveSettings()
     }
 
@@ -243,7 +258,20 @@ Singleton {
     function maybePlayDing(notif) {
         if (root.dndEnabled) return
 
-        // Check app-specific override first
+        // Check regex patterns first (highest priority)
+        for (var i = 0; i < root.dingPatterns.length; i++) {
+            try {
+                var regex = new RegExp(root.dingPatterns[i], "i")
+                if (regex.test(notif.appName) || regex.test(notif.summary)) {
+                    root.playDingSignal()
+                    return
+                }
+            } catch (e) {
+                console.log("[NotificationCenter] Invalid regex pattern: " + root.dingPatterns[i])
+            }
+        }
+
+        // Check app-specific override
         if (notif.appName in root.appDingOverrides) {
             if (root.appDingOverrides[notif.appName]) {
                 root.playDingSignal()
@@ -286,7 +314,8 @@ Singleton {
             dndEnabled: dndEnabled,
             soundVolume: soundVolume,
             dingSoundSettings: dingSoundSettings,
-            appDingOverrides: appDingOverrides
+            appDingOverrides: appDingOverrides,
+            dingPatterns: dingPatterns
         }
         settingsStorage.setText(JSON.stringify(data, null, 2))
     }
@@ -336,6 +365,7 @@ Singleton {
                 root.soundVolume = data.soundVolume ?? 0.5
                 root.dingSoundSettings = data.dingSoundSettings ?? root.dingSoundSettings
                 root.appDingOverrides = data.appDingOverrides ?? {}
+                root.dingPatterns = data.dingPatterns ?? []
             } catch (e) {
                 console.log("[NotificationCenter] Error loading settings: " + e)
             }

@@ -18,7 +18,7 @@ ShellRoot {
     // Sound player (in main file so it works properly)
     MediaPlayer {
         id: dingPlayer
-        source: "file:///run/current-system/sw/share/sounds/freedesktop/stereo/message.oga"
+        source: "file:///run/current-system/sw/share/sounds/freedesktop/stereo/bell.oga"
         audioOutput: AudioOutput {
             volume: NotificationCenter.soundVolume
         }

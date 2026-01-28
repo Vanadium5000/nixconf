@@ -74,6 +74,18 @@
           type = types.str;
           default = "en_GB.UTF-8";
         };
+
+        # Git identity
+        git = {
+          username = mkOption {
+            type = types.str;
+            description = "Git author/committer name";
+          };
+          email = mkOption {
+            type = types.str;
+            description = "Git author/committer email";
+          };
+        };
       };
 
       config = lib.mkIf cfg.enable {
@@ -110,6 +122,13 @@
         # Locales
         time.timeZone = cfg.timeZone;
         i18n.defaultLocale = cfg.locale;
+
+        # Git global config
+        hjem.users.${cfg.user.username}.files.".gitconfig".text = ''
+          [user]
+            name = ${cfg.git.username}
+            email = ${cfg.git.email}
+        '';
 
         # SSH
         # Enable GnuPG with SSH support
