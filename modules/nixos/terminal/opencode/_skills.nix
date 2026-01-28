@@ -1,5 +1,8 @@
 { pkgs }:
 let
+  # Local skills directory (relative to this file)
+  localSkillsDir = ./skill;
+
   fetchSkill =
     {
       name,
@@ -66,6 +69,12 @@ let
   allSkills = pkgs.runCommand "opencode-skills" { } ''
     mkdir -p $out/skill
 
+    # Copy local skills from ./skill directory
+    if [ -d "${localSkillsDir}" ]; then
+      cp -r ${localSkillsDir}/* $out/skill/
+    fi
+
+    # Copy fetched remote skills
     ${pkgs.lib.concatStringsSep "\n" (
       pkgs.lib.mapAttrsToList (name: skill: ''
         mkdir -p $out/skill/${name}

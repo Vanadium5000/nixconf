@@ -758,6 +758,144 @@
         ];
       };
 
+      # =========================================================================
+      # Notification Center
+      # =========================================================================
+
+      packages.qs-notifications = inputs.wrappers.lib.makeWrapper {
+        inherit pkgs;
+        package =
+          let
+            notificationsQml = mkQml "notifications.qml" ./notifications.qml;
+          in
+          pkgs.writeShellScriptBin "qs-notifications" ''
+            # Quickshell Notification Center Daemon
+            # Usage: qs-notifications [command]
+            #
+            # Commands:
+            #   (none)     Start the notification daemon
+            #   toggle     Toggle notification panel
+            #   show       Show notification panel
+            #   hide       Hide notification panel
+            #   count      Get notification count
+            #   unread     Get unread notification count
+            #   clear      Clear all notifications
+            #   dnd        Get DND status
+            #   toggle-dnd Toggle Do Not Disturb
+            #   ding       Play notification sound
+            #   set-volume Set sound volume (0.0-1.0)
+
+            QML_FILE="${notificationsQml}"
+            QS_BIN="${pkgs.quickshell}/bin/qs"
+            export QML2_IMPORT_PATH="${pkgs.qt6.qt5compat}/lib/qt-6/qml:${pkgs.qt6.qtmultimedia}/lib/qt-6/qml:$QML2_IMPORT_PATH"
+
+            case "''${1:-start}" in
+              start)
+                exec "$QS_BIN" -p "$QML_FILE"
+                ;;
+              toggle|show|hide|count|unread|clear|dnd|toggle-dnd|ding)
+                "$QS_BIN" ipc -p "$QML_FILE" call notifications "$1"
+                ;;
+              set-volume)
+                "$QS_BIN" ipc -p "$QML_FILE" call notifications setVolume "$2"
+                ;;
+              *)
+                echo "Unknown command: $1"
+                echo "Usage: qs-notifications [start|toggle|show|hide|count|unread|clear|dnd|toggle-dnd|ding|set-volume <vol>]"
+                exit 1
+                ;;
+            esac
+          '';
+        runtimeInputs = [
+          pkgs.quickshell
+          pkgs.qt6.qtmultimedia
+        ];
+      };
+
+      packages.qs-notify = inputs.wrappers.lib.makeWrapper {
+        inherit pkgs;
+        package = pkgs.writeShellScriptBin "qs-notify" ''
+          # Send a notification with optional ding sound
+          # Usage: qs-notify [options] <summary> [body]
+          #
+          # Options:
+          #   -d, --ding         Play ding sound with notification
+          #   -u, --urgency U    Set urgency (low, normal, critical)
+          #   -i, --icon ICON    Set notification icon
+          #   -a, --app NAME     Set app name
+          #   -t, --timeout MS   Set timeout in milliseconds
+          #
+          # Examples:
+          #   qs-notify "Hello" "World"
+          #   qs-notify --ding "Alert" "Something happened"
+          #   qs-notify -u critical -d "Error" "Critical error occurred"
+
+          DING=false
+          URGENCY="normal"
+          ICON=""
+          APP_NAME=""
+          TIMEOUT=""
+          SUMMARY=""
+          BODY=""
+
+          while [[ $# -gt 0 ]]; do
+            case $1 in
+              -d|--ding)
+                DING=true
+                shift
+                ;;
+              -u|--urgency)
+                URGENCY="$2"
+                shift 2
+                ;;
+              -i|--icon)
+                ICON="$2"
+                shift 2
+                ;;
+              -a|--app)
+                APP_NAME="$2"
+                shift 2
+                ;;
+              -t|--timeout)
+                TIMEOUT="$2"
+                shift 2
+                ;;
+              *)
+                if [ -z "$SUMMARY" ]; then
+                  SUMMARY="$1"
+                else
+                  BODY="$1"
+                fi
+                shift
+                ;;
+            esac
+          done
+
+          if [ -z "$SUMMARY" ]; then
+            echo "Usage: qs-notify [options] <summary> [body]"
+            exit 1
+          fi
+
+          # Build notify-send command
+          NOTIFY_ARGS=()
+          [ -n "$URGENCY" ] && NOTIFY_ARGS+=("-u" "$URGENCY")
+          [ -n "$ICON" ] && NOTIFY_ARGS+=("-i" "$ICON")
+          [ -n "$APP_NAME" ] && NOTIFY_ARGS+=("-a" "$APP_NAME")
+          [ -n "$TIMEOUT" ] && NOTIFY_ARGS+=("-t" "$TIMEOUT")
+
+          # Play ding first if requested (so it plays immediately)
+          if [ "$DING" = true ]; then
+            qs-notifications ding 2>/dev/null &
+          fi
+
+          # Send notification
+          notify-send "''${NOTIFY_ARGS[@]}" "$SUMMARY" "$BODY"
+        '';
+        runtimeInputs = [
+          pkgs.libnotify
+        ];
+      };
+
       packages.qs-keybinds = inputs.wrappers.lib.makeWrapper {
         inherit pkgs;
         package = pkgs.writeShellScriptBin "qs-keybinds" ''

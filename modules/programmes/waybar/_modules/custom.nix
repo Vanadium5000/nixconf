@@ -99,9 +99,10 @@ in
   };
   "custom/notifications" = {
     format = "󰂚 {}";
-    exec = "swaync-client --count";
-    on-click = "swaync-client -t";
+    exec = "qs-notifications count 2>/dev/null || echo 0";
+    on-click = "qs-notifications toggle";
     interval = 1;
+    tooltip = false;
   };
   "custom/logo" = {
     "format" = " ";

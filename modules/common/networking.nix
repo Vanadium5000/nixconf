@@ -30,6 +30,10 @@
           networkmanager = {
             enable = true;
 
+            # Prevent NetworkManager from pushing per-link DNS to systemd-resolved
+            # This ensures ALL DNS goes through global (127.0.0.1 → dnscrypt-proxy)
+            dns = "none";
+
             wifi = {
               macAddress = "stable"; # Randomize MAC for Wi-Fi connections - "random" breaks networks
               scanRandMacAddress = true; # Also randomize during Wi-Fi scans for extra privacy
@@ -69,8 +73,12 @@
         services.resolved = {
           enable = true;
 
-          # No fallback - if dnscrypt-proxy is down, DNS fails (secure failure mode)
-          fallbackDns = [ ];
+          # Fallback to common public DNS if dnscrypt-proxy is down (e.g. captive portals)
+          # These are ONLY used when primary DNS (127.0.0.1) fails
+          fallbackDns = [
+            "1.1.1.1"
+            "9.9.9.9"
+          ];
 
           # Route ALL queries through the global DNS servers (127.0.0.1 → dnscrypt-proxy)
           # The "~." is a routing-only domain that captures all queries
@@ -78,11 +86,15 @@
 
           # Disable LLMNR and mDNS to prevent local network DNS leaks
           llmnr = "false";
+
+          # DNSSEC breaks captive portals and some misconfigured domains
+          dnssec = "false";
+
           extraConfig = ''
-            # Disable multicast DNS
             MulticastDNS=no
-            # Force all DNS through global servers, never use per-link DNS
+            # Fail faster when upstream is unresponsive (default is 5s per server)
             DNSStubListenerExtra=
+            ResolveUnicastSingleLabel=no
           '';
         };
 
@@ -102,10 +114,11 @@
               "[::1]:53" # IPv6 loopback listener
             ];
 
-            # Server selection criteria - only use servers that meet ALL requirements
-            require_dnssec = true; # DNSSEC validation mandatory
-            require_nolog = true; # Servers must not log queries
-            require_nofilter = true; # No content filtering (we decide what to block)
+            # Server selection criteria - privacy focused, no DNSSEC requirement
+            # (DNSSEC breaks captive portals and some sites)
+            require_dnssec = false;
+            require_nolog = true;
+            require_nofilter = true;
 
             # Protocol support
             ipv4_servers = true;
@@ -126,8 +139,8 @@
 
             cache = true;
             cache_size = 4096; # Number of cached entries
-            cache_min_ttl = 2400; # 40 minutes minimum cache
-            cache_max_ttl = 86400; # 24 hours maximum cache
+            cache_min_ttl = 2400; # 40 minutes minimum
+            cache_max_ttl = 86400; # 24 hours maximum
             cache_neg_min_ttl = 60; # Cache negative responses (NXDOMAIN) for 1 min
             cache_neg_max_ttl = 600; # Max 10 minutes for negative cache
 
@@ -150,8 +163,8 @@
             ];
             ignore_system_dns = true;
 
-            # Connection settings
-            timeout = 5000; # Query timeout in ms
+            # Connection settings - fail fast to trigger fallback
+            timeout = 3000; # 3s timeout (down from 5s)
             keepalive = 30; # Keepalive for HTTP/2 connections in seconds
           };
         };
@@ -162,41 +175,24 @@
         };
 
         # ============================================================================
-        # Prevent VPNs and DHCP from hijacking DNS
+        # Force VPNs to use global DNS (not VPN-pushed DNS)
         # ============================================================================
-        # With dns="none", NetworkManager won't push per-link DNS to systemd-resolved.
-        # However, we still need to handle cases where interfaces are manually configured
-        # or where other tools (like openvpn directly) might set DNS.
-        # This dispatcher script ensures ALL interfaces have their DNS settings cleared
-        # and default-route disabled, forcing everything through global DNS.
+        # OpenVPN and other VPNs often push their own DNS servers via DHCP options.
+        # This dispatcher ensures VPN interfaces also use dnscrypt-proxy.
         networking.networkmanager.dispatcherScripts = [
           {
-            source = pkgs.writeShellScript "force-global-dns" ''
+            source = pkgs.writeShellScript "force-global-dns-vpn" ''
               INTERFACE="$1"
               ACTION="$2"
 
-              # Only act when interfaces come up
               case "$ACTION" in
-                up|vpn-up|dhcp4-change|dhcp6-change)
-                  ;;
-                *)
-                  exit 0
+                vpn-up)
+                  # Force VPN interface to NOT be default route for DNS
+                  ${pkgs.systemd}/bin/resolvectl default-route "$INTERFACE" false 2>/dev/null || true
+                  ${pkgs.systemd}/bin/resolvectl dns "$INTERFACE" "" 2>/dev/null || true
+                  ${pkgs.systemd}/bin/resolvectl domain "$INTERFACE" "" 2>/dev/null || true
                   ;;
               esac
-
-              # Skip loopback
-              [[ "$INTERFACE" == "lo" ]] && exit 0
-
-              # Force all interfaces to NOT be default route for DNS
-              # This ensures global DNS (127.0.0.1 → dnscrypt-proxy) always wins
-              ${pkgs.systemd}/bin/resolvectl default-route "$INTERFACE" false 2>/dev/null || true
-
-              # Clear any per-link DNS servers that might have been set
-              # (shouldn't happen with dns="none" but belt-and-suspenders)
-              ${pkgs.systemd}/bin/resolvectl dns "$INTERFACE" "" 2>/dev/null || true
-
-              # Clear any per-link search domains
-              ${pkgs.systemd}/bin/resolvectl domain "$INTERFACE" "" 2>/dev/null || true
             '';
             type = "basic";
           }
@@ -215,16 +211,12 @@
         # Query via dnscrypt-proxy explicitly (IPv6):
         #   resolvectl query example.com @::1
         #
-        # Force router/DHCP DNS (bypass dnscrypt-proxy):
-        #   resolvectl query example.com --legend=no
-        #
         # Direct dnscrypt-proxy internal test:
         #   dnscrypt-proxy -resolve example.com
         #
 
         environment.variables.VPN_DIR = "/home/${config.preferences.user.username}/Shared/VPNs";
 
-        # Packages
         environment.systemPackages = with pkgs; [
           dnscrypt-proxy
         ];

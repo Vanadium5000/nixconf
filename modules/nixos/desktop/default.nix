@@ -31,10 +31,10 @@
         self.nixosModules.qt
       ];
 
-      # Automatically start waybar & swaync & niri-screen-time daemon
+      # Automatically start waybar & qs-notifications & niri-screen-time daemon
       preferences.autostart = [
         "waybar"
-        "swaync"
+        "qs-notifications"
         "niri-screen-time --daemon"
         # KDE daemon - hosts kded modules like SolidUiServer for LUKS password prompts
         "kded6"
@@ -46,11 +46,10 @@
       environment.systemPackages = [
         selfpkgs.terminal
         selfpkgs.waybar
+        selfpkgs.qs-notifications
+        selfpkgs.qs-notify
       ]
       ++ (with pkgs; [
-        # Utils
-        swaynotificationcenter
-
         # Tools
         localsend
 

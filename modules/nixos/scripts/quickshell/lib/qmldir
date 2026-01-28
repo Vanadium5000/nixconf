@@ -1,4 +1,8 @@
 singleton Theme 1.0 Theme.qml
+singleton NotificationCenter 1.0 NotificationCenter.qml
 GlassPanel 1.0 GlassPanel.qml
 GlassButton 1.0 GlassButton.qml
 InstanceLock 1.0 InstanceLock.qml
+NotificationItem 1.0 NotificationItem.qml
+NotificationPopup 1.0 NotificationPopup.qml
+NotificationPanel 1.0 NotificationPanel.qml
