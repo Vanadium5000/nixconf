@@ -49,79 +49,93 @@ PanelWindow {
             spacing: 12
 
             // Header
-            RowLayout {
+            ColumnLayout {
                 Layout.fillWidth: true
-                spacing: 10
+                spacing: 8
 
-                Text {
+                // Title row
+                RowLayout {
                     Layout.fillWidth: true
-                    Layout.minimumWidth: 100
-                    text: root.showSettings ? "Settings" : "Notifications"
-                    font.family: Theme.glass.fontFamily
-                    font.pixelSize: Theme.glass.fontSizeTitle
-                    font.bold: true
-                    color: Theme.glass.textPrimary
-                    elide: Text.ElideRight
-                }
-
-                // Notification count badge
-                Rectangle {
-                    visible: !root.showSettings && root.notificationService.count > 0
-                    Layout.preferredWidth: countText.implicitWidth + 16
-                    Layout.preferredHeight: 24
-                    radius: 12
-                    color: Qt.rgba(Theme.glass.accentColor.r, Theme.glass.accentColor.g, Theme.glass.accentColor.b, 0.3)
-                    border.color: Theme.glass.accentColor
-                    border.width: 1
+                    spacing: 10
 
                     Text {
-                        id: countText
-                        anchors.centerIn: parent
-                        text: root.notificationService.count
+                        Layout.fillWidth: true
+                        text: root.showSettings ? "Settings" : "Notifications"
                         font.family: Theme.glass.fontFamily
-                        font.pixelSize: Theme.glass.fontSizeSmall
+                        font.pixelSize: Theme.glass.fontSizeTitle
                         font.bold: true
                         color: Theme.glass.textPrimary
                     }
+
+                    // Close panel
+                    GlassButton {
+                        implicitWidth: 32
+                        implicitHeight: 32
+                        icon: "󰅖"
+                        cornerRadius: 8
+                        onClicked: root.notificationService.hidePanel()
+                    }
                 }
 
-                // DND toggle
-                GlassButton {
-                    implicitWidth: 36
-                    implicitHeight: 36
-                    icon: root.notificationService.dndEnabled ? "󰂛" : "󰂚"
-                    active: root.notificationService.dndEnabled
-                    cornerRadius: 18
-                    onClicked: root.notificationService.toggleDnd()
-                }
+                // Action buttons row
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 8
 
-                // Settings toggle
-                GlassButton {
-                    implicitWidth: 36
-                    implicitHeight: 36
-                    icon: "󰒓"
-                    active: root.showSettings
-                    cornerRadius: 18
-                    onClicked: root.showSettings = !root.showSettings
-                }
+                    // Notification count badge
+                    Rectangle {
+                        visible: !root.showSettings && root.notificationService.count > 0
+                        Layout.preferredWidth: countText.implicitWidth + 16
+                        Layout.preferredHeight: 28
+                        radius: 8
+                        color: Qt.rgba(Theme.glass.accentColor.r, Theme.glass.accentColor.g, Theme.glass.accentColor.b, 0.2)
+                        border.color: Qt.rgba(Theme.glass.accentColor.r, Theme.glass.accentColor.g, Theme.glass.accentColor.b, 0.4)
+                        border.width: 1
 
-                // Clear all
-                GlassButton {
-                    visible: !root.showSettings && root.notificationService.count > 0
-                    implicitWidth: 36
-                    implicitHeight: 36
-                    icon: "󰆴"
-                    cornerRadius: 18
-                    onClicked: root.notificationService.dismissAll()
-                }
+                        Text {
+                            id: countText
+                            anchors.centerIn: parent
+                            text: root.notificationService.count
+                            font.family: Theme.glass.fontFamily
+                            font.pixelSize: Theme.glass.fontSizeSmall
+                            font.bold: true
+                            color: Theme.glass.textPrimary
+                        }
+                    }
 
-                // Close panel
-                GlassButton {
-                    implicitWidth: 36
-                    implicitHeight: 36
-                    icon: "󰅖"
-                    cornerRadius: 18
-                    onClicked: root.notificationService.hidePanel()
+                    Item { Layout.fillWidth: true }
+
+                    // DND toggle
+                    GlassButton {
+                        implicitWidth: 80
+                        implicitHeight: 28
+                        icon: root.notificationService.dndEnabled ? "󰂛" : "󰂚"
+                        text: "DND"
+                        active: root.notificationService.dndEnabled
+                        cornerRadius: 8
+                        onClicked: root.notificationService.toggleDnd()
+                    }
+
+                    // Settings toggle
+                    GlassButton {
+                        implicitWidth: 36
+                        implicitHeight: 28
+                        icon: "󰒓"
+                        active: root.showSettings
+                        cornerRadius: 8
+                        onClicked: root.showSettings = !root.showSettings
+                    }
+
+                    // Clear all
+                    GlassButton {
+                        visible: !root.showSettings && root.notificationService.count > 0
+                        implicitWidth: 100
+                        implicitHeight: 28
+                        icon: "󰆴"
+                        text: "Clear All"
+                        cornerRadius: 8
+                        onClicked: root.notificationService.dismissAll()
+                    }
                 }
             }
 

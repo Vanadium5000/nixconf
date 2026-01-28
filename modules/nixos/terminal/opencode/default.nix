@@ -198,6 +198,7 @@
           provider = providers.config;
         };
         "opencode/skill".source = skills.skillsSource + "/skill";
+        "opencode/AGENTS.md".source = ./AGENTS.md;
 
         # "${antigravityConfigFile}".text = builtins.toJSON {
         #   "$schema" =
