@@ -1,23 +1,65 @@
 #!/usr/bin/env bun
 /**
  * VPN SOCKS5 Proxy Server
- * Routes traffic through VPNs based on SOCKS5 username authentication.
- * Username = VPN slug, empty/random = rotating random VPN.
+ *
+ * Architecture:
+ * ┌─────────────┐     ┌──────────────┐     ┌─────────────────┐
+ * │ Client App  │────▶│ SOCKS5 Proxy │────▶│ Network Namespace│
+ * │ (curl, etc) │     │ (this file)  │     │ (vpn-proxy-N)   │
+ * └─────────────┘     └──────────────┘     └────────┬────────┘
+ *                                                   │
+ *                     Username = VPN slug           ▼
+ *                     "random" = rotating      ┌─────────┐
+ *                                              │ OpenVPN │
+ *                                              │ Tunnel  │
+ *                                              └────┬────┘
+ *                                                   ▼
+ *                                              Internet
+ *
+ * Security Model:
+ * - Each VPN runs in isolated network namespace
+ * - nftables kill-switch blocks all non-VPN traffic
+ * - DNS configured per-namespace to prevent leaks
+ * - Namespace destroyed on idle timeout
+ *
+ * SOCKS5 Protocol (RFC 1928):
+ * - Version: 0x05
+ * - Auth method 0x02: Username/Password (RFC 1929)
+ * - Command 0x01: CONNECT (only supported command)
+ * - Address types: 0x01 (IPv4), 0x03 (domain), 0x04 (IPv6 - unsupported)
+ *
+ * Known Limitations:
+ * - IPv6 destinations not supported (would need IPv6 in namespace)
+ * - UDP ASSOCIATE (0x03) not implemented
+ * - BIND (0x02) not implemented
+ * - State file has no locking (race condition on concurrent first-requests)
  */
 
 import { spawn, spawnSync } from "bun";
 import { readFile, writeFile, mkdir, unlink } from "fs/promises";
 import { join } from "path";
 import { createServer, type Socket } from "net";
-import { listVpns, resolveVpn, getRandomVpn, isValidSlug, type VpnConfig } from "./vpn-resolver";
+import {
+  listVpns,
+  resolveVpn,
+  getRandomVpn,
+  isValidSlug,
+  type VpnConfig,
+} from "./vpn-resolver";
 
-const STATE_DIR = `/dev/shm/vpn-proxy-${process.getuid()}`;
+// State stored in tmpfs for speed and automatic cleanup on reboot
+const STATE_DIR = `/dev/shm/vpn-proxy-${process.getuid!()}`;
 const STATE_FILE = join(STATE_DIR, "state.json");
-const NETNS_SCRIPT = process.env.VPN_PROXY_NETNS_SCRIPT || join(import.meta.dir, "vpn-proxy-netns.sh");
+const NETNS_SCRIPT =
+  process.env.VPN_PROXY_NETNS_SCRIPT ||
+  join(import.meta.dir, "vpn-proxy-netns.sh");
 
 const PROXY_PORT = parseInt(process.env.VPN_PROXY_PORT || "10800", 10);
 const IDLE_TIMEOUT = parseInt(process.env.VPN_PROXY_IDLE_TIMEOUT || "300", 10);
-const RANDOM_ROTATION = parseInt(process.env.VPN_PROXY_RANDOM_ROTATION || "300", 10);
+const RANDOM_ROTATION = parseInt(
+  process.env.VPN_PROXY_RANDOM_ROTATION || "300",
+  10
+);
 
 interface NamespaceInfo {
   nsName: string;
@@ -36,7 +78,10 @@ interface ProxyState {
   nextIndex: number;
 }
 
-function log(level: "DEBUG" | "INFO" | "WARN" | "ERROR", message: string): void {
+function log(
+  level: "DEBUG" | "INFO" | "WARN" | "ERROR",
+  message: string
+): void {
   const timestamp = new Date().toISOString();
   console.error(`[${timestamp}] [${level}] [vpn-proxy] ${message}`);
 }
@@ -60,13 +105,16 @@ async function saveState(state: ProxyState): Promise<void> {
 }
 
 function runNetnsScript(args: string[]): { success: boolean; output: string } {
-  const sudoPrefix = process.getuid() === 0 ? [] : ["sudo"];
+  const sudoPrefix = process.getuid!() === 0 ? [] : ["sudo"];
   const result = spawnSync([...sudoPrefix, "bash", NETNS_SCRIPT, ...args]);
   const output = result.stdout.toString() + result.stderr.toString();
   return { success: result.exitCode === 0, output };
 }
 
-async function createNamespace(state: ProxyState, vpn: VpnConfig): Promise<NamespaceInfo> {
+async function createNamespace(
+  state: ProxyState,
+  vpn: VpnConfig
+): Promise<NamespaceInfo> {
   const nsIndex = state.nextIndex;
   const nsName = `vpn-proxy-${nsIndex}`;
   const nsIp = `10.200.${nsIndex}.2`;
@@ -74,7 +122,11 @@ async function createNamespace(state: ProxyState, vpn: VpnConfig): Promise<Names
   log("INFO", `Creating namespace ${nsName} for ${vpn.displayName}`);
 
   const result = runNetnsScript([
-    "create", nsName, nsIndex.toString(), vpn.serverIp, vpn.serverPort.toString()
+    "create",
+    nsName,
+    nsIndex.toString(),
+    vpn.serverIp,
+    vpn.serverPort.toString(),
   ]);
 
   if (!result.success) {
@@ -91,12 +143,14 @@ async function createNamespace(state: ProxyState, vpn: VpnConfig): Promise<Names
   }
 
   const info: NamespaceInfo = {
-    nsName, nsIndex, nsIp,
+    nsName,
+    nsIndex,
+    nsIp,
     slug: vpn.slug,
     vpnDisplayName: vpn.displayName,
     lastUsed: Date.now(),
     openvpnPid,
-    status: "connected"
+    status: "connected",
   };
 
   state.namespaces[vpn.slug] = info;
@@ -113,12 +167,24 @@ async function startOpenVPN(nsName: string, vpn: VpnConfig): Promise<number> {
   const pidFile = join(STATE_DIR, `openvpn-${nsName}.pid`);
   const logFile = join(STATE_DIR, `openvpn-${nsName}.log`);
 
-  const sudoPrefix = process.getuid() === 0 ? [] : ["sudo"];
+  const sudoPrefix = process.getuid!() === 0 ? [] : ["sudo"];
   const proc = spawn({
     cmd: [
-      ...sudoPrefix, "ip", "netns", "exec", nsName,
-      "openvpn", "--config", vpn.ovpnPath, "--dev", "tun0",
-      "--daemon", "--writepid", pidFile, "--log", logFile,
+      ...sudoPrefix,
+      "ip",
+      "netns",
+      "exec",
+      nsName,
+      "openvpn",
+      "--config",
+      vpn.ovpnPath,
+      "--dev",
+      "tun0",
+      "--daemon",
+      "--writepid",
+      pidFile,
+      "--log",
+      logFile,
     ],
     stdout: "ignore",
     stderr: "pipe",
@@ -142,11 +208,24 @@ async function startOpenVPN(nsName: string, vpn: VpnConfig): Promise<number> {
   }
 }
 
-async function waitForTunnel(nsName: string, timeout = 30000): Promise<boolean> {
+async function waitForTunnel(
+  nsName: string,
+  timeout = 30000
+): Promise<boolean> {
   const start = Date.now();
-  const sudoPrefix = process.getuid() === 0 ? [] : ["sudo"];
+  const sudoPrefix = process.getuid!() === 0 ? [] : ["sudo"];
   while (Date.now() - start < timeout) {
-    const result = spawnSync([...sudoPrefix, "ip", "netns", "exec", nsName, "ip", "addr", "show", "tun0"]);
+    const result = spawnSync([
+      ...sudoPrefix,
+      "ip",
+      "netns",
+      "exec",
+      nsName,
+      "ip",
+      "addr",
+      "show",
+      "tun0",
+    ]);
     if (result.exitCode === 0) {
       log("INFO", `Tunnel tun0 up in ${nsName}`);
       return true;
@@ -157,18 +236,24 @@ async function waitForTunnel(nsName: string, timeout = 30000): Promise<boolean> 
   return false;
 }
 
-async function destroyNamespace(slug: string, state: ProxyState): Promise<void> {
+async function destroyNamespace(
+  slug: string,
+  state: ProxyState
+): Promise<void> {
   const info = state.namespaces[slug];
   if (!info) return;
 
   log("INFO", `Destroying namespace for ${slug}`);
   runNetnsScript(["destroy", info.nsName]);
-  
+
   delete state.namespaces[slug];
   await saveState(state);
 }
 
-async function getOrCreateNamespace(slug: string, state: ProxyState): Promise<NamespaceInfo> {
+async function getOrCreateNamespace(
+  slug: string,
+  state: ProxyState
+): Promise<NamespaceInfo> {
   const existing = state.namespaces[slug];
   if (existing && existing.status === "connected") {
     existing.lastUsed = Date.now();
@@ -182,17 +267,23 @@ async function getOrCreateNamespace(slug: string, state: ProxyState): Promise<Na
   return createNamespace(state, vpn);
 }
 
-async function resolveSlugFromUsername(username: string, state: ProxyState): Promise<string> {
+async function resolveSlugFromUsername(
+  username: string,
+  state: ProxyState
+): Promise<string> {
   if (!username || username === "random") {
     const now = Date.now();
     if (state.random && state.random.expiresAt > now) {
       return state.random.currentSlug;
     }
-    
+
     const vpn = await getRandomVpn();
     if (!vpn) throw new Error("No VPNs available");
-    
-    state.random = { currentSlug: vpn.slug, expiresAt: now + RANDOM_ROTATION * 1000 };
+
+    state.random = {
+      currentSlug: vpn.slug,
+      expiresAt: now + RANDOM_ROTATION * 1000,
+    };
     await saveState(state);
     log("INFO", `Random VPN selected: ${vpn.displayName}`);
     return vpn.slug;
@@ -200,7 +291,7 @@ async function resolveSlugFromUsername(username: string, state: ProxyState): Pro
 
   const isValid = await isValidSlug(username);
   if (!isValid) {
-    spawnSync(["notify-send", "-u", "warning", "VPN Proxy", `Unknown VPN "${username}", using random`]);
+    // TODO: notify-send not in systemd PATH - log only for now
     log("WARN", `Invalid slug "${username}", falling back to random`);
     return resolveSlugFromUsername("random", state);
   }
@@ -208,45 +299,69 @@ async function resolveSlugFromUsername(username: string, state: ProxyState): Pro
   return username;
 }
 
-function parseSocks5Auth(data: Buffer): { username: string; password: string } | null {
+function parseSocks5Auth(
+  data: Buffer
+): { username: string; password: string } | null {
   if (data.length < 5) return null;
   const version = data[0];
   if (version !== 0x01) return null;
-  
-  const ulen = data[1];
+
+  const ulen = data[1]!;
   if (data.length < 2 + ulen + 1) return null;
-  
+
   const username = data.subarray(2, 2 + ulen).toString("utf-8");
-  const plen = data[2 + ulen];
+  const plen = data[2 + ulen]!;
   if (data.length < 3 + ulen + plen) return null;
-  
+
   const password = data.subarray(3 + ulen, 3 + ulen + plen).toString("utf-8");
   return { username, password };
+}
+
+import type { FileSink } from "bun";
+
+interface NamespaceConnection {
+  stdin: FileSink;
+  stdout: ReadableStream<Uint8Array>;
+  proc: ReturnType<typeof spawn>;
 }
 
 async function connectThroughNamespace(
   nsInfo: NamespaceInfo,
   targetHost: string,
   targetPort: number
-): Promise<{ readable: ReadableStream; writable: WritableStream; proc: ReturnType<typeof spawn> }> {
-  const sudoPrefix = process.getuid() === 0 ? [] : ["sudo"];
+): Promise<NamespaceConnection> {
+  const sudoPrefix = process.getuid!() === 0 ? [] : ["sudo"];
   const args = [
-    ...sudoPrefix, "ip", "netns", "exec", nsInfo.nsName,
-    "socat", "-", `TCP:${targetHost}:${targetPort}`
+    ...sudoPrefix,
+    "ip",
+    "netns",
+    "exec",
+    nsInfo.nsName,
+    "socat",
+    "-",
+    `TCP:${targetHost}:${targetPort}`,
   ];
-  
-  const proc = spawn({ cmd: args, stdin: "pipe", stdout: "pipe", stderr: "pipe" });
-  
+
+  const proc = spawn({
+    cmd: args,
+    stdin: "pipe",
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+
   return {
-    readable: proc.stdout as ReadableStream,
-    writable: proc.stdin as unknown as WritableStream,
-    proc
+    stdin: proc.stdin as FileSink,
+    stdout: proc.stdout as ReadableStream<Uint8Array>,
+    proc,
   };
 }
 
-async function handleConnection(clientSocket: Socket, state: ProxyState): Promise<void> {
+async function handleConnection(
+  clientSocket: Socket,
+  state: ProxyState
+): Promise<void> {
   let username = "";
-  
+
   clientSocket.once("data", async (data: Buffer) => {
     try {
       if (data[0] !== 0x05) {
@@ -254,13 +369,13 @@ async function handleConnection(clientSocket: Socket, state: ProxyState): Promis
         return;
       }
 
-      const nmethods = data[1];
+      const nmethods = data[1]!;
       const methods = data.subarray(2, 2 + nmethods);
       const supportsAuth = methods.includes(0x02);
-      
+
       if (supportsAuth) {
         clientSocket.write(Buffer.from([0x05, 0x02]));
-        
+
         clientSocket.once("data", async (authData: Buffer) => {
           const auth = parseSocks5Auth(authData);
           if (auth) {
@@ -288,7 +403,9 @@ async function handleSocks5Request(
   clientSocket.once("data", async (data: Buffer) => {
     try {
       if (data[0] !== 0x05 || data[1] !== 0x01) {
-        clientSocket.write(Buffer.from([0x05, 0x07, 0x00, 0x01, 0, 0, 0, 0, 0, 0]));
+        clientSocket.write(
+          Buffer.from([0x05, 0x07, 0x00, 0x01, 0, 0, 0, 0, 0, 0])
+        );
         clientSocket.end();
         return;
       }
@@ -302,11 +419,13 @@ async function handleSocks5Request(
         targetHost = `${data[4]}.${data[5]}.${data[6]}.${data[7]}`;
         addrEnd = 8;
       } else if (atyp === 0x03) {
-        const domainLen = data[4];
+        const domainLen = data[4]!;
         targetHost = data.subarray(5, 5 + domainLen).toString("utf-8");
         addrEnd = 5 + domainLen;
       } else if (atyp === 0x04) {
-        clientSocket.write(Buffer.from([0x05, 0x08, 0x00, 0x01, 0, 0, 0, 0, 0, 0]));
+        clientSocket.write(
+          Buffer.from([0x05, 0x08, 0x00, 0x01, 0, 0, 0, 0, 0, 0])
+        );
         clientSocket.end();
         return;
       } else {
@@ -314,9 +433,12 @@ async function handleSocks5Request(
         return;
       }
 
-      targetPort = (data[addrEnd] << 8) | data[addrEnd + 1];
+      targetPort = (data[addrEnd]! << 8) | data[addrEnd + 1]!;
 
-      log("DEBUG", `SOCKS5 request: ${username || "random"}@${targetHost}:${targetPort}`);
+      log(
+        "DEBUG",
+        `SOCKS5 request: ${username || "random"}@${targetHost}:${targetPort}`
+      );
 
       const slug = await resolveSlugFromUsername(username, state);
       const nsInfo = await getOrCreateNamespace(slug, state);
@@ -324,14 +446,17 @@ async function handleSocks5Request(
       const reply = Buffer.from([0x05, 0x00, 0x00, 0x01, 0, 0, 0, 0, 0, 0]);
       clientSocket.write(reply);
 
-      const { readable, writable, proc } = await connectThroughNamespace(nsInfo, targetHost, targetPort);
-      
-      const writer = writable.getWriter();
+      const { stdin, stdout, proc } = await connectThroughNamespace(
+        nsInfo,
+        targetHost,
+        targetPort
+      );
+
       clientSocket.on("data", (chunk: Buffer) => {
-        writer.write(chunk).catch(() => {});
+        stdin!.write(chunk);
       });
-      
-      const reader = readable.getReader();
+
+      const reader = stdout.getReader();
       (async () => {
         try {
           while (true) {
@@ -346,21 +471,22 @@ async function handleSocks5Request(
       })();
 
       clientSocket.on("close", () => {
-        writer.close().catch(() => {});
+        stdin!.end();
         proc.kill();
       });
       clientSocket.on("error", () => {
-        writer.close().catch(() => {});
+        stdin!.end();
         proc.kill();
       });
-      
+
       proc.exited.then(() => {
         if (!clientSocket.destroyed) clientSocket.end();
       });
-
     } catch (error) {
       log("ERROR", `Request error: ${error}`);
-      clientSocket.write(Buffer.from([0x05, 0x01, 0x00, 0x01, 0, 0, 0, 0, 0, 0]));
+      clientSocket.write(
+        Buffer.from([0x05, 0x01, 0x00, 0x01, 0, 0, 0, 0, 0, 0])
+      );
       clientSocket.end();
     }
   });
@@ -392,7 +518,10 @@ export async function rotateRandom(): Promise<void> {
     const oldSlug = state.random.currentSlug;
     const vpn = await getRandomVpn();
     if (vpn && vpn.slug !== oldSlug) {
-      state.random = { currentSlug: vpn.slug, expiresAt: now + RANDOM_ROTATION * 1000 };
+      state.random = {
+        currentSlug: vpn.slug,
+        expiresAt: now + RANDOM_ROTATION * 1000,
+      };
       await saveState(state);
       log("INFO", `Random rotated: ${oldSlug} -> ${vpn.displayName}`);
     }
@@ -421,7 +550,10 @@ export async function getStatus(): Promise<string> {
   }
 
   if (state.random) {
-    const expiresIn = Math.max(0, Math.floor((state.random.expiresAt - now) / 1000));
+    const expiresIn = Math.max(
+      0,
+      Math.floor((state.random.expiresAt - now) / 1000)
+    );
     const expMin = Math.floor(expiresIn / 60);
     const expSec = expiresIn % 60;
     output += `\nRandom VPN: ${state.random.currentSlug} (expires in ${expMin}m ${expSec}s)\n`;
@@ -519,7 +651,9 @@ Examples:
       break;
     default:
       if (command && command !== "serve") {
-        console.error(`Unknown command: ${command}\nRun 'vpn-proxy --help' for usage.`);
+        console.error(
+          `Unknown command: ${command}\nRun 'vpn-proxy --help' for usage.`
+        );
         process.exit(1);
       }
       await startServer();

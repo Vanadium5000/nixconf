@@ -61,6 +61,12 @@
             pkgs.openvpn
             pkgs.socat
             pkgs.coreutils
+            pkgs.procps
+            pkgs.jq
+            pkgs.util-linux
+            pkgs.gnugrep
+            pkgs.gawk
+            pkgs.findutils
           ];
 
           environment = {
@@ -76,11 +82,10 @@
             Restart = "on-failure";
             RestartSec = 5;
 
-            # Hardening (runs as root for netns operations)
             NoNewPrivileges = false;
-            ProtectSystem = "strict";
+            ProtectSystem = "full";
             ProtectHome = "read-only";
-            ReadWritePaths = [ "/dev/shm" "/run/netns" "/var/run/netns" ];
+            ReadWritePaths = [ "/dev/shm" "/run/netns" "/var/run/netns" "/etc/netns" ];
             PrivateTmp = true;
           };
         };

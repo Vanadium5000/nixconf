@@ -1,6 +1,20 @@
 #!/usr/bin/env bash
-# Network namespace setup for VPN SOCKS5 proxy isolation
-# Creates isolated network environment with kill-switch firewall rules
+# VPN Proxy Network Namespace Manager
+#
+# Creates isolated network namespaces with:
+# - veth pair for host<->namespace connectivity
+# - NAT masquerading for outbound traffic
+# - nftables kill-switch (blocks all non-VPN traffic)
+# - Per-namespace DNS to prevent leaks
+#
+# Security: Kill-switch ensures zero IP leaks - if VPN drops, all traffic blocked
+#
+# Addressing scheme:
+#   Host veth:      10.200.{index}.1/24
+#   Namespace veth: 10.200.{index}.2/24
+#   Namespace name: vpn-proxy-{index}
+#
+# Dependencies: iproute2, iptables, nftables, jq, coreutils
 
 set -euo pipefail
 
@@ -80,10 +94,8 @@ create_namespace() {
     echo "nameserver 1.1.1.1" | run tee "/etc/netns/$ns/resolv.conf" >/dev/null
     echo "nameserver 1.0.0.1" | run tee -a "/etc/netns/$ns/resolv.conf" >/dev/null
     
-    # Apply kill-switch firewall rules inside namespace
     apply_killswitch "$ns" "$vpn_ip" "$vpn_port"
     
-    # Save namespace info
     mkdir -p "$STATE_DIR"
     cat > "$STATE_DIR/ns-$ns.json" <<EOF
 {
