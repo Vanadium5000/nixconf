@@ -48,6 +48,12 @@
       };
 
       config = mkIf cfg.enable {
+        # Ensure required directories exist before services start
+        systemd.tmpfiles.rules = [
+          "d /run/netns 0755 root root -"
+          "d /etc/netns 0755 root root -"
+        ];
+
         systemd.services.vpn-proxy = {
           description = "VPN SOCKS5 Proxy Server";
           wantedBy = [ "multi-user.target" ];

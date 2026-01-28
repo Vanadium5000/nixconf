@@ -1,5 +1,5 @@
 # Networking module with encrypted DNS via dnscrypt-proxy
-# Falls back to router/DHCP DNS ONLY if dnscrypt-proxy is down
+# ALL DNS is routed through dnscrypt-proxy (127.0.0.1) - DHCP/VPN DNS is ignored
 {
   ...
 }:
@@ -20,20 +20,15 @@
         networking = {
           hostName = config.environment.variables.HOST;
 
-          # Use systemd-resolved stub
-          # Primary DNS is dnscrypt-proxy (127.0.0.1)
-          # Fallback DNS comes from DHCP (router)
+          # Primary DNS is dnscrypt-proxy on localhost
           nameservers = [
             "127.0.0.1"
-            "::1" # IPv6 loopback support
+            "::1"
           ];
 
           # CLI/TUI for connecting to networks
           networkmanager = {
             enable = true;
-
-            # Let NetworkManager feed DHCP DNS to systemd-resolved
-            dns = "systemd-resolved";
 
             wifi = {
               macAddress = "stable"; # Randomize MAC for Wi-Fi connections - "random" breaks networks
@@ -69,21 +64,30 @@
         };
 
         # ============================================================================
-        # systemd-resolved (fallback-only)
+        # systemd-resolved - Global DNS only (no per-link DNS)
         # ============================================================================
         services.resolved = {
           enable = true;
 
-          # Router/DHCP DNS used ONLY if 127.0.0.1/::1 is unreachable
-          # dnscrypt-proxy is the primary resolver
+          # No fallback - if dnscrypt-proxy is down, DNS fails (secure failure mode)
           fallbackDns = [ ];
 
-          # CRITICAL: Route ALL DNS through global resolver, ignoring per-link domains
-          # Without this, DHCP-pushed search domains cause split DNS routing to internal
-          # servers that may be unreachable, resulting in queries hanging forever
-          # instead of using dnscrypt-proxy
+          # Route ALL queries through the global DNS servers (127.0.0.1 → dnscrypt-proxy)
+          # The "~." is a routing-only domain that captures all queries
           domains = [ "~." ];
+
+          # Disable LLMNR and mDNS to prevent local network DNS leaks
+          llmnr = "false";
+          extraConfig = ''
+            # Disable multicast DNS
+            MulticastDNS=no
+            # Force all DNS through global servers, never use per-link DNS
+            DNSStubListenerExtra=
+          '';
         };
+
+        # Ensure /etc/resolv.conf points to systemd-resolved stub
+        environment.etc."resolv.conf".source = "/run/systemd/resolve/stub-resolv.conf";
 
         # ============================================================================
         # Encrypted DNS via dnscrypt-proxy
@@ -158,30 +162,41 @@
         };
 
         # ============================================================================
-        # Prevent VPNs from hijacking DNS
+        # Prevent VPNs and DHCP from hijacking DNS
         # ============================================================================
-        # VPNs set +DefaultRoute which overrides our global ~. routing domain,
-        # sending ALL DNS to the VPN's DNS server instead of dnscrypt-proxy.
-        # This dispatcher script removes the default route flag from VPN interfaces,
-        # allowing split DNS to work correctly (VPN DNS only for VPN-specific domains).
+        # With dns="none", NetworkManager won't push per-link DNS to systemd-resolved.
+        # However, we still need to handle cases where interfaces are manually configured
+        # or where other tools (like openvpn directly) might set DNS.
+        # This dispatcher script ensures ALL interfaces have their DNS settings cleared
+        # and default-route disabled, forcing everything through global DNS.
         networking.networkmanager.dispatcherScripts = [
           {
-            source = pkgs.writeShellScript "dns-no-default-route" ''
+            source = pkgs.writeShellScript "force-global-dns" ''
               INTERFACE="$1"
               ACTION="$2"
 
-              # Only act on VPN interfaces coming up
-              if [[ "$ACTION" != "vpn-up" && "$ACTION" != "up" ]]; then
-                exit 0
-              fi
-
-              # Only target tun/tap interfaces (VPNs), not physical interfaces
-              case "$INTERFACE" in
-                tun*|tap*|wg*)
-                  # Remove default route flag - VPN DNS only handles its own domains
-                  ${pkgs.systemd}/bin/resolvectl default-route "$INTERFACE" false
+              # Only act when interfaces come up
+              case "$ACTION" in
+                up|vpn-up|dhcp4-change|dhcp6-change)
+                  ;;
+                *)
+                  exit 0
                   ;;
               esac
+
+              # Skip loopback
+              [[ "$INTERFACE" == "lo" ]] && exit 0
+
+              # Force all interfaces to NOT be default route for DNS
+              # This ensures global DNS (127.0.0.1 → dnscrypt-proxy) always wins
+              ${pkgs.systemd}/bin/resolvectl default-route "$INTERFACE" false 2>/dev/null || true
+
+              # Clear any per-link DNS servers that might have been set
+              # (shouldn't happen with dns="none" but belt-and-suspenders)
+              ${pkgs.systemd}/bin/resolvectl dns "$INTERFACE" "" 2>/dev/null || true
+
+              # Clear any per-link search domains
+              ${pkgs.systemd}/bin/resolvectl domain "$INTERFACE" "" 2>/dev/null || true
             '';
             type = "basic";
           }

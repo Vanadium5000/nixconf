@@ -372,6 +372,8 @@
             WALLET_DIR="''${MONERO_WALLET_DIR:-$HOME/Shared/Coins/monero}"
             WALLET_FILE="''${MONERO_WALLET_FILE:-$WALLET_DIR/$WALLET_NAME}"
             PASSWORD_STORE_PATH="''${MONERO_PASSWORD_STORE_PATH:-monero/$WALLET_NAME}"
+            VPN_PROXY="''${VPN_PROXY:-random}"
+            VPN_PROXY_PORT="''${VPN_PROXY_PORT:-10800}"
 
             # Validate wallet name (alphanumeric, underscore, hyphen only)
             if [[ ! "$WALLET_NAME" =~ ^[a-zA-Z0-9_-]+$ ]]; then
@@ -406,11 +408,18 @@
                             mkdir -p "$WALLET_DIR"
                         fi
 
+                        # Build proxy args if VPN_PROXY is set
+                        PROXY_ARGS=()
+                        if [[ -n "$VPN_PROXY" && "$VPN_PROXY" != "none" ]]; then
+                            PROXY_ARGS=(--proxy "127.0.0.1:$VPN_PROXY_PORT")
+                        fi
+
                         echo "Initializing new wallet..."
                         exec ${pkgs.monero-cli}/bin/monero-wallet-cli \
                             --generate-new-wallet "$WALLET_FILE" \
                             --daemon-address "$DAEMON_ADDRESS" \
                             --password "$PASSWORD" \
+                            "''${PROXY_ARGS[@]}" \
                             "$@"
                         ;;
                     *)
@@ -445,11 +454,18 @@
                 exit 1
             fi
 
+            # Build proxy args if VPN_PROXY is set
+            PROXY_ARGS=()
+            if [[ -n "$VPN_PROXY" && "$VPN_PROXY" != "none" ]]; then
+                PROXY_ARGS=(--proxy "127.0.0.1:$VPN_PROXY_PORT")
+            fi
+
             # Launch monero-wallet-cli with proper arguments
             exec ${pkgs.monero-cli}/bin/monero-wallet-cli \
                 --daemon-address "$DAEMON_ADDRESS" \
                 --password "$PASSWORD" \
                 --wallet-file "$WALLET_FILE" \
+                "''${PROXY_ARGS[@]}" \
                 "$@"
           '';
       };
@@ -469,12 +485,20 @@
             ELECTRUM_DIR="''${ELECTRUM_DIR:-$HOME/Shared/Coins/bitcoin}"
             WALLET_FILE="''${ELECTRUM_WALLET_FILE:-$ELECTRUM_DIR/wallets/$WALLET_NAME}"
             PASSWORD_STORE_PATH="''${ELECTRUM_PASSWORD_STORE_PATH:-bitcoin/$WALLET_NAME}"
+            VPN_PROXY="''${VPN_PROXY:-random}"
+            VPN_PROXY_PORT="''${VPN_PROXY_PORT:-10800}"
 
             # Validate wallet name (alphanumeric, underscore, hyphen only)
             if [[ ! "$WALLET_NAME" =~ ^[a-zA-Z0-9_-]+$ ]]; then
                 echo "Error: Invalid wallet name '$WALLET_NAME'"
                 echo "Wallet name must contain only alphanumeric characters, underscores, and hyphens"
                 exit 1
+            fi
+
+            # Build proxy args if VPN_PROXY is set
+            PROXY_ARGS=()
+            if [[ -n "$VPN_PROXY" && "$VPN_PROXY" != "none" ]]; then
+                PROXY_ARGS=(-p "socks5:127.0.0.1:$VPN_PROXY_PORT::")
             fi
 
             # Check if wallet file exists
@@ -514,7 +538,7 @@
                         echo "(where \$PASSWORD is your wallet password from pass)"
                         echo ""
                         echo "Starting wallet GUI..."
-                        exec ${pkgs.electrum}/bin/electrum --wallet "$WALLET_FILE" "$@"
+                        exec ${pkgs.electrum}/bin/electrum --wallet "$WALLET_FILE" "''${PROXY_ARGS[@]}" "$@"
                         ;;
                     *)
                         echo "Aborted."
@@ -546,7 +570,7 @@
             echo ""
 
             # Launch electrum GUI with wallet
-            exec ${pkgs.electrum}/bin/electrum --wallet "$WALLET_FILE" "$@"
+            exec ${pkgs.electrum}/bin/electrum --wallet "$WALLET_FILE" "''${PROXY_ARGS[@]}" "$@"
           '';
       };
 
@@ -565,12 +589,20 @@
             ELECTRUM_LTC_DIR="''${ELECTRUM_LTC_DIR:-$HOME/Shared/Coins/litecoin}"
             WALLET_FILE="''${ELECTRUM_LTC_WALLET_FILE:-$ELECTRUM_LTC_DIR/wallets/$WALLET_NAME}"
             PASSWORD_STORE_PATH="''${ELECTRUM_LTC_PASSWORD_STORE_PATH:-litecoin/$WALLET_NAME}"
+            VPN_PROXY="''${VPN_PROXY:-random}"
+            VPN_PROXY_PORT="''${VPN_PROXY_PORT:-10800}"
 
             # Validate wallet name (alphanumeric, underscore, hyphen only)
             if [[ ! "$WALLET_NAME" =~ ^[a-zA-Z0-9_-]+$ ]]; then
                 echo "Error: Invalid wallet name '$WALLET_NAME'"
                 echo "Wallet name must contain only alphanumeric characters, underscores, and hyphens"
                 exit 1
+            fi
+
+            # Build proxy args if VPN_PROXY is set
+            PROXY_ARGS=()
+            if [[ -n "$VPN_PROXY" && "$VPN_PROXY" != "none" ]]; then
+                PROXY_ARGS=(-p "socks5:127.0.0.1:$VPN_PROXY_PORT::")
             fi
 
             # Check if wallet file exists
@@ -610,7 +642,7 @@
                         echo "(where \$PASSWORD is your wallet password from pass)"
                         echo ""
                         echo "Starting wallet GUI..."
-                        exec ${pkgs.electrum-ltc}/bin/electrum-ltc gui -w "$WALLET_FILE" "$@"
+                        exec ${pkgs.electrum-ltc}/bin/electrum-ltc gui -w "$WALLET_FILE" "''${PROXY_ARGS[@]}" "$@"
                         ;;
                     *)
                         echo "Aborted."
@@ -645,11 +677,11 @@
             fi
 
             # Start daemon if not running, load wallet with password, then launch GUI
-            ${pkgs.electrum-ltc}/bin/electrum-ltc daemon -d 2>/dev/null || true
+            ${pkgs.electrum-ltc}/bin/electrum-ltc daemon -d "''${PROXY_ARGS[@]}" 2>/dev/null || true
             ${pkgs.electrum-ltc}/bin/electrum-ltc load_wallet -w "$WALLET_FILE" -W "$PASSWORD"
 
             # Launch GUI (wallet already loaded and unlocked via daemon)
-            exec ${pkgs.electrum-ltc}/bin/electrum-ltc gui -w "$WALLET_FILE" "$@"
+            exec ${pkgs.electrum-ltc}/bin/electrum-ltc gui -w "$WALLET_FILE" "''${PROXY_ARGS[@]}" "$@"
           '';
       };
 
@@ -670,9 +702,17 @@
             ETH_WALLET_FILE="''${ETH_WALLET_FILE:-$ETH_WALLET_DIR/$WALLET_NAME}"
             PASSWORD_STORE_PATH="''${ETH_PASSWORD_STORE_PATH:-ethereum/$WALLET_NAME}"
             RPC_URL="''${ETH_RPC_URL:-https://eth.llamarpc.com}"
+            VPN_PROXY="''${VPN_PROXY:-random}"
+            VPN_PROXY_PORT="''${VPN_PROXY_PORT:-10800}"
 
             # Export RPC URL for cast commands
             export ETH_RPC_URL="$RPC_URL"
+
+            # Set proxy environment variables if VPN_PROXY is configured
+            if [[ -n "$VPN_PROXY" && "$VPN_PROXY" != "none" ]]; then
+                export ALL_PROXY="socks5://127.0.0.1:$VPN_PROXY_PORT"
+                export all_proxy="$ALL_PROXY"
+            fi
 
             # Validate wallet name (alphanumeric, underscore, hyphen only)
             if [[ ! "$WALLET_NAME" =~ ^[a-zA-Z0-9_-]+$ ]]; then

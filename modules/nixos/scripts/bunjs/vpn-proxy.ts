@@ -60,6 +60,7 @@ const RANDOM_ROTATION = parseInt(
   process.env.VPN_PROXY_RANDOM_ROTATION || "300",
   10
 );
+const NOTIFY_ROTATION = process.env.VPN_PROXY_NOTIFY_ROTATION === "1";
 
 interface NamespaceInfo {
   nsName: string;
@@ -86,6 +87,23 @@ function log(
   console.error(`[${timestamp}] [${level}] [vpn-proxy] ${message}`);
 }
 
+async function notify(
+  title: string,
+  message: string,
+  urgency: "low" | "normal" | "critical" = "normal"
+): Promise<void> {
+  try {
+    await spawn({
+      cmd: ["notify-send", "-u", urgency, title, message],
+      stdout: "ignore",
+      stderr: "ignore",
+    }).exited;
+  } catch {
+    // Notification failed (e.g., no display), log instead
+    log("INFO", `[notify] ${title}: ${message}`);
+  }
+}
+
 async function ensureStateDir(): Promise<void> {
   await mkdir(STATE_DIR, { recursive: true }).catch(() => {});
 }
@@ -104,8 +122,17 @@ async function saveState(state: ProxyState): Promise<void> {
   await writeFile(STATE_FILE, JSON.stringify(state, null, 2));
 }
 
-function runNetnsScript(args: string[]): { success: boolean; output: string } {
-  const sudoPrefix = process.getuid!() === 0 ? [] : ["sudo"];
+function runNetnsScript(
+  args: string[],
+  options: { notifySudo?: boolean } = {}
+): { success: boolean; output: string } {
+  const needsSudo = process.getuid!() !== 0;
+  const sudoPrefix = needsSudo ? ["sudo"] : [];
+
+  if (needsSudo && options.notifySudo) {
+    notify("VPN Proxy", "Requesting sudo for network namespace setup", "normal");
+  }
+
   const result = spawnSync([...sudoPrefix, "bash", NETNS_SCRIPT, ...args]);
   const output = result.stdout.toString() + result.stderr.toString();
   return { success: result.exitCode === 0, output };
@@ -121,13 +148,16 @@ async function createNamespace(
 
   log("INFO", `Creating namespace ${nsName} for ${vpn.displayName}`);
 
-  const result = runNetnsScript([
-    "create",
-    nsName,
-    nsIndex.toString(),
-    vpn.serverIp,
-    vpn.serverPort.toString(),
-  ]);
+  const result = runNetnsScript(
+    [
+      "create",
+      nsName,
+      nsIndex.toString(),
+      vpn.serverIp,
+      vpn.serverPort.toString(),
+    ],
+    { notifySudo: true }
+  );
 
   if (!result.success) {
     log("ERROR", `Failed to create namespace: ${result.output}`);
@@ -291,8 +321,12 @@ async function resolveSlugFromUsername(
 
   const isValid = await isValidSlug(username);
   if (!isValid) {
-    // TODO: notify-send not in systemd PATH - log only for now
     log("WARN", `Invalid slug "${username}", falling back to random`);
+    await notify(
+      "VPN Proxy",
+      `Invalid VPN name "${username}", using random VPN`,
+      "normal"
+    );
     return resolveSlugFromUsername("random", state);
   }
 
@@ -509,9 +543,9 @@ export async function cleanupIdleProxies(): Promise<number> {
   return cleaned;
 }
 
-export async function rotateRandom(): Promise<void> {
+export async function rotateRandom(): Promise<string | null> {
   const state = await loadState();
-  if (!state.random) return;
+  if (!state.random) return null;
 
   const now = Date.now();
   if (state.random.expiresAt <= now) {
@@ -524,8 +558,42 @@ export async function rotateRandom(): Promise<void> {
       };
       await saveState(state);
       log("INFO", `Random rotated: ${oldSlug} -> ${vpn.displayName}`);
+
+      if (NOTIFY_ROTATION) {
+        await notify("VPN Proxy", `Random VPN rotated to ${vpn.displayName}`, "low");
+      }
+
+      return vpn.displayName;
     }
   }
+  return null;
+}
+
+export async function forceRotateRandom(): Promise<string | null> {
+  const state = await loadState();
+  const now = Date.now();
+
+  const oldSlug = state.random?.currentSlug;
+  const vpn = await getRandomVpn();
+  if (!vpn) {
+    log("ERROR", "No VPNs available for rotation");
+    return null;
+  }
+
+  state.random = {
+    currentSlug: vpn.slug,
+    expiresAt: now + RANDOM_ROTATION * 1000,
+  };
+  await saveState(state);
+
+  const rotationMsg = oldSlug
+    ? `Random rotated: ${oldSlug} -> ${vpn.displayName}`
+    : `Random set to: ${vpn.displayName}`;
+  log("INFO", rotationMsg);
+
+  await notify("VPN Proxy", `Random VPN rotated to ${vpn.displayName}`, "normal");
+
+  return vpn.displayName;
 }
 
 export async function getStatus(): Promise<string> {
@@ -612,9 +680,10 @@ Usage:
   vpn-proxy [command]
 
 Commands:
-  serve       Start the SOCKS5 proxy server (default if no command)
-  status      Show active VPN proxies and their idle times
-  stop-all    Stop all VPN proxies and clean up namespaces
+  serve         Start the SOCKS5 proxy server (default if no command)
+  status        Show active VPN proxies and their idle times
+  stop-all      Stop all VPN proxies and clean up namespaces
+  rotate-random Force rotate the random VPN immediately
 
 Options:
   -h, --help  Show this help message
@@ -624,6 +693,7 @@ Environment:
   VPN_PROXY_PORT             Listening port (default: 10800)
   VPN_PROXY_IDLE_TIMEOUT     Idle cleanup timeout in seconds (default: 300)
   VPN_PROXY_RANDOM_ROTATION  Random VPN rotation interval (default: 300)
+  VPN_PROXY_NOTIFY_ROTATION  Show notification on random rotation (default: 0)
 
 Examples:
   vpn-proxy serve                    # Start the proxy server
@@ -645,6 +715,15 @@ Examples:
     case "stop-all":
       await stopAllProxies();
       console.log("All proxies stopped");
+      break;
+    case "rotate-random":
+      const rotatedTo = await forceRotateRandom();
+      if (rotatedTo) {
+        console.log(`Random VPN rotated to: ${rotatedTo}`);
+      } else {
+        console.log("No VPNs available for rotation");
+        process.exit(1);
+      }
       break;
     case "serve":
       await startServer();

@@ -121,7 +121,7 @@
           (kb "${altMod},V" "exec, ${
             getExe self.packages.${pkgs.stdenv.hostPlatform.system}.toggle-pause-autoclickers
           }" "Toggle pause autoclickers" "Tools")
-          (kb "${altMod},N" "exec, ${
+          (kb "${shiftMod},Z" "exec, ${
             getExe self.packages.${pkgs.stdenv.hostPlatform.system}.qs-vpn
           }" "VPN selector" "Tools")
         ];
