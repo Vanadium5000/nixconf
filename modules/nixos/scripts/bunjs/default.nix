@@ -268,7 +268,7 @@
             pkgs.iptables
             pkgs.nftables
             pkgs.openvpn
-            pkgs.socat
+            pkgs.microsocks
             pkgs.libnotify
             pkgs.jq
             pkgs.coreutils

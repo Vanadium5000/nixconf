@@ -38,9 +38,8 @@
 import { spawn, spawnSync } from "bun";
 import { readFile, writeFile, mkdir, unlink } from "fs/promises";
 import { join } from "path";
-import { createServer, type Socket } from "net";
+import { createServer, createConnection, type Socket } from "net";
 import {
-  listVpns,
   resolveVpn,
   getRandomVpn,
   isValidSlug,
@@ -66,6 +65,7 @@ interface NamespaceInfo {
   nsName: string;
   nsIndex: number;
   nsIp: string;
+  socksPort: number;
   slug: string;
   vpnDisplayName: string;
   lastUsed: number;
@@ -176,6 +176,7 @@ async function createNamespace(
     nsName,
     nsIndex,
     nsIp,
+    socksPort: 10900 + nsIndex,
     slug: vpn.slug,
     vpnDisplayName: vpn.displayName,
     lastUsed: Date.now(),
@@ -280,15 +281,47 @@ async function destroyNamespace(
   await saveState(state);
 }
 
+async function isNamespaceHealthy(info: NamespaceInfo): Promise<boolean> {
+  const sudoPrefix = process.getuid!() === 0 ? [] : ["sudo"];
+  
+  const nsCheck = spawnSync([...sudoPrefix, "ip", "netns", "list"]);
+  if (!nsCheck.stdout.toString().includes(info.nsName)) {
+    log("WARN", `Namespace ${info.nsName} no longer exists`);
+    return false;
+  }
+  
+  const tunCheck = spawnSync([
+    ...sudoPrefix, "ip", "netns", "exec", info.nsName,
+    "ip", "link", "show", "tun0"
+  ]);
+  if (tunCheck.exitCode !== 0) {
+    log("WARN", `Tunnel tun0 not found in ${info.nsName}`);
+    return false;
+  }
+  
+  try {
+    process.kill(info.openvpnPid, 0);
+  } catch {
+    log("WARN", `OpenVPN process ${info.openvpnPid} is dead`);
+    return false;
+  }
+  
+  return true;
+}
+
 async function getOrCreateNamespace(
   slug: string,
   state: ProxyState
 ): Promise<NamespaceInfo> {
   const existing = state.namespaces[slug];
   if (existing && existing.status === "connected") {
-    existing.lastUsed = Date.now();
-    await saveState(state);
-    return existing;
+    if (await isNamespaceHealthy(existing)) {
+      existing.lastUsed = Date.now();
+      await saveState(state);
+      return existing;
+    }
+    log("WARN", `Namespace for ${slug} is stale, recreating`);
+    await destroyNamespace(slug, state);
   }
 
   const vpn = await resolveVpn(slug);
@@ -351,48 +384,62 @@ function parseSocks5Auth(
   return { username, password };
 }
 
-import type { FileSink } from "bun";
-
-interface NamespaceConnection {
-  stdin: FileSink;
-  stdout: ReadableStream<Uint8Array>;
-  proc: ReturnType<typeof spawn>;
-}
-
-async function connectThroughNamespace(
+function forwardToNamespaceSocks(
+  clientSocket: Socket,
   nsInfo: NamespaceInfo,
-  targetHost: string,
-  targetPort: number
-): Promise<NamespaceConnection> {
-  const sudoPrefix = process.getuid!() === 0 ? [] : ["sudo"];
-  const args = [
-    ...sudoPrefix,
-    "ip",
-    "netns",
-    "exec",
-    nsInfo.nsName,
-    "socat",
-    "-",
-    `TCP:${targetHost}:${targetPort}`,
-  ];
+  socks5Request: Buffer
+): void {
+  const upstreamSocket = createConnection(
+    { host: nsInfo.nsIp, port: nsInfo.socksPort },
+    () => {
+      upstreamSocket.write(Buffer.from([0x05, 0x01, 0x00]));
+    }
+  );
 
-  const proc = spawn({
-    cmd: args,
-    stdin: "pipe",
-    stdout: "pipe",
-    stderr: "pipe",
+  upstreamSocket.once("data", (handshakeReply: Buffer) => {
+    if (handshakeReply[0] !== 0x05 || handshakeReply[1] !== 0x00) {
+      log("ERROR", "Upstream SOCKS5 handshake failed");
+      clientSocket.end();
+      upstreamSocket.end();
+      return;
+    }
+
+    upstreamSocket.write(socks5Request);
+
+    upstreamSocket.once("data", (connectReply: Buffer) => {
+      clientSocket.write(connectReply);
+
+      if (connectReply[1] !== 0x00) {
+        clientSocket.end();
+        upstreamSocket.end();
+        return;
+      }
+
+      clientSocket.pipe(upstreamSocket);
+      upstreamSocket.pipe(clientSocket);
+    });
   });
 
-  return {
-    stdin: proc.stdin as FileSink,
-    stdout: proc.stdout as ReadableStream<Uint8Array>,
-    proc,
-  };
+  upstreamSocket.on("error", (err) => {
+    log("ERROR", `Upstream error: ${err.message}`);
+    clientSocket.destroy();
+  });
+
+  clientSocket.on("error", () => {
+    upstreamSocket.destroy();
+  });
+
+  clientSocket.on("close", () => {
+    upstreamSocket.destroy();
+  });
+
+  upstreamSocket.on("close", () => {
+    clientSocket.destroy();
+  });
 }
 
 async function handleConnection(
-  clientSocket: Socket,
-  state: ProxyState
+  clientSocket: Socket
 ): Promise<void> {
   let username = "";
 
@@ -416,11 +463,11 @@ async function handleConnection(
             username = auth.username;
           }
           clientSocket.write(Buffer.from([0x01, 0x00]));
-          await handleSocks5Request(clientSocket, username, state);
+          await handleSocks5Request(clientSocket, username);
         });
       } else {
         clientSocket.write(Buffer.from([0x05, 0x00]));
-        await handleSocks5Request(clientSocket, "", state);
+        await handleSocks5Request(clientSocket, "");
       }
     } catch (error) {
       log("ERROR", `Connection error: ${error}`);
@@ -431,11 +478,11 @@ async function handleConnection(
 
 async function handleSocks5Request(
   clientSocket: Socket,
-  username: string,
-  state: ProxyState
+  username: string
 ): Promise<void> {
   clientSocket.once("data", async (data: Buffer) => {
     try {
+      const state = await loadState();
       if (data[0] !== 0x05 || data[1] !== 0x01) {
         clientSocket.write(
           Buffer.from([0x05, 0x07, 0x00, 0x01, 0, 0, 0, 0, 0, 0])
@@ -446,7 +493,6 @@ async function handleSocks5Request(
 
       const atyp = data[3];
       let targetHost: string;
-      let targetPort: number;
       let addrEnd: number;
 
       if (atyp === 0x01) {
@@ -467,7 +513,7 @@ async function handleSocks5Request(
         return;
       }
 
-      targetPort = (data[addrEnd]! << 8) | data[addrEnd + 1]!;
+      const targetPort = (data[addrEnd]! << 8) | data[addrEnd + 1]!;
 
       log(
         "DEBUG",
@@ -477,45 +523,7 @@ async function handleSocks5Request(
       const slug = await resolveSlugFromUsername(username, state);
       const nsInfo = await getOrCreateNamespace(slug, state);
 
-      const reply = Buffer.from([0x05, 0x00, 0x00, 0x01, 0, 0, 0, 0, 0, 0]);
-      clientSocket.write(reply);
-
-      const { stdin, stdout, proc } = await connectThroughNamespace(
-        nsInfo,
-        targetHost,
-        targetPort
-      );
-
-      clientSocket.on("data", (chunk: Buffer) => {
-        stdin!.write(chunk);
-      });
-
-      const reader = stdout.getReader();
-      (async () => {
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            if (!clientSocket.destroyed) {
-              clientSocket.write(Buffer.from(value));
-            }
-          }
-        } catch {}
-        clientSocket.end();
-      })();
-
-      clientSocket.on("close", () => {
-        stdin!.end();
-        proc.kill();
-      });
-      clientSocket.on("error", () => {
-        stdin!.end();
-        proc.kill();
-      });
-
-      proc.exited.then(() => {
-        if (!clientSocket.destroyed) clientSocket.end();
-      });
+      forwardToNamespaceSocks(clientSocket, nsInfo, data);
     } catch (error) {
       log("ERROR", `Request error: ${error}`);
       clientSocket.write(
@@ -639,12 +647,25 @@ export async function stopAllProxies(): Promise<void> {
   await unlink(STATE_FILE).catch(() => {});
 }
 
+async function cleanupStaleState(): Promise<void> {
+  log("INFO", "Cleaning up stale state from previous session");
+  
+  runNetnsScript(["cleanup-all"]);
+  
+  await unlink(STATE_FILE).catch(() => {});
+  
+  const state: ProxyState = { namespaces: {}, random: null, nextIndex: 0 };
+  await saveState(state);
+  
+  log("INFO", "Stale state cleanup complete");
+}
+
 async function startServer(): Promise<void> {
   await ensureStateDir();
-  const state = await loadState();
+  await cleanupStaleState();
 
   const server = createServer((socket) => {
-    handleConnection(socket, state);
+    handleConnection(socket);
   });
 
   server.listen(PROXY_PORT, "127.0.0.1", () => {

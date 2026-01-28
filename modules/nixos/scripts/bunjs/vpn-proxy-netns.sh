@@ -87,6 +87,7 @@ create_namespace() {
     
     local host_ip="10.200.$idx.1"
     local ns_ip="10.200.$idx.2"
+    local socks_port=$((10900 + idx))
     
     run ip addr add "$host_ip/24" dev "$veth_host" || die "Failed to set host IP"
     run ip link set "$veth_host" up || die "Failed to bring up host veth"
@@ -109,6 +110,20 @@ create_namespace() {
     apply_killswitch "$ns" "$vpn_ip" "$vpn_port"
     
     mkdir -p "$STATE_DIR"
+    
+    # Start microsocks SOCKS5 proxy inside namespace, bound to veth IP for host access
+    local microsocks_pid_file="$STATE_DIR/microsocks-$ns.pid"
+    run ip netns exec "$ns" microsocks -i "$ns_ip" -p "$socks_port" &
+    sleep 0.2
+    local microsocks_pid
+    microsocks_pid=$(run ip netns pids "$ns" 2>/dev/null | grep -v "^$" | head -1 || echo "")
+    if [[ -n "$microsocks_pid" ]]; then
+        echo "$microsocks_pid" > "$microsocks_pid_file"
+        log "Started microsocks on $ns_ip:$socks_port (PID $microsocks_pid)"
+    else
+        log "WARNING: Could not determine microsocks PID"
+    fi
+    
     cat > "$STATE_DIR/ns-$ns.json" <<EOF
 {
   "name": "$ns",
@@ -117,6 +132,7 @@ create_namespace() {
   "vethNs": "$veth_ns",
   "hostIp": "$host_ip",
   "nsIp": "$ns_ip",
+  "socksPort": $socks_port,
   "vpnServerIp": "$vpn_ip",
   "vpnServerPort": $vpn_port,
   "createdAt": $(date +%s)
@@ -124,7 +140,7 @@ create_namespace() {
 EOF
     
     log "Namespace $ns created successfully"
-    echo "$ns_ip"
+    echo "$ns_ip:$socks_port"
 }
 
 apply_killswitch() {
@@ -134,23 +150,26 @@ apply_killswitch() {
     
     log "Applying kill-switch firewall rules for $ns"
     
-    # Use nftables for the kill-switch
+    # nftables kill-switch: DROP all outbound except VPN tunnel and handshake
+    # veth-n-* is allowed for traffic TO the namespace (inbound from host)
+    # but outbound from namespace MUST go through tun0 (VPN) or be VPN handshake
     run ip netns exec "$ns" nft -f - <<EOF
 table inet vpn_killswitch {
     chain output {
         type filter hook output priority 0; policy drop;
         
-        # Allow loopback
         oifname "lo" accept
         
-        # Allow traffic via VPN tunnel (tun0)
+        # Allow outbound via VPN tunnel only
         oifname "tun*" accept
         
-        # Allow encrypted VPN handshake to server
+        # Allow VPN handshake to establish tunnel (before tun0 exists)
         ip daddr $vpn_ip udp dport $vpn_port accept
         ip daddr $vpn_ip tcp dport $vpn_port accept
         
-        # Allow ICMP for diagnostics
+        # Allow responses back to host veth (for SOCKS5 data return path)
+        oifname "veth-n-*" accept
+        
         ip protocol icmp accept
     }
     
@@ -182,12 +201,19 @@ destroy_namespace() {
         rm -f "$info_file"
     fi
     
+    local microsocks_pid_file="$STATE_DIR/microsocks-$ns.pid"
+    if [[ -f "$microsocks_pid_file" ]]; then
+        local mpid
+        mpid=$(cat "$microsocks_pid_file")
+        run kill -9 "$mpid" 2>/dev/null || true
+        rm -f "$microsocks_pid_file"
+    fi
+    
     local pids
     pids=$(run ip netns pids "$ns" 2>/dev/null || true)
     if [[ -n "$pids" ]]; then
         log "Killing processes in namespace: $pids"
         echo "$pids" | xargs -r run kill -9 2>/dev/null || true
-        # Wait for processes to fully terminate
         local wait_count=0
         while [[ $wait_count -lt 10 ]]; do
             pids=$(run ip netns pids "$ns" 2>/dev/null || true)
@@ -212,12 +238,12 @@ destroy_namespace() {
 }
 
 list_namespaces() {
-    run ip netns list 2>/dev/null | grep "^vpn-proxy-" || true
+    run ip netns list 2>/dev/null | grep "vpn-proxy-" | awk '{print $1}' || true
 }
 
 check_namespace() {
     local ns="$1"
-    run ip netns list 2>/dev/null | grep -q "^$ns " && echo "exists" || echo "missing"
+    run ip netns list 2>/dev/null | grep -q "^$ns" && echo "exists" || echo "missing"
 }
 
 case "$ACTION" in
@@ -239,9 +265,23 @@ case "$ACTION" in
         ;;
     cleanup-all)
         log "Cleaning up all vpn-proxy namespaces"
-        for ns in $(list_namespaces | awk '{print $1}'); do
+        for ns in $(list_namespaces); do
             destroy_namespace "$ns"
         done
+        # Also clean up any stale netns files that list_namespaces might miss
+        for nsfile in /var/run/netns/vpn-proxy-*; do
+            [[ -e "$nsfile" ]] || continue
+            ns_name=$(basename "$nsfile")
+            log "Cleaning stale netns file: $ns_name"
+            run umount "$nsfile" 2>/dev/null || true
+            run rm -f "$nsfile" 2>/dev/null || true
+        done
+        # Clean up any orphaned veth interfaces
+        for veth in $(ip link show 2>/dev/null | grep -o 'veth-h-[0-9]*' || true); do
+            run ip link delete "$veth" 2>/dev/null || true
+        done
+        # Clean up state directory
+        rm -rf "$STATE_DIR" 2>/dev/null || true
         log "All namespaces cleaned up"
         ;;
     *)
