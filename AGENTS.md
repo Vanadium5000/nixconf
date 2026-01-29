@@ -327,7 +327,7 @@ impermanence.home.cache.directories = [
 Access flake outputs directly via `self`:
 
 - `self.nixosModules.*`: Access other modules.
-- `self.packages.${pkgs.system}.*`: Access custom packages.
+- `self.packages.${pkgs.stdenv.hostPlatform.system}.*`: Access custom packages.
 - `self.theme`: Access the global theme definition.
 - `self.colors`: Access the generated color palette.
 - `self.secrets`: Access runtime secrets (loaded via `rebuild.sh`).
@@ -383,7 +383,7 @@ environment.variables = lib.mkIf (config.nixpkgs.config.cudaSupport or false) {
 
 1. If available in nixpkgs: add to `environment.systemPackages`.
 2. If custom: add `modules/_pkgs/<name>.nix`, then add to system packages
-   using `self.packages.${pkgs.system}.<name>`.
+   using `self.packages.${pkgs.stdenv.hostPlatform.system}.<name>`.
 
 **Debugging Build Failures:**
 

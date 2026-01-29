@@ -84,14 +84,19 @@
 
           serviceConfig = {
             Type = "simple";
-            ExecStart = "${self.packages.${pkgs.system}.vpn-proxy}/bin/vpn-proxy serve";
+            ExecStart = "${self.packages.${pkgs.stdenv.hostPlatform.system}.vpn-proxy}/bin/vpn-proxy serve";
             Restart = "on-failure";
             RestartSec = 5;
 
             NoNewPrivileges = false;
             ProtectSystem = "full";
             ProtectHome = "read-only";
-            ReadWritePaths = [ "/dev/shm" "/run/netns" "/var/run/netns" "/etc/netns" ];
+            ReadWritePaths = [
+              "/dev/shm"
+              "/run/netns"
+              "/var/run/netns"
+              "/etc/netns"
+            ];
             PrivateTmp = true;
           };
         };
@@ -124,14 +129,21 @@
 
           serviceConfig = {
             Type = "simple";
-            ExecStart = "${self.packages.${pkgs.system}.vpn-proxy-cleanup}/bin/vpn-proxy-cleanup";
+            ExecStart = "${
+              self.packages.${pkgs.stdenv.hostPlatform.system}.vpn-proxy-cleanup
+            }/bin/vpn-proxy-cleanup";
             Restart = "on-failure";
             RestartSec = 10;
 
             NoNewPrivileges = false;
             ProtectSystem = "full";
             ProtectHome = "read-only";
-            ReadWritePaths = [ "/dev/shm" "/run/netns" "/var/run/netns" "/etc/netns" ];
+            ReadWritePaths = [
+              "/dev/shm"
+              "/run/netns"
+              "/var/run/netns"
+              "/etc/netns"
+            ];
             PrivateTmp = true;
           };
         };
