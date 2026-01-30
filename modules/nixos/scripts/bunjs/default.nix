@@ -225,6 +225,21 @@
         ];
       };
 
+      packages.git-sync-debug = inputs.wrappers.lib.makeWrapper {
+        inherit pkgs;
+        package = pkgs.writeShellScriptBin "git-sync-debug" ''
+          exec ${pkgs.bun}/bin/bun run ${./git-sync-debug.ts} "$@"
+        '';
+        runtimeInputs = [
+          pkgs.bun
+          pkgs.gnupg
+          pkgs.openssh
+          pkgs.git
+          pkgs.coreutils
+          pkgs.which
+        ];
+      };
+
       packages.vpn-resolver = inputs.wrappers.lib.makeWrapper {
         inherit pkgs;
         package =

@@ -217,7 +217,7 @@
           # Docs: https://github.com/code-yeongyu/oh-my-opencode/blob/dev/docs/features.md
           "agents" = {
             "oracle" = {
-              "model" = "antigravity-gemini/claude-opus-4-5-thinking";
+              "model" = "antigravity-claude/claude-opus-4-5-thinking";
             };
             "librarian" = {
               "model" = "antigravity-gemini/gemini-3-flash";
@@ -231,21 +231,21 @@
 
             # Main Agents
             "atlas" = {
-              "model" = "antigravity-gemini/claude-opus-4-5-thinking"; # Maybe a tad excessive
+              "model" = "antigravity-claude/claude-opus-4-5-thinking"; # Maybe a tad excessive
             };
             "prometheus" = {
-              "model" = "antigravity-gemini/claude-opus-4-5-thinking";
+              "model" = "antigravity-claude/claude-opus-4-5-thinking";
             };
             # Plan Consultant
             "metis" = {
-              "model" = "antigravity-gemini/claude-opus-4-5-thinking";
+              "model" = "antigravity-claude/claude-opus-4-5-thinking";
             };
             # Plan Reviewer
             "momus" = {
-              "model" = "antigravity-gemini/claude-opus-4-5-thinking";
+              "model" = "antigravity-claude/claude-opus-4-5-thinking";
             };
             "sisyphus" = {
-              "model" = "antigravity-gemini/claude-opus-4-5-thinking";
+              "model" = "antigravity-claude/claude-opus-4-5-thinking";
             };
           };
           # Override category models (used by delegate_task)
@@ -261,11 +261,11 @@
             };
             # Deep logical reasoning, complex architecture decisions requiring extensive analysis
             "ultrabrain" = {
-              "model" = "antigravity-gemini/claude-opus-4-5-thinking";
+              "model" = "antigravity-claude/claude-opus-4-5-thinking";
             };
             # Highly creative/artistic tasks, novel ideas
             "artistry" = {
-              "model" = "antigravity-gemini/claude-opus-4-5-thinking";
+              "model" = "antigravity-claude/claude-opus-4-5-thinking";
             };
             # Tasks that don't fit other categories, low effort required
             "unspecified-low" = {
@@ -273,7 +273,7 @@
             };
             # Tasks that don't fit other categories, high effort required
             "unspecified-high" = {
-              "model" = "antigravity-gemini/claude-opus-4-5-thinking";
+              "model" = "antigravity-claude/claude-opus-4-5-thinking";
             };
             # Documentation, prose, technical writing
             "writing" = {

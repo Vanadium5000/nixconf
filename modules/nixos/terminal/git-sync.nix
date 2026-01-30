@@ -16,15 +16,48 @@
         ;
 
       cfg = config.services.git-sync;
+      user = config.preferences.user.username;
+
+      # Pre-start script to ensure GPG agent is ready and can show pinentry GUI
+      # This is critical for SSH key authentication via gpg-agent
+      preStartScript = pkgs.writeShellScript "git-sync-prestart" ''
+        set -euo pipefail
+
+        # Ensure GPG_TTY is set for the current session
+        export GPG_TTY=$(tty 2>/dev/null || echo "/dev/pts/0")
+
+        # Tell gpg-agent about our TTY so pinentry can spawn
+        ${pkgs.gnupg}/bin/gpg-connect-agent updatestartuptty /bye >/dev/null 2>&1 || true
+
+        # Test SSH authentication is working (non-blocking check)
+        # This warms up the agent and may trigger pinentry if key is locked
+        timeout 5 ${pkgs.openssh}/bin/ssh-add -l >/dev/null 2>&1 || true
+
+        echo "git-sync pre-start: GPG/SSH environment ready"
+      '';
 
       # Function to create a systemd unit configuration for Linux
       mkUnit = name: repo: {
         enable = true;
-        description = "Git Sync ${name}"; # Service description
-        wantedBy = [ "default.target" ]; # Start automatically when the user logs in (graphical or console session).
-        # wantedBy = [ "multi-user.target" ]; # Start at multi-user target for system services
+        description = "Git Sync ${name}";
+
+        # Start when graphical session is ready (ensures WAYLAND_DISPLAY etc. are set)
+        wantedBy = [ "graphical-session.target" ];
+
+        # Tie lifecycle to graphical session
+        partOf = [ "graphical-session.target" ];
+
+        # Wait for network to be online before starting
+        after = [
+          "graphical-session.target"
+          "network-online.target"
+        ];
+        wants = [ "network-online.target" ];
+
         serviceConfig = {
-          # User = repo.user; # Run as the specified user
+          Type = "simple";
+
+          # Environment variables for git-sync operation
           Environment = [
             "PATH=${
               lib.makeBinPath (
@@ -32,6 +65,8 @@
                 [
                   openssh
                   git
+                  gnupg
+                  coreutils
                 ]
                 ++ repo.extraPackages
               )
@@ -40,13 +75,33 @@
             "GIT_SYNC_COMMAND=${cfg.package}/bin/git-sync"
             "GIT_SYNC_REPOSITORY=${lib.strings.escapeShellArg repo.uri}"
             "GIT_SYNC_INTERVAL=${toString repo.interval}"
+            # GPG agent socket location (NixOS default)
+            "GNUPGHOME=/home/${user}/.gnupg"
           ];
+
+          # Import environment from graphical session for display/GPG/SSH access
+          # This is critical for pinentry-qt to show GUI prompts
+          PassEnvironment = [
+            "WAYLAND_DISPLAY"
+            "DISPLAY"
+            "XDG_RUNTIME_DIR"
+            "GPG_TTY"
+            "SSH_AUTH_SOCK"
+            "DBUS_SESSION_BUS_ADDRESS"
+          ];
+
+          ExecStartPre = "${preStartScript}";
           ExecStart = "${cfg.package}/bin/git-sync-on-inotify";
+
+          # Restart configuration for maximum reliability
           Restart = "always";
-          RestartSec = "3min";
-          WorkingDirectory = repo.path; # Set working directory to the repo path
+          RestartSec = "3min"; # 3 minute delay between restarts
+
+          WorkingDirectory = repo.path;
         };
+
         unitConfig = {
+          # No limit on restart attempts (survives long network outages)
           StartLimitIntervalSec = 0;
         };
       };
