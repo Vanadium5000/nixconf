@@ -14,6 +14,199 @@
 
       opencode = inputs.opencode.packages.${pkgs.stdenv.hostPlatform.system}.default;
 
+      # Model definitions for switching
+      opusModel = "antigravity-claude/claude-opus-4-5-thinking";
+      geminiProModel = "antigravity-gemini/gemini-3-pro-preview";
+
+      # Base oh-my-opencode config as a function of the "expensive" model
+      # Note: Comments are not included in JSON output, but preserved here for documentation
+      mkOhMyOpencodeConfig = expensiveModel: {
+        "$schema" =
+          "https://raw.githubusercontent.com/code-yeongyu/oh-my-opencode/master/assets/oh-my-opencode.schema.json";
+        "google_auth" = false; # Disable conflicts
+        # Disable oh-my-opencode's default websearch_exa - replaced with full Exa MCP in config.json
+        "disabled_mcps" = [ "websearch" ];
+
+        # Oh-My-OpenCode provides 10 specialized AI agents. Each has distinct expertise, optimized models, and tool permissions.
+        # Docs: https://github.com/code-yeongyu/oh-my-opencode/blob/dev/docs/features.md
+        "agents" = {
+          "oracle" = {
+            "model" = expensiveModel;
+          };
+          "librarian" = {
+            "model" = "antigravity-gemini/gemini-3-flash";
+          };
+          "explore" = {
+            "model" = "antigravity-gemini/gemini-3-flash";
+          };
+          "multimodal-looker" = {
+            "model" = "antigravity-gemini/gemini-3-flash";
+          };
+
+          # Main Agents
+          "atlas" = {
+            "model" = expensiveModel; # Maybe a tad excessive
+          };
+          "prometheus" = {
+            "model" = expensiveModel;
+          };
+          # Plan Consultant
+          "metis" = {
+            "model" = expensiveModel;
+          };
+          # Plan Reviewer
+          "momus" = {
+            "model" = expensiveModel;
+          };
+          "sisyphus" = {
+            "model" = expensiveModel;
+          };
+          # Worker
+          "sisyphus-junior" = {
+            "model" = "antigravity-gemini/gemini-3-flash";
+          };
+
+          # Advisor - read-only conversational agent for questions & intuitive feedback
+          "advisor" = {
+            "model" = expensiveModel;
+            "description" = "Read-only advisor for questions, feedback, and discussion on any topic";
+            "tools" = {
+              # Disable all write/edit tools - read-only agent
+              "Write" = false;
+              "Edit" = false;
+              "Bash" = false;
+              "todowrite" = false;
+              "delegate_task" = false;
+              "task" = false;
+              "interactive_bash" = false;
+            };
+            "prompt_append" = ''
+              You are Advisor - a thoughtful conversational partner.
+
+              YOUR ROLE:
+              - Answer questions on ANY topic (code-related or not)
+              - Provide intuitive feedback, opinions, and insights
+              - Engage in philosophical, creative, or technical discussions
+              - Help think through problems without necessarily solving them in code
+
+              CONSTRAINTS:
+              - You CANNOT edit files, run commands, or make changes
+              - You CAN read files and search the codebase for context
+              - Focus on understanding, explaining, and advising
+
+              STYLE:
+              - Be direct and genuine
+              - Share nuanced perspectives
+              - It's okay to say "I don't know" or "I'm uncertain"
+              - Engage with the human's actual question, not what you think they should ask
+            '';
+          };
+        };
+        # Override category models (used by delegate_task)
+        # Docs: https://github.com/code-yeongyu/oh-my-opencode/blob/dev/docs/category-skill-guide.md
+        "categories" = {
+          # Trivial tasks - single file changes, typo fixes, simple modifications
+          "quick" = {
+            "model" = "opencode/gpt-5-nano";
+          };
+          # Frontend, UI/UX, design, styling, animation
+          "visual-engineering" = {
+            "model" = "antigravity-gemini/gemini-3-pro-preview";
+          };
+          # Deep logical reasoning, complex architecture decisions requiring extensive analysis
+          "ultrabrain" = {
+            "model" = expensiveModel;
+          };
+          # Highly creative/artistic tasks, novel ideas
+          "artistry" = {
+            "model" = expensiveModel;
+          };
+          # Tasks that don't fit other categories, low effort required
+          "unspecified-low" = {
+            "model" = "antigravity-gemini/gemini-3-flash";
+          };
+          # Tasks that don't fit other categories, high effort required
+          "unspecified-high" = {
+            "model" = expensiveModel;
+          };
+          # Documentation, prose, technical writing
+          "writing" = {
+            "model" = "antigravity-gemini/gemini-3-pro-preview";
+          };
+        };
+      };
+
+      # Generate both config variants
+      opusConfig = builtins.toJSON (mkOhMyOpencodeConfig opusModel);
+      geminiProConfig = builtins.toJSON (mkOhMyOpencodeConfig geminiProModel);
+
+      # Config variants stored in nix store
+      configVariantsDir = pkgs.runCommand "opencode-model-configs" { } ''
+        mkdir -p $out
+        cat > $out/opus.json << 'EOF'
+        ${opusConfig}
+        EOF
+        cat > $out/gemini-pro.json << 'EOF'
+        ${geminiProConfig}
+        EOF
+      '';
+
+      # CLI tool to switch between configs
+      opencodeModelSwitch = pkgs.writeShellScriptBin "opencode-model" ''
+        CONFIG_FILE="$HOME/.config/opencode/oh-my-opencode.json"
+        OPUS_CONFIG="${configVariantsDir}/opus.json"
+        GEMINI_CONFIG="${configVariantsDir}/gemini-pro.json"
+
+        get_current() {
+          if [ -f "$CONFIG_FILE" ]; then
+            if grep -q "claude-opus-4-5-thinking" "$CONFIG_FILE" 2>/dev/null; then
+              echo "opus"
+            else
+              echo "gemini-pro"
+            fi
+          else
+            echo "unknown"
+          fi
+        }
+
+        case "''${1:-}" in
+          opus)
+            cp "$OPUS_CONFIG" "$CONFIG_FILE"
+            echo "Switched to Claude Opus 4.5 Thinking"
+            ;;
+          gemini|gemini-pro|pro)
+            cp "$GEMINI_CONFIG" "$CONFIG_FILE"
+            echo "Switched to Gemini 3 Pro Preview"
+            ;;
+          status|"")
+            current=$(get_current)
+            echo "Current model: $current"
+            ;;
+          toggle)
+            current=$(get_current)
+            if [ "$current" = "opus" ]; then
+              cp "$GEMINI_CONFIG" "$CONFIG_FILE"
+              echo "Switched to Gemini 3 Pro Preview"
+            else
+              cp "$OPUS_CONFIG" "$CONFIG_FILE"
+              echo "Switched to Claude Opus 4.5 Thinking"
+            fi
+            ;;
+          *)
+            echo "Usage: opencode-model [opus|gemini-pro|toggle|status]"
+            echo ""
+            echo "Commands:"
+            echo "  opus       Switch to Claude Opus 4.5 Thinking (expensive)"
+            echo "  gemini-pro Switch to Gemini 3 Pro Preview (cheaper)"
+            echo "  toggle     Toggle between opus and gemini-pro"
+            echo "  status     Show current model (default)"
+            exit 1
+            ;;
+        esac
+      '';
+
+      ohmyopencodeConfigFile = ".config/opencode/oh-my-opencode.json";
+
       opencodeEnv = pkgs.buildEnv {
         name = "opencode-env";
         paths = languages.packages ++ skills.packages;
@@ -43,8 +236,6 @@
               --set OPENCODE_LIBC ${pkgs.glibc}/lib/libc.so.6
           '';
       configFile = ".config/opencode/config.json";
-      # antigravityConfigFile = ".config/opencode/antigravity.json";
-      ohmyopencodeConfigFile = ".config/opencode/oh-my-opencode.json";
 
       # Persistence configuration using bind mount for reliability
       toolsPersistence = self.lib.persistence.mkPersistent {
@@ -58,6 +249,7 @@
     {
       environment.systemPackages = [
         opencodeWrapped
+        opencodeModelSwitch
       ]
       ++ languages.packages;
 
@@ -197,130 +389,11 @@
           lsp = languages.lsp;
           provider = providers.config;
         };
-        "opencode/skill".source = skills.skillsSource + "/skill";
-        "opencode/AGENTS.md".source = ./AGENTS.md;
+        ".config/opencode/skills".source = skills.skillsSource + "/skill";
+        ".config/opencode/AGENTS.md".source = ./AGENTS.md;
 
-        # "${antigravityConfigFile}".text = builtins.toJSON {
-        #   "$schema" =
-        #     "https://raw.githubusercontent.com/NoeFabris/opencode-antigravity-auth/main/assets/antigravity.schema.json";
-        #   account_selection_strategy = "round-robin";
-        #   pid_offset_enabled = true;
-        # };
-        "${ohmyopencodeConfigFile}".text = builtins.toJSON {
-          "$schema" =
-            "https://raw.githubusercontent.com/code-yeongyu/oh-my-opencode/master/assets/oh-my-opencode.schema.json";
-          "google_auth" = false; # Disable conflicts
-          # Disable oh-my-opencode's default websearch_exa - replaced with full Exa MCP in config.json
-          "disabled_mcps" = [ "websearch" ];
-
-          # Oh-My-OpenCode provides 10 specialized AI agents. Each has distinct expertise, optimized models, and tool permissions.
-          # Docs: https://github.com/code-yeongyu/oh-my-opencode/blob/dev/docs/features.md
-          "agents" = {
-            "oracle" = {
-              "model" = "antigravity-claude/claude-opus-4-5-thinking";
-            };
-            "librarian" = {
-              "model" = "antigravity-gemini/gemini-3-flash";
-            };
-            "explore" = {
-              "model" = "antigravity-gemini/gemini-3-flash";
-            };
-            "multimodal-looker" = {
-              "model" = "antigravity-gemini/gemini-3-flash";
-            };
-
-            # Main Agents
-            "atlas" = {
-              "model" = "antigravity-claude/claude-opus-4-5-thinking"; # Maybe a tad excessive
-            };
-            "prometheus" = {
-              "model" = "antigravity-claude/claude-opus-4-5-thinking";
-            };
-            # Plan Consultant
-            "metis" = {
-              "model" = "antigravity-claude/claude-opus-4-5-thinking";
-            };
-            # Plan Reviewer
-            "momus" = {
-              "model" = "antigravity-claude/claude-opus-4-5-thinking";
-            };
-            "sisyphus" = {
-              "model" = "antigravity-claude/claude-opus-4-5-thinking";
-            };
-            # Worker
-            "sisyphus-junior" = {
-              "model" = "antigravity-gemini/gemini-3-flash";
-            };
-
-            # Advisor - read-only conversational agent for questions & intuitive feedback
-            "advisor" = {
-              "model" = "antigravity-claude/claude-opus-4-5-thinking";
-              "description" = "Read-only advisor for questions, feedback, and discussion on any topic";
-              "tools" = {
-                # Disable all write/edit tools - read-only agent
-                "Write" = false;
-                "Edit" = false;
-                "Bash" = false;
-                "todowrite" = false;
-                "delegate_task" = false;
-                "task" = false;
-                "interactive_bash" = false;
-              };
-              "prompt_append" = ''
-                You are Advisor - a thoughtful conversational partner.
-
-                YOUR ROLE:
-                - Answer questions on ANY topic (code-related or not)
-                - Provide intuitive feedback, opinions, and insights
-                - Engage in philosophical, creative, or technical discussions
-                - Help think through problems without necessarily solving them in code
-
-                CONSTRAINTS:
-                - You CANNOT edit files, run commands, or make changes
-                - You CAN read files and search the codebase for context
-                - Focus on understanding, explaining, and advising
-
-                STYLE:
-                - Be direct and genuine
-                - Share nuanced perspectives
-                - It's okay to say "I don't know" or "I'm uncertain"
-                - Engage with the human's actual question, not what you think they should ask
-              '';
-            };
-          };
-          # Override category models (used by delegate_task)
-          # Docs: https://github.com/code-yeongyu/oh-my-opencode/blob/dev/docs/category-skill-guide.md
-          "categories" = {
-            # Trivial tasks - single file changes, typo fixes, simple modifications
-            "quick" = {
-              "model" = "opencode/gpt-5-nano";
-            };
-            # Frontend, UI/UX, design, styling, animation
-            "visual-engineering" = {
-              "model" = "antigravity-gemini/gemini-3-pro-preview";
-            };
-            # Deep logical reasoning, complex architecture decisions requiring extensive analysis
-            "ultrabrain" = {
-              "model" = "antigravity-claude/claude-opus-4-5-thinking";
-            };
-            # Highly creative/artistic tasks, novel ideas
-            "artistry" = {
-              "model" = "antigravity-claude/claude-opus-4-5-thinking";
-            };
-            # Tasks that don't fit other categories, low effort required
-            "unspecified-low" = {
-              "model" = "antigravity-gemini/gemini-3-flash";
-            };
-            # Tasks that don't fit other categories, high effort required
-            "unspecified-high" = {
-              "model" = "antigravity-claude/claude-opus-4-5-thinking";
-            };
-            # Documentation, prose, technical writing
-            "writing" = {
-              "model" = "antigravity-gemini/gemini-3-pro-preview";
-            };
-          };
-        };
+        # oh-my-opencode config - defaults to opus, use `opencode-model` CLI to switch
+        "${ohmyopencodeConfigFile}".text = opusConfig;
       };
     };
 }
