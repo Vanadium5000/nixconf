@@ -247,6 +247,46 @@
             "sisyphus" = {
               "model" = "antigravity-claude/claude-opus-4-5-thinking";
             };
+            # Worker
+            "sisyphus-junior" = {
+              "model" = "antigravity-gemini/gemini-3-flash";
+            };
+
+            # Advisor - read-only conversational agent for questions & intuitive feedback
+            "advisor" = {
+              "model" = "antigravity-claude/claude-opus-4-5-thinking";
+              "description" = "Read-only advisor for questions, feedback, and discussion on any topic";
+              "tools" = {
+                # Disable all write/edit tools - read-only agent
+                "Write" = false;
+                "Edit" = false;
+                "Bash" = false;
+                "todowrite" = false;
+                "delegate_task" = false;
+                "task" = false;
+                "interactive_bash" = false;
+              };
+              "prompt_append" = ''
+                You are Advisor - a thoughtful conversational partner.
+
+                YOUR ROLE:
+                - Answer questions on ANY topic (code-related or not)
+                - Provide intuitive feedback, opinions, and insights
+                - Engage in philosophical, creative, or technical discussions
+                - Help think through problems without necessarily solving them in code
+
+                CONSTRAINTS:
+                - You CANNOT edit files, run commands, or make changes
+                - You CAN read files and search the codebase for context
+                - Focus on understanding, explaining, and advising
+
+                STYLE:
+                - Be direct and genuine
+                - Share nuanced perspectives
+                - It's okay to say "I don't know" or "I'm uncertain"
+                - Engage with the human's actual question, not what you think they should ask
+              '';
+            };
           };
           # Override category models (used by delegate_task)
           # Docs: https://github.com/code-yeongyu/oh-my-opencode/blob/dev/docs/category-skill-guide.md

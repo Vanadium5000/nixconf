@@ -68,7 +68,7 @@ function divide(a: number, b: number): number {
 #### MUST Comment
 
 | Situation | Example |
-|-----------|---------|
+| ----------- | --------- |
 | Magic numbers | `timeout = 3000; // 3s - reduced from 5s for faster fallback` |
 | Non-obvious values | `bufferSize = 4096; // 4KB - matches filesystem block size` |
 | Format/syntax | `"[::1]:53" // IPv6 loopback` |
@@ -124,7 +124,7 @@ const filter = new BloomFilter(expectedItems, falsePositiveRate);
 ### When to Search
 
 | Situation | Action |
-|-----------|--------|
+| ----------- |--------|
 | Unfamiliar library/API | Search before implementing |
 | Error message you don't recognize | Search for solutions |
 | "Is this the right approach?" | Search for best practices |

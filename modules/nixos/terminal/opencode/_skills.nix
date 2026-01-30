@@ -70,9 +70,9 @@ let
     mkdir -p $out/skill
 
     # Copy local skills from ./skill directory
-    # if [ -d "${localSkillsDir}" ]; then
-    #   cp -r ${localSkillsDir}/* $out/skill/
-    # fi
+    if [ -d "${localSkillsDir}" ]; then
+      cp -r ${localSkillsDir}/* $out/skill/
+    fi
 
     # Copy fetched remote skills
     ${pkgs.lib.concatStringsSep "\n" (
