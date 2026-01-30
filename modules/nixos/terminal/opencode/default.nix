@@ -70,6 +70,7 @@
           "advisor" = {
             "model" = expensiveModel;
             "description" = "Read-only advisor for questions, feedback, and discussion on any topic";
+            "disable" = false;
             "tools" = {
               # Disable all write/edit tools - read-only agent
               "Write" = false;
