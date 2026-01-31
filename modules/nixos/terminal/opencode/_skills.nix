@@ -5,6 +5,10 @@ let
   # Local commands directory (relative to this file)
   localCommandsDir = ./command;
 
+  # Read a local skill's SKILL.md content at build time
+  # Avoids runtime skill tool calls - more efficient and reliable
+  readSkillContent = skillName: builtins.readFile (localSkillsDir + "/${skillName}/SKILL.md");
+
   fetchSkill =
     {
       name,

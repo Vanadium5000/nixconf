@@ -173,7 +173,7 @@ For directory-wide linting:
 
 **Pro tip**: Running the formatter before linting often fixes lint errors
 automatically. For example, `nixfmt` before `statix`, or `prettier` before
-`eslint`.
+`eslint` or `markdown_lint`.
 
 ### Examples
 
@@ -232,7 +232,7 @@ Before marking any file edit as complete:
 
 ### Markdown Files
 
-- **MUST** run `markdown_lint_lint_markdown` after any Markdown changes
+- **MUST** use the Prettier LSP to format markdown & run `markdown_lint_lint_markdown` after any Markdown changes
 - Keep lines under 80 characters where practical
 - Use ATX-style headers (`#` not underlines)
 
