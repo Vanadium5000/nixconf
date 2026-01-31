@@ -49,6 +49,7 @@
           username = "Vanadium5000";
           email = "vanadium5000@gmail.com";
         };
+        obs.enable = true;
       };
 
       # Plymouth

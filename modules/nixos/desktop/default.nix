@@ -26,6 +26,8 @@
         self.nixosModules.hyprsunset
         self.nixosModules.tuigreet
 
+        self.nixosModules.obs
+
         self.nixosModules.extra_hjem
 
         self.nixosModules.qt
