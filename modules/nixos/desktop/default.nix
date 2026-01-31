@@ -148,7 +148,11 @@
         noto-fonts-color-emoji
         openmoji-color
         twemoji-color-font
+        self.packages.${pkgs.stdenv.hostPlatform.system}.aptos-fonts
       ];
+
+      # Microsoft Aptos is proprietary
+      preferences.allowedUnfree = [ "aptos-fonts" ];
 
       # Safeeyes - A uitlity to remind the user to look away from the screen every x minutes
       # NOTE: Quite annoying tho
