@@ -179,14 +179,20 @@
           fi
         }
 
+        # Remove read-only Nix-managed file before copying
+        switch_config() {
+          rm -f "$CONFIG_FILE"
+          cp "$1" "$CONFIG_FILE"
+        }
+
         case "''${1:-}" in
           opus)
-            cp "$OPUS_CONFIG" "$CONFIG_FILE"
+            switch_config "$OPUS_CONFIG"
             echo "Switched to Claude Opus 4.5 Thinking"
             echo "Restart OpenCode for changes to take effect."
             ;;
           gemini|gemini-pro|pro)
-            cp "$GEMINI_CONFIG" "$CONFIG_FILE"
+            switch_config "$GEMINI_CONFIG"
             echo "Switched to Gemini 3 Pro Preview"
             echo "Restart OpenCode for changes to take effect."
             ;;
@@ -197,10 +203,10 @@
           toggle)
             current=$(get_current)
             if [ "$current" = "opus" ]; then
-              cp "$GEMINI_CONFIG" "$CONFIG_FILE"
+              switch_config "$GEMINI_CONFIG"
               echo "Switched to Gemini 3 Pro Preview"
             else
-              cp "$OPUS_CONFIG" "$CONFIG_FILE"
+              switch_config "$OPUS_CONFIG"
               echo "Switched to Claude Opus 4.5 Thinking"
             fi
             echo "Restart OpenCode for changes to take effect."
