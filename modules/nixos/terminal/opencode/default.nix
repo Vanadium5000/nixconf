@@ -12,149 +12,50 @@
       providers = import ./_providers.nix { inherit self; };
       skills = import ./_skills.nix { inherit pkgs; };
 
+      # Modular plugin and agent configuration
+      pluginsConfig = import ./_plugins.nix;
+      agentsConfig = import ./_agents.nix { };
+
       opencode = inputs.opencode.packages.${pkgs.stdenv.hostPlatform.system}.default;
 
       # Model definitions for switching
       opusModel = "antigravity-claude/claude-opus-4-5-thinking";
       geminiProModel = "antigravity-gemini/gemini-3-pro-preview";
 
-      # Base oh-my-opencode config as a function of the "expensive" model
-      # Note: Comments are not included in JSON output, but preserved here for documentation
-      mkOhMyOpencodeConfig = expensiveModel: {
-        "$schema" =
-          "https://raw.githubusercontent.com/code-yeongyu/oh-my-opencode/master/assets/oh-my-opencode.schema.json";
-        "google_auth" = false; # Disable conflicts
-        # Disable oh-my-opencode's default websearch_exa - replaced with full Exa MCP in config.json
-        "disabled_mcps" = [ "websearch" ];
+      # Default expensive model (switched via opencode-model CLI)
+      expensiveModel = opusModel;
 
-        # Oh-My-OpenCode provides 10 specialized AI agents. Each has distinct expertise, optimized models, and tool permissions.
-        # Docs: https://github.com/code-yeongyu/oh-my-opencode/blob/dev/docs/features.md
-        "agents" = {
-          "oracle" = {
-            "model" = expensiveModel;
-          };
-          "librarian" = {
-            "model" = "antigravity-gemini/gemini-3-flash";
-          };
-          "explore" = {
-            "model" = "antigravity-gemini/gemini-3-flash";
-          };
-          "multimodal-looker" = {
-            "model" = "antigravity-gemini/gemini-3-flash";
-          };
-
-          # Main Agents
-          "atlas" = {
-            "model" = expensiveModel; # Maybe a tad excessive
-          };
-          "prometheus" = {
-            "model" = expensiveModel;
-          };
-          # Plan Consultant
-          "metis" = {
-            "model" = expensiveModel;
-          };
-          # Plan Reviewer
-          "momus" = {
-            "model" = expensiveModel;
-          };
-          "sisyphus" = {
-            "model" = expensiveModel;
-          };
-          # Worker
-          "sisyphus-junior" = {
-            "model" = "antigravity-gemini/gemini-3-flash";
-          };
-
-          # Advisor - read-only conversational agent for questions & intuitive feedback
-          "advisor" = {
-            "model" = expensiveModel;
-            "description" = "Read-only advisor for questions, feedback, and discussion on any topic";
-            "disable" = false;
-            "tools" = {
-              # Disable all write/edit tools - read-only agent
-              "Write" = false;
-              "Edit" = false;
-              "Bash" = false;
-              "todowrite" = false;
-              "delegate_task" = false;
-              "task" = false;
-              "interactive_bash" = false;
-            };
-            "prompt_append" = ''
-              You are Advisor - a thoughtful conversational partner.
-
-              YOUR ROLE:
-              - Answer questions on ANY topic (code-related or not)
-              - Provide intuitive feedback, opinions, and insights
-              - Engage in philosophical, creative, or technical discussions
-              - Help think through problems without necessarily solving them in code
-
-              CONSTRAINTS:
-              - You CANNOT edit files, run commands, or make changes
-              - You CAN read files and search the codebase for context
-              - Focus on understanding, explaining, and advising
-
-              STYLE:
-              - Be direct and genuine
-              - Share nuanced perspectives
-              - It's okay to say "I don't know" or "I'm uncertain"
-              - Engage with the human's actual question, not what you think they should ask
-            '';
-          };
-        };
-        # Override category models (used by delegate_task)
-        # Docs: https://github.com/code-yeongyu/oh-my-opencode/blob/dev/docs/category-skill-guide.md
-        "categories" = {
-          # Trivial tasks - single file changes, typo fixes, simple modifications
-          "quick" = {
-            "model" = "opencode/gpt-5-nano";
-          };
-          # Frontend, UI/UX, design, styling, animation
-          "visual-engineering" = {
-            "model" = "antigravity-gemini/gemini-3-pro-preview";
-          };
-          # Deep logical reasoning, complex architecture decisions requiring extensive analysis
-          "ultrabrain" = {
-            "model" = expensiveModel;
-          };
-          # Highly creative/artistic tasks, novel ideas
-          "artistry" = {
-            "model" = expensiveModel;
-          };
-          # Tasks that don't fit other categories, low effort required
-          "unspecified-low" = {
-            "model" = "antigravity-gemini/gemini-3-flash";
-          };
-          # Tasks that don't fit other categories, high effort required
-          "unspecified-high" = {
-            "model" = expensiveModel;
-          };
-          # Documentation, prose, technical writing
-          "writing" = {
-            "model" = "antigravity-gemini/gemini-3-pro-preview";
-          };
-        };
+      # Generate agents config JSON using modular _agents.nix
+      agentsConfigFile = ".config/opencode/agents.json";
+      agentsJsonContent = builtins.toJSON {
+        agents = agentsConfig.mkAgentsConfig expensiveModel;
+        categories = agentsConfig.mkCategoriesConfig expensiveModel;
       };
 
-      # Generate both config variants
-      opusConfig = builtins.toJSON (mkOhMyOpencodeConfig opusModel);
-      geminiProConfig = builtins.toJSON (mkOhMyOpencodeConfig geminiProModel);
+      # Config variants for model switching
+      opusAgentsConfig = builtins.toJSON {
+        agents = agentsConfig.mkAgentsConfig opusModel;
+        categories = agentsConfig.mkCategoriesConfig opusModel;
+      };
+      geminiProAgentsConfig = builtins.toJSON {
+        agents = agentsConfig.mkAgentsConfig geminiProModel;
+        categories = agentsConfig.mkCategoriesConfig geminiProModel;
+      };
 
       # Config variants stored in nix store
-      configVariantsDir = pkgs.runCommand "opencode-model-configs" { } ''
+      configVariantsDir = pkgs.runCommand "opencode-agents-configs" { } ''
         mkdir -p $out
         cat > $out/opus.json << 'EOF'
-        ${opusConfig}
+        ${opusAgentsConfig}
         EOF
         cat > $out/gemini-pro.json << 'EOF'
-        ${geminiProConfig}
+        ${geminiProAgentsConfig}
         EOF
       '';
 
       # CLI tool to switch between configs
       opencodeModelSwitch = pkgs.writeShellScriptBin "opencode-model" ''
-        CONFIG_FILE="$HOME/.config/opencode/oh-my-opencode.json"
+        CONFIG_FILE="$HOME/.config/opencode/agents.json"
         OPUS_CONFIG="${configVariantsDir}/opus.json"
         GEMINI_CONFIG="${configVariantsDir}/gemini-pro.json"
 
@@ -205,8 +106,6 @@
             ;;
         esac
       '';
-
-      ohmyopencodeConfigFile = ".config/opencode/oh-my-opencode.json";
 
       opencodeEnv = pkgs.buildEnv {
         name = "opencode-env";
@@ -265,12 +164,7 @@
       hjem.users.${user}.files = {
         "${configFile}".text = builtins.toJSON {
           "$schema" = "https://opencode.ai/config.json";
-          plugin = [
-            # "opencode-antigravity-auth@latest"
-            "@mohak34/opencode-notifier@latest"
-            "oh-my-opencode@latest"
-            # "@tarquinen/opencode-dcp@latest"
-          ];
+          plugin = pluginsConfig.plugins;
           small_model = "opencode/gpt-5-nano";
           autoupdate = false;
           share = "disabled";
@@ -393,8 +287,8 @@
         ".config/opencode/skills".source = skills.skillsSource + "/skill";
         ".config/opencode/AGENTS.md".source = ./AGENTS.md;
 
-        # oh-my-opencode config - defaults to opus, use `opencode-model` CLI to switch
-        "${ohmyopencodeConfigFile}".text = opusConfig;
+        # Agents config - defaults to opus, use `opencode-model` CLI to switch
+        "${agentsConfigFile}".text = agentsJsonContent;
       };
     };
 }
