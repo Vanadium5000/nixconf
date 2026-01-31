@@ -166,9 +166,14 @@ For directory-wide linting:
 ### Linting Protocol
 
 1. **After editing a file**, check if a linter is available for that file type
-2. **Run the linter** on the modified file
-3. **Fix any errors** reported by the linter before considering the task complete
-4. **Re-run the linter** to verify fixes
+2. **Run the formatter first** - this often fixes lint errors automatically
+3. **Run the linter** on the modified file
+4. **Fix any errors** reported by the linter before considering the task complete
+5. **Re-run the linter** to verify fixes
+
+**Pro tip**: Running the formatter before linting often fixes lint errors
+automatically. For example, `nixfmt` before `statix`, or `prettier` before
+`eslint`.
 
 ### Examples
 
@@ -254,3 +259,149 @@ A task is NOT complete without validation evidence:
 | Any code      | Build/test commands if available                   |
 
 **NO VALIDATION = NOT COMPLETE.**
+
+## AFK Execution Protocol
+
+When running extended tasks autonomously (via `/afk-task` or ralph-loop):
+
+### Progress Tracking Requirements
+
+- Create `PROGRESS.md` at task start
+- Update after EVERY subtask completion
+- Create checkpoint every 10 tasks or 30 minutes
+
+### AFK Error Recovery
+
+| Failure Count | Action                             |
+| ------------- | ---------------------------------- |
+| 1st           | Retry with same approach           |
+| 2nd           | Try alternative method             |
+| 3rd           | Log to BLOCKERS.md, skip, continue |
+
+### Documentation
+
+All errors MUST include:
+
+- Timestamp
+- Command/action attempted
+- Full error message
+- Recovery attempts made
+- Resolution or skip reason
+
+### Notifications
+
+Send desktop notifications for:
+
+- Task start
+- Blockers encountered
+- Task completion (success or with issues)
+
+### Never Do
+
+- Silently swallow errors
+- Skip verification steps
+- Leave partial changes undocumented
+- Assume success without checking
+
+## Frontend Development Standards
+
+### Stack
+
+- **UI Framework**: Preact (React-compatible)
+- **Component Library**: DaisyUI (Tailwind-based)
+- **Language**: TypeScript (strict mode)
+- **API Client**: typescript-swagger-api (OpenAPI spec adherence)
+
+### Component Creation Workflow
+
+1. Query `daisyui_get_component` for base patterns
+2. Check existing components for similar patterns
+3. Use `context7_query-docs` for Preact patterns if needed
+4. Implement with proper TypeScript types
+5. Validate accessibility
+6. Run linters
+
+### Research Priority
+
+| Need              | Tool                    | Example                        |
+| ----------------- | ----------------------- | ------------------------------ |
+| DaisyUI component | `daisyui_get_component` | "button", "card", "modal"      |
+| Preact patterns   | `context7_query-docs`   | "/preactjs/preact"             |
+| Real examples     | `gh_grep_searchGitHub`  | "useState(" with Preact        |
+| API patterns      | `websearch_*`           | "typescript-swagger-api usage" |
+
+### TypeScript Requirements
+
+```typescript
+// ✅ Const types pattern (REQUIRED)
+const STATUS = {
+  ACTIVE: "active",
+  INACTIVE: "inactive",
+} as const;
+type Status = (typeof STATUS)[keyof typeof STATUS];
+
+// ❌ NEVER direct unions
+type Status = "active" | "inactive";
+
+// ✅ Flat interfaces (REQUIRED)
+interface UserAddress {
+  street: string;
+  city: string;
+}
+interface User {
+  id: string;
+  address: UserAddress; // Reference, not inline
+}
+
+// ❌ NEVER inline nested
+interface User {
+  address: { street: string };
+}
+```
+
+### DaisyUI Rules
+
+```tsx
+// ✅ Use DaisyUI classes
+<button className="btn btn-primary">Click</button>
+<div className="card bg-base-100">...</div>
+
+// ❌ Don't use hex colors
+<p className="text-[#fff]" />
+
+// ❌ Don't use var() in className
+<div className="bg-[var(--color)]" />
+
+// ✅ Use theme colors
+<p className="text-base-content" />
+<div className="bg-primary" />
+```
+
+### Accessibility Checklist
+
+- [ ] Semantic HTML (`button`, `nav`, `main`)
+- [ ] ARIA labels on icon-only buttons
+- [ ] Alt text on images
+- [ ] Keyboard navigation works
+- [ ] Focus states visible
+
+## Agent Delegation Guide
+
+| Task Type              | Delegate To  | Rationale                          |
+| ---------------------- | ------------ | ---------------------------------- |
+| Quick codebase search  | `scout`      | Fast, cheap, read-only             |
+| API/library docs       | `researcher` | Specialized for external knowledge |
+| Writing tests          | `tester`     | TDD specialist                     |
+| Post-change validation | `verifier`   | Automated linting/testing          |
+| Complex implementation | `build`      | Full tool access                   |
+| Architecture planning  | `plan`       | Read-only, creates task graphs     |
+
+### Parallel Delegation
+
+When possible, delegate independent tasks in parallel:
+
+```text
+Task: "Add login form with tests"
+→ build: Create LoginForm component
+→ tester: Write LoginForm tests (can start with interface spec)
+```

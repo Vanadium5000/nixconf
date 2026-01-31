@@ -69,5 +69,33 @@ in
         task = false;
       };
     };
+
+    # Verifier: Automated validation after changes
+    verifier = {
+      mode = "subagent";
+      model = flashModel; # Fast/cheap - just runs validation commands
+      description = "Automated verification and linting after changes";
+      prompt = builtins.readFile (promptsDir + "/verifier.md");
+      tools = {
+        write = false;
+        edit = false;
+        bash = true; # Can run linters/tests
+        task = false;
+      };
+    };
+
+    # Tester: Test-driven development specialist
+    tester = {
+      mode = "subagent";
+      model = flashModel; # Tests are pattern-based, flash is sufficient
+      description = "Test writer and runner for automated verification";
+      prompt = builtins.readFile (promptsDir + "/tester.md");
+      tools = {
+        write = true; # Can write test files
+        edit = true; # Can edit test files
+        bash = true; # Can run tests
+        task = false;
+      };
+    };
   };
 }
