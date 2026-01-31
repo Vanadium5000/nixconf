@@ -1,3 +1,8 @@
+---
+name: model
+description: Switch between AI models (opus/gemini-pro) for expensive agents
+---
+
 # Model Switch Skill
 
 This skill provides the `/model` slash command for switching between AI models.

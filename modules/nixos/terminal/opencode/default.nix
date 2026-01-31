@@ -25,37 +25,145 @@
       # Default expensive model (switched via opencode-model CLI)
       expensiveModel = opusModel;
 
-      # Generate agents config JSON using modular _agents.nix
-      agentsConfigFile = ".config/opencode/agents.json";
-      agentsJsonContent = builtins.toJSON {
-        agents = agentsConfig.mkAgentsConfig expensiveModel;
-        categories = agentsConfig.mkCategoriesConfig expensiveModel;
+      # Generate full config with agents for a given model
+      mkFullConfig = model: {
+        "$schema" = "https://opencode.ai/config.json";
+        agent = agentsConfig.mkAgentConfig model;
+        plugin = pluginsConfig.plugins;
+        small_model = "opencode/gpt-5-nano";
+        autoupdate = false;
+        share = "disabled";
+        permission = {
+          read = {
+            # Don't allow the AI to read *.redacted.*, e.g. .../script.redacted.ts
+            "*.redacted.*" = "deny";
+          };
+        };
+        disabled_providers = [
+          "amazon-bedrock"
+          "anthropic"
+          "azure-openai"
+          "azure-cognitive-services"
+          "baseten"
+          "cerebras"
+          "cloudflare-ai-gateway"
+          "cortecs"
+          "deepseek"
+          "deep-infra"
+          "fireworks-ai"
+          "github-copilot"
+          "google-vertex-ai"
+          "groq"
+          "hugging-face"
+          "helicone"
+          "llama.cpp"
+          "io-net"
+          "lmstudio"
+          "moonshot-ai"
+          "nebius-token-factory"
+          "ollama"
+          "ollama-cloud"
+          "openai"
+          "sap-ai-core"
+          "ovhcloud-ai-endpoints"
+          "together-ai"
+          "venice-ai"
+          "xai"
+          "zai"
+          "zenmux"
+        ];
+        enabled_providers = [
+          "opencode"
+          "antigravity-gemini"
+          "antigravity-claude"
+        ];
+        mcp = {
+          gh_grep = {
+            type = "remote";
+            url = "https://mcp.grep.app/";
+            enabled = true;
+            timeout = 10000;
+          };
+          deepwiki = {
+            type = "remote";
+            url = "https://mcp.deepwiki.com/mcp";
+            enabled = true;
+            timeout = 10000;
+          };
+          context7 = {
+            type = "remote";
+            url = "https://mcp.context7.com/mcp";
+            enabled = true;
+            timeout = 10000;
+          };
+          daisyui = {
+            type = "local";
+            command = [ "${self.packages.${pkgs.stdenv.hostPlatform.system}.daisyui-mcp}/bin/daisyui-mcp" ];
+            enabled = true;
+            timeout = 10000;
+          };
+          playwrite = {
+            enabled = true;
+            type = "local";
+            command = [
+              "${pkgs.playwright-mcp}/bin/mcp-server-playwright"
+              "--browser=firefox"
+              "--headless"
+            ];
+          };
+          markdown_lint = {
+            type = "local";
+            command = [
+              "${inputs.self.packages.${pkgs.stdenv.hostPlatform.system}.markdown-lint-mcp}/bin/markdown-lint-mcp"
+            ];
+            enabled = true;
+            timeout = 10000;
+          };
+          qmllint = {
+            type = "local";
+            command = [
+              "${inputs.self.packages.${pkgs.stdenv.hostPlatform.system}.qmllint-mcp}/bin/qmllint-mcp"
+            ];
+            enabled = true;
+            timeout = 10000;
+          };
+          quickshell = {
+            type = "local";
+            command = [
+              "${
+                inputs.self.packages.${pkgs.stdenv.hostPlatform.system}.quickshell-docs-mcp
+              }/bin/quickshell-docs-mcp"
+            ];
+            enabled = true;
+            timeout = 10000;
+          };
+          # Exa MCP - high-quality parallel web search with deep research capabilities
+          websearch = {
+            type = "remote";
+            url = "https://mcp.exa.ai/mcp?exaApiKey=${self.secrets.EXA_API_KEY}&tools=web_search_exa,deep_search_exa,get_code_context_exa,crawling_exa,deep_researcher_start,deep_researcher_check";
+            enabled = true;
+            timeout = 30000; # 30s for deep searches
+          };
+        };
+        formatter = languages.formatter;
+        lsp = languages.lsp;
+        provider = providers.config;
       };
 
-      # Config variants for model switching
-      opusAgentsConfig = builtins.toJSON {
-        agents = agentsConfig.mkAgentsConfig opusModel;
-        categories = agentsConfig.mkCategoriesConfig opusModel;
-      };
-      geminiProAgentsConfig = builtins.toJSON {
-        agents = agentsConfig.mkAgentsConfig geminiProModel;
-        categories = agentsConfig.mkCategoriesConfig geminiProModel;
-      };
-
-      # Config variants stored in nix store
-      configVariantsDir = pkgs.runCommand "opencode-agents-configs" { } ''
+      # Config variants stored in nix store for model switching
+      configVariantsDir = pkgs.runCommand "opencode-configs" { } ''
         mkdir -p $out
         cat > $out/opus.json << 'EOF'
-        ${opusAgentsConfig}
+        ${builtins.toJSON (mkFullConfig opusModel)}
         EOF
         cat > $out/gemini-pro.json << 'EOF'
-        ${geminiProAgentsConfig}
+        ${builtins.toJSON (mkFullConfig geminiProModel)}
         EOF
       '';
 
-      # CLI tool to switch between configs
+      # CLI tool to switch between configs (replaces full config.json)
       opencodeModelSwitch = pkgs.writeShellScriptBin "opencode-model" ''
-        CONFIG_FILE="$HOME/.config/opencode/agents.json"
+        CONFIG_FILE="$HOME/.config/opencode/config.json"
         OPUS_CONFIG="${configVariantsDir}/opus.json"
         GEMINI_CONFIG="${configVariantsDir}/gemini-pro.json"
 
@@ -75,10 +183,12 @@
           opus)
             cp "$OPUS_CONFIG" "$CONFIG_FILE"
             echo "Switched to Claude Opus 4.5 Thinking"
+            echo "Restart OpenCode for changes to take effect."
             ;;
           gemini|gemini-pro|pro)
             cp "$GEMINI_CONFIG" "$CONFIG_FILE"
             echo "Switched to Gemini 3 Pro Preview"
+            echo "Restart OpenCode for changes to take effect."
             ;;
           status|"")
             current=$(get_current)
@@ -93,6 +203,7 @@
               cp "$OPUS_CONFIG" "$CONFIG_FILE"
               echo "Switched to Claude Opus 4.5 Thinking"
             fi
+            echo "Restart OpenCode for changes to take effect."
             ;;
           *)
             echo "Usage: opencode-model [opus|gemini-pro|toggle|status]"
@@ -162,133 +273,10 @@
       # Bind mount for reliable persistence (apps can't overwrite)
       fileSystems = toolsPersistence.fileSystems;
       hjem.users.${user}.files = {
-        "${configFile}".text = builtins.toJSON {
-          "$schema" = "https://opencode.ai/config.json";
-          plugin = pluginsConfig.plugins;
-          small_model = "opencode/gpt-5-nano";
-          autoupdate = false;
-          share = "disabled";
-          permission = {
-            read = {
-              # Don't allow the AI to read *.redacted.*, e.g. .../script.redacted.ts
-              "*.redacted.*" = "deny";
-            };
-          };
-          disabled_providers = [
-            "amazon-bedrock"
-            "anthropic"
-            "azure-openai"
-            "azure-cognitive-services"
-            "baseten"
-            "cerebras"
-            "cloudflare-ai-gateway"
-            "cortecs"
-            "deepseek"
-            "deep-infra"
-            "fireworks-ai"
-            "github-copilot"
-            "google-vertex-ai"
-            "groq"
-            "hugging-face"
-            "helicone"
-            "llama.cpp"
-            "io-net"
-            "lmstudio"
-            "moonshot-ai"
-            "nebius-token-factory"
-            "ollama"
-            "ollama-cloud"
-            "openai"
-            "sap-ai-core"
-            "ovhcloud-ai-endpoints"
-            "together-ai"
-            "venice-ai"
-            "xai"
-            "zai"
-            "zenmux"
-          ];
-          enabled_providers = [
-            "opencode"
-            "antigravity-gemini"
-            "antigravity-claude"
-          ];
-          mcp = {
-            gh_grep = {
-              type = "remote";
-              url = "https://mcp.grep.app/";
-              enabled = true;
-              timeout = 10000;
-            };
-            deepwiki = {
-              type = "remote";
-              url = "https://mcp.deepwiki.com/mcp";
-              enabled = true;
-              timeout = 10000;
-            };
-            context7 = {
-              type = "remote";
-              url = "https://mcp.context7.com/mcp";
-              enabled = true;
-              timeout = 10000;
-            };
-            daisyui = {
-              type = "local";
-              command = [ "${self.packages.${pkgs.stdenv.hostPlatform.system}.daisyui-mcp}/bin/daisyui-mcp" ];
-              enabled = true;
-              timeout = 10000;
-            };
-            playwrite = {
-              enabled = true;
-              type = "local";
-              command = [
-                "${pkgs.playwright-mcp}/bin/mcp-server-playwright"
-                "--browser=firefox"
-                "--headless"
-              ];
-            };
-            markdown_lint = {
-              type = "local";
-              command = [
-                "${inputs.self.packages.${pkgs.stdenv.hostPlatform.system}.markdown-lint-mcp}/bin/markdown-lint-mcp"
-              ];
-              enabled = true;
-              timeout = 10000;
-            };
-            qmllint = {
-              type = "local";
-              command = [
-                "${inputs.self.packages.${pkgs.stdenv.hostPlatform.system}.qmllint-mcp}/bin/qmllint-mcp"
-              ];
-              enabled = true;
-              timeout = 10000;
-            };
-            quickshell = {
-              type = "local";
-              command = [
-                "${
-                  inputs.self.packages.${pkgs.stdenv.hostPlatform.system}.quickshell-docs-mcp
-                }/bin/quickshell-docs-mcp"
-              ];
-              enabled = true;
-              timeout = 10000;
-            };
-            # Exa MCP - high-quality parallel web search with deep research capabilities
-            websearch = {
-              type = "remote";
-              url = "https://mcp.exa.ai/mcp?exaApiKey=${self.secrets.EXA_API_KEY}&tools=web_search_exa,deep_search_exa,get_code_context_exa,crawling_exa,deep_researcher_start,deep_researcher_check";
-              enabled = true;
-              timeout = 30000; # 30s for deep searches
-            };
-          };
-          formatter = languages.formatter;
-          lsp = languages.lsp;
-          provider = providers.config;
-        };
+        # Full config with agents - defaults to opus, use `opencode-model` CLI to switch
+        "${configFile}".text = builtins.toJSON (mkFullConfig expensiveModel);
         ".config/opencode/skills".source = skills.skillsSource + "/skill";
         ".config/opencode/AGENTS.md".source = ./AGENTS.md;
-
-        # Agents config - defaults to opus, use `opencode-model` CLI to switch
-        "${agentsConfigFile}".text = agentsJsonContent;
       };
     };
 }
