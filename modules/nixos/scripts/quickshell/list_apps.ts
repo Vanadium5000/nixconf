@@ -8,6 +8,8 @@ const SEARCH_PATHS = [
   join(homedir(), ".nix-profile/share/applications"),
   join(homedir(), ".local/share/applications"),
   "/usr/share/applications",
+  "/var/lib/flatpak/exports/share/applications",
+  join(homedir(), ".local/share/flatpak/exports/share/applications"),
 ];
 
 interface DesktopAction {

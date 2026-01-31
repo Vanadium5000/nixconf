@@ -237,6 +237,7 @@
           pkgs.git
           pkgs.coreutils
           pkgs.which
+          pkgs.pinentry-qt # Required for pinentry detection test
         ];
       };
 

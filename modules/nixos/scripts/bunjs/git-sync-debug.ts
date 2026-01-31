@@ -108,11 +108,20 @@ async function testGpgAgent(): Promise<TestResult[]> {
   const results: TestResult[] = [];
 
   // Test 1: GPG agent socket exists
-  const socketPath =
-    process.env.GNUPGHOME || `${process.env.HOME}/.gnupg`;
-  const agentSocket = `${socketPath}/S.gpg-agent`;
+  // NixOS places sockets in $XDG_RUNTIME_DIR/gnupg/, not ~/.gnupg/
+  const xdgGnupgPath = `${process.env.XDG_RUNTIME_DIR}/gnupg`;
+  const gnupgHomePath = process.env.GNUPGHOME || `${process.env.HOME}/.gnupg`;
 
-  const socketExists = await Bun.file(agentSocket).exists();
+  const xdgSocket = `${xdgGnupgPath}/S.gpg-agent`;
+  const homeSocket = `${gnupgHomePath}/S.gpg-agent`;
+
+  const xdgExists = await Bun.file(xdgSocket).exists();
+  const homeExists = await Bun.file(homeSocket).exists();
+
+  // Prefer XDG location (NixOS default)
+  const agentSocket = xdgExists ? xdgSocket : homeSocket;
+  const socketExists = xdgExists || homeExists;
+
   results.push({
     name: "GPG agent socket",
     passed: socketExists,
@@ -193,8 +202,17 @@ async function testSshAgent(): Promise<TestResult[]> {
   });
 
   // Test 4: Check if GPG agent is providing SSH
-  const gpgSshSocket = `${process.env.GNUPGHOME || `${process.env.HOME}/.gnupg`}/S.gpg-agent.ssh`;
-  const gpgSshExists = await Bun.file(gpgSshSocket).exists();
+  // NixOS places sockets in $XDG_RUNTIME_DIR/gnupg/, not ~/.gnupg/
+  const xdgSshSocket = `${process.env.XDG_RUNTIME_DIR}/gnupg/S.gpg-agent.ssh`;
+  const homeSshSocket = `${process.env.GNUPGHOME || `${process.env.HOME}/.gnupg`}/S.gpg-agent.ssh`;
+
+  const xdgSshExists = await Bun.file(xdgSshSocket).exists();
+  const homeSshExists = await Bun.file(homeSshSocket).exists();
+
+  // Prefer XDG location (NixOS default)
+  const gpgSshSocket = xdgSshExists ? xdgSshSocket : homeSshSocket;
+  const gpgSshExists = xdgSshExists || homeSshExists;
+
   const isGpgSsh = sshSocket?.includes("gpg-agent") || gpgSshExists;
   results.push({
     name: "GPG agent SSH support",
