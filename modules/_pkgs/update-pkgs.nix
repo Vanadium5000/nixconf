@@ -351,8 +351,18 @@ pkgs.writeShellApplication {
           fi
           ;;
 
-        "daisyui-mcp"|"pomodoro-for-waybar")
+        "deep-live-cam")
+          # Uses GitHub release tags
+          if update_versioned_url_package "$pkg" "hacksider" "Deep-Live-Cam"; then
+            UPDATED+=("$pkg")
+          else
+            SKIPPED+=("$pkg")
+          fi
+          ;;
+
+        "daisyui-mcp"|"pomodoro-for-waybar"|"libreoffice-mcp")
           # Track branches - use nix-update with branch mode
+          # These packages pin to latest commit on main/master branch
           set +e
           if nix-update -f packages.nix "$pkg" --version branch; then
             UPDATED+=("$pkg")

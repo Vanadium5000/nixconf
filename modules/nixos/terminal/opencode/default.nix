@@ -144,6 +144,17 @@
             enabled = true;
             timeout = 30000; # 30s for deep searches
           };
+          # LibreOffice MCP - create/edit/convert documents (Writer, Calc, Impress, Draw)
+          # Supports: ODT, ODS, ODP, DOCX, XLSX, PPTX, PDF, HTML, and 50+ formats
+          # Use for creating presentations, reports, spreadsheets programmatically
+          libreoffice = {
+            type = "local";
+            command = [
+              "${self.packages.${pkgs.stdenv.hostPlatform.system}.libreoffice-mcp}/bin/libreoffice-mcp"
+            ];
+            enabled = true;
+            timeout = 60000; # 60s - first invocation starts LibreOffice (slow)
+          };
         };
         formatter = languages.formatter;
         lsp = languages.lsp;
