@@ -81,6 +81,10 @@
         powertop # CLI for checking battery power-draw
         wl-clipboard # System clipboard
 
+        # XDG Integration (MIME & Desktop Entry tools)
+        shared-mime-info
+        desktop-file-utils
+
         # BTRFS
         btdu # Disk usage
 
@@ -123,9 +127,43 @@
         };
       };
 
+      # XDG Integration
+      xdg.mime.enable = true;
+
+      # Dolphin requires applications.menu to discover apps.
+      # Outside a full Plasma session, this file is missing or not detected.
+      environment.etc."xdg/menus/applications.menu".source =
+        "${pkgs.kdePackages.plasma-workspace}/etc/xdg/menus/plasma-applications.menu";
+
+      environment.sessionVariables = {
+        # Tell KDE apps which menu to use
+        XDG_MENU_PREFIX = "plasma-";
+        # Add Flatpak exports to XDG_DATA_DIRS
+        XDG_DATA_DIRS = [
+          "/var/lib/flatpak/exports/share"
+          "$HOME/.local/share/flatpak/exports/share"
+        ];
+      };
+
+      # Rebuild KDE system configuration cache after rebuilds
+      system.activationScripts.kbuildsycoca = {
+        text = ''
+          for dir in /home/*; do
+            user="$(basename "$dir")"
+            if id "$user" &>/dev/null; then
+              if [ -d "$dir" ]; then
+                ${pkgs.util-linux}/bin/runuser -u "$user" -- ${pkgs.kdePackages.kservice}/bin/kbuildsycoca6 --noincremental 2>/dev/null || true
+              fi
+            fi
+          done
+        '';
+        deps = [ "users" ];
+      };
+
       # XDG Portal
       xdg.portal = {
         enable = true;
+        extraPortals = [ pkgs.kdePackages.xdg-desktop-portal-kde ];
         config.common.default = "hyprland";
         xdgOpenUsePortal = true;
       };

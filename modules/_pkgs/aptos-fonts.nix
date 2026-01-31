@@ -9,7 +9,7 @@ stdenvNoCC.mkDerivation {
   pname = "aptos-fonts";
   version = "2024.05.29";
 
-  src = ./assets/Microsoft-Aptos-Fonts-Family.zip;
+  src = ../../assets/fonts/Microsoft-Aptos-Fonts-Family.zip;
 
   nativeBuildInputs = [ unzip ];
 
