@@ -277,6 +277,8 @@
         "${configFile}".text = builtins.toJSON (mkFullConfig expensiveModel);
         ".config/opencode/skills".source = skills.skillsSource + "/skill";
         ".config/opencode/AGENTS.md".source = ./AGENTS.md;
+        # Agent prompts - referenced via {file:./prompts/*.md} in config
+        ".config/opencode/prompts".source = ./prompts;
       };
     };
 }

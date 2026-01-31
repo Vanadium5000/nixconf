@@ -482,12 +482,12 @@ Application ───► SOCKS5 Proxy (localhost:10800)
 
 ### VPN Proxy Components
 
-| Package             | Location                    | Purpose                         |
-| ------------------- | --------------------------- | ------------------------------- |
-| `vpn-resolver`      | `bunjs/vpn-resolver.ts`     | VPN config parsing, caching     |
-| `vpn-proxy`         | `bunjs/vpn-proxy.ts`        | SOCKS5 server with VPN routing  |
-| `vpn-proxy-cleanup` | `bunjs/vpn-proxy-cleanup.ts`| Idle cleanup daemon             |
-| `vpn-proxy-netns`   | `bunjs/vpn-proxy-netns.sh`  | Namespace setup with kill-switch|
+| Package             | Location                     | Purpose                          |
+| ------------------- | ---------------------------- | -------------------------------- |
+| `vpn-resolver`      | `bunjs/vpn-resolver.ts`      | VPN config parsing, caching      |
+| `vpn-proxy`         | `bunjs/vpn-proxy.ts`         | SOCKS5 server with VPN routing   |
+| `vpn-proxy-cleanup` | `bunjs/vpn-proxy-cleanup.ts` | Idle cleanup daemon              |
+| `vpn-proxy-netns`   | `bunjs/vpn-proxy-netns.sh`   | Namespace setup with kill-switch |
 
 ### Usage
 
@@ -505,12 +505,12 @@ vpn-proxy status
 
 ### VPN Configuration
 
-| Environment Variable       | Default         | Description                    |
-| -------------------------- | --------------- | ------------------------------ |
-| `VPN_DIR`                  | `~/Shared/VPNs` | Directory with `.ovpn` files   |
-| `VPN_PROXY_PORT`           | `10800`         | Single listening port          |
-| `VPN_PROXY_IDLE_TIMEOUT`   | `300`           | Seconds before idle cleanup    |
-| `VPN_PROXY_RANDOM_ROTATION`| `300`           | Random VPN rotation interval   |
+| Environment Variable        | Default         | Description                  |
+| --------------------------- | --------------- | ---------------------------- |
+| `VPN_DIR`                   | `~/Shared/VPNs` | Directory with `.ovpn` files |
+| `VPN_PROXY_PORT`            | `10800`         | Single listening port        |
+| `VPN_PROXY_IDLE_TIMEOUT`    | `300`           | Seconds before idle cleanup  |
+| `VPN_PROXY_RANDOM_ROTATION` | `300`           | Random VPN rotation interval |
 
 ### Security Model
 
@@ -657,21 +657,21 @@ notify-send "Backup Complete" "All files synchronized"
 
 Configure via the settings panel (gear icon in notification center):
 
-| Setting           | Default | Description                    |
-| ----------------- | ------- | ------------------------------ |
-| Volume            | 50%     | Sound volume (0-100%)          |
-| Low Priority      | Off     | Play sound for low urgency     |
-| Normal Priority   | On      | Play sound for normal urgency  |
-| Critical Priority | On      | Play sound for critical urgency|
+| Setting           | Default | Description                     |
+| ----------------- | ------- | ------------------------------- |
+| Volume            | 50%     | Sound volume (0-100%)           |
+| Low Priority      | Off     | Play sound for low urgency      |
+| Normal Priority   | On      | Play sound for normal urgency   |
+| Critical Priority | On      | Play sound for critical urgency |
 
 Per-app overrides can be set from the notification's context menu (⋮ button).
 
 ### Notification Configuration Files
 
-| File                         | Location                       | Purpose                |
-| ---------------------------- | ------------------------------ | ---------------------- |
-| `notifications.json`         | `~/.local/share/quickshell/`   | Persisted notifications|
-| `notification-settings.json` | `~/.local/share/quickshell/`   | Sound/DND settings     |
+| File                         | Location                     | Purpose                 |
+| ---------------------------- | ---------------------------- | ----------------------- |
+| `notifications.json`         | `~/.local/share/quickshell/` | Persisted notifications |
+| `notification-settings.json` | `~/.local/share/quickshell/` | Sound/DND settings      |
 
 ### Waybar Integration
 

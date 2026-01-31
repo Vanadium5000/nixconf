@@ -2,9 +2,8 @@
 # Replaces oh-my-opencode with focused, single-purpose plugins
 {
   plugins = [
-    # "opencode-background-agents" # Async parallel task delegation
-    # "opencode-ralph" # Self-correcting loop execution (/ralph-loop, /ulw-loop)
-    # "opencode-type-inject" # Auto-inject TypeScript types into file reads
+    "@paulp-o/opencode-background-agent@latest" # Async parallel task delegation
+    "opencode-ralph-loop@latest" # Auto-continue loop until task completion (minimal, no spam)
     "@mohak34/opencode-notifier@latest" # Desktop notifications
   ];
 }

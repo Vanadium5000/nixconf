@@ -49,18 +49,18 @@ When the user invokes `/model <command>`, follow these steps:
 1. Read `~/.config/opencode/config.json`
 2. Update the model field for these agents:
    - planner
-   - builder  
+   - builder
    - advisor
 3. Write the updated config back
 4. Inform user that changes will take effect on next session start
 
 ## Model Mapping
 
-| Category | Model | Agents |
-| ---------- | ------- | -------------------------- |
-| Heavy (opus) | antigravity-claude/claude-opus-4-5-thinking | planner, builder, advisor |
-| Standard (pro) | antigravity-gemini/gemini-3-pro-preview | planner, builder, advisor |
-| Quick (flash) | antigravity-gemini/gemini-3-flash | scout, researcher |
+| Category       | Model                                       | Agents                    |
+| -------------- | ------------------------------------------- | ------------------------- |
+| Heavy (opus)   | antigravity-claude/claude-opus-4-5-thinking | planner, builder, advisor |
+| Standard (pro) | antigravity-gemini/gemini-3-pro-preview     | planner, builder, advisor |
+| Quick (flash)  | antigravity-gemini/gemini-3-flash           | scout, researcher         |
 
 ## Important Notes
 

@@ -48,9 +48,9 @@ def process(data):
 
 ```typescript
 function divide(a: number, b: number): number {
-    if (b === 0) throw new Error('Division by zero');
-    if (!Number.isFinite(a)) throw new Error(`Invalid dividend: ${a}`);
-    return a / b;
+  if (b === 0) throw new Error("Division by zero");
+  if (!Number.isFinite(a)) throw new Error(`Invalid dividend: ${a}`);
+  return a / b;
 }
 ```
 
@@ -67,24 +67,24 @@ function divide(a: number, b: number): number {
 
 #### MUST Comment
 
-| Situation | Example |
-| ----------- | --------- |
-| Magic numbers | `timeout = 3000; // 3s - reduced from 5s for faster fallback` |
-| Non-obvious values | `bufferSize = 4096; // 4KB - matches filesystem block size` |
-| Format/syntax | `"[::1]:53" // IPv6 loopback` |
-| Workarounds | `// HACK: upstream bug #1234 - remove after v2.1` |
-| Tradeoffs | `// O(n²) acceptable here - list always < 100 items` |
-| Edge cases | `// Empty string valid - represents "use default"` |
-| External dependencies | `// Requires libfoo >= 2.0 for async support` |
-| Business logic | `// 30-day window per compliance requirement XYZ` |
+| Situation             | Example                                                       |
+| --------------------- | ------------------------------------------------------------- |
+| Magic numbers         | `timeout = 3000; // 3s - reduced from 5s for faster fallback` |
+| Non-obvious values    | `bufferSize = 4096; // 4KB - matches filesystem block size`   |
+| Format/syntax         | `"[::1]:53" // IPv6 loopback`                                 |
+| Workarounds           | `// HACK: upstream bug #1234 - remove after v2.1`             |
+| Tradeoffs             | `// O(n²) acceptable here - list always < 100 items`          |
+| Edge cases            | `// Empty string valid - represents "use default"`            |
+| External dependencies | `// Requires libfoo >= 2.0 for async support`                 |
+| Business logic        | `// 30-day window per compliance requirement XYZ`             |
 
 #### NEVER Comment
 
-| Anti-pattern | Why it's bad |
-|--------------|--------------|
+| Anti-pattern                       | Why it's bad               |
+| ---------------------------------- | -------------------------- |
 | `enable = true; // Enable feature` | Tautology - code says this |
-| `i++; // Increment i` | Obvious operation |
-| `// Import module` above import | Self-evident |
+| `i++; // Increment i`              | Obvious operation          |
+| `// Import module` above import    | Self-evident               |
 
 #### Comment Format
 
@@ -123,13 +123,13 @@ const filter = new BloomFilter(expectedItems, falsePositiveRate);
 
 ### When to Search
 
-| Situation | Action |
-| ----------- |--------|
-| Unfamiliar library/API | Search before implementing |
-| Error message you don't recognize | Search for solutions |
-| "Is this the right approach?" | Search for best practices |
-| Security-sensitive code | Search for advisories |
-| External service integration | Search for current docs |
+| Situation                         | Action                     |
+| --------------------------------- | -------------------------- |
+| Unfamiliar library/API            | Search before implementing |
+| Error message you don't recognize | Search for solutions       |
+| "Is this the right approach?"     | Search for best practices  |
+| Security-sensitive code           | Search for advisories      |
+| External service integration      | Search for current docs    |
 
 ### How to Search
 
@@ -151,17 +151,17 @@ websearch_web_search_exa(query="complex topic", type="deep")
 
 ### Available Lint MCPs
 
-| File Extension | Linter | Tool |
-|----------------|--------|------|
-| `.md` | markdownlint | `markdown_lint_lint_markdown` |
-| `.qml` | qmllint | `qmllint_lint_qml` |
+| File Extension | Linter       | Tool                          |
+| -------------- | ------------ | ----------------------------- |
+| `.md`          | markdownlint | `markdown_lint_lint_markdown` |
+| `.qml`         | qmllint      | `qmllint_lint_qml`            |
 
 For directory-wide linting:
 
-| File Extension | Tool |
-|----------------|------|
-| `.md` | `markdown_lint_lint_markdown_directory` |
-| `.qml` | `qmllint_lint_qml_directory` |
+| File Extension | Tool                                    |
+| -------------- | --------------------------------------- |
+| `.md`          | `markdown_lint_lint_markdown_directory` |
+| `.qml`         | `qmllint_lint_qml_directory`            |
 
 ### Linting Protocol
 
@@ -189,12 +189,12 @@ Directory-wide validation:
 ```typescript
 qmllint_lint_qml_directory({
   directoryPath: "/home/matrix/nixconf/modules/hjem/quickshell",
-  maxDepth: 50
-})
+  maxDepth: 50,
+});
 
 markdown_lint_lint_markdown_directory({
-  directoryPath: "/home/matrix/nixconf"
-})
+  directoryPath: "/home/matrix/nixconf",
+});
 ```
 
 ### Linting Checklist
@@ -233,24 +233,24 @@ Before marking any file edit as complete:
 
 ## Research Tools
 
-| Tool | Purpose | When to Use |
-| ---- | ------- | ----------- |
-| `context7_*` | Official library docs | Unfamiliar APIs, correct usage patterns |
-| `deepwiki_*` | GitHub repo documentation | Understanding external projects |
-| `quickshell_*` | Quickshell-specific docs | QML/Quickshell implementation |
-| `gh_grep_searchGitHub` | Real-world code examples | Production patterns, edge cases |
-| `websearch_*` | General web search | Current info, news, broad topics |
+| Tool                   | Purpose                   | When to Use                             |
+| ---------------------- | ------------------------- | --------------------------------------- |
+| `context7_*`           | Official library docs     | Unfamiliar APIs, correct usage patterns |
+| `deepwiki_*`           | GitHub repo documentation | Understanding external projects         |
+| `quickshell_*`         | Quickshell-specific docs  | QML/Quickshell implementation           |
+| `gh_grep_searchGitHub` | Real-world code examples  | Production patterns, edge cases         |
+| `websearch_*`          | General web search        | Current info, news, broad topics        |
 
 ## Evidence Requirements
 
 A task is NOT complete without validation evidence:
 
-| Change Type | Required Validation |
-| ----------- | ------------------- |
-| TypeScript/JS | `lsp_diagnostics` clean |
-| QML files | `qmllint_lint_qml` or `qmllint_lint_qml_directory` |
-| Markdown | `markdown_lint_lint_markdown` or directory variant |
-| Nix files | `statix check` + `nixfmt --check` |
-| Any code | Build/test commands if available |
+| Change Type   | Required Validation                                |
+| ------------- | -------------------------------------------------- |
+| TypeScript/JS | `lsp_diagnostics` clean                            |
+| QML files     | `qmllint_lint_qml` or `qmllint_lint_qml_directory` |
+| Markdown      | `markdown_lint_lint_markdown` or directory variant |
+| Nix files     | `statix check` + `nixfmt --check`                  |
+| Any code      | Build/test commands if available                   |
 
 **NO VALIDATION = NOT COMPLETE.**
