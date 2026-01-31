@@ -275,7 +275,10 @@
       hjem.users.${user}.files = {
         # Full config with agents - defaults to opus, use `opencode-model` CLI to switch
         "${configFile}".text = builtins.toJSON (mkFullConfig expensiveModel);
-        ".config/opencode/skills".source = skills.skillsSource + "/skill";
+        # Skills (AI-loadable instructions) - note: "skill" not "skills"
+        ".config/opencode/skill".source = skills.skillsSource + "/skill";
+        # Commands (slash command definitions)
+        ".config/opencode/command".source = skills.commandsSource + "/command";
         ".config/opencode/AGENTS.md".source = ./AGENTS.md;
         # Agent prompts - referenced via {file:./prompts/*.md} in config
         ".config/opencode/prompts".source = ./prompts;

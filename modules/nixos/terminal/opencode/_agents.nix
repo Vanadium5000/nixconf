@@ -28,9 +28,9 @@ in
       };
     };
 
-    # Advisor: Read-only consultation subagent
+    # Advisor: Read-only consultation PRIMARY agent (Tab-cycleable)
     advisor = {
-      mode = "subagent";
+      mode = "primary"; # Primary so it appears in Tab cycle
       model = expensiveModel;
       description = "Read-only advisor for questions, feedback, and discussion";
       prompt = builtins.readFile (promptsDir + "/advisor.md");

@@ -2,6 +2,8 @@
 let
   # Local skills directory (relative to this file)
   localSkillsDir = ./skill;
+  # Local commands directory (relative to this file)
+  localCommandsDir = ./command;
 
   fetchSkill =
     {
@@ -82,8 +84,19 @@ let
       '') skills
     )}
   '';
+
+  # Commands for slash command registration (separate from skills)
+  allCommands = pkgs.runCommand "opencode-commands" { } ''
+    mkdir -p $out/command
+
+    # Copy local commands from ./command directory
+    if [ -d "${localCommandsDir}" ]; then
+      cp -r ${localCommandsDir}/* $out/command/
+    fi
+  '';
 in
 {
   packages = [ ];
   skillsSource = allSkills;
+  commandsSource = allCommands;
 }

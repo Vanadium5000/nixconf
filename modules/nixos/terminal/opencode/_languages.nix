@@ -2,7 +2,7 @@
 let
   formatterBins = {
     nixfmt = "${pkgs.nixfmt-rfc-style}/bin/nixfmt";
-    oxfmt = "${pkgs.unstable.oxfmt}/bin/oxfmt";
+    prettier = "${pkgs.nodePackages.prettier}/bin/prettier";
     shfmt = "${pkgs.shfmt}/bin/shfmt";
   };
 
@@ -23,7 +23,7 @@ in
       # nil
       tailwindcss-language-server
       nixfmt-rfc-style
-      unstable.oxfmt
+      nodePackages.prettier
       shfmt
       vscode-langservers-extracted
       typescript-language-server
@@ -43,19 +43,43 @@ in
         "bash"
       ];
     };
-    oxfmt = {
-      command = [ formatterBins.oxfmt ];
+    prettier = {
+      command = [
+        formatterBins.prettier
+        "--stdin-filepath" # Required for prettier to infer parser from extension
+        "{file}"
+      ];
       extensions = [
-        "yaml"
-        "js"
-        "json"
-        "jsx"
-        "md"
-        "ts"
-        "tsx"
-        "css"
-        "html"
-        "vue"
+        # JavaScript family
+        "js" # JavaScript
+        "mjs" # ES modules
+        "cjs" # CommonJS modules
+        "jsx" # React JSX
+        # TypeScript family
+        "ts" # TypeScript
+        "mts" # TypeScript ES modules
+        "cts" # TypeScript CommonJS modules
+        "tsx" # React TSX
+        # CSS family
+        "css" # CSS
+        "scss" # SCSS
+        "less" # Less
+        # HTML family
+        "html" # HTML
+        "htm" # HTML alternate extension
+        "vue" # Vue single-file components
+        # Data formats
+        "json" # JSON
+        "json5" # JSON5
+        "jsonc" # JSON with Comments
+        "yaml" # YAML
+        "yml" # YAML alternate extension
+        "graphql" # GraphQL
+        "gql" # GraphQL alternate extension
+        # Markdown
+        "md" # Markdown
+        "mdx" # MDX (Markdown + JSX)
+        "markdown" # Markdown alternate extension
       ];
     };
     nixfmt = {
