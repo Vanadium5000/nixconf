@@ -26,25 +26,26 @@ let
 
     src = pkgs.fetchurl {
       url = "https://files.pythonhosted.org/packages/py3/d/darkdetect/darkdetect-0.8.0-py3-none-any.whl";
-      hash = "sha256-ppW6BKFVH6NJBx9X9rVghsayWkCxbNgbTqG22pq8jNc=";
+      hash = "sha256-p1Ccz1F+qtkrMcIU9ZPbzxOOqKQ7KTVAa71WXhVSeoU=";
     };
 
     doCheck = false;
   };
 
-  # CustomTkinter - modern tkinter widgets
+  # CustomTkinter - modern tkinter widgets (wheel format)
   customtkinter = python.pkgs.buildPythonPackage rec {
     pname = "customtkinter";
     version = "5.2.2";
-    format = "setuptools";
+    format = "wheel";
 
-    src = pkgs.fetchPypi {
-      inherit pname version;
-      hash = "sha256-5KGBVV4ROaoFV+F5hNKmvxGLX8ZtVntfzr1Axie3QNk=";
+    src = pkgs.fetchurl {
+      url = "https://files.pythonhosted.org/packages/py3/c/customtkinter/customtkinter-${version}-py3-none-any.whl";
+      hash = "sha256-FK0+fNPLO562QrnU6HEa6A0/efuCVFrRElju/7Lms3w=";
     };
 
     propagatedBuildInputs = [
       darkdetect
+      python.pkgs.packaging
       python.pkgs.typing-extensions
     ];
 
@@ -52,32 +53,31 @@ let
     doCheck = false;
   };
 
-  # Easydict - dependency of insightface
+  # Easydict - dependency of insightface (wheel format)
   easydict = python.pkgs.buildPythonPackage rec {
     pname = "easydict";
     version = "1.13";
-    format = "setuptools";
+    format = "wheel";
 
-    src = pkgs.fetchPypi {
-      inherit pname version;
-      hash = "sha256-eY6C/T3plv7Qjr+x0JH7R6VvZ8E8wdT2pDiKPFrkUMQ=";
+    src = pkgs.fetchurl {
+      url = "https://files.pythonhosted.org/packages/py3/e/easydict/easydict-${version}-py3-none-any.whl";
+      hash = "sha256-a3h9r03K9jd7StlAOlzuWoatvAyppbz1QQ6ZAgAq6sI=";
     };
 
     doCheck = false;
   };
 
-  # Prettytable - dependency of insightface
+  # Prettytable - dependency of insightface (wheel format)
   prettytable = python.pkgs.buildPythonPackage rec {
     pname = "prettytable";
     version = "3.10.0";
-    format = "pyproject";
+    format = "wheel";
 
-    src = pkgs.fetchPypi {
-      inherit pname version;
-      hash = "sha256-eSC/vsTuVDGSaXN+JrLi/dxydMFM46sHb21K9kStBBQ=";
+    src = pkgs.fetchurl {
+      url = "https://files.pythonhosted.org/packages/py3/p/prettytable/prettytable-${version}-py3-none-any.whl";
+      hash = "sha256-ZTbvrwdX/ap9IueLOqw7aeobcgBTjCxpldZJNlvdq5I=";
     };
 
-    nativeBuildInputs = [ python.pkgs.hatchling ];
     propagatedBuildInputs = [ python.pkgs.wcwidth ];
 
     doCheck = false;
@@ -91,7 +91,7 @@ let
 
     src = pkgs.fetchPypi {
       inherit pname version;
-      hash = "sha256-UraPiPCWPDCOL+RpqlimUJlJNYNe1IFf7b7sbxnMeKU=";
+      hash = "sha256-8ZH3GWEuuzcBj0GTaBRQBUTND4bm/NZ2wCPzVMZo3fc=";
     };
 
     nativeBuildInputs = [
@@ -135,23 +135,30 @@ let
 
     nativeBuildInputs = [ python.pkgs.setuptools ];
 
+    # All runtime deps required by opennsfw2's pyproject.toml
     propagatedBuildInputs = with python.pkgs; [
       numpy
       pillow
+      gdown
+      matplotlib
+      opencv4
+      scikit-image
+      tensorflow
+      tqdm
     ];
 
     doCheck = false;
   };
 
-  # CV2 Enumerate Cameras
+  # CV2 Enumerate Cameras (wheel format - pure python)
   cv2-enumerate-cameras = python.pkgs.buildPythonPackage rec {
     pname = "cv2_enumerate_cameras";
     version = "1.1.15";
-    format = "setuptools";
+    format = "wheel";
 
-    src = pkgs.fetchPypi {
-      inherit pname version;
-      hash = "sha256-UVIEhIj91VwPthiJD13qCyPYePXffTXq/1qXBbabE6U=";
+    src = pkgs.fetchurl {
+      url = "https://files.pythonhosted.org/packages/py3/c/cv2_enumerate_cameras/cv2_enumerate_cameras-${version}-py3-none-any.whl";
+      hash = "sha256-4Zys6daMy+pAyJngM/MJlJJpsvjvpOxApzr36DCare4=";
     };
 
     propagatedBuildInputs = [ python.pkgs.opencv4 ];
