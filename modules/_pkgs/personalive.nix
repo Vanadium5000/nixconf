@@ -460,6 +460,7 @@ let
       # Web server (for online mode)
       fastapi
       uvicorn
+      websockets # Required for uvicorn WebSocket support (deepfake output streaming)
       starlette
       pydantic
       python-multipart
@@ -509,6 +510,24 @@ stdenv.mkDerivation {
   ];
 
   dontBuild = true;
+
+  # Patch to fix CUDA memory issue: pass device as string to subprocess
+  # The original code calls torch.cuda.is_available() in main process, which
+  # initializes CUDA context before spawning. The subprocess then can't properly
+  # use GPU memory. Fix: pass device as string, initialize CUDA only in subprocess.
+  postPatch = ''
+    # Fix inference_online.py: pass device as string, not torch.device object
+    substituteInPlace inference_online.py \
+      --replace-fail 'device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")' \
+                     'device = "cuda:0"  # Pass as string - CUDA init happens in subprocess'
+
+    # Fix webcam/vid2vid.py: convert string device to torch.device in subprocess
+    substituteInPlace webcam/vid2vid.py \
+      --replace-fail 'def generate_process(' \
+                     'def generate_process(' \
+      --replace-fail 'pipeline = PersonaLive(args, device)' \
+                     'device = torch.device(device) if isinstance(device, str) else device; pipeline = PersonaLive(args, device)'
+  '';
 
   installPhase = ''
         runHook preInstall
@@ -633,7 +652,8 @@ stdenv.mkDerivation {
     fi
 
     # Build web frontend if not already built
-    if [ ! -d "$WORK_DIR/webcam/frontend/build" ]; then
+    # SvelteKit builds to 'public/' per svelte.config.js adapter-static config
+    if [ ! -d "$WORK_DIR/webcam/frontend/public" ]; then
       echo "Building web frontend (first run only)..."
       cd "$WORK_DIR/webcam/frontend"
       npm install --legacy-peer-deps 2>/dev/null || npm install
@@ -674,6 +694,10 @@ stdenv.mkDerivation {
 
     # SSL args for Secure Context
     SSL_ARGS="--ssl-certfile $WORK_DIR/cert.pem --ssl-keyfile $WORK_DIR/key.pem"
+
+    # Export LD_LIBRARY_PATH so Python multiprocessing subprocesses inherit CUDA libs
+    # (wrapProgram sets it, but spawn-mode subprocesses need explicit export)
+    export LD_LIBRARY_PATH="''${LD_LIBRARY_PATH:-}"
 
     echo "Starting PersonaLive with SSL (required for webcam)..."
     echo "URL: https://0.0.0.0:7860 (Accept the self-signed certificate warning)"
@@ -746,6 +770,7 @@ stdenv.mkDerivation {
                   cudaPkgs.cudaPackages.cudnn
                 ]
               }:/run/opengl-driver/lib \
+              --set-default PYTORCH_CUDA_ALLOC_CONF expandable_segments:True \
             ''}
         done
 
