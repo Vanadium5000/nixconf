@@ -285,6 +285,7 @@
             "firefox-color" # Base 16 theming
 
             "multi-account-containers" # Firefox Multi-account Containers
+            "container-proxy" # Proxies for Firefox Multi-account Containers
           ];
           SearchEngines = {
             Default = "StartPage";

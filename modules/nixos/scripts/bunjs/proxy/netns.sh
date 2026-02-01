@@ -213,7 +213,9 @@ destroy_namespace() {
     pids=$(run ip netns pids "$ns" 2>/dev/null || true)
     if [[ -n "$pids" ]]; then
         log "Killing processes in namespace: $pids"
-        echo "$pids" | xargs -r run kill -9 2>/dev/null || true
+        for pid in $pids; do
+            run kill -9 "$pid" 2>/dev/null || true
+        done
         local wait_count=0
         while [[ $wait_count -lt 10 ]]; do
             pids=$(run ip netns pids "$ns" 2>/dev/null || true)

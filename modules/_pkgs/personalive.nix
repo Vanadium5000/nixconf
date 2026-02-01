@@ -36,20 +36,20 @@
 let
   version = "2025-01-29"; # Based on commit date
 
-  # Force cudaSupport for torch-bin regardless of global nixpkgs config
-  # This ensures torch-bin pulls CUDA variant even if cudaSupport is false globally
+  # Force cudaSupport on UNSTABLE nixpkgs to fix tests AND get CUDA
+  # We use pkgs.unstable.path to re-import unstable with forced config
   cudaPkgs =
     if cudaSupport then
-      import pkgs.path {
+      import pkgs.unstable.path {
         system = pkgs.stdenv.hostPlatform.system;
         config = pkgs.config // {
           cudaSupport = true;
         };
       }
     else
-      pkgs;
+      pkgs.unstable;
 
-  # Use Python 3.11 - tokenizers 0.15.x lacks Python 3.12 wheels
+  # Use Python 3.11 from the configured unstable set
   python = cudaPkgs.python311;
   pythonPkgs = python.pkgs;
 

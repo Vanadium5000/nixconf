@@ -77,6 +77,7 @@
               pkgs.gnugrep
               pkgs.gawk
               pkgs.findutils
+              pkgs.microsocks
             ];
 
             commonEnv = {

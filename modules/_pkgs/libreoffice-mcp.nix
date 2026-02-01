@@ -120,8 +120,8 @@ pkgs.stdenv.mkDerivation {
 
   # Patch the upstream bug: log_level="INFO" should be log_level=20 (logging.INFO)
   patchPhase = ''
-    substituteInPlace libreoffice.py \
-      --replace 'opt=Options(log_level="INFO")' 'opt=Options(log_level=20)'
+    # Use sed for robust replacement (handles potential whitespace differences)
+    sed -i -E 's/log_level\s*=\s*"INFO"/log_level=20/g' libreoffice.py
   '';
 
   installPhase = ''
