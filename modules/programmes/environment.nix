@@ -113,6 +113,24 @@
               gobuster # URI/DNS brute-forcing tool
               ffuf # Fast web fuzzer
               hashcat # Advanced password recovery
+
+              # Network / MITM
+              bettercap # Network attacks and monitoring
+              responder # LLMNR/NBT-NS/mDNS poisoner
+
+              # Web Security
+              wpscan # WordPress vulnerability scanner
+              zaproxy # OWASP ZAP security scanner
+
+              # Reverse Engineering
+              ghidra # Software reverse engineering suite
+              radare2 # Unix-like reverse engineering framework
+              binwalk # Firmware analysis tool
+
+              # Utilities
+              rustscan # Fast port scanner
+              socat # Multipurpose relay (SOcket CAT)
+              proxychains-ng # Force connections through proxy servers
             ]
         )
       );
