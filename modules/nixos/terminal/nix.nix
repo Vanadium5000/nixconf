@@ -88,6 +88,14 @@
 
               # Antigravity Manager
               "antigravity-manager"
+
+              # Firmware
+              "intel-ocl"
+              "broadcom-bt-firmware"
+              "b43-firmware"
+              "xow_dongle-firmware"
+              "facetimehd-calibration"
+              "facetimehd-firmware"
             ]
             ++ config.preferences.allowedUnfree
           );

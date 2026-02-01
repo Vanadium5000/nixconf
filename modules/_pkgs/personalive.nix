@@ -42,11 +42,44 @@ let
   python = cudaPkgs.python312.override {
     packageOverrides = self: super: {
       # Use pre-built torch binaries with CUDA support baked in
-      torch = super.torch-bin;
+      # Must add cudaSupport/cudaPackages/cudaCapabilities attrs for xformers compatibility
+      torch = super.torch-bin.overrideAttrs (old: {
+        passthru = (old.passthru or { }) // {
+          cudaSupport = cudaSupport;
+          cudaPackages = cudaPkgs.cudaPackages;
+          # Common CUDA capabilities for modern GPUs (Ada Lovelace, Ampere, etc.)
+          cudaCapabilities = [
+            "8.0"
+            "8.6"
+            "8.9"
+            "9.0"
+          ];
+        };
+      });
       torchvision = super.torchvision-bin;
 
       # scikit-image tests pull heavy deps - skip them
       scikit-image = super.scikit-image.overridePythonAttrs (old: {
+        doCheck = false;
+      });
+
+      # accelerate tests fail in Nix sandbox (torch inductor needs filesystem access)
+      accelerate = super.accelerate.overridePythonAttrs (old: {
+        doCheck = false;
+      });
+
+      # peft tests require accelerate tests to pass first
+      peft = super.peft.overridePythonAttrs (old: {
+        doCheck = false;
+      });
+
+      # diffusers has heavy test dependencies and long-running tests
+      diffusers = super.diffusers.overridePythonAttrs (old: {
+        doCheck = false;
+      });
+
+      # transformers tests are extensive and require network access
+      transformers = super.transformers.overridePythonAttrs (old: {
         doCheck = false;
       });
 
@@ -64,7 +97,7 @@ let
 
         src = pkgs.fetchurl {
           url = "https://files.pythonhosted.org/packages/11/73/07c6dcbb322f86e2b8526e0073456dbdd2813d5351f772f882123c985fda/mediapipe-0.10.14-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl";
-          hash = "sha256-mxcn1UzNkesbJShUB/cyd2Ndrb0BU1P3eCHpB4X9Z0s=";
+          hash = "sha256-mx5y11TNnhtLiNgOyerS8cvoQkt/iD072lM0G5gqn4s=";
         };
 
         nativeBuildInputs = [
@@ -133,11 +166,59 @@ let
         format = "wheel";
 
         src = pkgs.fetchurl {
-          url = "https://files.pythonhosted.org/packages/b8/06/2697b5043c3ecb720ce0d243fc7cf5024c0b5b1e450506e9b21939019963/markdown2-2.5.4-py3-none-any.whl";
+          url = "https://files.pythonhosted.org/packages/b8/06/2697b5043c3ecb720ce0d21943f7cf5024c0b5b1e450506e9b21939019963/markdown2-2.5.4-py3-none-any.whl";
           hash = "sha256-PEspNOZ3vn/sDm8t5EEOEWaB9K1Q7I5bp1V75QbT9Dk=";
         };
 
         doCheck = false;
+      };
+
+      # xformers - Memory-efficient attention operations
+      # Pre-built wheel to avoid 50GB+ RAM / multi-hour source build with CUDA
+      # Version 0.0.33.post2 is compatible with PyTorch 2.5-2.9 (nixpkgs has 2.9.1)
+      # Note: 0.0.34 requires PyTorch 2.10+ which isn't in nixpkgs yet
+      # Uses stable ABI (cp39-abi3) for broad Python compatibility
+      xformers = self.buildPythonPackage {
+        pname = "xformers";
+        version = "0.0.33.post2";
+        format = "wheel";
+
+        src = pkgs.fetchurl {
+          url = "https://files.pythonhosted.org/packages/7d/c8/2957d8a8bf089a4e57f046867d4c9b31fc2e1d16013bc57cd7ae651a65b5/xformers-0.0.33.post2-cp39-abi3-manylinux_2_28_x86_64.whl";
+          hash = "sha256-nqYDLe+mA5VVm2pEbCrpRSNnB+mNqr2I/qV80IZxwXQ=";
+        };
+
+        nativeBuildInputs = [ pkgs.autoPatchelfHook ];
+
+        buildInputs = [
+          pkgs.stdenv.cc.cc.lib # libstdc++
+          cudaPkgs.cudaPackages.cuda_cudart
+          cudaPkgs.cudaPackages.libcublas
+          cudaPkgs.cudaPackages.cuda_nvrtc
+        ];
+
+        propagatedBuildInputs = [
+          self.torch
+          self.numpy
+        ];
+
+        # Skip checks - wheel has bundled CUDA kernels
+        doCheck = false;
+        dontCheckRuntimeDeps = true;
+
+        # These libs are provided at runtime via Python imports:
+        # - libtorch/libc10: torch-bin libs in site-packages (loaded when xformers imports torch)
+        # - libcuda.so.1: nvidia driver via LD_LIBRARY_PATH
+        autoPatchelfIgnoreMissingDeps = [
+          "libc10.so"
+          "libtorch.so"
+          "libtorch_cpu.so"
+          "libc10_cuda.so"
+          "libtorch_cuda.so"
+          "libcuda.so.1"
+        ];
+
+        pythonImportsCheck = [ "xformers" ];
       };
     };
   };
@@ -346,6 +427,28 @@ stdenv.mkDerivation {
       npm install --legacy-peer-deps 2>/dev/null || npm install
       npm run build
     fi
+
+    # Pre-flight check for model weights
+    check_weights() {
+      local missing=""
+      [ ! -f "$WEIGHTS_DIR/sd-vae-ft-mse/config.json" ] && missing="$missing  - sd-vae-ft-mse (VAE model)\n"
+      [ ! -f "$WEIGHTS_DIR/sd-image-variations-diffusers/model_index.json" ] && missing="$missing  - sd-image-variations-diffusers (base model)\n"
+      [ ! -f "$WEIGHTS_DIR/personalive/denoising_unet.pth" ] && missing="$missing  - personalive (main weights)\n"
+
+      if [ -n "$missing" ]; then
+        echo "ERROR: Required model weights not found."
+        echo ""
+        echo "Missing:"
+        printf "$missing"
+        echo ""
+        echo "Please download weights first (~10GB):"
+        echo "  personalive-download"
+        echo ""
+        echo "Weights location: $WEIGHTS_DIR"
+        exit 1
+      fi
+    }
+    check_weights
 
     cd "$WORK_DIR"
 

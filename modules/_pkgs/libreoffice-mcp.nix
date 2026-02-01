@@ -172,8 +172,11 @@ pkgs.stdenv.mkDerivation {
     # Start LibreOffice in headless mode with socket if not already running
     if ! pgrep -f "soffice.*accept=socket" > /dev/null 2>&1; then
         echo "Starting LibreOffice in headless mode on port $LIBREOFFICE_PORT..."
+        # Use isolated user profile to avoid crashes from incompatible user config
+        # (e.g., registrymodifications.xcu from different LO version)
         "$LO_PATH/program/soffice" \
             --headless \
+            "-env:UserInstallation=file:///tmp/libreoffice-mcp-$(id -u)" \
             --accept="socket,host=localhost,port=$LIBREOFFICE_PORT;urp;" &
         # Wait for LibreOffice to start accepting connections
         sleep 3

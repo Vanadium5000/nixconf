@@ -69,6 +69,7 @@
 
             # Network monitoring TUI tools
             termshark # TUI packet analyzer (uses tshark backend)
+            usbutils # Tools for working with USB devices, such as lsusb
           ]
           ++ [
             self'.packages.snitch # TUI for inspecting network connections (netstat for humans)
