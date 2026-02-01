@@ -39,8 +39,8 @@ in
         "2"
       ];
       extensions = [
-        "sh"
-        "bash"
+        ".sh"
+        ".bash"
       ];
     };
     prettier = {
@@ -51,35 +51,35 @@ in
       ];
       extensions = [
         # JavaScript family
-        "js" # JavaScript
-        "mjs" # ES modules
-        "cjs" # CommonJS modules
-        "jsx" # React JSX
+        ".js" # JavaScript
+        ".mjs" # ES modules
+        ".cjs" # CommonJS modules
+        ".jsx" # React JSX
         # TypeScript family
-        "ts" # TypeScript
-        "mts" # TypeScript ES modules
-        "cts" # TypeScript CommonJS modules
-        "tsx" # React TSX
+        ".ts" # TypeScript
+        ".mts" # TypeScript ES modules
+        ".cts" # TypeScript CommonJS modules
+        ".tsx" # React TSX
         # CSS family
-        "css" # CSS
-        "scss" # SCSS
-        "less" # Less
+        ".css" # CSS
+        ".scss" # SCSS
+        ".less" # Less
         # HTML family
-        "html" # HTML
-        "htm" # HTML alternate extension
-        "vue" # Vue single-file components
+        ".html" # HTML
+        ".htm" # HTML alternate extension
+        ".vue" # Vue single-file components
         # Data formats
-        "json" # JSON
-        "json5" # JSON5
-        "jsonc" # JSON with Comments
-        "yaml" # YAML
-        "yml" # YAML alternate extension
-        "graphql" # GraphQL
-        "gql" # GraphQL alternate extension
+        ".json" # JSON
+        ".json5" # JSON5
+        ".jsonc" # JSON with Comments
+        ".yaml" # YAML
+        ".yml" # YAML alternate extension
+        ".graphql" # GraphQL
+        ".gql" # GraphQL alternate extension
         # Markdown
-        "md" # Markdown
-        "mdx" # MDX (Markdown + JSX)
-        "markdown" # Markdown alternate extension
+        ".md" # Markdown
+        ".mdx" # MDX (Markdown + JSX)
+        ".markdown" # Markdown alternate extension
       ];
     };
     nixfmt = {
@@ -87,7 +87,7 @@ in
         formatterBins.nixfmt
         "-q"
       ];
-      extensions = [ "nix" ];
+      extensions = [ ".nix" ];
     };
   };
 
@@ -95,7 +95,7 @@ in
     # nixd is already included
     # nil = {
     #   command = [ lspBins.nil ];
-    #   extensions = [ "nix" ];
+    #   extensions = [ ".nix" ];
     # };
     tailwindcss = {
       command = [
@@ -103,10 +103,10 @@ in
         "--stdio"
       ];
       extensions = [
-        "css"
-        "html"
-        "jsx"
-        "tsx"
+        ".css"
+        ".html"
+        ".jsx"
+        ".tsx"
       ];
     };
     typescript = {
@@ -115,10 +115,10 @@ in
         "--stdio"
       ];
       extensions = [
-        "ts"
-        "tsx"
-        "js"
-        "jsx"
+        ".ts"
+        ".tsx"
+        ".js"
+        ".jsx"
       ];
     };
     html = {
@@ -126,21 +126,21 @@ in
         lspBins.html
         "--stdio"
       ];
-      extensions = [ "html" ];
+      extensions = [ ".html" ];
     };
     css = {
       command = [
         lspBins.css
         "--stdio"
       ];
-      extensions = [ "css" ];
+      extensions = [ ".css" ];
     };
     json = {
       command = [
         lspBins.json
         "--stdio"
       ];
-      extensions = [ "json" ];
+      extensions = [ ".json" ];
     };
     eslint = {
       command = [
@@ -148,11 +148,11 @@ in
         "--stdio"
       ];
       extensions = [
-        "js"
-        "jsx"
-        "ts"
-        "tsx"
-        "vue"
+        ".js"
+        ".jsx"
+        ".ts"
+        ".tsx"
+        ".vue"
       ];
     };
   };
