@@ -244,6 +244,7 @@ stdenv.mkDerivation {
   buildInputs = [
     pythonEnv
     pkgs.ffmpeg
+    pkgs.libv4l # V4L2 userspace library for webcam access
   ]
   ++ lib.optionals stdenv.isLinux [
     pkgs.xorg.libX11
@@ -303,7 +304,7 @@ stdenv.mkDerivation {
     # Copy app files if not present or version changed
     INSTALLED_VERSION=""
     [ -f "$WORK_DIR/.version" ] && INSTALLED_VERSION=$(cat "$WORK_DIR/.version")
-    
+
     if [ ! -f "$WORK_DIR/run.py" ] || [ "$INSTALLED_VERSION" != "@version@" ]; then
       # Remove old runtime to ensure clean state
       # Files from Nix store are read-only, need to fix permissions first
@@ -345,6 +346,7 @@ stdenv.mkDerivation {
     # Wrap with environment setup
     wrapProgram $out/bin/deep-live-cam \
       --prefix PATH : ${lib.makeBinPath [ pkgs.ffmpeg ]} \
+      --prefix LD_LIBRARY_PATH : ${lib.makeLibraryPath [ pkgs.libv4l ]} \
       ${lib.optionalString cudaSupport ''
         --prefix LD_LIBRARY_PATH : ${
           lib.makeLibraryPath [

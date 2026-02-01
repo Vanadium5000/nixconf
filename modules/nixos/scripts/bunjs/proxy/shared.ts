@@ -445,11 +445,12 @@ export async function resolveSlugFromUsername(
   const isValid = await isValidSlug(username);
   if (!isValid) {
     log("WARN", `Invalid slug "${username}", falling back to random`);
-    await notify(
+    // Fire-and-forget notification - don't await to avoid blocking on failure
+    notify(
       "VPN Proxy",
       `Invalid VPN name "${username}", using random VPN`,
       "normal"
-    );
+    ).catch(() => {}); // Silently ignore notification failures
     return resolveSlugFromUsername("random", state);
   }
 
