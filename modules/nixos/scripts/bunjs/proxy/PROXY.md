@@ -7,7 +7,7 @@ network namespace isolation and zero IP leak guarantee.
 
 ```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                              Client Applications                             │
+│                              Client Applications                            │
 │                    (curl, browsers, any SOCKS5/HTTP client)                 │
 └─────────────────────────────┬───────────────────────────┬───────────────────┘
                               │                           │
@@ -59,16 +59,16 @@ Authentication).
 
 **Supported Features:**
 
-| Feature | Status | Notes |
-|---------|--------|-------|
-| CONNECT (0x01) | ✅ | TCP connection tunneling |
-| BIND (0x02) | ❌ | Not implemented |
-| UDP ASSOCIATE (0x03) | ❌ | Not implemented |
-| IPv4 addresses | ✅ | Full support |
-| Domain names | ✅ | Resolved inside namespace |
-| IPv6 addresses | ❌ | Would need IPv6 in namespace |
-| No authentication | ✅ | Uses random VPN |
-| Username/Password | ✅ | Username = VPN slug |
+| Feature              | Status | Notes                        |
+| -------------------- | ------ | ---------------------------- |
+| CONNECT (0x01)       | ✅     | TCP connection tunneling     |
+| BIND (0x02)          | ❌     | Not implemented              |
+| UDP ASSOCIATE (0x03) | ❌     | Not implemented              |
+| IPv4 addresses       | ✅     | Full support                 |
+| Domain names         | ✅     | Resolved inside namespace    |
+| IPv6 addresses       | ❌     | Would need IPv6 in namespace |
+| No authentication    | ✅     | Uses random VPN              |
+| Username/Password    | ✅     | Username = VPN slug          |
 
 **Usage Examples:**
 
@@ -90,12 +90,12 @@ Implements RFC 7231 §4.3.6 (HTTP CONNECT method) for HTTPS tunneling.
 
 **Supported Features:**
 
-| Feature | Status | Notes |
-|---------|--------|-------|
-| CONNECT method | ✅ | HTTPS tunneling |
-| Plain HTTP proxy | ❌ | Only CONNECT supported |
-| Basic authentication | ✅ | Username = VPN slug |
-| No authentication | ✅ | Uses random VPN |
+| Feature              | Status | Notes                  |
+| -------------------- | ------ | ---------------------- |
+| CONNECT method       | ✅     | HTTPS tunneling        |
+| Plain HTTP proxy     | ❌     | Only CONNECT supported |
+| Basic authentication | ✅     | Username = VPN slug    |
+| No authentication    | ✅     | Uses random VPN        |
 
 **Usage Examples:**
 
@@ -120,12 +120,12 @@ curl https://api.ipify.org
 
 Both proxies use authentication to select which VPN to route through:
 
-| Authentication | VPN Selection |
-|----------------|---------------|
-| No auth / empty username | Random VPN (rotates every 5 min) |
-| Username = "random" | Random VPN (rotates every 5 min) |
-| Username = VPN display name | Specific VPN |
-| Invalid username | Notification + fallback to random |
+| Authentication              | VPN Selection                     |
+| --------------------------- | --------------------------------- |
+| No auth / empty username    | Random VPN (rotates every 5 min)  |
+| Username = "random"         | Random VPN (rotates every 5 min)  |
+| Username = VPN display name | Specific VPN                      |
+| Invalid username            | Notification + fallback to random |
 
 **VPN Display Names:**
 
@@ -161,23 +161,23 @@ The nftables kill-switch ensures zero IP leaks:
 table inet vpn_killswitch {
     chain output {
         type filter hook output priority 0; policy drop;
-        
+
         # Allow loopback
         oifname "lo" accept
-        
+
         # Allow VPN tunnel only
         oifname "tun*" accept
-        
+
         # Allow VPN handshake (before tun0 exists)
         ip daddr <vpn_server_ip> udp dport <vpn_port> accept
         ip daddr <vpn_server_ip> tcp dport <vpn_port> accept
-        
+
         # Allow responses back to host veth
         oifname "veth-n-*" accept
-        
+
         # Allow ICMP for diagnostics
         ip protocol icmp accept
-        
+
         # Everything else: DROP (implicit)
     }
 }
@@ -201,14 +201,14 @@ This prevents DNS queries from leaking through the host's resolver.
 
 All runtime state is stored in tmpfs at `/dev/shm/vpn-proxy-$UID/`:
 
-| File | Purpose |
-|------|---------|
-| `state.json` | Namespace tracking, random VPN state |
-| `resolver-cache.json` | VPN config cache with mtime validation |
-| `openvpn-vpn-proxy-N.pid` | OpenVPN daemon PID |
-| `openvpn-vpn-proxy-N.log` | OpenVPN logs |
-| `ns-vpn-proxy-N.json` | Namespace metadata |
-| `microsocks-vpn-proxy-N.pid` | microsocks PID |
+| File                         | Purpose                                |
+| ---------------------------- | -------------------------------------- |
+| `state.json`                 | Namespace tracking, random VPN state   |
+| `resolver-cache.json`        | VPN config cache with mtime validation |
+| `openvpn-vpn-proxy-N.pid`    | OpenVPN daemon PID                     |
+| `openvpn-vpn-proxy-N.log`    | OpenVPN logs                           |
+| `ns-vpn-proxy-N.json`        | Namespace metadata                     |
+| `microsocks-vpn-proxy-N.pid` | microsocks PID                         |
 
 **State is ephemeral:** Reboots clear `/dev/shm`, and the proxy cleans up stale
 state on startup anyway.
@@ -259,16 +259,16 @@ vpn-proxy-netns cleanup-all
 
 ### Environment Variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `VPN_DIR` | `~/Shared/VPNs` | Directory containing `.ovpn` files |
-| `VPN_PROXY_PORT` | `10800` | SOCKS5 proxy port |
-| `VPN_HTTP_PROXY_PORT` | `10801` | HTTP CONNECT proxy port |
-| `VPN_PROXY_IDLE_TIMEOUT` | `300` | Seconds before idle namespace cleanup |
-| `VPN_PROXY_RANDOM_ROTATION` | `300` | Seconds between random VPN rotation |
-| `VPN_PROXY_NOTIFY_ROTATION` | `0` | Show notification on rotation (0/1) |
-| `VPN_PROXY_CLEANUP_INTERVAL` | `60` | Cleanup daemon check interval |
-| `VPN_PROXY_NETNS_SCRIPT` | (auto) | Path to netns.sh script |
+| Variable                     | Default         | Description                           |
+| ---------------------------- | --------------- | ------------------------------------- |
+| `VPN_DIR`                    | `~/Shared/VPNs` | Directory containing `.ovpn` files    |
+| `VPN_PROXY_PORT`             | `10800`         | SOCKS5 proxy port                     |
+| `VPN_HTTP_PROXY_PORT`        | `10801`         | HTTP CONNECT proxy port               |
+| `VPN_PROXY_IDLE_TIMEOUT`     | `300`           | Seconds before idle namespace cleanup |
+| `VPN_PROXY_RANDOM_ROTATION`  | `300`           | Seconds between random VPN rotation   |
+| `VPN_PROXY_NOTIFY_ROTATION`  | `0`             | Show notification on rotation (0/1)   |
+| `VPN_PROXY_CLEANUP_INTERVAL` | `60`            | Cleanup daemon check interval         |
+| `VPN_PROXY_NETNS_SCRIPT`     | (auto)          | Path to netns.sh script               |
 
 ### NixOS Service Options
 
@@ -287,11 +287,11 @@ services.vpn-proxy = {
 
 When enabled via NixOS, three services are created:
 
-| Service | Description |
-|---------|-------------|
-| `vpn-proxy.service` | SOCKS5 proxy server |
-| `http-proxy.service` | HTTP CONNECT proxy server |
-| `vpn-proxy-cleanup.service` | Idle cleanup daemon |
+| Service                     | Description               |
+| --------------------------- | ------------------------- |
+| `vpn-proxy.service`         | SOCKS5 proxy server       |
+| `http-proxy.service`        | HTTP CONNECT proxy server |
+| `vpn-proxy-cleanup.service` | Idle cleanup daemon       |
 
 ```bash
 # Check status
@@ -353,25 +353,25 @@ The VPN activates automatically when the proxy link is first used.
 
 ### Common Issues
 
-**"Namespace creation failed"**
+#### Namespace creation failed
 
 - Check sudo permissions: `sudo -v`
 - Verify directories exist: `ls -la /run/netns /etc/netns`
 - Check for stale namespaces: `vpn-proxy-netns cleanup-all`
 
-**"VPN tunnel failed to establish"**
+#### VPN tunnel failed to establish
 
 - Check OpenVPN logs: `cat /dev/shm/vpn-proxy-*/openvpn-*.log`
 - Verify `.ovpn` file is valid: `sudo openvpn --config /path/to/vpn.ovpn`
 - Check VPN server is reachable: `ping <vpn_server_ip>`
 
-**"Connection refused" on proxy port**
+#### Connection refused on proxy port
 
 - Verify service is running: `systemctl status vpn-proxy`
 - Check port is listening: `ss -tlnp | grep 10800`
 - Try restarting: `systemctl restart vpn-proxy`
 
-**DNS leaks**
+#### DNS leaks
 
 - Ensure "Proxy DNS" is enabled in browser
 - Use `socks5h://` (not `socks5://`) for DNS-over-proxy
