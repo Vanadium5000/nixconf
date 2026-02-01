@@ -120,7 +120,7 @@
 
               # Web Security
               wpscan # WordPress vulnerability scanner
-              zaproxy # OWASP ZAP security scanner
+              zap # OWASP ZAP security scanner
 
               # Reverse Engineering
               ghidra # Software reverse engineering suite
