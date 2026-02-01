@@ -38,7 +38,7 @@
 }:
 
 let
-  version = "2025-01-29"; # Based on commit date
+  version = "2025-01-29-fix1"; # Bumped for CUDA multiprocessing fixes
 
   # Create a pkgs instance with cudaSupport enabled for torch-bin
   # This ensures torch-bin pulls CUDA variant regardless of global config
@@ -511,22 +511,31 @@ stdenv.mkDerivation {
 
   dontBuild = true;
 
-  # Patch to fix CUDA memory issue: pass device as string to subprocess
-  # The original code calls torch.cuda.is_available() in main process, which
-  # initializes CUDA context before spawning. The subprocess then can't properly
-  # use GPU memory. Fix: pass device as string, initialize CUDA only in subprocess.
+  # Patches to fix CUDA multiprocessing issues:
+  # 1. Main process calls torch.cuda.is_available() which initializes CUDA context
+  #    before spawning subprocess, causing memory issues. Fix: pass device as string.
+  # 2. Main process moves tensors to GPU before putting in queue, causing
+  #    "pidfd_getfd: Operation not permitted" when subprocess receives them.
+  #    Fix: keep tensors on CPU in queue, move to GPU in subprocess.
   postPatch = ''
     # Fix inference_online.py: pass device as string, not torch.device object
     substituteInPlace inference_online.py \
       --replace-fail 'device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")' \
                      'device = "cuda:0"  # Pass as string - CUDA init happens in subprocess'
 
-    # Fix webcam/vid2vid.py: convert string device to torch.device in subprocess
+    # Fix webcam/vid2vid.py: 
+    # 1. Don't move tensor to GPU in main process before queue (causes pidfd_getfd error)
+    # 2. Convert string device to torch.device in subprocess
     substituteInPlace webcam/vid2vid.py \
-      --replace-fail 'def generate_process(' \
-                     'def generate_process(' \
+      --replace-fail 'image_pil = params.image.to(self.device).float() / 255.0' \
+                     'image_pil = params.image.float() / 255.0  # Keep on CPU for queue transfer' \
       --replace-fail 'pipeline = PersonaLive(args, device)' \
                      'device = torch.device(device) if isinstance(device, str) else device; pipeline = PersonaLive(args, device)'
+
+    # Fix webcam/util.py: move tensor to GPU after receiving from queue
+    substituteInPlace webcam/util.py \
+      --replace-fail 'images.append(queue.get())' \
+                     'img = queue.get(); images.append(img.to(device) if hasattr(img, "to") else img)'
   '';
 
   installPhase = ''
@@ -770,7 +779,7 @@ stdenv.mkDerivation {
                   cudaPkgs.cudaPackages.cudnn
                 ]
               }:/run/opengl-driver/lib \
-              --set-default PYTORCH_CUDA_ALLOC_CONF expandable_segments:True \
+              --set-default PYTORCH_ALLOC_CONF expandable_segments:True \
             ''}
         done
 
