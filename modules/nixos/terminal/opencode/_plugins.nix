@@ -6,7 +6,7 @@
     "opencode-ralph-loop@latest" # Auto-continue loop until task completion (minimal, no spam)
     "@mohak34/opencode-notifier@latest" # Desktop notifications
     "opencode-todo-reminder@latest" # Todo continuation and auto-submit
-    "@tarquinen/opencode-dcp@latest" # Context trimming (Dynamic Context Pruning)
+    # "@tarquinen/opencode-dcp@latest" # Context trimming (Dynamic Context Pruning)
     "opencode-helicone-session@latest" # LLM observability
   ];
 }
