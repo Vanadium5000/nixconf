@@ -363,14 +363,15 @@ let
 
   # OpenCV-Python-Headless - pre-built wheel avoids 30-60 min C++ compilation
   # Using headless variant since PersonaLive doesn't need GUI windows
+  # Version 4.13.0.90+ required for NumPy 2.x support
   pinnedOpencv = pythonPkgs.buildPythonPackage {
     pname = "opencv-python-headless";
-    version = "4.9.0.80";
+    version = "4.13.0.90";
     format = "wheel";
 
     src = pkgs.fetchurl {
-      url = "https://files.pythonhosted.org/packages/71/19/3c65483a80a1d062d46ae20faf5404712d25cb1dfdcaf371efbd67c38544/opencv_python_headless-4.9.0.80-cp37-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl";
-      hash = "sha256-l2ZWNi1o2fQKXGb4OQFDBTgAJGX321kUJ4TziTkY898=";
+      url = "https://files.pythonhosted.org/packages/fc/13/af150685be342dc09bfb0824e2a280020ccf1c7fc64e15a31d9209016aa9/opencv_python_headless-4.13.0.90-cp37-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl";
+      hash = "sha256-28H0Yl5a86gOvb2EOAInwPRFIoWI8lIbEa9HcQysobo=";
     };
 
     nativeBuildInputs = [ pkgs.autoPatchelfHook ];
