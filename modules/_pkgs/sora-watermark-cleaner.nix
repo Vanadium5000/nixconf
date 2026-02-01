@@ -6,13 +6,27 @@
   ffmpeg,
   makeWrapper,
   stdenv,
+  cudaSupport ? true, # Default true - this is a GPU-accelerated ML tool
 }:
 
 let
   version = "0.0.4";
 
+  # Create a pkgs instance with cudaSupport enabled for torch-bin
+  # This ensures torch-bin pulls CUDA variant regardless of global config
+  cudaPkgs =
+    if cudaSupport then
+      import pkgs.path {
+        inherit (pkgs) system;
+        config = pkgs.config // {
+          cudaSupport = true;
+        };
+      }
+    else
+      pkgs;
+
   # Override python packages to use torch-bin (pre-built binaries)
-  cudaPython = pkgs.python312Packages.override {
+  cudaPython = cudaPkgs.python312Packages.override {
     overrides = pyFinal: pyPrev: {
       torch = pyPrev.torch-bin;
       torchvision = pyPrev.torchvision-bin;
@@ -286,13 +300,14 @@ stdenv.mkDerivation {
         makeWrapper ${pythonEnv}/bin/python $out/bin/sora-watermark-cleaner \
           --add-flags "$out/lib/sora-watermark-cleaner/cli.py" \
           --prefix PATH : ${lib.makeBinPath [ ffmpeg ]} \
-          --prefix LD_LIBRARY_PATH : ${
-            lib.makeLibraryPath [
-              pkgs.linuxPackages.nvidia_x11
-              pkgs.cudaPackages.cudatoolkit
-              pkgs.cudaPackages.cudnn
-            ]
-          }:/run/opengl-driver/lib \
+          ${lib.optionalString cudaSupport ''
+            --prefix LD_LIBRARY_PATH : ${
+              lib.makeLibraryPath [
+                cudaPkgs.cudaPackages.cudatoolkit
+                cudaPkgs.cudaPackages.cudnn
+              ]
+            }:/run/opengl-driver/lib \
+          ''} \
           --set SORAWM_MODELS_DIR "$out/share/models"
 
         runHook postInstall

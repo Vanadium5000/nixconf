@@ -46,8 +46,8 @@ in
     prettier = {
       command = [
         formatterBins.prettier
-        "--stdin-filepath" # Required for prettier to infer parser from extension
-        "{file}"
+        "--write" # Format file in-place
+        "$FILE" # OpenCode replaces $FILE with actual path
       ];
       extensions = [
         # JavaScript family

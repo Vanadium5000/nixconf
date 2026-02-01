@@ -307,7 +307,6 @@ stdenv.mkDerivation {
       ${lib.optionalString cudaSupport ''
         --prefix LD_LIBRARY_PATH : ${
           lib.makeLibraryPath [
-            pkgs.linuxPackages.nvidia_x11
             pkgs.cudaPackages.cudatoolkit
             pkgs.cudaPackages.cudnn
           ]
