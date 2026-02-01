@@ -16,7 +16,16 @@ let
   version = "2.4";
 
   # Build custom Python packages not in nixpkgs
-  python = pkgs.python311;
+  # Override python to fix upstream test failures in transitive deps
+  python = pkgs.python311.override {
+    packageOverrides = self: super: {
+      # pytest-doctestplus tests fail with newer numpy (AttributeError: 'numpy.ufunc' has no __code__)
+      # This is a transitive dep via imageio → astropy → pytest-doctestplus
+      pytest-doctestplus = super.pytest-doctestplus.overridePythonAttrs (old: {
+        doCheck = false;
+      });
+    };
+  };
 
   # Darkdetect - dependency of customtkinter
   darkdetect = python.pkgs.buildPythonPackage {

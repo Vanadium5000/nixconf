@@ -28,6 +28,21 @@ in
       };
     };
 
+    # Plan Reviewer: Critical analysis of plans before implementation
+    # Auto-invoked after Planner completes to validate plans
+    plan-reviewer = {
+      mode = "subagent";
+      model = expensiveModel; # Heavy model for deep critical analysis
+      description = "Critical plan reviewer that validates plans before implementation";
+      prompt = builtins.readFile (promptsDir + "/plan-reviewer.md");
+      tools = {
+        write = false;
+        edit = false;
+        bash = false;
+        task = false; # Cannot delegate, only review
+      };
+    };
+
     # Advisor: Read-only consultation PRIMARY agent (Tab-cycleable)
     advisor = {
       mode = "primary"; # Primary so it appears in Tab cycle

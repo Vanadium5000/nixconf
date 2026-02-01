@@ -387,14 +387,15 @@ interface User {
 
 ## Agent Delegation Guide
 
-| Task Type              | Delegate To  | Rationale                          |
-| ---------------------- | ------------ | ---------------------------------- |
-| Quick codebase search  | `scout`      | Fast, cheap, read-only             |
-| API/library docs       | `researcher` | Specialized for external knowledge |
-| Writing tests          | `tester`     | TDD specialist                     |
-| Post-change validation | `verifier`   | Automated linting/testing          |
-| Complex implementation | `build`      | Full tool access                   |
-| Architecture planning  | `plan`       | Read-only, creates task graphs     |
+| Task Type              | Delegate To      | Rationale                              |
+| ---------------------- | ---------------- | -------------------------------------- |
+| Quick codebase search  | `scout`          | Fast, cheap, read-only                 |
+| API/library docs       | `researcher`     | Specialized for external knowledge     |
+| Writing tests          | `tester`         | TDD specialist                         |
+| Post-change validation | `verifier`       | Automated linting/testing              |
+| Complex implementation | `build`          | Full tool access                       |
+| Architecture planning  | `plan`           | Read-only, creates task graphs         |
+| Plan validation        | `plan-reviewer`  | Heavy model, validates plans pre-build |
 
 ### Parallel Delegation
 

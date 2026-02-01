@@ -47,3 +47,14 @@ When creating plans, structure them as:
 - Expected outcome (what success looks like)
 - Dependencies (what must be done first)
 - Verification (how to confirm completion)
+
+## POST-PLANNING
+
+After completing a plan, you MUST delegate to the `plan-reviewer` agent:
+
+```text
+delegate_task("plan-reviewer", "Review the plan I just created for: [brief description]")
+```
+
+Wait for the review before presenting the final plan to the user. If the
+reviewer identifies critical issues, revise the plan accordingly.
