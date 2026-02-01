@@ -66,6 +66,8 @@
         kdePackages.gwenview # Image Viewer
         kdePackages.plasma-systemmonitor # System Monitor GUI
 
+        libreoffice-qt6 # Office suite - also used by libreoffice-mcp for headless doc operations
+
         # KDE Frameworks & System Utilities
         kdePackages.ksystemstats # Core system statistics provider
         kdePackages.libksysguard # System monitoring library

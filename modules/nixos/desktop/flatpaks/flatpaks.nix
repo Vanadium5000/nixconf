@@ -84,7 +84,7 @@
           "org.kde.ktorrent" # Torrent client
           "org.kde.filelight" # Disk Usage
           "org.kde.isoimagewriter" # Creates bootable drives
-          "org.libreoffice.LibreOffice" # LibreOffice suite - also used by libreoffice-mcp for headless doc operations
+
           "org.gimp.GIMP" # GIMP - Image Editor
           "org.inkscape.Inkscape" # Inkscape - Vector Graphics Editor
 
