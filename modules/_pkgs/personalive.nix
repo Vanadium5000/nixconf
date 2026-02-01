@@ -10,24 +10,41 @@
 #   personalive-download     - Download model weights
 #
 # CUDA Support:
-#   torch-bin includes CUDA binaries. Runtime CUDA libs are added via LD_LIBRARY_PATH
-#   in the wrapper scripts. No separate cudaPkgs import needed (avoids torch conflicts).
+#   Uses torch-bin (pre-built CUDA binaries) with forced cudaSupport config.
+#   Runtime CUDA libs are added via LD_LIBRARY_PATH in wrapper scripts.
 {
   lib,
   pkgs,
   fetchFromGitHub,
   makeWrapper,
   stdenv,
+  cudaSupport ? true, # GPU-accelerated ML tool - default true
 }:
 
 let
   version = "2025-01-29"; # Based on commit date
 
+  # Force cudaSupport for torch-bin regardless of global nixpkgs config
+  # This ensures torch-bin pulls CUDA variant even if cudaSupport is false globally
+  cudaPkgs =
+    if cudaSupport then
+      import pkgs.path {
+        system = pkgs.stdenv.hostPlatform.system;
+        config = pkgs.config // {
+          cudaSupport = true;
+        };
+      }
+    else
+      pkgs;
+
   # Override python to fix upstream test failures and add custom packages
   # Using Python 3.12 for numpy 2.x compatibility with torch-bin
-  # NOTE: torch-bin already includes CUDA support - no need for separate cudaPkgs
-  python = pkgs.python312.override {
+  python = cudaPkgs.python312.override {
     packageOverrides = self: super: {
+      # Use pre-built torch binaries with CUDA support baked in
+      torch = super.torch-bin;
+      torchvision = super.torchvision-bin;
+
       # scikit-image tests pull heavy deps - skip them
       scikit-image = super.scikit-image.overridePythonAttrs (old: {
         doCheck = false;
@@ -39,14 +56,15 @@ let
 
       # Mediapipe - Google's ML framework for face mesh detection (468 landmarks)
       # Pre-built wheel for Linux x86_64 - needs autoPatchelfHook for bundled libs
+      # Using 0.10.14 for Python 3.12 support and protobuf 4.x compatibility
       mediapipe = self.buildPythonPackage {
         pname = "mediapipe";
-        version = "0.10.21";
+        version = "0.10.14";
         format = "wheel";
 
         src = pkgs.fetchurl {
-          url = "https://files.pythonhosted.org/packages/9f/99/5da7ae7f7e25847383bc2fe5a9adc7ce150dd371682f486c0666b407cad7/mediapipe-0.10.21-cp312-cp312-manylinux_2_28_x86_64.whl";
-          hash = "sha256-lW6x68J1xinmGwhbLKuJw6W56TutG7EHNI2Y2vtaS7U=";
+          url = "https://files.pythonhosted.org/packages/11/73/07c6dcbb322f86e2b8526e0073456dbdd2813d5351f772f882123c985fda/mediapipe-0.10.14-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl";
+          hash = "sha256-mxcn1UzNkesbJShUB/cyd2Ndrb0BU1P3eCHpB4X9Z0s=";
         };
 
         nativeBuildInputs = [
@@ -125,12 +143,10 @@ let
   };
 
   # Python environment with all dependencies from requirements_base.txt
-  # NOTE: Use source-built torch/torchvision (not -bin) to ensure consistent
-  # CUDA configuration with the flake's nixpkgs.config.cudaSupport setting.
-  # The -bin packages caused conflicts due to different torch derivations.
+  # torch/torchvision are overridden to torch-bin/torchvision-bin above
   pythonEnv = python.withPackages (
     ps: with ps; [
-      # Core ML frameworks - source-built for CUDA consistency
+      # Core ML frameworks - uses torch-bin via override above
       torch
       torchvision
       accelerate
@@ -254,6 +270,28 @@ stdenv.mkDerivation {
 
     # Create output directory
     mkdir -p "$WORK_DIR/output"
+
+    # Pre-flight check for model weights
+    check_weights() {
+      local missing=""
+      [ ! -f "$WEIGHTS_DIR/sd-vae-ft-mse/config.json" ] && missing="$missing  - sd-vae-ft-mse (VAE model)\n"
+      [ ! -f "$WEIGHTS_DIR/sd-image-variations-diffusers/model_index.json" ] && missing="$missing  - sd-image-variations-diffusers (base model)\n"
+      [ ! -f "$WEIGHTS_DIR/personalive/denoising_unet.pth" ] && missing="$missing  - personalive (main weights)\n"
+
+      if [ -n "$missing" ]; then
+        echo "ERROR: Required model weights not found."
+        echo ""
+        echo "Missing:"
+        printf "$missing"
+        echo ""
+        echo "Please download weights first (~10GB):"
+        echo "  personalive-download"
+        echo ""
+        echo "Weights location: $WEIGHTS_DIR"
+        exit 1
+      fi
+    }
+    check_weights
 
     cd "$WORK_DIR"
     exec @pythonEnv@/bin/python inference_offline.py "$@"

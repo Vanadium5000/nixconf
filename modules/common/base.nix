@@ -159,6 +159,11 @@
           grub.efiSupport = true;
           grub.efiInstallAsRemovable = true;
         };
+
+        # Alfa AWUS036AX (MT7921AU) WiFi adapter support
+        # Firmware required for mt76 driver to function
+        hardware.enableAllFirmware = true;
+        boot.kernelModules = [ "mt7921u" ];
       };
     };
 }
