@@ -70,6 +70,7 @@
             # Network monitoring TUI tools
             termshark # TUI packet analyzer (uses tshark backend)
             usbutils # Tools for working with USB devices, such as lsusb
+            iw # Configuration utility for wireless devices
           ]
           ++ [
             self'.packages.snitch # TUI for inspecting network connections (netstat for humans)
@@ -99,6 +100,19 @@
               pipes
               cmatrix
               cava
+            ]
+          ++
+            # Security / Pentesting
+            [
+              aircrack-ng # WiFi security auditing suite
+              nmap # Network discovery and security auditing
+              metasploit # Penetration testing framework
+              thc-hydra # Network logon cracker (supports SSH, FTP, etc.)
+              john # "John the Ripper" password cracker
+              sqlmap # Automated SQL injection tool
+              gobuster # URI/DNS brute-forcing tool
+              ffuf # Fast web fuzzer
+              hashcat # Advanced password recovery
             ]
         )
       );
