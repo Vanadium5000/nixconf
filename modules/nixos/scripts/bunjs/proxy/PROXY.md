@@ -52,6 +52,9 @@ network namespace isolation and zero IP leak guarantee.
 
 ## Protocols
 
+Both proxies share the same namespace pool and authentication mechanism. Use
+whichever protocol your application supports.
+
 ### SOCKS5 Proxy (Port 10800)
 
 Implements RFC 1928 (SOCKS Protocol Version 5) and RFC 1929 (Username/Password
@@ -74,15 +77,26 @@ Authentication).
 
 ```bash
 # Specific VPN (URL-encoded spaces)
-curl --proxy "socks5://AirVPN%20AT%20Vienna@127.0.0.1:10800" https://api.ipify.org
+curl --proxy "socks5h://AirVPN%20AT%20Vienna@127.0.0.1:10800" https://api.ipify.org
 
 # Random VPN (any of these work)
-curl --proxy "socks5://random@127.0.0.1:10800" https://api.ipify.org
-curl --proxy "socks5://127.0.0.1:10800" https://api.ipify.org
+curl --proxy "socks5h://random@127.0.0.1:10800" https://api.ipify.org
+curl --proxy "socks5h://127.0.0.1:10800" https://api.ipify.org
 
-# With separate username flag
+# With separate --proxy-user flag
 curl --proxy "socks5h://127.0.0.1:10800" --proxy-user "AirVPN AT Vienna:" https://api.ipify.org
+
+# Using -x shorthand
+curl -x "socks5h://AirVPN%20AT%20Vienna@127.0.0.1:10800" https://api.ipify.org
+
+# Environment variable
+export ALL_PROXY="socks5h://127.0.0.1:10800"
+curl https://api.ipify.org
 ```
+
+> **Note:** Use `socks5h://` (with `h`) to resolve DNS through the proxy. With
+> plain `socks5://`, DNS is resolved locally which may leak your real IP via
+> DNS queries.
 
 ### HTTP CONNECT Proxy (Port 10801)
 
@@ -101,20 +115,25 @@ Implements RFC 7231 §4.3.6 (HTTP CONNECT method) for HTTPS tunneling.
 
 ```bash
 # Specific VPN via --proxy-user
-curl --proxy "http://127.0.0.1:10801" \
-     --proxy-user "AirVPN AT Vienna:" \
-     https://api.ipify.org
+curl --proxy "http://127.0.0.1:10801" --proxy-user "AirVPN AT Vienna:" https://api.ipify.org
 
 # Random VPN (no auth)
 curl --proxy "http://127.0.0.1:10801" https://api.ipify.org
 
 # URL-encoded username in proxy URL
+curl --proxy "http://AirVPN%20AT%20Vienna@127.0.0.1:10801" https://api.ipify.org
+
+# Using -x shorthand
 curl -x "http://AirVPN%20AT%20Vienna@127.0.0.1:10801" https://api.ipify.org
 
-# Environment variable
+# Environment variables (used by most CLI tools)
+export http_proxy="http://127.0.0.1:10801"
 export https_proxy="http://127.0.0.1:10801"
 curl https://api.ipify.org
 ```
+
+> **Note:** The HTTP proxy only supports the CONNECT method for HTTPS
+> tunneling. Plain HTTP requests will receive a 405 Method Not Allowed error.
 
 ## Authentication
 
@@ -309,31 +328,73 @@ systemctl restart vpn-proxy http-proxy
 
 ### Browser Configuration
 
-**Firefox:**
+**Firefox (SOCKS5):**
 
 1. Settings → Network Settings → Manual proxy configuration
 2. SOCKS Host: `127.0.0.1`, Port: `10800`, SOCKS v5
 3. Check "Proxy DNS when using SOCKS v5"
 
-**Chromium:**
+**Firefox (HTTP):**
+
+1. Settings → Network Settings → Manual proxy configuration
+2. HTTP Proxy: `127.0.0.1`, Port: `10801`
+3. Also use this proxy for HTTPS: ✓
+
+**Chromium (SOCKS5):**
 
 ```bash
 chromium --proxy-server="socks5://127.0.0.1:10800"
 ```
 
+**Chromium (HTTP):**
+
+```bash
+chromium --proxy-server="http://127.0.0.1:10801"
+```
+
 ### Application-Specific Proxy
 
 ```bash
-# git over SOCKS5
-git config --global http.proxy "socks5://127.0.0.1:10800"
+# git (SOCKS5)
+git config --global http.proxy "socks5h://127.0.0.1:10800"
 
-# npm
+# git (HTTP)
+git config --global http.proxy "http://127.0.0.1:10801"
+
+# npm (HTTP only)
 npm config set proxy "http://127.0.0.1:10801"
+npm config set https-proxy "http://127.0.0.1:10801"
 
-# Environment variables
+# pip (HTTP)
+pip install --proxy "http://127.0.0.1:10801" package-name
+
+# wget (HTTP)
+wget -e use_proxy=yes -e http_proxy=http://127.0.0.1:10801 https://example.com
+```
+
+### Proxy Environment Variables
+
+```bash
+# HTTP proxy (works with most CLI tools: curl, wget, pip, npm, etc.)
 export http_proxy="http://127.0.0.1:10801"
 export https_proxy="http://127.0.0.1:10801"
-export ALL_PROXY="socks5://127.0.0.1:10800"
+
+# SOCKS5 proxy (works with curl, git, and SOCKS-aware tools)
+export ALL_PROXY="socks5h://127.0.0.1:10800"
+
+# With specific VPN (URL-encoded spaces)
+export ALL_PROXY="socks5h://AirVPN%20AT%20Vienna@127.0.0.1:10800"
+export https_proxy="http://AirVPN%20AT%20Vienna:@127.0.0.1:10801"
+```
+
+### SSH via Proxy
+
+```bash
+# SOCKS5 (requires netcat-openbsd)
+ssh -o ProxyCommand="nc -X 5 -x 127.0.0.1:10800 %h %p" user@host
+
+# HTTP CONNECT (requires corkscrew or connect-proxy)
+ssh -o ProxyCommand="corkscrew 127.0.0.1 10801 %h %p" user@host
 ```
 
 ### qs-vpn Integration

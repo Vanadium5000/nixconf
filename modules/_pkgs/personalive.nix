@@ -13,12 +13,17 @@
 #   Uses torch-bin (pre-built CUDA binaries) with forced cudaSupport config.
 #   Runtime CUDA libs are added via LD_LIBRARY_PATH in wrapper scripts.
 #
-# Version Pinning (CRITICAL):
-#   PersonaLive requires specific dependency versions from requirements_base.txt:
+# Version Pinning Strategy:
+#   We use buildEnv to layer pinned wheel packages ON TOP of the base Python env.
+#   This preserves binary cache for all standard packages (h5py, astropy, opencv, etc.)
+#   while overriding only the specific packages PersonaLive needs.
+#
+# Required version pins from requirements_base.txt:
 #   - diffusers==0.27.0: Newer versions have breaking API changes in embeddings.py
 #   - protobuf<4.0: mediapipe uses deprecated MessageFactory.GetPrototype() removed in protobuf 5.x
 #   - transformers==4.36.2: Tested configuration matching diffusers 0.27.0
-#   - xformers removed: 0.0.22.post7 requires PyTorch 2.1, incompatible with torch-bin 2.9.x
+#   - tokenizers<0.19: Required by transformers 4.36.2
+#   - huggingface-hub<0.26: diffusers 0.27.0 uses cached_download() removed in 0.26+
 {
   lib,
   pkgs,
@@ -44,335 +49,223 @@ let
     else
       pkgs;
 
-  # Override python to fix upstream test failures and add custom packages
-  # Using Python 3.11 for tokenizers <0.19 compatibility (required by transformers 4.36.2)
-  # tokenizers 0.15.x lacks Python 3.12 wheels
-  python = cudaPkgs.python311.override {
-    packageOverrides = self: super: {
-      # Use pre-built torch binaries with CUDA support baked in
-      # Must add cudaSupport/cudaPackages/cudaCapabilities attrs for xformers compatibility
-      torch = super.torch-bin.overrideAttrs (old: {
-        passthru = (old.passthru or { }) // {
-          cudaSupport = cudaSupport;
-          cudaPackages = cudaPkgs.cudaPackages;
-          # Common CUDA capabilities for modern GPUs (Ada Lovelace, Ampere, etc.)
-          cudaCapabilities = [
-            "8.0"
-            "8.6"
-            "8.9"
-            "9.0"
-          ];
-        };
-      });
-      torchvision = super.torchvision-bin;
+  # Use Python 3.11 - tokenizers 0.15.x lacks Python 3.12 wheels
+  python = cudaPkgs.python311;
+  pythonPkgs = python.pkgs;
 
-      # scikit-image tests pull heavy deps - skip them
-      scikit-image = super.scikit-image.overridePythonAttrs (old: {
-        doCheck = false;
-      });
+  # ==========================================================================
+  # Pinned packages as standalone derivations (wheels from PyPI)
+  # These are layered on top of the base env, overriding nixpkgs versions
+  # ==========================================================================
 
-      # accelerate tests fail in Nix sandbox (torch inductor needs filesystem access)
-      accelerate = super.accelerate.overridePythonAttrs (old: {
-        doCheck = false;
-      });
+  # Protobuf 3.20.3 - mediapipe uses MessageFactory.GetPrototype() removed in 5.x
+  pinnedProtobuf = pythonPkgs.buildPythonPackage {
+    pname = "protobuf";
+    version = "3.20.3";
+    format = "wheel";
 
-      # peft tests require accelerate tests to pass first
-      peft = super.peft.overridePythonAttrs (old: {
-        doCheck = false;
-      });
-
-      # =========================================================================
-      # Version-pinned packages for PersonaLive compatibility
-      # These MUST match requirements_base.txt versions to avoid runtime errors
-      # =========================================================================
-
-      # Protobuf 3.20.3 - mediapipe uses MessageFactory.GetPrototype() removed in 5.x
-      # Pure Python wheel works on all platforms including Python 3.12
-      protobuf = self.buildPythonPackage {
-        pname = "protobuf";
-        version = "3.20.3";
-        format = "wheel";
-
-        src = pkgs.fetchurl {
-          url = "https://files.pythonhosted.org/packages/8d/14/619e24a4c70df2901e1f4dbc50a6291eb63a759172558df326347dce1f0d/protobuf-3.20.3-py2.py3-none-any.whl";
-          hash = "sha256-p8ptSIqo/38ynUxUWy262KwxRk8dixyHrRNGcXcx5Ns=";
-        };
-
-        doCheck = false;
-        pythonImportsCheck = [ "google.protobuf" ];
-      };
-
-      # Diffusers 0.27.0 - newer versions have breaking API changes
-      # get_1d_sincos_pos_embed_from_grid() was deprecated in 0.34.0, removed in 0.35.x
-      diffusers = self.buildPythonPackage {
-        pname = "diffusers";
-        version = "0.27.0";
-        format = "wheel";
-
-        src = pkgs.fetchurl {
-          url = "https://files.pythonhosted.org/packages/54/ea/3848667fc018341916a3677f9cc376154a381ba43e1dd08105b0777bc81c/diffusers-0.27.0-py3-none-any.whl";
-          hash = "sha256-8mop7Eir7noJ/vPCB/9kjrOHE4+vjKE6YF85dgNsxww=";
-        };
-
-        propagatedBuildInputs = [
-          self.importlib-metadata
-          self.filelock
-          self.huggingface-hub
-          self.numpy
-          self.regex
-          self.requests
-          self.safetensors
-          self.pillow
-        ];
-
-        doCheck = false;
-        pythonImportsCheck = [ "diffusers" ];
-      };
-
-      # Transformers 4.36.2 - tested configuration matching diffusers 0.27.0
-      transformers = self.buildPythonPackage {
-        pname = "transformers";
-        version = "4.36.2";
-        format = "wheel";
-
-        src = pkgs.fetchurl {
-          url = "https://files.pythonhosted.org/packages/20/0a/739426a81f7635b422fbe6cb8d1d99d1235579a6ac8024c13d743efa6847/transformers-4.36.2-py3-none-any.whl";
-          hash = "sha256-RiBmxPdO5SUW8SiQ3MnscdGl6XmY22IWaEVRF6VDMPY=";
-        };
-
-        propagatedBuildInputs = [
-          self.filelock
-          self.huggingface-hub
-          self.numpy
-          self.packaging
-          self.pyyaml
-          self.regex
-          self.requests
-          self.safetensors
-          self.tokenizers
-          self.tqdm
-        ];
-
-        doCheck = false;
-        pythonImportsCheck = [ "transformers" ];
-      };
-
-      # huggingface-hub 0.25.2 - last version with cached_download()
-      # Required by diffusers 0.27.0 which imports this deprecated function
-      # cached_download was removed in huggingface-hub 0.26+
-      huggingface-hub = self.buildPythonPackage {
-        pname = "huggingface-hub";
-        version = "0.25.2";
-        format = "wheel";
-
-        src = pkgs.fetchurl {
-          url = "https://files.pythonhosted.org/packages/64/09/a535946bf2dc88e61341f39dc507530411bb3ea4eac493e5ec833e8f35bd/huggingface_hub-0.25.2-py3-none-any.whl";
-          hash = "sha256-GJfK+Izn+X/gEQYD2PZqwmTjumrM3zDNZswP7VKCrSU=";
-        };
-
-        propagatedBuildInputs = [
-          self.filelock
-          self.fsspec
-          self.packaging
-          self.pyyaml
-          self.requests
-          self.tqdm
-          self.typing-extensions
-        ];
-
-        doCheck = false;
-        pythonImportsCheck = [ "huggingface_hub" ];
-      };
-
-      # tokenizers 0.15.2 - required by transformers 4.36.2 (needs >=0.14,<0.19)
-      # Using manylinux wheel with Rust bindings - cp311 for Python 3.11
-      tokenizers = self.buildPythonPackage {
-        pname = "tokenizers";
-        version = "0.15.2";
-        format = "wheel";
-
-        src = pkgs.fetchurl {
-          url = "https://files.pythonhosted.org/packages/15/0b/c09b2c0dc688c82adadaa0d5080983de3ce920f4a5cbadb7eaa5302ad251/tokenizers-0.15.2-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl";
-          hash = "sha256-zNc6gnUcUjs/wx/4GUcC5K9Nsh3CDlWzDswgecXUPLc=";
-        };
-
-        nativeBuildInputs = [ pkgs.autoPatchelfHook ];
-        buildInputs = [ pkgs.stdenv.cc.cc.lib ];
-
-        propagatedBuildInputs = [ self.huggingface-hub ];
-
-        doCheck = false;
-        pythonImportsCheck = [ "tokenizers" ];
-      };
-
-      # =========================================================================
-      # Custom Python packages not in nixpkgs
-      # =========================================================================
-
-      # Mediapipe - Google's ML framework for face mesh detection (468 landmarks)
-      # Pre-built wheel for Linux x86_64 - needs autoPatchelfHook for bundled libs
-      # Using 0.10.14 with cp311 wheel for Python 3.11
-      # Requires protobuf 3.x - pinned above to fix GetPrototype() errors
-      mediapipe = self.buildPythonPackage {
-        pname = "mediapipe";
-        version = "0.10.14";
-        format = "wheel";
-
-        src = pkgs.fetchurl {
-          url = "https://files.pythonhosted.org/packages/2f/ee/2e9e730dc4d98c8a9541b57bad173bebddf0e4c78f179acc100248c58066/mediapipe-0.10.14-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl";
-          hash = "sha256-qAcygznnNW/aC7FN8S/tvx0zvfgWScX4ZmsAJrHMMLQ=";
-        };
-
-        nativeBuildInputs = [
-          pkgs.autoPatchelfHook
-        ];
-
-        buildInputs = [
-          pkgs.stdenv.cc.cc.lib # libstdc++
-        ];
-
-        propagatedBuildInputs = [
-          self.absl-py
-          self.attrs
-          self.flatbuffers
-          self.matplotlib
-          self.numpy
-          self.opencv4
-          self.protobuf
-          self.sounddevice
-        ];
-
-        # Mediapipe uses precompiled binaries - no tests needed
-        doCheck = false;
-
-        pythonImportsCheck = [ "mediapipe" ];
-      };
-
-      # Decord - efficient video reader for ML
-      # Uses autoPatchelfHook to fix bundled library paths in manylinux wheel
-      decord = self.buildPythonPackage {
-        pname = "decord";
-        version = "0.6.0";
-        format = "wheel";
-
-        src = pkgs.fetchurl {
-          url = "https://files.pythonhosted.org/packages/11/79/936af42edf90a7bd4e41a6cac89c913d4b47fa48a26b042d5129a9242ee3/decord-0.6.0-py3-none-manylinux2010_x86_64.whl";
-          hash = "sha256-UZl/IL6JWOI7fEBhukXQ782Gv/1f6BxpXQvv7g1EKXY=";
-        };
-
-        nativeBuildInputs = [
-          pkgs.autoPatchelfHook
-        ];
-
-        buildInputs = [
-          pkgs.stdenv.cc.cc.lib # libstdc++
-          pkgs.bzip2
-          pkgs.zlib
-        ];
-
-        propagatedBuildInputs = [
-          self.numpy
-        ];
-
-        # Skip import check - the wheel has bundled libs that need runtime patching
-        doCheck = false;
-        dontCheckRuntimeDeps = true;
-
-        # Allow bundled libraries with mangled names
-        autoPatchelfIgnoreMissingDeps = [ "*" ];
-      };
-
-      # Markdown2 - fast Markdown to HTML converter
-      markdown2 = self.buildPythonPackage {
-        pname = "markdown2";
-        version = "2.5.4";
-        format = "wheel";
-
-        src = pkgs.fetchurl {
-          url = "https://files.pythonhosted.org/packages/b8/06/2697b5043c3ecb720ce0d21943f7cf5024c0b5b1e450506e9b21939019963/markdown2-2.5.4-py3-none-any.whl";
-          hash = "sha256-PEspNOZ3vn/sDm8t5EEOEWaB9K1Q7I5bp1V75QbT9Dk=";
-        };
-
-        doCheck = false;
-      };
-
-      # xformers - Memory-efficient attention operations
-      # Pre-built wheel to avoid 50GB+ RAM / multi-hour source build with CUDA
-      # Version 0.0.33.post2 is compatible with PyTorch 2.5-2.9 (nixpkgs has 2.9.1)
-      # Note: 0.0.34 requires PyTorch 2.10+ which isn't in nixpkgs yet
-      # Uses stable ABI (cp39-abi3) for broad Python compatibility
-      xformers = self.buildPythonPackage {
-        pname = "xformers";
-        version = "0.0.33.post2";
-        format = "wheel";
-
-        src = pkgs.fetchurl {
-          url = "https://files.pythonhosted.org/packages/7d/c8/2957d8a8bf089a4e57f046867d4c9b31fc2e1d16013bc57cd7ae651a65b5/xformers-0.0.33.post2-cp39-abi3-manylinux_2_28_x86_64.whl";
-          hash = "sha256-nqYDLe+mA5VVm2pEbCrpRSNnB+mNqr2I/qV80IZxwXQ=";
-        };
-
-        nativeBuildInputs = [ pkgs.autoPatchelfHook ];
-
-        buildInputs = [
-          pkgs.stdenv.cc.cc.lib # libstdc++
-          cudaPkgs.cudaPackages.cuda_cudart
-          cudaPkgs.cudaPackages.libcublas
-          cudaPkgs.cudaPackages.cuda_nvrtc
-        ];
-
-        propagatedBuildInputs = [
-          self.torch
-          self.numpy
-        ];
-
-        # Skip checks - wheel has bundled CUDA kernels
-        doCheck = false;
-        dontCheckRuntimeDeps = true;
-
-        # These libs are provided at runtime via Python imports:
-        # - libtorch/libc10: torch-bin libs in site-packages (loaded when xformers imports torch)
-        # - libcuda.so.1: nvidia driver via LD_LIBRARY_PATH
-        autoPatchelfIgnoreMissingDeps = [
-          "libc10.so"
-          "libtorch.so"
-          "libtorch_cpu.so"
-          "libc10_cuda.so"
-          "libtorch_cuda.so"
-          "libcuda.so.1"
-        ];
-
-        pythonImportsCheck = [ "xformers" ];
-      };
+    src = pkgs.fetchurl {
+      url = "https://files.pythonhosted.org/packages/8d/14/619e24a4c70df2901e1f4dbc50a6291eb63a759172558df326347dce1f0d/protobuf-3.20.3-py2.py3-none-any.whl";
+      hash = "sha256-p8ptSIqo/38ynUxUWy262KwxRk8dixyHrRNGcXcx5Ns=";
     };
+
+    doCheck = false;
   };
 
-  # Python environment with all dependencies from requirements_base.txt
-  # torch/torchvision are overridden to torch-bin/torchvision-bin above
+  # huggingface-hub 0.25.2 - last version with cached_download()
+  pinnedHuggingfaceHub = pythonPkgs.buildPythonPackage {
+    pname = "huggingface-hub";
+    version = "0.25.2";
+    format = "wheel";
+
+    src = pkgs.fetchurl {
+      url = "https://files.pythonhosted.org/packages/64/09/a535946bf2dc88e61341f39dc507530411bb3ea4eac493e5ec833e8f35bd/huggingface_hub-0.25.2-py3-none-any.whl";
+      hash = "sha256-GJfK+Izn+X/gEQYD2PZqwmTjumrM3zDNZswP7VKCrSU=";
+    };
+
+    propagatedBuildInputs = with pythonPkgs; [
+      filelock
+      fsspec
+      packaging
+      pyyaml
+      requests
+      tqdm
+      typing-extensions
+    ];
+
+    doCheck = false;
+  };
+
+  # tokenizers 0.15.2 - required by transformers 4.36.2 (needs >=0.14,<0.19)
+  pinnedTokenizers = pythonPkgs.buildPythonPackage {
+    pname = "tokenizers";
+    version = "0.15.2";
+    format = "wheel";
+
+    src = pkgs.fetchurl {
+      url = "https://files.pythonhosted.org/packages/15/0b/c09b2c0dc688c82adadaa0d5080983de3ce920f4a5cbadb7eaa5302ad251/tokenizers-0.15.2-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl";
+      hash = "sha256-zNc6gnUcUjs/wx/4GUcC5K9Nsh3CDlWzDswgecXUPLc=";
+    };
+
+    nativeBuildInputs = [ pkgs.autoPatchelfHook ];
+    buildInputs = [ pkgs.stdenv.cc.cc.lib ];
+
+    propagatedBuildInputs = [ pinnedHuggingfaceHub ];
+
+    doCheck = false;
+  };
+
+  # Transformers 4.36.2 - tested configuration matching diffusers 0.27.0
+  pinnedTransformers = pythonPkgs.buildPythonPackage {
+    pname = "transformers";
+    version = "4.36.2";
+    format = "wheel";
+
+    src = pkgs.fetchurl {
+      url = "https://files.pythonhosted.org/packages/20/0a/739426a81f7635b422fbe6cb8d1d99d1235579a6ac8024c13d743efa6847/transformers-4.36.2-py3-none-any.whl";
+      hash = "sha256-RiBmxPdO5SUW8SiQ3MnscdGl6XmY22IWaEVRF6VDMPY=";
+    };
+
+    propagatedBuildInputs = with pythonPkgs; [
+      filelock
+      pinnedHuggingfaceHub
+      numpy
+      packaging
+      pyyaml
+      regex
+      requests
+      safetensors
+      pinnedTokenizers
+      tqdm
+    ];
+
+    doCheck = false;
+  };
+
+  # Diffusers 0.27.0 - newer versions have breaking API changes
+  pinnedDiffusers = pythonPkgs.buildPythonPackage {
+    pname = "diffusers";
+    version = "0.27.0";
+    format = "wheel";
+
+    src = pkgs.fetchurl {
+      url = "https://files.pythonhosted.org/packages/54/ea/3848667fc018341916a3677f9cc376154a381ba43e1dd08105b0777bc81c/diffusers-0.27.0-py3-none-any.whl";
+      hash = "sha256-8mop7Eir7noJ/vPCB/9kjrOHE4+vjKE6YF85dgNsxww=";
+    };
+
+    propagatedBuildInputs = with pythonPkgs; [
+      importlib-metadata
+      filelock
+      pinnedHuggingfaceHub
+      numpy
+      regex
+      requests
+      safetensors
+      pillow
+    ];
+
+    doCheck = false;
+  };
+
+  # ==========================================================================
+  # Custom packages not in nixpkgs
+  # ==========================================================================
+
+  # Mediapipe - Google's ML framework for face mesh detection (468 landmarks)
+  pinnedMediapipe = pythonPkgs.buildPythonPackage {
+    pname = "mediapipe";
+    version = "0.10.14";
+    format = "wheel";
+
+    src = pkgs.fetchurl {
+      url = "https://files.pythonhosted.org/packages/2f/ee/2e9e730dc4d98c8a9541b57bad173bebddf0e4c78f179acc100248c58066/mediapipe-0.10.14-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl";
+      hash = "sha256-qAcygznnNW/aC7FN8S/tvx0zvfgWScX4ZmsAJrHMMLQ=";
+    };
+
+    nativeBuildInputs = [ pkgs.autoPatchelfHook ];
+    buildInputs = [ pkgs.stdenv.cc.cc.lib ];
+
+    propagatedBuildInputs = with pythonPkgs; [
+      absl-py
+      attrs
+      flatbuffers
+      matplotlib
+      numpy
+      opencv4
+      pinnedProtobuf
+      sounddevice
+    ];
+
+    doCheck = false;
+  };
+
+  # Decord - efficient video reader for ML
+  pinnedDecord = pythonPkgs.buildPythonPackage {
+    pname = "decord";
+    version = "0.6.0";
+    format = "wheel";
+
+    src = pkgs.fetchurl {
+      url = "https://files.pythonhosted.org/packages/11/79/936af42edf90a7bd4e41a6cac89c913d4b47fa48a26b042d5129a9242ee3/decord-0.6.0-py3-none-manylinux2010_x86_64.whl";
+      hash = "sha256-UZl/IL6JWOI7fEBhukXQ782Gv/1f6BxpXQvv7g1EKXY=";
+    };
+
+    nativeBuildInputs = [ pkgs.autoPatchelfHook ];
+    buildInputs = [
+      pkgs.stdenv.cc.cc.lib
+      pkgs.bzip2
+      pkgs.zlib
+    ];
+
+    propagatedBuildInputs = [ pythonPkgs.numpy ];
+
+    doCheck = false;
+    dontCheckRuntimeDeps = true;
+    autoPatchelfIgnoreMissingDeps = [ "*" ];
+  };
+
+  # Markdown2 - fast Markdown to HTML converter
+  pinnedMarkdown2 = pythonPkgs.buildPythonPackage {
+    pname = "markdown2";
+    version = "2.5.4";
+    format = "wheel";
+
+    src = pkgs.fetchurl {
+      url = "https://files.pythonhosted.org/packages/b8/06/2697b5043c3ecb720ce0d21943f7cf5024c0b5b1e450506e9b21939019963/markdown2-2.5.4-py3-none-any.whl";
+      hash = "sha256-PEspNOZ3vn/sDm8t5EEOEWaB9K1Q7I5bp1V75QbT9Dk=";
+    };
+
+    doCheck = false;
+  };
+
+  # ==========================================================================
+  # Python environment - uses cached binaries from nixpkgs where possible
+  # Pinned packages are added explicitly to override nixpkgs versions
+  # ==========================================================================
   pythonEnv = python.withPackages (
     ps: with ps; [
-      # Core ML frameworks - uses torch-bin via override above
-      torch
-      torchvision
+      # Core ML frameworks - use pre-built binaries
+      torch-bin
+      torchvision-bin
       accelerate
-      # xformers removed: requires PyTorch 2.1, incompatible with torch-bin 2.9.x
-      # Use --acceleration none for online mode
+      # xformers removed: requires specific PyTorch version
 
-      # Diffusion models
-      diffusers
-      transformers
+      # Diffusion models - PINNED versions
+      pinnedDiffusers
+      pinnedTransformers
       peft
       einops
       safetensors
 
-      # Computer vision
+      # Computer vision - from binary cache
       opencv4
       pillow
       scikit-image
-      mediapipe # Custom package
+      pinnedMediapipe
 
       # Video processing
       av
-      decord # Custom package
+      pinnedDecord
 
       # Web server (for online mode)
       fastapi
@@ -383,13 +276,17 @@ let
 
       # Configuration & utilities
       omegaconf
-      huggingface-hub
+      pinnedHuggingfaceHub
       tqdm
       numpy
-      markdown2 # Custom package
+      pinnedMarkdown2
 
       # Huggingface model downloading
       requests
+
+      # Explicit pinned packages to ensure they're used
+      pinnedProtobuf
+      pinnedTokenizers
     ]
   );
 

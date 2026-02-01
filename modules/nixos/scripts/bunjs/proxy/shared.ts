@@ -85,7 +85,7 @@ type LogLevel = "DEBUG" | "INFO" | "WARN" | "ERROR";
 export function log(
   level: LogLevel,
   message: string,
-  component = "vpn-proxy"
+  component = "vpn-proxy",
 ): void {
   const timestamp = new Date().toISOString();
   console.error(`[${timestamp}] [${level}] [${component}] ${message}`);
@@ -96,14 +96,31 @@ export function log(
 // ============================================================================
 
 /**
- * Send a desktop notification via notify-send
- * Fails silently if no display is available (e.g., running as service)
+ * Send a desktop notification via qs-notify (Quickshell notification center)
+ *
+ * Uses qs-notify which communicates via Quickshell's IPC socket, allowing
+ * notifications from systemd services that lack D-Bus session access.
+ * Falls back to notify-send if qs-notify unavailable, then silently continues
+ * if both fail (e.g., no graphical session).
  */
 export async function notify(
   title: string,
   message: string,
-  urgency: "low" | "normal" | "critical" = "normal"
+  urgency: "low" | "normal" | "critical" = "normal",
 ): Promise<void> {
+  // Try qs-notify first (works from systemd services via Quickshell IPC)
+  try {
+    const qsResult = await spawn({
+      cmd: ["qs-notify", "-u", urgency, title, message],
+      stdout: "ignore",
+      stderr: "ignore",
+    }).exited;
+    if (qsResult === 0) return;
+  } catch {
+    // qs-notify not available, try fallback
+  }
+
+  // Fallback to notify-send (requires D-Bus session access)
   try {
     await spawn({
       cmd: ["notify-send", "-u", urgency, title, message],
@@ -111,8 +128,8 @@ export async function notify(
       stderr: "ignore",
     }).exited;
   } catch {
-    // Notification failed (e.g., no display), log instead
-    log("INFO", `[notify] ${title}: ${message}`);
+    // Both methods failed, log instead and continue silently
+    log("DEBUG", `[notify] ${title}: ${message}`);
   }
 }
 
@@ -158,13 +175,17 @@ export async function saveState(state: ProxyState): Promise<void> {
  */
 export function runNetnsScript(
   args: string[],
-  options: { notifySudo?: boolean } = {}
+  options: { notifySudo?: boolean } = {},
 ): { success: boolean; output: string } {
   const needsSudo = process.getuid!() !== 0;
   const sudoPrefix = needsSudo ? ["sudo"] : [];
 
   if (needsSudo && options.notifySudo) {
-    notify("VPN Proxy", "Requesting sudo for network namespace setup", "normal");
+    notify(
+      "VPN Proxy",
+      "Requesting sudo for network namespace setup",
+      "normal",
+    );
   }
 
   const result = spawnSync([...sudoPrefix, "bash", NETNS_SCRIPT, ...args]);
@@ -234,7 +255,7 @@ async function startOpenVPN(nsName: string, vpn: VpnConfig): Promise<number> {
  */
 async function waitForTunnel(
   nsName: string,
-  timeout = 30000
+  timeout = 30000,
 ): Promise<boolean> {
   const start = Date.now();
   const sudoPrefix = process.getuid!() === 0 ? [] : ["sudo"];
@@ -273,7 +294,7 @@ async function waitForTunnel(
  */
 export async function createNamespace(
   state: ProxyState,
-  vpn: VpnConfig
+  vpn: VpnConfig,
 ): Promise<NamespaceInfo> {
   const nsIndex = state.nextIndex;
   const nsName = `vpn-proxy-${nsIndex}`;
@@ -289,7 +310,7 @@ export async function createNamespace(
       vpn.serverIp,
       vpn.serverPort.toString(),
     ],
-    { notifySudo: true }
+    { notifySudo: true },
   );
 
   if (!result.success) {
@@ -330,7 +351,7 @@ export async function createNamespace(
  */
 export async function destroyNamespace(
   slug: string,
-  state: ProxyState
+  state: ProxyState,
 ): Promise<void> {
   const info = state.namespaces[slug];
   if (!info) return;
@@ -346,7 +367,9 @@ export async function destroyNamespace(
  * Check if a namespace is still healthy
  * Verifies: namespace exists, tun0 is up, OpenVPN process is running
  */
-export async function isNamespaceHealthy(info: NamespaceInfo): Promise<boolean> {
+export async function isNamespaceHealthy(
+  info: NamespaceInfo,
+): Promise<boolean> {
   const sudoPrefix = process.getuid!() === 0 ? [] : ["sudo"];
 
   // Check namespace exists
@@ -390,7 +413,7 @@ export async function isNamespaceHealthy(info: NamespaceInfo): Promise<boolean> 
  */
 export async function getOrCreateNamespace(
   slug: string,
-  state: ProxyState
+  state: ProxyState,
 ): Promise<NamespaceInfo> {
   const existing = state.namespaces[slug];
   if (existing && existing.status === "connected") {
@@ -422,7 +445,7 @@ export async function getOrCreateNamespace(
  */
 export async function resolveSlugFromUsername(
   username: string,
-  state: ProxyState
+  state: ProxyState,
 ): Promise<string> {
   if (!username || username === "random") {
     const now = Date.now();
@@ -449,7 +472,7 @@ export async function resolveSlugFromUsername(
     notify(
       "VPN Proxy",
       `Invalid VPN name "${username}", using random VPN`,
-      "normal"
+      "normal",
     ).catch(() => {}); // Silently ignore notification failures
     return resolveSlugFromUsername("random", state);
   }
@@ -503,7 +526,11 @@ export async function rotateRandom(): Promise<string | null> {
       log("INFO", `Random rotated: ${oldSlug} -> ${vpn.displayName}`);
 
       if (CONFIG.NOTIFY_ROTATION) {
-        await notify("VPN Proxy", `Random VPN rotated to ${vpn.displayName}`, "low");
+        await notify(
+          "VPN Proxy",
+          `Random VPN rotated to ${vpn.displayName}`,
+          "low",
+        );
       }
 
       return vpn.displayName;
@@ -537,7 +564,11 @@ export async function forceRotateRandom(): Promise<string | null> {
     : `Random set to: ${vpn.displayName}`;
   log("INFO", rotationMsg);
 
-  await notify("VPN Proxy", `Random VPN rotated to ${vpn.displayName}`, "normal");
+  await notify(
+    "VPN Proxy",
+    `Random VPN rotated to ${vpn.displayName}`,
+    "normal",
+  );
 
   return vpn.displayName;
 }
@@ -570,7 +601,7 @@ export async function getStatus(): Promise<string> {
   if (state.random) {
     const expiresIn = Math.max(
       0,
-      Math.floor((state.random.expiresAt - now) / 1000)
+      Math.floor((state.random.expiresAt - now) / 1000),
     );
     const expMin = Math.floor(expiresIn / 60);
     const expSec = expiresIn % 60;
