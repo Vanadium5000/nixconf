@@ -143,6 +143,9 @@ pkgs.stdenv.mkDerivation {
     export LIBREOFFICE_PORT="''${LIBREOFFICE_PORT:-2083}"
     export LIBREOFFICE_OUTPUT_DIR="''${LIBREOFFICE_OUTPUT_DIR:-$HOME/Documents}"
 
+    # Add Java to PATH (LibreOffice needs it for some features)
+    export PATH="${pkgs.jre_minimal}/bin:$PATH"
+
     # Find LibreOffice installation and set up UNO paths
     # NixOS libreoffice package location
     LO_PATH="${pkgs.libreoffice}/lib/libreoffice"
@@ -172,11 +175,16 @@ pkgs.stdenv.mkDerivation {
     # Start LibreOffice in headless mode with socket if not already running
     if ! pgrep -f "soffice.*accept=socket" > /dev/null 2>&1; then
         echo "Starting LibreOffice in headless mode on port $LIBREOFFICE_PORT..."
+        
+        # Clean stale profile to avoid NoSuchElementException from version mismatch
+        LO_PROFILE="/tmp/libreoffice-mcp-$(id -u)"
+        rm -rf "$LO_PROFILE"
+        
         # Use isolated user profile to avoid crashes from incompatible user config
         # (e.g., registrymodifications.xcu from different LO version)
         "$LO_PATH/program/soffice" \
             --headless \
-            "-env:UserInstallation=file:///tmp/libreoffice-mcp-$(id -u)" \
+            "-env:UserInstallation=file://$LO_PROFILE" \
             --accept="socket,host=localhost,port=$LIBREOFFICE_PORT;urp;" &
         # Wait for LibreOffice to start accepting connections
         sleep 3
