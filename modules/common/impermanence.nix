@@ -136,7 +136,11 @@
             directories = cfg.nixos.cache.directories;
             files = cfg.nixos.cache.files;
             users.${username} = {
-              directories = [ ".cache/personalive" ] ++ cfg.home.cache.directories;
+              directories = [
+                ".cache/personalive"
+                "Passlists"
+              ]
+              ++ cfg.home.cache.directories;
               files = cfg.home.cache.files;
             };
           };

@@ -104,7 +104,7 @@
           ++
             # Security / Pentesting
             [
-              aircrack-ng # WiFi security auditing suite
+              unstable.aircrack-ng # WiFi security auditing suite - unstable has better support for newer drivers
               nmap # Network discovery and security auditing
               metasploit # Penetration testing framework
               thc-hydra # Network logon cracker (supports SSH, FTP, etc.)
@@ -113,6 +113,7 @@
               gobuster # URI/DNS brute-forcing tool
               ffuf # Fast web fuzzer
               hashcat # Advanced password recovery
+              hcxtools # hcxpcapngtool, hcxdumptool
 
               # Network / MITM
               bettercap # Network attacks and monitoring
