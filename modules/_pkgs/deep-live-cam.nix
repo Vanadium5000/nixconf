@@ -3,6 +3,9 @@
 #
 # Models are downloaded at runtime to ~/.cache/deep-live-cam/models/
 # Required models: GFPGANv1.4.pth, inswapper_128_fp16.onnx
+#
+# Note: opennsfw2 intentionally excluded - optional NSFW filter adds ~2GB tensorflow dep
+# The --nsfw-filter flag is unsupported in this build
 {
   lib,
   pkgs,
@@ -143,34 +146,6 @@ let
     '';
   };
 
-  # OpenNSFW2 - content safety filter (uses pyproject.toml)
-  opennsfw2 = python.pkgs.buildPythonPackage rec {
-    pname = "opennsfw2";
-    version = "0.10.2";
-    format = "pyproject";
-
-    src = pkgs.fetchPypi {
-      inherit pname version;
-      hash = "sha256-xs6gcy3A8Y52YWXAg0JXechMpqAfEWm/pdDUqgUxHk8=";
-    };
-
-    nativeBuildInputs = [ python.pkgs.setuptools ];
-
-    # All runtime deps required by opennsfw2's pyproject.toml
-    propagatedBuildInputs = with python.pkgs; [
-      numpy
-      pillow
-      gdown
-      matplotlib
-      opencv4
-      scikit-image
-      tensorflow
-      tqdm
-    ];
-
-    doCheck = false;
-  };
-
   # CV2 Enumerate Cameras (wheel format - pure python)
   cv2-enumerate-cameras = python.pkgs.buildPythonPackage rec {
     pname = "cv2_enumerate_cameras";
@@ -212,11 +187,9 @@ let
       onnxruntimePkg
       torch-bin # Pre-built binaries for faster install
       torchvision-bin
-      tensorflow # For opennsfw2
 
       # Custom packages
       insightface
-      opennsfw2
       cv2-enumerate-cameras
       customtkinter
 
