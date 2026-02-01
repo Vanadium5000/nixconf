@@ -9,15 +9,27 @@
   fetchFromGitHub,
   makeWrapper,
   stdenv,
-  cudaSupport ? false,
+  cudaSupport ? true, # Default true - this is a GPU-accelerated ML tool
 }:
 
 let
   version = "2.4";
 
+  # Create a pkgs instance with cudaSupport enabled for torch-bin
+  cudaPkgs =
+    if cudaSupport then
+      import pkgs.path {
+        inherit (pkgs) system;
+        config = pkgs.config // {
+          cudaSupport = true;
+        };
+      }
+    else
+      pkgs;
+
   # Build custom Python packages not in nixpkgs
   # Override python to fix upstream test failures in transitive deps
-  python = pkgs.python311.override {
+  python = cudaPkgs.python311.override {
     packageOverrides = self: super: {
       # pytest-doctestplus tests fail with newer numpy (AttributeError: 'numpy.ufunc' has no __code__)
       # This is a transitive dep via imageio → astropy → pytest-doctestplus
@@ -307,8 +319,8 @@ stdenv.mkDerivation {
       ${lib.optionalString cudaSupport ''
         --prefix LD_LIBRARY_PATH : ${
           lib.makeLibraryPath [
-            pkgs.cudaPackages.cudatoolkit
-            pkgs.cudaPackages.cudnn
+            cudaPkgs.cudaPackages.cudatoolkit
+            cudaPkgs.cudaPackages.cudnn
           ]
         }:/run/opengl-driver/lib \
         --add-flags "--execution-provider cuda"
