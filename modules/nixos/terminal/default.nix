@@ -13,7 +13,7 @@
       hostPackageExclusions = {
         macbook = [
           "sora-watermark-cleaner"
-          "deep-live-cam"
+          "personalive"
         ];
         # Example: Add more hosts as needed
         # ionos_vps = [ "some-gui-package" ];
