@@ -310,7 +310,7 @@
           #!/usr/bin/env bash
 
           PID_FILE="$HOME/.local/share/lid-inhibit.pid"
-          SYSTEMD_INHIBIT="${pkgs.stdenv.hostPlatform.system}/bin/systemd-inhibit"
+          SYSTEMD_INHIBIT="${pkgs.systemd}/bin/systemd-inhibit"
           SLEEP="${pkgs.coreutils}/bin/sleep"
           NOTIFY_SEND="${pkgs.libnotify}/bin/notify-send"
 
@@ -349,7 +349,7 @@
                   echo '{"text": "🔓", "class": "active"}'
               else
                   rm -f "$PID_FILE"
-                  echo '{"text": "��", "class": "inactive"}'
+                  echo '{"text": "🔒", "class": "inactive"}'
               fi
           else
               echo '{"text": "🔒", "class": "inactive"}'

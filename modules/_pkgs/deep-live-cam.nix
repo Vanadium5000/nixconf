@@ -31,13 +31,32 @@ let
       pkgs;
 
   # Build custom Python packages not in nixpkgs
-  # Override python to fix upstream test failures in transitive deps
+  # Override python to fix upstream test failures and avoid heavy transitive deps
   # Using Python 3.12 for pre-built insightface wheel availability
   python = cudaPkgs.python312.override {
     packageOverrides = self: super: {
-      # pytest-doctestplus tests fail with newer numpy (AttributeError: 'numpy.ufunc' has no __code__)
-      # This is a transitive dep via imageio → astropy → pytest-doctestplus
-      pytest-doctestplus = super.pytest-doctestplus.overridePythonAttrs (old: {
+      # imageio pulls astropy as optional dep - astropy uses 30GB RAM to build
+      # Override to remove astropy from the dependency chain entirely
+      imageio = super.imageio.overridePythonAttrs (old: {
+        # Remove optional deps that pull in astropy
+        propagatedBuildInputs = builtins.filter (
+          p:
+          !(builtins.elem (p.pname or "") [
+            "astropy"
+            "pyav"
+          ])
+        ) (old.propagatedBuildInputs or [ ]);
+        # Skip tests that require astropy
+        doCheck = false;
+      });
+
+      # scikit-image tests pull heavy deps - skip them
+      scikit-image = super.scikit-image.overridePythonAttrs (old: {
+        doCheck = false;
+      });
+
+      # albumentations tests are slow and unnecessary
+      albumentations = super.albumentations.overridePythonAttrs (old: {
         doCheck = false;
       });
     };
