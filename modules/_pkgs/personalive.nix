@@ -12,6 +12,13 @@
 # CUDA Support:
 #   Uses torch-bin (pre-built CUDA binaries) with forced cudaSupport config.
 #   Runtime CUDA libs are added via LD_LIBRARY_PATH in wrapper scripts.
+#
+# Version Pinning (CRITICAL):
+#   PersonaLive requires specific dependency versions from requirements_base.txt:
+#   - diffusers==0.27.0: Newer versions have breaking API changes in embeddings.py
+#   - protobuf<4.0: mediapipe uses deprecated MessageFactory.GetPrototype() removed in protobuf 5.x
+#   - transformers==4.36.2: Tested configuration matching diffusers 0.27.0
+#   - xformers removed: 0.0.22.post7 requires PyTorch 2.1, incompatible with torch-bin 2.9.x
 {
   lib,
   pkgs,
@@ -38,8 +45,9 @@ let
       pkgs;
 
   # Override python to fix upstream test failures and add custom packages
-  # Using Python 3.12 for numpy 2.x compatibility with torch-bin
-  python = cudaPkgs.python312.override {
+  # Using Python 3.11 for tokenizers <0.19 compatibility (required by transformers 4.36.2)
+  # tokenizers 0.15.x lacks Python 3.12 wheels
+  python = cudaPkgs.python311.override {
     packageOverrides = self: super: {
       # Use pre-built torch binaries with CUDA support baked in
       # Must add cudaSupport/cudaPackages/cudaCapabilities attrs for xformers compatibility
@@ -73,15 +81,129 @@ let
         doCheck = false;
       });
 
-      # diffusers has heavy test dependencies and long-running tests
-      diffusers = super.diffusers.overridePythonAttrs (old: {
-        doCheck = false;
-      });
+      # =========================================================================
+      # Version-pinned packages for PersonaLive compatibility
+      # These MUST match requirements_base.txt versions to avoid runtime errors
+      # =========================================================================
 
-      # transformers tests are extensive and require network access
-      transformers = super.transformers.overridePythonAttrs (old: {
+      # Protobuf 3.20.3 - mediapipe uses MessageFactory.GetPrototype() removed in 5.x
+      # Pure Python wheel works on all platforms including Python 3.12
+      protobuf = self.buildPythonPackage {
+        pname = "protobuf";
+        version = "3.20.3";
+        format = "wheel";
+
+        src = pkgs.fetchurl {
+          url = "https://files.pythonhosted.org/packages/8d/14/619e24a4c70df2901e1f4dbc50a6291eb63a759172558df326347dce1f0d/protobuf-3.20.3-py2.py3-none-any.whl";
+          hash = "sha256-p8ptSIqo/38ynUxUWy262KwxRk8dixyHrRNGcXcx5Ns=";
+        };
+
         doCheck = false;
-      });
+        pythonImportsCheck = [ "google.protobuf" ];
+      };
+
+      # Diffusers 0.27.0 - newer versions have breaking API changes
+      # get_1d_sincos_pos_embed_from_grid() was deprecated in 0.34.0, removed in 0.35.x
+      diffusers = self.buildPythonPackage {
+        pname = "diffusers";
+        version = "0.27.0";
+        format = "wheel";
+
+        src = pkgs.fetchurl {
+          url = "https://files.pythonhosted.org/packages/54/ea/3848667fc018341916a3677f9cc376154a381ba43e1dd08105b0777bc81c/diffusers-0.27.0-py3-none-any.whl";
+          hash = "sha256-8mop7Eir7noJ/vPCB/9kjrOHE4+vjKE6YF85dgNsxww=";
+        };
+
+        propagatedBuildInputs = [
+          self.importlib-metadata
+          self.filelock
+          self.huggingface-hub
+          self.numpy
+          self.regex
+          self.requests
+          self.safetensors
+          self.pillow
+        ];
+
+        doCheck = false;
+        pythonImportsCheck = [ "diffusers" ];
+      };
+
+      # Transformers 4.36.2 - tested configuration matching diffusers 0.27.0
+      transformers = self.buildPythonPackage {
+        pname = "transformers";
+        version = "4.36.2";
+        format = "wheel";
+
+        src = pkgs.fetchurl {
+          url = "https://files.pythonhosted.org/packages/20/0a/739426a81f7635b422fbe6cb8d1d99d1235579a6ac8024c13d743efa6847/transformers-4.36.2-py3-none-any.whl";
+          hash = "sha256-RiBmxPdO5SUW8SiQ3MnscdGl6XmY22IWaEVRF6VDMPY=";
+        };
+
+        propagatedBuildInputs = [
+          self.filelock
+          self.huggingface-hub
+          self.numpy
+          self.packaging
+          self.pyyaml
+          self.regex
+          self.requests
+          self.safetensors
+          self.tokenizers
+          self.tqdm
+        ];
+
+        doCheck = false;
+        pythonImportsCheck = [ "transformers" ];
+      };
+
+      # huggingface-hub 0.25.2 - last version with cached_download()
+      # Required by diffusers 0.27.0 which imports this deprecated function
+      # cached_download was removed in huggingface-hub 0.26+
+      huggingface-hub = self.buildPythonPackage {
+        pname = "huggingface-hub";
+        version = "0.25.2";
+        format = "wheel";
+
+        src = pkgs.fetchurl {
+          url = "https://files.pythonhosted.org/packages/64/09/a535946bf2dc88e61341f39dc507530411bb3ea4eac493e5ec833e8f35bd/huggingface_hub-0.25.2-py3-none-any.whl";
+          hash = "sha256-GJfK+Izn+X/gEQYD2PZqwmTjumrM3zDNZswP7VKCrSU=";
+        };
+
+        propagatedBuildInputs = [
+          self.filelock
+          self.fsspec
+          self.packaging
+          self.pyyaml
+          self.requests
+          self.tqdm
+          self.typing-extensions
+        ];
+
+        doCheck = false;
+        pythonImportsCheck = [ "huggingface_hub" ];
+      };
+
+      # tokenizers 0.15.2 - required by transformers 4.36.2 (needs >=0.14,<0.19)
+      # Using manylinux wheel with Rust bindings - cp311 for Python 3.11
+      tokenizers = self.buildPythonPackage {
+        pname = "tokenizers";
+        version = "0.15.2";
+        format = "wheel";
+
+        src = pkgs.fetchurl {
+          url = "https://files.pythonhosted.org/packages/15/0b/c09b2c0dc688c82adadaa0d5080983de3ce920f4a5cbadb7eaa5302ad251/tokenizers-0.15.2-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl";
+          hash = "sha256-zNc6gnUcUjs/wx/4GUcC5K9Nsh3CDlWzDswgecXUPLc=";
+        };
+
+        nativeBuildInputs = [ pkgs.autoPatchelfHook ];
+        buildInputs = [ pkgs.stdenv.cc.cc.lib ];
+
+        propagatedBuildInputs = [ self.huggingface-hub ];
+
+        doCheck = false;
+        pythonImportsCheck = [ "tokenizers" ];
+      };
 
       # =========================================================================
       # Custom Python packages not in nixpkgs
@@ -89,15 +211,16 @@ let
 
       # Mediapipe - Google's ML framework for face mesh detection (468 landmarks)
       # Pre-built wheel for Linux x86_64 - needs autoPatchelfHook for bundled libs
-      # Using 0.10.14 for Python 3.12 support and protobuf 4.x compatibility
+      # Using 0.10.14 with cp311 wheel for Python 3.11
+      # Requires protobuf 3.x - pinned above to fix GetPrototype() errors
       mediapipe = self.buildPythonPackage {
         pname = "mediapipe";
         version = "0.10.14";
         format = "wheel";
 
         src = pkgs.fetchurl {
-          url = "https://files.pythonhosted.org/packages/11/73/07c6dcbb322f86e2b8526e0073456dbdd2813d5351f772f882123c985fda/mediapipe-0.10.14-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl";
-          hash = "sha256-mx5y11TNnhtLiNgOyerS8cvoQkt/iD072lM0G5gqn4s=";
+          url = "https://files.pythonhosted.org/packages/2f/ee/2e9e730dc4d98c8a9541b57bad173bebddf0e4c78f179acc100248c58066/mediapipe-0.10.14-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl";
+          hash = "sha256-qAcygznnNW/aC7FN8S/tvx0zvfgWScX4ZmsAJrHMMLQ=";
         };
 
         nativeBuildInputs = [
@@ -231,7 +354,8 @@ let
       torch
       torchvision
       accelerate
-      xformers # Memory-efficient attention
+      # xformers removed: requires PyTorch 2.1, incompatible with torch-bin 2.9.x
+      # Use --acceleration none for online mode
 
       # Diffusion models
       diffusers
@@ -452,9 +576,10 @@ stdenv.mkDerivation {
 
     cd "$WORK_DIR"
 
-    # Default to xformers acceleration if not specified
+    # Default to no acceleration (xformers incompatible with torch-bin 2.9.x)
+    # User can override with --acceleration xformers if they have compatible setup
     if [[ ! " $* " =~ " --acceleration " ]]; then
-      exec @pythonEnv@/bin/python inference_online.py --acceleration xformers "$@"
+      exec @pythonEnv@/bin/python inference_online.py --acceleration none "$@"
     else
       exec @pythonEnv@/bin/python inference_online.py "$@"
     fi

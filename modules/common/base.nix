@@ -160,10 +160,11 @@
           grub.efiInstallAsRemovable = true;
         };
 
-        # Alfa AWUS036AX (MT7921AU) WiFi adapter support
-        # Firmware required for mt76 driver to function
-        hardware.enableAllFirmware = true;
-        boot.kernelModules = [ "mt7921u" ];
+        # Alfa AWUS036AX (RTL8832BU/RTL8852BU chipset) WiFi adapter support
+        # Out-of-tree driver from github.com/morrownr/rtl8852bu-20240418
+        boot.extraModulePackages = with config.boot.kernelPackages; [
+          rtl8852bu
+        ];
       };
     };
 }
