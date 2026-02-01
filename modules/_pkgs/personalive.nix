@@ -10,13 +10,17 @@
 #   personalive-download     - Download model weights
 #
 # CUDA Support:
-#   Uses torch-bin (pre-built CUDA binaries) with forced cudaSupport config.
+#   Uses torch-bin (pre-built CUDA binaries) via package override pattern.
+#   This ensures ALL packages that depend on torch use torch-bin, not source-built torch.
 #   Runtime CUDA libs are added via LD_LIBRARY_PATH in wrapper scripts.
 #
-# Version Pinning Strategy:
-#   We use buildEnv to layer pinned wheel packages ON TOP of the base Python env.
-#   This preserves binary cache for all standard packages (h5py, astropy, opencv, etc.)
-#   while overriding only the specific packages PersonaLive needs.
+# Build Optimization Strategy:
+#   We use python.pkgs.override to replace torch/torchvision with pre-built binaries.
+#   This prevents transitive dependencies (accelerate, peft, etc.) from pulling in
+#   source-built torch which takes 4+ hours to compile.
+#
+#   Heavy packages (opencv, scikit-image) are fetched as pre-built wheels from PyPI
+#   to avoid lengthy C++ compilation (~30-60 mins each).
 #
 # Required version pins from requirements_base.txt:
 #   - diffusers==0.27.0: Newer versions have breaking API changes in embeddings.py
@@ -36,30 +40,65 @@
 let
   version = "2025-01-29"; # Based on commit date
 
-  # Force cudaSupport on UNSTABLE nixpkgs to fix tests AND get CUDA
-  # We use pkgs.unstable.path to re-import unstable with forced config
+  # Create a pkgs instance with cudaSupport enabled for torch-bin
+  # This ensures torch-bin pulls CUDA variant regardless of global config
   cudaPkgs =
     if cudaSupport then
-      import pkgs.unstable.path {
+      import pkgs.path {
         system = pkgs.stdenv.hostPlatform.system;
         config = pkgs.config // {
           cudaSupport = true;
         };
       }
     else
-      pkgs.unstable;
-
-  # Use Python 3.11 from the configured unstable set
-  python = cudaPkgs.python311;
-  pythonPkgs = python.pkgs;
+      pkgs;
 
   # ==========================================================================
-  # Pinned packages as standalone derivations (wheels from PyPI)
-  # These are layered on top of the base env, overriding nixpkgs versions
+  # Python with package overrides (CRITICAL for build performance)
+  # ==========================================================================
+  # Override packages at the package-set level to ensure ALL transitive
+  # dependencies use our preferred versions instead of pulling in nixpkgs
+  # versions that trigger expensive source builds.
+  #
+  # Key optimizations:
+  # 1. torch/torchvision → pre-built binaries (saves 4+ hours)
+  # 2. Pinned versions for API compatibility (diffusers, transformers, etc.)
+  # 3. Wheel packages for heavy C++ deps (opencv, imageio without pillow-heif)
+  #
+  # Without these overrides, packages like accelerate, peft, einops would pull
+  # in their own dependencies from nixpkgs, causing duplicate builds and
+  # incompatible version conflicts.
+  cudaPython = cudaPkgs.python311Packages.override {
+    overrides = pyFinal: pyPrev: {
+      # Pre-built ML frameworks (saves 4+ hours of compilation)
+      torch = pyPrev.torch-bin;
+      torchvision = pyPrev.torchvision-bin;
+
+      # Pinned packages - defined below, referenced here to override nixpkgs versions
+      # This ensures accelerate, peft, einops, etc. use OUR versions
+      diffusers = pinnedDiffusers pyFinal;
+      transformers = pinnedTransformers pyFinal;
+      huggingface-hub = pinnedHuggingfaceHub pyFinal;
+      tokenizers = pinnedTokenizers pyFinal;
+      protobuf = pinnedProtobuf pyFinal;
+
+      # imageio wheel without pillow-heif dep (pillow-heif pulls opencv-4.12.0)
+      imageio = pinnedImageio pyFinal;
+    };
+  };
+
+  # Use the overridden package set for all Python packages
+  python = cudaPython.python;
+  pythonPkgs = cudaPython;
+
+  # ==========================================================================
+  # Pinned packages as functions (for use in override)
+  # These are defined as functions taking pyPkgs to allow referencing in the
+  # cudaPython override above. This ensures transitive deps use our versions.
   # ==========================================================================
 
   # Protobuf 3.20.3 - mediapipe uses MessageFactory.GetPrototype() removed in 5.x
-  pinnedProtobuf = pythonPkgs.buildPythonPackage {
+  pinnedProtobuf = pyPkgs: pyPkgs.buildPythonPackage {
     pname = "protobuf";
     version = "3.20.3";
     format = "wheel";
@@ -73,7 +112,7 @@ let
   };
 
   # huggingface-hub 0.25.2 - last version with cached_download()
-  pinnedHuggingfaceHub = pythonPkgs.buildPythonPackage {
+  pinnedHuggingfaceHub = pyPkgs: pyPkgs.buildPythonPackage {
     pname = "huggingface-hub";
     version = "0.25.2";
     format = "wheel";
@@ -83,7 +122,7 @@ let
       hash = "sha256-GJfK+Izn+X/gEQYD2PZqwmTjumrM3zDNZswP7VKCrSU=";
     };
 
-    propagatedBuildInputs = with pythonPkgs; [
+    propagatedBuildInputs = with pyPkgs; [
       filelock
       fsspec
       packaging
@@ -97,7 +136,7 @@ let
   };
 
   # tokenizers 0.15.2 - required by transformers 4.36.2 (needs >=0.14,<0.19)
-  pinnedTokenizers = pythonPkgs.buildPythonPackage {
+  pinnedTokenizers = pyPkgs: pyPkgs.buildPythonPackage {
     pname = "tokenizers";
     version = "0.15.2";
     format = "wheel";
@@ -110,13 +149,13 @@ let
     nativeBuildInputs = [ pkgs.autoPatchelfHook ];
     buildInputs = [ pkgs.stdenv.cc.cc.lib ];
 
-    propagatedBuildInputs = [ pinnedHuggingfaceHub ];
+    propagatedBuildInputs = [ pyPkgs.huggingface-hub ]; # Uses override version
 
     doCheck = false;
   };
 
   # Transformers 4.36.2 - tested configuration matching diffusers 0.27.0
-  pinnedTransformers = pythonPkgs.buildPythonPackage {
+  pinnedTransformers = pyPkgs: pyPkgs.buildPythonPackage {
     pname = "transformers";
     version = "4.36.2";
     format = "wheel";
@@ -126,16 +165,16 @@ let
       hash = "sha256-RiBmxPdO5SUW8SiQ3MnscdGl6XmY22IWaEVRF6VDMPY=";
     };
 
-    propagatedBuildInputs = with pythonPkgs; [
+    propagatedBuildInputs = with pyPkgs; [
       filelock
-      pinnedHuggingfaceHub
+      huggingface-hub # Uses override version
       numpy
       packaging
       pyyaml
       regex
       requests
       safetensors
-      pinnedTokenizers
+      tokenizers # Uses override version
       tqdm
     ];
 
@@ -143,7 +182,7 @@ let
   };
 
   # Diffusers 0.27.0 - newer versions have breaking API changes
-  pinnedDiffusers = pythonPkgs.buildPythonPackage {
+  pinnedDiffusers = pyPkgs: pyPkgs.buildPythonPackage {
     pname = "diffusers";
     version = "0.27.0";
     format = "wheel";
@@ -153,10 +192,10 @@ let
       hash = "sha256-8mop7Eir7noJ/vPCB/9kjrOHE4+vjKE6YF85dgNsxww=";
     };
 
-    propagatedBuildInputs = with pythonPkgs; [
+    propagatedBuildInputs = with pyPkgs; [
       importlib-metadata
       filelock
-      pinnedHuggingfaceHub
+      huggingface-hub # Uses override version
       numpy
       regex
       requests
@@ -167,8 +206,27 @@ let
     doCheck = false;
   };
 
+  # imageio 2.36.1 wheel - avoids nixpkgs version that pulls pillow-heif → opencv
+  pinnedImageio = pyPkgs: pyPkgs.buildPythonPackage {
+    pname = "imageio";
+    version = "2.36.1";
+    format = "wheel";
+
+    src = pkgs.fetchurl {
+      url = "https://files.pythonhosted.org/packages/5c/f9/f78e7f5ac8077c481bf6b43b8bc736605363034b3d5eb3ce8eb79f53f5f1/imageio-2.36.1-py3-none-any.whl";
+      hash = "sha256-IKvSyuWOVcoa+Kjc9DKTM2pZrfA5HxkXv4UYYzz8LN8=";
+    };
+
+    propagatedBuildInputs = with pyPkgs; [
+      numpy
+      pillow
+    ];
+
+    doCheck = false;
+  };
+
   # ==========================================================================
-  # Custom packages not in nixpkgs
+  # Custom packages not in nixpkgs (use pythonPkgs after override is applied)
   # ==========================================================================
 
   # Mediapipe - Google's ML framework for face mesh detection (468 landmarks)
@@ -191,8 +249,8 @@ let
       flatbuffers
       matplotlib
       numpy
-      opencv4
-      pinnedProtobuf
+      pinnedOpencv # Use wheel instead of opencv4 to avoid source build
+      protobuf # Uses override version (pinnedProtobuf)
       sounddevice
     ];
 
@@ -239,28 +297,98 @@ let
   };
 
   # ==========================================================================
-  # Python environment - uses cached binaries from nixpkgs where possible
-  # Pinned packages are added explicitly to override nixpkgs versions
+  # Heavy packages as wheels (avoids 30-60 min source builds each)
   # ==========================================================================
+
+  # OpenCV-Python-Headless - pre-built wheel avoids 30-60 min C++ compilation
+  # Using headless variant since PersonaLive doesn't need GUI windows
+  pinnedOpencv = pythonPkgs.buildPythonPackage {
+    pname = "opencv-python-headless";
+    version = "4.9.0.80";
+    format = "wheel";
+
+    src = pkgs.fetchurl {
+      url = "https://files.pythonhosted.org/packages/71/19/3c65483a80a1d062d46ae20faf5404712d25cb1dfdcaf371efbd67c38544/opencv_python_headless-4.9.0.80-cp37-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl";
+      hash = "sha256-l2ZWNi1o2fQKXGb4OQFDBTgAJGX321kUJ4TziTkY898=";
+    };
+
+    nativeBuildInputs = [ pkgs.autoPatchelfHook ];
+    buildInputs = [
+      pkgs.stdenv.cc.cc.lib
+      pkgs.libGL
+      pkgs.glib
+      pkgs.xorg.libX11
+      pkgs.xorg.libXext
+    ];
+
+    propagatedBuildInputs = with pythonPkgs; [ numpy ];
+
+    doCheck = false;
+    dontCheckRuntimeDeps = true;
+  };
+
+  # Scikit-image - pre-built wheel avoids source build and broken pytest-doctestplus
+  # The nixpkgs version pulls in astropy → pytest-doctestplus which has numpy compat issues
+  pinnedSkimage = pythonPkgs.buildPythonPackage {
+    pname = "scikit-image";
+    version = "0.24.0";
+    format = "wheel";
+
+    src = pkgs.fetchurl {
+      url = "https://files.pythonhosted.org/packages/ad/96/138484302b8ec9a69cdf65e8d4ab47a640a3b1a8ea3c437e1da3e1a5a6b8/scikit_image-0.24.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl";
+      hash = "sha256-+iezoNutgHuWa42y142nNMuBLKR4f3+7FDdkgAzi+pw=";
+    };
+
+    nativeBuildInputs = [ pkgs.autoPatchelfHook ];
+    buildInputs = [ pkgs.stdenv.cc.cc.lib ];
+
+    propagatedBuildInputs = with pythonPkgs; [
+      numpy
+      scipy
+      networkx
+      pillow
+      imageio # Uses override version (pinnedImageio) - no pillow-heif dep
+      tifffile
+      packaging
+      lazy-loader
+    ];
+
+    doCheck = false;
+    dontCheckRuntimeDeps = true;
+  };
+
+  # ==========================================================================
+  # Python environment - uses overridden package set
+  # ==========================================================================
+  # Key optimization: We use pythonPkgs (cudaPython with overrides) directly
+  # instead of `ps` from withPackages. This ensures ALL packages that depend
+  # on torch, transformers, diffusers, etc. automatically use our overridden
+  # versions, eliminating duplicate builds and version conflicts.
+  #
+  # Packages like accelerate, peft, einops now get:
+  # - torch-bin instead of source-built torch
+  # - pinnedTransformers instead of nixpkgs transformers
+  # - pinnedDiffusers instead of nixpkgs diffusers
+  # - pinnedImageio instead of nixpkgs imageio (which pulls pillow-heif → opencv)
   pythonEnv = python.withPackages (
-    ps: with ps; [
-      # Core ML frameworks - use pre-built binaries
-      torch-bin
-      torchvision-bin
-      accelerate
+    _: with pythonPkgs; [
+      # Core ML frameworks - resolved to torch-bin via override
+      torch # Resolves to torch-bin via cudaPython override
+      torchvision # Resolves to torchvision-bin via cudaPython override
+      accelerate # Now uses torch-bin and pinnedTransformers via override chain
       # xformers removed: requires specific PyTorch version
 
-      # Diffusion models - PINNED versions
-      pinnedDiffusers
-      pinnedTransformers
-      peft
+      # Diffusion models - use override versions automatically
+      diffusers # Resolves to pinnedDiffusers via override
+      transformers # Resolves to pinnedTransformers via override
+      peft # Now uses torch-bin and pinnedTransformers via override chain
       einops
       safetensors
 
-      # Computer vision - from binary cache
-      opencv4
+      # Computer vision - wheels to avoid source builds
+      pinnedOpencv # Replaces opencv4 - avoids 30-60 min C++ build
       pillow
-      scikit-image
+      pinnedSkimage # Replaces scikit-image - uses pinnedImageio, avoids opencv dep
       pinnedMediapipe
 
       # Video processing
@@ -276,7 +404,7 @@ let
 
       # Configuration & utilities
       omegaconf
-      pinnedHuggingfaceHub
+      huggingface-hub # Resolves to pinnedHuggingfaceHub via override
       tqdm
       numpy
       pinnedMarkdown2
@@ -285,8 +413,9 @@ let
       requests
 
       # Explicit pinned packages to ensure they're used
-      pinnedProtobuf
-      pinnedTokenizers
+      protobuf # Resolves to pinnedProtobuf via override
+      tokenizers # Resolves to pinnedTokenizers via override
+      imageio # Resolves to pinnedImageio via override
     ]
   );
 
@@ -533,12 +662,14 @@ stdenv.mkDerivation {
               ]
             } \
             ${lib.optionalString stdenv.isLinux "--prefix LD_LIBRARY_PATH : ${lib.makeLibraryPath [ pkgs.libv4l ]}"} \
-            --prefix LD_LIBRARY_PATH : ${
-              lib.makeLibraryPath [
-                pkgs.cudaPackages.cudatoolkit
-                pkgs.cudaPackages.cudnn
-              ]
-            }:/run/opengl-driver/lib
+            ${lib.optionalString cudaSupport ''
+              --prefix LD_LIBRARY_PATH : ${
+                lib.makeLibraryPath [
+                  cudaPkgs.cudaPackages.cudatoolkit
+                  cudaPkgs.cudaPackages.cudnn
+                ]
+              }:/run/opengl-driver/lib \
+            ''}
         done
 
         runHook postInstall
