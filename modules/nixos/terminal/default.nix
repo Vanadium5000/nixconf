@@ -50,6 +50,42 @@
 
       security.polkit.enable = true;
 
+      # =========================================================================
+      # Out-Of-Memory Daemon (systemd-oomd) Configuration
+      # =========================================================================
+      # Prevents system freezes by proactively killing memory-hungry processes
+      # before the kernel's OOM killer kicks in (which is more disruptive).
+      #
+      # Kill priority (first to last):
+      #   1. Build processes (nix-daemon) - restartable, often spawns 100+ compilers
+      #   2. Background services - less critical
+      #   3. User session (desktop) - protected, killing is very disruptive
+
+      systemd.oomd = {
+        enable = true;
+        enableRootSlice = true; # Monitor root slice for comprehensive coverage
+        enableSystemSlice = true; # System services including nix-daemon
+        enableUserSlices = true; # User sessions and applications
+        extraConfig = {
+          SwapUsedLimit = "90%"; # Start killing at 90% swap usage
+          DefaultMemoryPressureDurationSec = "20s"; # 20s sustained pressure before kill
+        };
+      };
+
+      # Configure nix-daemon as primary kill target under memory pressure
+      # During builds, nix spawns many child processes (compilers, linkers, etc.)
+      # that consume large amounts of RAM. Killing builds is safe - they restart.
+      systemd.services.nix-daemon.serviceConfig = {
+        ManagedOOMMemoryPressure = "kill"; # Enable pressure-based killing
+        ManagedOOMMemoryPressureLimit = "50%"; # Kill early to prevent cascade
+      };
+
+      # Protect user graphical session from being killed
+      # Desktop compositor and apps should survive memory pressure events
+      systemd.slices.user.sliceConfig = {
+        ManagedOOMPreference = "avoid"; # oomd will try to avoid killing this slice
+      };
+
       security.wrappers.pkexec = {
         # Enable the setuid bit → this is the critical part that makes pkexec actually work
         # Without this you get the famous "pkexec must be setuid root" error

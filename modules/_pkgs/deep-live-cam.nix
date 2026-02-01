@@ -32,7 +32,6 @@ let
 
   # Build custom Python packages not in nixpkgs
   # Override python to fix upstream test failures and avoid heavy transitive deps
-  # Using Python 3.12 for pre-built insightface wheel availability
   python = cudaPkgs.python312.override {
     packageOverrides = self: super: {
       # imageio pulls astropy as optional dep - astropy uses 30GB RAM to build
@@ -127,34 +126,53 @@ let
     doCheck = false;
   };
 
-  # Insightface - face analysis library (pre-built wheel to avoid Cython compilation)
-  # Source: https://huggingface.co/AlienMachineAI/insightface-0.7.3-cp312-cp312-linux_x86_64.whl
-  # Built on Ubuntu Studio for Python 3.12 - SHA1: f1002aa0c3c23b4fcea879dde815981de5fb8024
-  insightface = python.pkgs.buildPythonPackage {
+  # Insightface - face analysis library (built from source for numpy 2.x compatibility)
+  # Pre-built wheels are compiled against numpy 1.x which causes ABI incompatibility:
+  # "numpy.dtype size changed, may indicate binary incompatibility. Expected 96, got 88"
+  insightface = python.pkgs.buildPythonPackage rec {
     pname = "insightface";
     version = "0.7.3";
-    format = "wheel";
+    format = "setuptools";
 
-    src = pkgs.fetchurl {
-      url = "https://huggingface.co/AlienMachineAI/insightface-0.7.3-cp312-cp312-linux_x86_64.whl/resolve/main/insightface-0.7.3-cp312-cp312-linux_x86_64.whl";
-      hash = "sha256-CgyAk67CAb2W8gA+9Tu/dOu6qqz32os0+VdCIGPCqCU=";
+    src = pkgs.fetchPypi {
+      inherit pname version;
+      hash = "sha256-8ZH3GWEuuzcBj0GTaBRQBUTND4bm/NZ2wCPzVMZo3fc=";
     };
+
+    nativeBuildInputs = [
+      python.pkgs.cython
+    ];
+
+    buildInputs = [
+      # Required for Cython compilation of mesh_core_cython
+      python.pkgs.numpy
+    ];
 
     propagatedBuildInputs = with python.pkgs; [
       numpy
       onnx
+      onnxruntime
       pillow
       requests
       scipy
       scikit-learn
+      scikit-image
       matplotlib
       easydict
       albumentations
       prettytable
       tqdm
+      cython
     ];
 
+    # Build requires numpy headers
+    preBuild = ''
+      export CFLAGS="-I${python.pkgs.numpy}/${python.sitePackages}/numpy/_core/include"
+    '';
+
     doCheck = false;
+
+    pythonImportsCheck = [ "insightface" ];
   };
 
   # CV2 Enumerate Cameras (wheel format - pure python)
@@ -244,6 +262,14 @@ stdenv.mkDerivation {
     # Ensure the app can find ffmpeg
     substituteInPlace modules/processors/frame/core.py \
       --replace-quiet "ffmpeg" "${pkgs.ffmpeg}/bin/ffmpeg" || true
+
+    # Remove TensorFlow dependency - it's only used for GPU memory management
+    # which is optional (PyTorch/ONNX handle their own memory)
+    # This saves ~2GB of dependencies
+    substituteInPlace modules/core.py \
+      --replace-fail "import tensorflow" "tensorflow = None  # Patched out - not needed for ONNX/PyTorch" \
+      --replace-fail "gpus = tensorflow.config.experimental.list_physical_devices('GPU')" "gpus = []  # TensorFlow patched out" \
+      --replace-fail "tensorflow.config.experimental.set_memory_growth(gpu, True)" "pass  # TensorFlow patched out"
   '';
 
   installPhase = ''
@@ -274,16 +300,34 @@ stdenv.mkDerivation {
     WORK_DIR="$CACHE_DIR/runtime"
     mkdir -p "$WORK_DIR"
 
-    # Symlink models directory into working dir
-    if [ ! -L "$WORK_DIR/models" ]; then
-      ln -sf "$MODELS_DIR" "$WORK_DIR/models"
+    # Copy app files if not present or version changed
+    INSTALLED_VERSION=""
+    [ -f "$WORK_DIR/.version" ] && INSTALLED_VERSION=$(cat "$WORK_DIR/.version")
+    
+    if [ ! -f "$WORK_DIR/run.py" ] || [ "$INSTALLED_VERSION" != "@version@" ]; then
+      # Remove old runtime to ensure clean state
+      # Files from Nix store are read-only, need to fix permissions first
+      [ -d "$WORK_DIR" ] && chmod -R u+w "$WORK_DIR" 2>/dev/null || true
+      rm -rf "$WORK_DIR"
+      mkdir -p "$WORK_DIR"
+      
+      # Copy app files and make writable (Nix store files are read-only)
+      cp -r @out@/lib/deep-live-cam/* "$WORK_DIR/"
+      chmod -R u+w "$WORK_DIR"
+      rm -rf "$WORK_DIR/models"
+      
+      # Track installed version
+      echo "@version@" > "$WORK_DIR/.version"
     fi
 
-    # Copy app files if not present (for locales, etc.)
-    if [ ! -f "$WORK_DIR/run.py" ]; then
-      cp -r @out@/lib/deep-live-cam/* "$WORK_DIR/"
-      # Make models a symlink again (cp overwrites it)
-      rm -rf "$WORK_DIR/models"
+    # Ensure models symlink exists and points to user cache
+    # Remove if it's a directory or broken symlink, then recreate
+    if [ -e "$WORK_DIR/models" ] || [ -L "$WORK_DIR/models" ]; then
+      if [ ! -L "$WORK_DIR/models" ] || [ "$(readlink "$WORK_DIR/models")" != "$MODELS_DIR" ]; then
+        rm -rf "$WORK_DIR/models"
+        ln -sf "$MODELS_DIR" "$WORK_DIR/models"
+      fi
+    else
       ln -sf "$MODELS_DIR" "$WORK_DIR/models"
     fi
 
@@ -293,7 +337,8 @@ stdenv.mkDerivation {
 
     substituteInPlace $out/bin/deep-live-cam \
       --replace "@out@" "$out" \
-      --replace "@pythonEnv@" "${pythonEnv}"
+      --replace "@pythonEnv@" "${pythonEnv}" \
+      --replace "@version@" "${version}"
 
     chmod +x $out/bin/deep-live-cam
 
