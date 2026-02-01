@@ -22,7 +22,7 @@ let
   cudaPkgs =
     if cudaSupport then
       import pkgs.path {
-        inherit (pkgs) system;
+        system = pkgs.stdenv.hostPlatform.system;
         config = pkgs.config // {
           cudaSupport = true;
         };
@@ -32,7 +32,8 @@ let
 
   # Build custom Python packages not in nixpkgs
   # Override python to fix upstream test failures in transitive deps
-  python = cudaPkgs.python311.override {
+  # Using Python 3.12 for pre-built insightface wheel availability
+  python = cudaPkgs.python312.override {
     packageOverrides = self: super: {
       # pytest-doctestplus tests fail with newer numpy (AttributeError: 'numpy.ufunc' has no __code__)
       # This is a transitive dep via imageio → astropy → pytest-doctestplus
@@ -107,21 +108,18 @@ let
     doCheck = false;
   };
 
-  # Insightface - face analysis library
-  insightface = python.pkgs.buildPythonPackage rec {
+  # Insightface - face analysis library (pre-built wheel to avoid Cython compilation)
+  # Source: https://huggingface.co/AlienMachineAI/insightface-0.7.3-cp312-cp312-linux_x86_64.whl
+  # Built on Ubuntu Studio for Python 3.12 - SHA1: f1002aa0c3c23b4fcea879dde815981de5fb8024
+  insightface = python.pkgs.buildPythonPackage {
     pname = "insightface";
     version = "0.7.3";
-    format = "setuptools";
+    format = "wheel";
 
-    src = pkgs.fetchPypi {
-      inherit pname version;
-      hash = "sha256-8ZH3GWEuuzcBj0GTaBRQBUTND4bm/NZ2wCPzVMZo3fc=";
+    src = pkgs.fetchurl {
+      url = "https://huggingface.co/AlienMachineAI/insightface-0.7.3-cp312-cp312-linux_x86_64.whl/resolve/main/insightface-0.7.3-cp312-cp312-linux_x86_64.whl";
+      hash = "sha256-CgyAk67CAb2W8gA+9Tu/dOu6qqz32os0+VdCIGPCqCU=";
     };
-
-    nativeBuildInputs = [
-      python.pkgs.cython
-      python.pkgs.setuptools
-    ];
 
     propagatedBuildInputs = with python.pkgs; [
       numpy
@@ -137,13 +135,7 @@ let
       tqdm
     ];
 
-    # Skip tests - require model downloads
     doCheck = false;
-
-    # Disable Cython compilation issues
-    preBuild = ''
-      export INSIGHTFACE_USE_CYTHON=0
-    '';
   };
 
   # CV2 Enumerate Cameras (wheel format - pure python)

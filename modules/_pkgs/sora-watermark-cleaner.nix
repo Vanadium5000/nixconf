@@ -17,7 +17,7 @@ let
   cudaPkgs =
     if cudaSupport then
       import pkgs.path {
-        inherit (pkgs) system;
+       system = pkgs.stdenv.hostPlatform.system;
         config = pkgs.config // {
           cudaSupport = true;
         };
