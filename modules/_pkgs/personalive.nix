@@ -640,6 +640,14 @@ stdenv.mkDerivation {
       npm run build
     fi
 
+    # Generate self-signed SSL certificate for Secure Context (required for webcam access)
+    # Browsers block navigator.mediaDevices (webcam) on insecure contexts (http://)
+    if [ ! -f "$WORK_DIR/cert.pem" ] || [ ! -f "$WORK_DIR/key.pem" ]; then
+      echo "Generating self-signed SSL certificate for Secure Context..."
+      openssl req -x509 -newkey rsa:4096 -keyout "$WORK_DIR/key.pem" -out "$WORK_DIR/cert.pem" \
+        -days 365 -nodes -subj "/CN=localhost" 2>/dev/null
+    fi
+
     # Pre-flight check for model weights
     check_weights() {
       local missing=""
@@ -664,12 +672,18 @@ stdenv.mkDerivation {
 
     cd "$WORK_DIR"
 
+    # SSL args for Secure Context
+    SSL_ARGS="--ssl-certfile $WORK_DIR/cert.pem --ssl-keyfile $WORK_DIR/key.pem"
+
+    echo "Starting PersonaLive with SSL (required for webcam)..."
+    echo "URL: https://0.0.0.0:7860 (Accept the self-signed certificate warning)"
+
     # Default to no acceleration (xformers incompatible with torch-bin 2.9.x)
     # User can override with --acceleration xformers if they have compatible setup
     if [[ ! " $* " =~ " --acceleration " ]]; then
-      exec @pythonEnv@/bin/python inference_online.py --acceleration none "$@"
+      exec @pythonEnv@/bin/python inference_online.py $SSL_ARGS --acceleration none "$@"
     else
-      exec @pythonEnv@/bin/python inference_online.py "$@"
+      exec @pythonEnv@/bin/python inference_online.py $SSL_ARGS "$@"
     fi
     WRAPPER
 
@@ -721,6 +735,7 @@ stdenv.mkDerivation {
               lib.makeBinPath [
                 pkgs.ffmpeg
                 pkgs.nodejs_22
+                pkgs.openssl
               ]
             } \
             ${lib.optionalString stdenv.isLinux "--prefix LD_LIBRARY_PATH : ${lib.makeLibraryPath [ pkgs.libv4l ]}"} \

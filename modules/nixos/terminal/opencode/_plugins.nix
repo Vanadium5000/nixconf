@@ -7,7 +7,6 @@
     "@mohak34/opencode-notifier@latest" # Desktop notifications
     "opencode-todo-reminder@latest" # Todo continuation and auto-submit
     "@tarquinen/opencode-dcp@latest" # Context trimming (Dynamic Context Pruning)
-    "opencode-wakatime@latest" # Time tracking
     "opencode-helicone-session@latest" # LLM observability
   ];
 }
