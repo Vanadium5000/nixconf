@@ -399,6 +399,16 @@ pkgs.writeShellApplication {
           set -e
           ;;
 
+        "personalive")
+          # Skip - complex PyTorch ecosystem pins (wheels, CUDA overrides)
+          # Requires manual updates for compatibility between:
+          # - transformers/diffusers versions
+          # - numpy/opencv versions
+          # - torch/accelerate platform tags
+          echo "    Skipping personalive (manual update required for complex pins)"
+          SKIPPED+=("$pkg")
+          ;;
+
         *)
           # Default: try nix-update first, fallback to multi-source
           set +e
