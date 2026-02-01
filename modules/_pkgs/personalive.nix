@@ -84,6 +84,16 @@ let
 
       # imageio wheel without pillow-heif dep (pillow-heif pulls opencv-4.12.0)
       imageio = pinnedImageio pyFinal;
+
+      # accelerate wheel - nixpkgs version fails tests in sandbox (torch.inductor error)
+      accelerate = pinnedAccelerate pyFinal;
+
+      # peft 0.8.2 - compatible with transformers 4.36.2 (newer versions need EncoderDecoderCache from 4.39+)
+      peft = pinnedPeft pyFinal;
+
+      # pydevd - debugger that fails tests in sandbox (subprocess issues)
+      # Pulled in via omegaconf, not needed at runtime
+      pydevd = pyPrev.pydevd.overridePythonAttrs { doCheck = false; };
     };
   };
 
@@ -220,6 +230,57 @@ let
     propagatedBuildInputs = with pyPkgs; [
       numpy
       pillow
+    ];
+
+    doCheck = false;
+  };
+
+  # accelerate 1.11.0 wheel - nixpkgs version fails tests in sandbox (torch.inductor error)
+  pinnedAccelerate = pyPkgs: pyPkgs.buildPythonPackage {
+    pname = "accelerate";
+    version = "1.11.0";
+    format = "wheel";
+
+    src = pkgs.fetchurl {
+      url = "https://files.pythonhosted.org/packages/77/85/85951bc0f9843e2c10baaa1b6657227056095de08f4d1eea7d8b423a6832/accelerate-1.11.0-py3-none-any.whl";
+      hash = "sha256-pij6a+sGm45UlGD8RJE11b2Nc+ehH9CfC8n8Ss5/BvE=";
+    };
+
+    propagatedBuildInputs = with pyPkgs; [
+      numpy
+      packaging
+      psutil
+      pyyaml
+      torch # Uses override version (torch-bin)
+      huggingface-hub # Uses override version
+      safetensors
+    ];
+
+    doCheck = false;
+  };
+
+  # peft 0.8.2 - compatible with transformers 4.36.2
+  # Newer versions (0.14+) require EncoderDecoderCache which was added in transformers 4.39+
+  pinnedPeft = pyPkgs: pyPkgs.buildPythonPackage {
+    pname = "peft";
+    version = "0.8.2";
+    format = "wheel";
+
+    src = pkgs.fetchurl {
+      url = "https://files.pythonhosted.org/packages/07/63/168af5aa8dbda9c23ad774a4c1d311cfe220c634e0d05a3a82a7cae01bd8/peft-0.8.2-py3-none-any.whl";
+      hash = "sha256-SpyBw45on9QEOydXzQ4rUmqbi4/QT4RC3yxIJLMsJQU=";
+    };
+
+    propagatedBuildInputs = with pyPkgs; [
+      numpy
+      packaging
+      psutil
+      pyyaml
+      torch # Uses override version (torch-bin)
+      transformers # Uses override version (pinnedTransformers)
+      huggingface-hub # Uses override version
+      safetensors
+      accelerate # Uses override version (pinnedAccelerate)
     ];
 
     doCheck = false;
