@@ -29,6 +29,9 @@ Singleton {
     property bool panelVisible: false
     property real soundVolume: 0.5
 
+    // Popup timeout settings (in milliseconds)
+    property int defaultPopupTimeout: 7000  // 7s default for timeout=-1 notifications
+
     // Ding sound settings per urgency level
     property var dingSoundSettings: ({
         "low": false,
@@ -178,6 +181,7 @@ Singleton {
                 identifier: a.identifier,
                 text: a.text
             })) : [],
+            popupExpiresAt: null,  // Set when notification becomes a popup
             get timeAgo() {
                 const now = new Date()
                 const diff = Math.floor((now - this.time) / 1000)
@@ -185,6 +189,11 @@ Singleton {
                 if (diff < 3600) return Math.floor(diff / 60) + "m"
                 if (diff < 86400) return Math.floor(diff / 3600) + "h"
                 return Math.floor(diff / 86400) + "d"
+            },
+            get secondsRemaining() {
+                if (!this.popupExpiresAt) return -1
+                const remaining = Math.ceil((this.popupExpiresAt.getTime() - Date.now()) / 1000)
+                return Math.max(0, remaining)
             }
         }
     }
@@ -218,12 +227,18 @@ Singleton {
                 new Date()
             )
 
-            // Set up popup timeout
+            // Set up popup expiry time based on notification's timeout
+            // expireTimeout: -1 = use server default, 0 = never expire, >0 = ms
             if (wrapper.isPopup) {
-                Qt.callLater(() => {
-                    popupTimer.notifId = newId
-                    popupTimer.restart()
-                })
+                const expireTimeout = notification.expireTimeout
+                if (expireTimeout === 0) {
+                    // Explicit "never expire" - no auto-dismiss, stays until manual action
+                    wrapper.popupExpiresAt = null
+                } else {
+                    // Use notification timeout if positive, otherwise use default (7s)
+                    const timeout = (expireTimeout > 0) ? expireTimeout : root.defaultPopupTimeout
+                    wrapper.popupExpiresAt = new Date(Date.now() + timeout)
+                }
             }
 
             root.notifications = [wrapper, ...root.notifications]
@@ -236,18 +251,26 @@ Singleton {
         }
     }
 
+    // Periodic timer to check popup expiry and refresh time displays
     Timer {
-        id: popupTimer
-        property int notifId: -1
-        interval: 7000
+        id: popupExpiryChecker
+        interval: 1000  // Check every second
+        running: true
+        repeat: true
         onTriggered: {
-            if (notifId >= 0) {
-                const index = root.notifications.findIndex(n => n.id === notifId)
-                if (index !== -1) {
-                    root.notifications[index].isPopup = false
-                    root.notifications = root.notifications.slice()
+            const now = Date.now()
+            let changed = false
+
+            root.notifications.forEach(n => {
+                // Check if popup has expired (only if popupExpiresAt is set)
+                if (n.isPopup && n.popupExpiresAt && now >= n.popupExpiresAt.getTime()) {
+                    n.isPopup = false
+                    changed = true
                 }
-            }
+            })
+
+            // Always trigger reactivity to update timeAgo/secondsRemaining displays
+            root.notifications = root.notifications.slice()
         }
     }
 

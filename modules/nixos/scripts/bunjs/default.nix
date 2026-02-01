@@ -241,42 +241,83 @@
         ];
       };
 
-      packages.vpn-resolver = inputs.wrappers.lib.makeWrapper {
-        inherit pkgs;
-        package =
-          let
-            vpnProxyEnv = pkgs.runCommandLocal "vpn-proxy-env" { } ''
-              mkdir -p $out
-              cp ${./vpn-resolver.ts} $out/vpn-resolver.ts
-              cp ${./vpn-proxy.ts} $out/vpn-proxy.ts
-              cp ${./vpn-proxy-cleanup.ts} $out/vpn-proxy-cleanup.ts
-              cp ${./vpn-proxy-netns.sh} $out/vpn-proxy-netns.sh
-            '';
-          in
-          pkgs.writeShellScriptBin "vpn-resolver" ''
-            exec ${pkgs.bun}/bin/bun run ${vpnProxyEnv}/vpn-resolver.ts "$@"
+      # ========================================================================
+      # VPN Proxy Packages
+      # All proxy-related TypeScript files are in ./proxy/ subdirectory
+      # ========================================================================
+
+      packages.vpn-resolver =
+        let
+          # Bundle all proxy files together since they import each other
+          proxyEnv = pkgs.runCommandLocal "proxy-env" { } ''
+            mkdir -p $out
+            cp ${./proxy/vpn-resolver.ts} $out/vpn-resolver.ts
+            cp ${./proxy/shared.ts} $out/shared.ts
+            cp ${./proxy/socks5-proxy.ts} $out/socks5-proxy.ts
+            cp ${./proxy/http-proxy.ts} $out/http-proxy.ts
+            cp ${./proxy/cleanup.ts} $out/cleanup.ts
+            cp ${./proxy/netns.sh} $out/netns.sh
           '';
-        runtimeInputs = [
-          pkgs.bun
-          pkgs.coreutils
-        ];
-      };
+        in
+        inputs.wrappers.lib.makeWrapper {
+          inherit pkgs;
+          package = pkgs.writeShellScriptBin "vpn-resolver" ''
+            exec ${pkgs.bun}/bin/bun run ${proxyEnv}/vpn-resolver.ts "$@"
+          '';
+          runtimeInputs = [
+            pkgs.bun
+            pkgs.coreutils
+          ];
+        };
 
       packages.vpn-proxy =
         let
-          vpnProxyEnv = pkgs.runCommandLocal "vpn-proxy-env" { } ''
+          proxyEnv = pkgs.runCommandLocal "proxy-env" { } ''
             mkdir -p $out
-            cp ${./vpn-resolver.ts} $out/vpn-resolver.ts
-            cp ${./vpn-proxy.ts} $out/vpn-proxy.ts
-            cp ${./vpn-proxy-cleanup.ts} $out/vpn-proxy-cleanup.ts
-            cp ${./vpn-proxy-netns.sh} $out/vpn-proxy-netns.sh
+            cp ${./proxy/vpn-resolver.ts} $out/vpn-resolver.ts
+            cp ${./proxy/shared.ts} $out/shared.ts
+            cp ${./proxy/socks5-proxy.ts} $out/socks5-proxy.ts
+            cp ${./proxy/http-proxy.ts} $out/http-proxy.ts
+            cp ${./proxy/cleanup.ts} $out/cleanup.ts
+            cp ${./proxy/netns.sh} $out/netns.sh
           '';
         in
         inputs.wrappers.lib.makeWrapper {
           inherit pkgs;
           package = pkgs.writeShellScriptBin "vpn-proxy" ''
-            export VPN_PROXY_NETNS_SCRIPT="${vpnProxyEnv}/vpn-proxy-netns.sh"
-            exec ${pkgs.bun}/bin/bun run ${vpnProxyEnv}/vpn-proxy.ts "$@"
+            export VPN_PROXY_NETNS_SCRIPT="${proxyEnv}/netns.sh"
+            exec ${pkgs.bun}/bin/bun run ${proxyEnv}/socks5-proxy.ts "$@"
+          '';
+          runtimeInputs = [
+            pkgs.bun
+            pkgs.iproute2
+            pkgs.iptables
+            pkgs.nftables
+            pkgs.openvpn
+            pkgs.microsocks
+            pkgs.libnotify
+            pkgs.jq
+            pkgs.coreutils
+          ];
+        };
+
+      packages.http-proxy =
+        let
+          proxyEnv = pkgs.runCommandLocal "proxy-env" { } ''
+            mkdir -p $out
+            cp ${./proxy/vpn-resolver.ts} $out/vpn-resolver.ts
+            cp ${./proxy/shared.ts} $out/shared.ts
+            cp ${./proxy/socks5-proxy.ts} $out/socks5-proxy.ts
+            cp ${./proxy/http-proxy.ts} $out/http-proxy.ts
+            cp ${./proxy/cleanup.ts} $out/cleanup.ts
+            cp ${./proxy/netns.sh} $out/netns.sh
+          '';
+        in
+        inputs.wrappers.lib.makeWrapper {
+          inherit pkgs;
+          package = pkgs.writeShellScriptBin "http-proxy" ''
+            export VPN_PROXY_NETNS_SCRIPT="${proxyEnv}/netns.sh"
+            exec ${pkgs.bun}/bin/bun run ${proxyEnv}/http-proxy.ts "$@"
           '';
           runtimeInputs = [
             pkgs.bun
@@ -292,23 +333,25 @@
         };
 
       packages.vpn-proxy-netns = pkgs.writeShellScriptBin "vpn-proxy-netns" ''
-        exec ${pkgs.bash}/bin/bash ${./vpn-proxy-netns.sh} "$@"
+        exec ${pkgs.bash}/bin/bash ${./proxy/netns.sh} "$@"
       '';
 
       packages.vpn-proxy-cleanup =
         let
-          vpnProxyEnv = pkgs.runCommandLocal "vpn-proxy-env" { } ''
+          proxyEnv = pkgs.runCommandLocal "proxy-env" { } ''
             mkdir -p $out
-            cp ${./vpn-resolver.ts} $out/vpn-resolver.ts
-            cp ${./vpn-proxy.ts} $out/vpn-proxy.ts
-            cp ${./vpn-proxy-cleanup.ts} $out/vpn-proxy-cleanup.ts
-            cp ${./vpn-proxy-netns.sh} $out/vpn-proxy-netns.sh
+            cp ${./proxy/vpn-resolver.ts} $out/vpn-resolver.ts
+            cp ${./proxy/shared.ts} $out/shared.ts
+            cp ${./proxy/socks5-proxy.ts} $out/socks5-proxy.ts
+            cp ${./proxy/http-proxy.ts} $out/http-proxy.ts
+            cp ${./proxy/cleanup.ts} $out/cleanup.ts
+            cp ${./proxy/netns.sh} $out/netns.sh
           '';
         in
         inputs.wrappers.lib.makeWrapper {
           inherit pkgs;
           package = pkgs.writeShellScriptBin "vpn-proxy-cleanup" ''
-            exec ${pkgs.bun}/bin/bun run ${vpnProxyEnv}/vpn-proxy-cleanup.ts "$@"
+            exec ${pkgs.bun}/bin/bun run ${proxyEnv}/cleanup.ts "$@"
           '';
           runtimeInputs = [
             pkgs.bun

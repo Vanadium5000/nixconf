@@ -40,11 +40,11 @@
         self.nixosModules.virtualisation
         self.nixosModules.unison
 
-        # VPN SOCKS5 Proxy Service
+        # VPN Proxy Services (SOCKS5 + HTTP CONNECT)
         self.nixosModules.vpn-proxy-service
       ];
 
-      # VPN SOCKS5 Proxy
+      # VPN Proxy (SOCKS5 on :10800, HTTP CONNECT on :10801)
       services.vpn-proxy.enable = true;
 
       security.polkit.enable = true;

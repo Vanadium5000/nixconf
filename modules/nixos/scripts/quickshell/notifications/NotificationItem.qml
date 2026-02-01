@@ -115,9 +115,15 @@ GlassPanel {
                 elide: Text.ElideRight
             }
 
-            // Time ago
+            // Time ago + remaining for popups
             Text {
-                text: root.notification.timeAgo || "now"
+                text: {
+                    const ago = root.notification.timeAgo || "now"
+                    if (root.isPopup && root.notification.secondsRemaining >= 0) {
+                        return ago + " • " + root.notification.secondsRemaining + "s"
+                    }
+                    return ago
+                }
                 font.family: Theme.glass.fontFamily
                 font.pixelSize: Theme.glass.fontSizeSmall
                 color: Theme.glass.textTertiary
