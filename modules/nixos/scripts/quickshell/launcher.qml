@@ -133,7 +133,8 @@ Scope {
                                 if (root.mode === "calc") {
                                     // Copy result to clipboard
                                     if (calcResult.text !== "") {
-                                        var proc = Qt.createQmlObject('import Quickshell.Io; Process { command: ["wl-copy", "' + calcResult.text + '"]; running: true }', root);
+                                        clipboardCopier.command = ["wl-copy", "--type", "text/plain", calcResult.text];
+                                        clipboardCopier.running = true;
                                         Qt.quit();
                                     }
                                 } else {
@@ -150,7 +151,25 @@ Scope {
                                 if (root.mode === "app") {
                                     root.filterApps();
                                 } else if (root.mode === "calc") {
-                                    var expr = text.substring(1).trim();
+                                    runCalculation();
+                                }
+                            }
+
+                            // Recalculate when mode changes to calc (e.g., user inserts "=" at start)
+                            Connections {
+                                target: root
+                                function onModeChanged() {
+                                    if (root.mode === "calc") {
+                                        searchInput.runCalculation();
+                                    }
+                                }
+                            }
+
+                            function runCalculation() {
+                                // Find "=" anywhere in text and use everything after it
+                                var eqIndex = text.indexOf("=");
+                                if (eqIndex >= 0) {
+                                    var expr = text.substring(eqIndex + 1).trim();
                                     if (expr.length > 0) {
                                         calcRunner.command = ["qalc", "-t", expr];
                                         calcRunner.running = true;
@@ -348,6 +367,11 @@ Scope {
             id: runner
             running: false
             onExited: Qt.quit()
+        }
+
+        Process {
+            id: clipboardCopier
+            running: false
         }
     }
 }

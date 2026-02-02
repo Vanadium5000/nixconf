@@ -696,22 +696,30 @@
             fi
 
             # Show menu with keybind support
-            SELECTION=$(echo -e "$MENU_ENTRIES" | qs-dmenu -p "VPN" -mesg "Press Alt+K to copy SOCKS5 proxy link (auto-activates on use)" -keybinds '{"alt+k":"copy-proxy"}')
+            SELECTION=$(echo -e "$MENU_ENTRIES" | qs-dmenu -p "VPN" -mesg "Alt+K: SOCKS5 proxy | Alt+Shift+K: HTTP proxy" -keybinds '{"alt+k":"copy-socks5","alt+shift+k":"copy-http"}')
 
             [ -z "$SELECTION" ] && exit 0
 
             # Handle keybind result (format: KEYBIND:key:action:selection)
             if [[ "$SELECTION" == KEYBIND:* ]]; then
               IFS=':' read -r _ key action selected_vpn <<< "$SELECTION"
-              if [[ "$action" == "copy-proxy" ]]; then
-                # Extract the VPN name from selection (strip flag emoji and checkmark)
-                CLEAN_NAME=$(echo "$selected_vpn" | sed 's/^[^ ]* //' | sed 's/ ✓$//')
-                # URL-encode the VPN name for use as SOCKS5 username
-                ENCODED_NAME=$(printf '%s' "$CLEAN_NAME" | sed 's/ /%20/g')
-                PROXY_LINK="socks5://$ENCODED_NAME@127.0.0.1:10800"
-                printf '%s' "$PROXY_LINK" | wl-copy --type text/plain
-                notify-send "VPN Proxy" "Copied: $PROXY_LINK\n\nVPN activates automatically on first use"
-              fi
+              # Extract the VPN name from selection (strip flag emoji and checkmark)
+              CLEAN_NAME=$(echo "$selected_vpn" | sed 's/^[^ ]* //' | sed 's/ ✓$//')
+              # URL-encode the VPN name for use as proxy username
+              ENCODED_NAME=$(printf '%s' "$CLEAN_NAME" | sed 's/ /%20/g')
+              
+              case "$action" in
+                copy-socks5)
+                  PROXY_LINK="socks5://$ENCODED_NAME@127.0.0.1:10800"
+                  printf '%s' "$PROXY_LINK" | wl-copy --type text/plain
+                  notify-send "VPN Proxy" "Copied SOCKS5: $PROXY_LINK\n\nVPN activates automatically on first use"
+                  ;;
+                copy-http)
+                  PROXY_LINK="http://$ENCODED_NAME:@127.0.0.1:10801"
+                  printf '%s' "$PROXY_LINK" | wl-copy --type text/plain
+                  notify-send "VPN Proxy" "Copied HTTP: $PROXY_LINK\n\nVPN activates automatically on first use"
+                  ;;
+              esac
               exit 0
             fi
 
