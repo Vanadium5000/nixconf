@@ -31,6 +31,7 @@ import {
 /** State directory in tmpfs - fast and auto-cleaned on reboot */
 export const STATE_DIR = `/dev/shm/vpn-proxy-${process.getuid!()}`;
 export const STATE_FILE = join(STATE_DIR, "state.json");
+export const LOCK_FILE = join(STATE_DIR, "state.lock");
 
 /** Path to network namespace setup script */
 export const NETNS_SCRIPT =
@@ -164,6 +165,51 @@ export async function loadState(): Promise<ProxyState> {
 export async function saveState(state: ProxyState): Promise<void> {
   await ensureStateDir();
   await writeFile(STATE_FILE, JSON.stringify(state, null, 2));
+}
+
+// ============================================================================
+// Mutex / Locking
+// ============================================================================
+
+/**
+ * In-memory mutex for namespace creation
+ *
+ * Prevents race conditions when multiple concurrent requests try to create
+ * namespaces simultaneously. Each slug gets its own lock to allow parallel
+ * creation of different VPNs while serializing requests for the same VPN.
+ */
+const namespaceLocks = new Map<string, Promise<void>>();
+
+/**
+ * Acquire a lock for a specific slug, execute the function, then release
+ * This ensures only one namespace creation happens per slug at a time
+ */
+async function withNamespaceLock<T>(
+  slug: string,
+  fn: () => Promise<T>,
+): Promise<T> {
+  // Wait for any existing lock on this slug
+  const existingLock = namespaceLocks.get(slug);
+  if (existingLock) {
+    await existingLock;
+  }
+
+  // Create a new lock for our operation
+  let releaseLock: () => void;
+  const lockPromise = new Promise<void>((resolve) => {
+    releaseLock = resolve;
+  });
+  namespaceLocks.set(slug, lockPromise);
+
+  try {
+    return await fn();
+  } finally {
+    releaseLock!();
+    // Only delete if this is still our lock (another request might have queued)
+    if (namespaceLocks.get(slug) === lockPromise) {
+      namespaceLocks.delete(slug);
+    }
+  }
 }
 
 // ============================================================================
@@ -410,26 +456,40 @@ export async function isNamespaceHealthy(
 /**
  * Get existing namespace or create new one for a VPN slug
  * Handles stale namespace detection and recreation
+ *
+ * Uses a per-slug mutex to prevent race conditions when multiple concurrent
+ * requests try to create the same namespace simultaneously.
  */
 export async function getOrCreateNamespace(
   slug: string,
   state: ProxyState,
 ): Promise<NamespaceInfo> {
-  const existing = state.namespaces[slug];
-  if (existing && existing.status === "connected") {
-    if (await isNamespaceHealthy(existing)) {
-      existing.lastUsed = Date.now();
-      await saveState(state);
-      return existing;
+  return withNamespaceLock(slug, async () => {
+    // Re-load state inside the lock to get the latest version
+    // (another request may have created the namespace while we were waiting)
+    const freshState = await loadState();
+
+    const existing = freshState.namespaces[slug];
+    if (existing && existing.status === "connected") {
+      if (await isNamespaceHealthy(existing)) {
+        existing.lastUsed = Date.now();
+        await saveState(freshState);
+        // Also update the caller's state reference
+        Object.assign(state, freshState);
+        return existing;
+      }
+      log("WARN", `Namespace for ${slug} is stale, recreating`);
+      await destroyNamespace(slug, freshState);
     }
-    log("WARN", `Namespace for ${slug} is stale, recreating`);
-    await destroyNamespace(slug, state);
-  }
 
-  const vpn = await resolveVpn(slug);
-  if (!vpn) throw new Error(`VPN not found: ${slug}`);
+    const vpn = await resolveVpn(slug);
+    if (!vpn) throw new Error(`VPN not found: ${slug}`);
 
-  return createNamespace(state, vpn);
+    const result = await createNamespace(freshState, vpn);
+    // Update caller's state reference
+    Object.assign(state, freshState);
+    return result;
+  });
 }
 
 // ============================================================================
