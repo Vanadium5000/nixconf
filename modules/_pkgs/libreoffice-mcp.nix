@@ -193,14 +193,17 @@ pkgs.stdenv.mkDerivation {
     WRAPPER
 
         # Append the dynamic paths (these get substituted by Nix)
+        # CRITICAL: LibreOffice's program dir must be FIRST in PYTHONPATH so uno.py
+        # is found before ooodev tries to import com.sun.star.* types. The uno module
+        # must be initialized before any UNO type imports occur.
         cat >> $out/bin/libreoffice-mcp << EOF
-    export PYTHONPATH="$out/share/libreoffice-mcp:\$PYTHONPATH"
+    export PYTHONPATH="\$LO_PATH/program:$out/share/libreoffice-mcp:\$PYTHONPATH"
     cd $out/share/libreoffice-mcp
     exec ${pythonEnv}/bin/python -c "
-    import uno  # Import uno first to initialize UNO runtime
-    from libreoffice import mcp
-    mcp.run()
-    " "\$@"
+import uno  # Initialize UNO runtime BEFORE ooodev imports com.sun.star types
+from libreoffice import mcp
+mcp.run()
+" "\$@"
     EOF
         chmod +x $out/bin/libreoffice-mcp
   '';
