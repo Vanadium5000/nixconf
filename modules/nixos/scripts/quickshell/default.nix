@@ -809,9 +809,14 @@
               set-volume)
                 "$QS_BIN" ipc -p "$QML_FILE" call notifications setVolume "$2"
                 ;;
+              send)
+                # Send notification via IPC: qs-notifications send "summary|body|urgency|appName"
+                # This bypasses D-Bus and works from systemd services
+                "$QS_BIN" ipc -p "$QML_FILE" call notifications send "$2"
+                ;;
               *)
                 echo "Unknown command: $1"
-                echo "Usage: qs-notifications [start|toggle|show|hide|count|unread|clear|dnd|toggle-dnd|ding|set-volume <vol>]"
+                echo "Usage: qs-notifications [start|toggle|show|hide|count|unread|clear|dnd|toggle-dnd|ding|set-volume <vol>|send <args>]"
                 exit 1
                 ;;
             esac
@@ -886,23 +891,23 @@
             exit 1
           fi
 
-          # Build notify-send command
-          NOTIFY_ARGS=()
-          [ -n "$URGENCY" ] && NOTIFY_ARGS+=("-u" "$URGENCY")
-          [ -n "$ICON" ] && NOTIFY_ARGS+=("-i" "$ICON")
-          [ -n "$APP_NAME" ] && NOTIFY_ARGS+=("-a" "$APP_NAME")
-          [ -n "$TIMEOUT" ] && NOTIFY_ARGS+=("-t" "$TIMEOUT")
-
           # Play ding first if requested (so it plays immediately)
           if [ "$DING" = true ]; then
             qs-notifications ding 2>/dev/null &
           fi
 
-          # Send notification
-          notify-send "''${NOTIFY_ARGS[@]}" "$SUMMARY" "$BODY"
+          # Send notification via Quickshell IPC (bypasses D-Bus, works from systemd)
+          # Format: "summary|body|urgency|appName"
+          # Escape pipe characters in summary/body to avoid breaking the format
+          ESCAPED_SUMMARY="''${SUMMARY//|/¦}"
+          ESCAPED_BODY="''${BODY//|/¦}"
+          ESCAPED_APP="''${APP_NAME:-qs-notify}"
+          ESCAPED_APP="''${ESCAPED_APP//|/¦}"
+
+          qs-notifications send "$ESCAPED_SUMMARY|$ESCAPED_BODY|$URGENCY|$ESCAPED_APP"
         '';
         runtimeInputs = [
-          pkgs.libnotify
+          self'.packages.qs-notifications
         ];
       };
 

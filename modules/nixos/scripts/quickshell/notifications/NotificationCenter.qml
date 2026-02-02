@@ -455,5 +455,73 @@ Singleton {
             root.soundVolume = parseFloat(vol)
             root.saveSettings()
         }
+
+        /**
+         * Send a notification via IPC (for systemd services without D-Bus access)
+         *
+         * Args format: "summary|body|urgency|appName"
+         *   - summary: Required notification title
+         *   - body: Optional notification body (can be empty)
+         *   - urgency: "low", "normal", or "critical" (default: "normal")
+         *   - appName: Optional app name (default: "System")
+         *
+         * Example: qs ipc -p notifications.qml call notifications send "VPN Proxy|Connected to Austria|normal|vpn-proxy"
+         */
+        function send(args: string): void {
+            const parts = args.split("|")
+            const summary = parts[0] || "Notification"
+            const body = parts[1] || ""
+            const urgencyStr = parts[2] || "normal"
+            const appName = parts[3] || "System"
+
+            // Map urgency string to numeric value
+            let urgencyVal = 1  // normal
+            if (urgencyStr === "low") urgencyVal = 0
+            else if (urgencyStr === "critical") urgencyVal = 2
+
+            // Create a synthetic notification wrapper
+            root.idOffset++
+            const newId = root.idOffset
+
+            const wrapper = {
+                id: newId,
+                notification: null,  // No backing D-Bus notification
+                isPopup: !root.dndEnabled && !root.panelVisible,
+                read: false,
+                time: new Date(),
+                summary: summary,
+                body: body,
+                appName: appName,
+                appIcon: "",
+                image: "",
+                urgency: urgencyVal,
+                urgencyString: urgencyStr,
+                actions: [],
+                popupExpiresAt: null,
+                get timeAgo() {
+                    const now = new Date()
+                    const diff = Math.floor((now - this.time) / 1000)
+                    if (diff < 60) return "now"
+                    if (diff < 3600) return Math.floor(diff / 60) + "m"
+                    if (diff < 86400) return Math.floor(diff / 3600) + "h"
+                    return Math.floor(diff / 86400) + "d"
+                },
+                get secondsRemaining() {
+                    if (!this.popupExpiresAt) return -1
+                    const remaining = Math.ceil((this.popupExpiresAt.getTime() - Date.now()) / 1000)
+                    return Math.max(0, remaining)
+                }
+            }
+
+            // Set popup expiry
+            if (wrapper.isPopup) {
+                wrapper.popupExpiresAt = new Date(Date.now() + root.defaultPopupTimeout)
+            }
+
+            root.notifications = [wrapper, ...root.notifications]
+            root.notificationReceived(wrapper)
+            root.maybePlayDing(wrapper)
+            root.saveNotifications()
+        }
     }
 }

@@ -111,7 +111,7 @@ export async function notify(
   // Try qs-notify first (works from systemd services via Quickshell IPC)
   try {
     const qsResult = await spawn({
-      cmd: ["qs-notify", "-u", urgency, title, message],
+      cmd: ["qs-notify", "-u", urgency, "-a", "VPN Proxy", title, message],
       stdout: "ignore",
       stderr: "ignore",
     }).exited;
@@ -123,7 +123,7 @@ export async function notify(
   // Fallback to notify-send (requires D-Bus session access)
   try {
     await spawn({
-      cmd: ["notify-send", "-u", urgency, title, message],
+      cmd: ["notify-send", "-u", urgency, "-a", "VPN Proxy", title, message],
       stdout: "ignore",
       stderr: "ignore",
     }).exited;

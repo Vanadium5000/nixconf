@@ -13,6 +13,7 @@
     let
       inherit (lib) mkOption mkIf types;
       cfg = config.services.vpn-proxy;
+      username = config.preferences.user.username;
     in
     {
       options.services.vpn-proxy = {
@@ -36,7 +37,7 @@
 
         vpnDir = mkOption {
           type = types.str;
-          default = "/home/${config.preferences.user.username}/Shared/VPNs";
+          default = "/home/${username}/Shared/VPNs";
           description = "Directory containing .ovpn files";
         };
 
@@ -78,14 +79,23 @@
               pkgs.gawk
               pkgs.findutils
               pkgs.microsocks
+              # Notification tools for IPC-based notifications
+              self.packages.${pkgs.stdenv.hostPlatform.system}.qs-notify
+              self.packages.${pkgs.stdenv.hostPlatform.system}.qs-notifications
+              pkgs.quickshell
             ];
 
+            # UID 1000 is standard for first user; XDG_RUNTIME_DIR for Quickshell IPC
             commonEnv = {
               VPN_DIR = cfg.vpnDir;
               VPN_PROXY_PORT = toString cfg.port;
               VPN_HTTP_PROXY_PORT = toString cfg.httpPort;
               VPN_PROXY_IDLE_TIMEOUT = toString cfg.idleTimeout;
               VPN_PROXY_RANDOM_ROTATION = toString cfg.randomRotation;
+              # Quickshell IPC requires XDG_RUNTIME_DIR to find the socket
+              XDG_RUNTIME_DIR = "/run/user/1000";
+              # HOME needed for qs-notifications to find QML file paths
+              HOME = "/home/${username}";
             };
 
             commonServiceConfig = {
@@ -97,6 +107,8 @@
                 "/run/netns"
                 "/var/run/netns"
                 "/etc/netns"
+                # Allow access to user's XDG_RUNTIME_DIR for Quickshell IPC
+                "/run/user/1000"
               ];
               PrivateTmp = true;
             };

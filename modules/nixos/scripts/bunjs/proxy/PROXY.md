@@ -76,18 +76,18 @@ Authentication).
 **Usage Examples:**
 
 ```bash
-# Specific VPN (URL-encoded spaces)
-curl --proxy "socks5h://AirVPN%20AT%20Vienna@127.0.0.1:10800" https://api.ipify.org
+# Specific VPN (use FULL VPN name from `vpn-resolver list`)
+curl --proxy "socks5h://AirVPN%20AT%20Vienna%20Alderamin%20UDP%2080%20Entry3@127.0.0.1:10800" https://api.ipify.org
 
 # Random VPN (any of these work)
 curl --proxy "socks5h://random@127.0.0.1:10800" https://api.ipify.org
 curl --proxy "socks5h://127.0.0.1:10800" https://api.ipify.org
 
 # With separate --proxy-user flag
-curl --proxy "socks5h://127.0.0.1:10800" --proxy-user "AirVPN AT Vienna:" https://api.ipify.org
+curl --proxy "socks5h://127.0.0.1:10800" --proxy-user "AirVPN AT Vienna Alderamin UDP 80 Entry3:" https://api.ipify.org
 
 # Using -x shorthand
-curl -x "socks5h://AirVPN%20AT%20Vienna@127.0.0.1:10800" https://api.ipify.org
+curl -x "socks5h://AirVPN%20AT%20Vienna%20Alderamin%20UDP%2080%20Entry3@127.0.0.1:10800" https://api.ipify.org
 
 # Environment variable
 export ALL_PROXY="socks5h://127.0.0.1:10800"
@@ -114,17 +114,17 @@ Implements RFC 7231 §4.3.6 (HTTP CONNECT method) for HTTPS tunneling.
 **Usage Examples:**
 
 ```bash
-# Specific VPN via --proxy-user
-curl --proxy "http://127.0.0.1:10801" --proxy-user "AirVPN AT Vienna:" https://api.ipify.org
+# Specific VPN via --proxy-user (use FULL VPN name from `vpn-resolver list`)
+curl --proxy "http://127.0.0.1:10801" --proxy-user "AirVPN AT Vienna Alderamin UDP 80 Entry3:" https://api.ipify.org
 
 # Random VPN (no auth)
 curl --proxy "http://127.0.0.1:10801" https://api.ipify.org
 
 # URL-encoded username in proxy URL
-curl --proxy "http://AirVPN%20AT%20Vienna@127.0.0.1:10801" https://api.ipify.org
+curl --proxy "http://AirVPN%20AT%20Vienna%20Alderamin%20UDP%2080%20Entry3@127.0.0.1:10801" https://api.ipify.org
 
 # Using -x shorthand
-curl -x "http://AirVPN%20AT%20Vienna@127.0.0.1:10801" https://api.ipify.org
+curl -x "http://AirVPN%20AT%20Vienna%20Alderamin%20UDP%2080%20Entry3@127.0.0.1:10801" https://api.ipify.org
 
 # Environment variables (used by most CLI tools)
 export http_proxy="http://127.0.0.1:10801"
@@ -382,9 +382,9 @@ export https_proxy="http://127.0.0.1:10801"
 # SOCKS5 proxy (works with curl, git, and SOCKS-aware tools)
 export ALL_PROXY="socks5h://127.0.0.1:10800"
 
-# With specific VPN (URL-encoded spaces)
-export ALL_PROXY="socks5h://AirVPN%20AT%20Vienna@127.0.0.1:10800"
-export https_proxy="http://AirVPN%20AT%20Vienna:@127.0.0.1:10801"
+# With specific VPN (URL-encoded spaces - use FULL name from `vpn-resolver list`)
+export ALL_PROXY="socks5h://AirVPN%20AT%20Vienna%20Alderamin%20UDP%2080%20Entry3@127.0.0.1:10800"
+export https_proxy="http://AirVPN%20AT%20Vienna%20Alderamin%20UDP%2080%20Entry3:@127.0.0.1:10801"
 ```
 
 ### SSH via Proxy
@@ -405,10 +405,89 @@ The `qs-vpn` script supports copying proxy URLs to clipboard:
 - **k**: Copy SOCKS5 proxy URL to clipboard
 
 ```text
-socks5://AirVPN%20AT%20Vienna@127.0.0.1:10800
+socks5://AirVPN%20AT%20Vienna%20Alderamin%20UDP%2080%20Entry3@127.0.0.1:10800
 ```
 
 The VPN activates automatically when the proxy link is first used.
+
+## Programmatic Usage
+
+### Bun / TypeScript
+
+Bun's `fetch` doesn't reliably parse URL-encoded credentials from proxy URLs.
+Use the object format with an explicit `Proxy-Authorization` header:
+
+```typescript
+// ❌ UNRELIABLE - Bun may fail to parse URL-encoded username
+await fetch("https://api.ipify.org", {
+  proxy:
+    "http://AirVPN%20AT%20Vienna%20Alderamin%20UDP%2080%20Entry3:@127.0.0.1:10801",
+});
+
+// ✅ CORRECT - Use object format with explicit header
+const vpnName = "AirVPN AT Vienna Alderamin UDP 80 Entry3";
+await fetch("https://api.ipify.org", {
+  proxy: {
+    url: "http://127.0.0.1:10801",
+    headers: {
+      "Proxy-Authorization": `Basic ${Buffer.from(`${vpnName}:`).toString("base64")}`,
+    },
+  },
+});
+
+// ✅ Random VPN - no auth needed
+await fetch("https://api.ipify.org", {
+  proxy: "http://127.0.0.1:10801",
+});
+```
+
+### Node.js
+
+Use the `https-proxy-agent` or `socks-proxy-agent` packages:
+
+```typescript
+import { HttpsProxyAgent } from "https-proxy-agent";
+
+const vpnName = "AirVPN AT Vienna Alderamin UDP 80 Entry3";
+const agent = new HttpsProxyAgent(
+  `http://${encodeURIComponent(vpnName)}:@127.0.0.1:10801`,
+);
+
+const response = await fetch("https://api.ipify.org", { agent });
+```
+
+### Python (requests)
+
+```python
+import requests
+
+# Random VPN
+response = requests.get(
+    "https://api.ipify.org",
+    proxies={"https": "http://127.0.0.1:10801"}
+)
+
+# Specific VPN
+vpn_name = "AirVPN AT Vienna Alderamin UDP 80 Entry3"
+response = requests.get(
+    "https://api.ipify.org",
+    proxies={"https": f"http://{vpn_name}:@127.0.0.1:10801"}
+)
+```
+
+## Notifications
+
+The proxy system sends desktop notifications for important events:
+
+| Event                 | Notification                                      |
+| --------------------- | ------------------------------------------------- |
+| Invalid VPN slug      | "VPN not found: \<slug\>" with fallback to random |
+| VPN connection failed | Error details with namespace info                 |
+| Random VPN rotation   | New VPN name (if `VPN_PROXY_NOTIFY_ROTATION=1`)   |
+
+**Implementation:** Notifications use Quickshell's IPC system (`qs-notify`)
+which works from systemd services without D-Bus session access. This is more
+reliable than `notify-send` in headless/service contexts.
 
 ## Troubleshooting
 
