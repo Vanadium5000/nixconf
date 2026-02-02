@@ -60,6 +60,13 @@
             add-zsh-hook preexec notify_long_command_preexec
             add-zsh-hook precmd notify_long_command_precmd
 
+            # Reset cursor style to prevent invisible cursor bug
+            # (zsh-syntax-highlighting can corrupt cursor escape sequences)
+            function reset_cursor_style() {
+              printf '\e[5 q'  # 5 = blinking bar cursor
+            }
+            add-zsh-hook precmd reset_cursor_style
+
             setopt HIST_VERIFY            # Don't execute immediately on history expansion
 
             # ══════════════════════════════════════════════════════════════════
@@ -219,6 +226,9 @@
 
             # Syntax highlighting (must be loaded last)
             source ${pkgs.zsh-syntax-highlighting}/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+
+            # Syntax highlighting styles (must be set AFTER sourcing the plugin)
+            ZSH_HIGHLIGHT_STYLES[comment]='fg=#7f849c'  # Visible gray for comments (Catppuccin overlay1)
 
             # ══════════════════════════════════════════════════════════════════
             # Aliases
