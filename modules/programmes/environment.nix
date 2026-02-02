@@ -57,6 +57,7 @@
             bat
             zip
             unzip
+            _7zz
             jq
             neovim
 
