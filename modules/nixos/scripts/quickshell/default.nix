@@ -696,22 +696,30 @@
             fi
 
             # Show menu with keybind support
-            SELECTION=$(echo -e "$MENU_ENTRIES" | qs-dmenu -p "VPN" -mesg "Press Alt+K to copy SOCKS5 proxy link (auto-activates on use)" -keybinds '{"alt+k":"copy-proxy"}')
+            SELECTION=$(echo -e "$MENU_ENTRIES" | qs-dmenu -p "VPN" -mesg "Alt+K: SOCKS5 proxy | Alt+Shift+K: HTTP proxy" -keybinds '{"alt+k":"copy-socks5","alt+shift+k":"copy-http"}')
 
             [ -z "$SELECTION" ] && exit 0
 
             # Handle keybind result (format: KEYBIND:key:action:selection)
             if [[ "$SELECTION" == KEYBIND:* ]]; then
               IFS=':' read -r _ key action selected_vpn <<< "$SELECTION"
-              if [[ "$action" == "copy-proxy" ]]; then
-                # Extract the VPN name from selection (strip flag emoji and checkmark)
-                CLEAN_NAME=$(echo "$selected_vpn" | sed 's/^[^ ]* //' | sed 's/ ✓$//')
-                # URL-encode the VPN name for use as SOCKS5 username
-                ENCODED_NAME=$(printf '%s' "$CLEAN_NAME" | sed 's/ /%20/g')
-                PROXY_LINK="socks5://$ENCODED_NAME@127.0.0.1:10800"
-                printf '%s' "$PROXY_LINK" | wl-copy --type text/plain
-                notify-send "VPN Proxy" "Copied: $PROXY_LINK\n\nVPN activates automatically on first use"
-              fi
+              # Extract the VPN name from selection (strip flag emoji and checkmark)
+              CLEAN_NAME=$(echo "$selected_vpn" | sed 's/^[^ ]* //' | sed 's/ ✓$//')
+              # URL-encode the VPN name for use as proxy username
+              ENCODED_NAME=$(printf '%s' "$CLEAN_NAME" | sed 's/ /%20/g')
+              
+              case "$action" in
+                copy-socks5)
+                  PROXY_LINK="socks5://$ENCODED_NAME@127.0.0.1:10800"
+                  printf '%s' "$PROXY_LINK" | wl-copy --type text/plain
+                  notify-send "VPN Proxy" "Copied SOCKS5: $PROXY_LINK\n\nVPN activates automatically on first use"
+                  ;;
+                copy-http)
+                  PROXY_LINK="http://$ENCODED_NAME:@127.0.0.1:10801"
+                  printf '%s' "$PROXY_LINK" | wl-copy --type text/plain
+                  notify-send "VPN Proxy" "Copied HTTP: $PROXY_LINK\n\nVPN activates automatically on first use"
+                  ;;
+              esac
               exit 0
             fi
 
@@ -801,9 +809,14 @@
               set-volume)
                 "$QS_BIN" ipc -p "$QML_FILE" call notifications setVolume "$2"
                 ;;
+              send)
+                # Send notification via IPC: qs-notifications send "summary|body|urgency|appName"
+                # This bypasses D-Bus and works from systemd services
+                "$QS_BIN" ipc -p "$QML_FILE" call notifications send "$2"
+                ;;
               *)
                 echo "Unknown command: $1"
-                echo "Usage: qs-notifications [start|toggle|show|hide|count|unread|clear|dnd|toggle-dnd|ding|set-volume <vol>]"
+                echo "Usage: qs-notifications [start|toggle|show|hide|count|unread|clear|dnd|toggle-dnd|ding|set-volume <vol>|send <args>]"
                 exit 1
                 ;;
             esac
@@ -878,23 +891,23 @@
             exit 1
           fi
 
-          # Build notify-send command
-          NOTIFY_ARGS=()
-          [ -n "$URGENCY" ] && NOTIFY_ARGS+=("-u" "$URGENCY")
-          [ -n "$ICON" ] && NOTIFY_ARGS+=("-i" "$ICON")
-          [ -n "$APP_NAME" ] && NOTIFY_ARGS+=("-a" "$APP_NAME")
-          [ -n "$TIMEOUT" ] && NOTIFY_ARGS+=("-t" "$TIMEOUT")
-
           # Play ding first if requested (so it plays immediately)
           if [ "$DING" = true ]; then
             qs-notifications ding 2>/dev/null &
           fi
 
-          # Send notification
-          notify-send "''${NOTIFY_ARGS[@]}" "$SUMMARY" "$BODY"
+          # Send notification via Quickshell IPC (bypasses D-Bus, works from systemd)
+          # Format: "summary|body|urgency|appName"
+          # Escape pipe characters in summary/body to avoid breaking the format
+          ESCAPED_SUMMARY="''${SUMMARY//|/¦}"
+          ESCAPED_BODY="''${BODY//|/¦}"
+          ESCAPED_APP="''${APP_NAME:-qs-notify}"
+          ESCAPED_APP="''${ESCAPED_APP//|/¦}"
+
+          qs-notifications send "$ESCAPED_SUMMARY|$ESCAPED_BODY|$URGENCY|$ESCAPED_APP"
         '';
         runtimeInputs = [
-          pkgs.libnotify
+          self'.packages.qs-notifications
         ];
       };
 
