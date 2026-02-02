@@ -38,6 +38,9 @@
         "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDZ4tcgk5qphCpwoaDUCl1ixCNUSpIrVMz8XB0OHcOz2"
       ];
 
+      # Use the latest kernel
+      hardware.apple-t2.kernelChannel = "latest"; # 6.14+ for rtw89_8852bu USB support
+
       # Open firewall for Local Web Development
       networking.firewall.allowedTCPPorts = [
         5173 # Vite - Frontend

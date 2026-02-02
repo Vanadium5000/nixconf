@@ -163,7 +163,6 @@
         # Alfa AWUS036AX (RTL8832BU/RTL8852BU chipset) WiFi adapter support
         # Using in-kernel rtw89_8852bu driver (requires kernel 6.14+)
         # Pros: Upstream (no DKMS breaks), standard mac80211 stack
-        boot.kernelPackages = pkgs.linuxPackages_latest; # 6.14+ for rtw89_8852bu USB support
         boot.kernelModules = [ "rtw89_8852bu" ];
         boot.blacklistedKernelModules = [ "rtl8xxxu" ]; # Prevent generic driver conflict
       };

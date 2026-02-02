@@ -35,6 +35,9 @@
         "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFsIUmSPfK9/ncfGjINjeI7sz+QK7wyaYJZtLhVpiU66 thealfiecrawford@icloud.com"
       ];
 
+      # Use the latest kernel
+      boot.kernelPackages = config.boot.kernelPackages.linuxPackages_latest; # 6.14+ for rtw89_8852bu USB support
+
       # Preferences
       preferences = {
         hostName = "legion5i";
