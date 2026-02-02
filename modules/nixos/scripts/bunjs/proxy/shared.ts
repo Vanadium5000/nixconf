@@ -28,8 +28,14 @@ import {
 // Constants
 // ============================================================================
 
-/** State directory in tmpfs - fast and auto-cleaned on reboot */
-export const STATE_DIR = `/dev/shm/vpn-proxy-${process.getuid!()}`;
+/**
+ * State directory in tmpfs - fast and auto-cleaned on reboot
+ *
+ * The systemd services run as root (UID 0), so state is always stored in
+ * /dev/shm/vpn-proxy-0/. CLI commands run as any user but need to read the
+ * service's state, so we use UID 0 for the state directory.
+ */
+export const STATE_DIR = `/dev/shm/vpn-proxy-0`;
 export const STATE_FILE = join(STATE_DIR, "state.json");
 export const LOCK_FILE = join(STATE_DIR, "state.lock");
 
