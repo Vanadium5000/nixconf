@@ -36,7 +36,7 @@
       ];
 
       # Use the latest kernel
-      boot.kernelPackages = config.boot.kernelPackages.linuxPackages_latest; # 6.14+ for rtw89_8852bu USB support
+      boot.kernelPackages = pkgs.linuxPackages_latest; # 6.14+ for rtw89_8852bu USB support
 
       # Preferences
       preferences = {
