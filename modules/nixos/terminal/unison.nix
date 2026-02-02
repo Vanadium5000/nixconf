@@ -44,6 +44,10 @@
           Host sync-target
             HostName ${remoteDetails.fqdn}
             User ${user}
+            # Disable strict host key checking for automated sync
+            StrictHostKeyChecking no
+            UserKnownHostsFile /dev/null
+            LogLevel ERROR
             # Keep connection alive for long-running watch sessions
             ServerAliveInterval 60
             ServerAliveCountMax 3

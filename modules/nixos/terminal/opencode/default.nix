@@ -273,6 +273,15 @@
         targetFile = "/home/${user}/.antigravity_tools";
         isDirectory = true;
       };
+
+      # Persist opencode state (sessions, history, etc.)
+      opencodePersistence = self.lib.persistence.mkPersistent {
+        method = "bind";
+        inherit user;
+        fileName = "opencode";
+        targetFile = "/home/${user}/.local/share/opencode";
+        isDirectory = true;
+      };
     in
     {
       environment.systemPackages = [
@@ -283,12 +292,12 @@
 
       # Setup script to ensure files exist before mount
       system.activationScripts.opencode-persistence = {
-        text = toolsPersistence.activationScript;
+        text = toolsPersistence.activationScript + opencodePersistence.activationScript;
         deps = [ "users" ];
       };
 
       # Bind mount for reliable persistence (apps can't overwrite)
-      fileSystems = toolsPersistence.fileSystems;
+      fileSystems = toolsPersistence.fileSystems // opencodePersistence.fileSystems;
       hjem.users.${user}.files = {
         # Full config with agents - defaults to opus, use `opencode-model` CLI to switch
         "${configFile}".text = builtins.toJSON (mkFullConfig expensiveModel);
