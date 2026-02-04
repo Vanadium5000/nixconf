@@ -123,6 +123,11 @@
               # Web Security
               wpscan # WordPress vulnerability scanner
               zap # OWASP ZAP security scanner
+              xxd # Hex dump tool
+              linux-wifi-hotspot # WiFi hotspot tool
+              hostapd # WiFi access point software
+              wirelesstools # Tools for working with wireless devices
+              dnsmasq # DNS forwarder and DHCP server
 
               # Reverse Engineering
               ghidra # Software reverse engineering suite

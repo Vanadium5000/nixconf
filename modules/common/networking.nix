@@ -20,10 +20,10 @@
         networking = {
           hostName = config.environment.variables.HOST;
 
-          # Primary DNS is dnscrypt-proxy on localhost
+          # Primary DNS is dnscrypt-proxy on localhost:54 (port 53 reserved for external service)
           nameservers = [
-            "127.0.0.1"
-            "::1"
+            "127.0.0.1:54"
+            "[::1]:54" # IPv6 loopback with explicit port
           ];
 
           # CLI/TUI for connecting to networks
@@ -109,9 +109,10 @@
 
           settings = {
             # Listen on localhost for both IPv4 and IPv6
+            # 53 changed to 54 to avoid conflicts with dnsmasq
             listen_addresses = [
-              "127.0.0.1:53"
-              "[::1]:53" # IPv6 loopback listener
+              "127.0.0.1:54"
+              "[::1]:54" # IPv6 loopback listener
             ];
 
             # Server selection criteria - privacy focused, no DNSSEC requirement
