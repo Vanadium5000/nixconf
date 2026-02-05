@@ -287,6 +287,12 @@
             color: #f5c2e7;
             font-style: italic;
         }
+
+        /* Album art image - fixed 20px height container */
+        #image.album-art {
+            min-height: 20px;
+            border-radius: 4px;
+        }
       '';
       config = pkgs.writeText "config.json" (
         builtins.toJSON (

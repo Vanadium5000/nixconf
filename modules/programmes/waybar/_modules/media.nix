@@ -29,8 +29,11 @@ let
         echo "$OUTPUT_FILE"
     else
         # Download new album art and update cache
-        curl -s "$album_art" --output "$OUTPUT_FILE" --fail
+        # Download and resize to max 20px height, preserving aspect ratio
+        curl -s "$album_art" --output "$OUTPUT_FILE.tmp" --fail
         if [[ $? -eq 0 ]]; then
+            ${pkgs.imagemagick}/bin/magick "$OUTPUT_FILE.tmp" -resize x20 "$OUTPUT_FILE"
+            rm -f "$OUTPUT_FILE.tmp"
             # Only update cache if download was successful
             echo "$album_art" > "$CACHE_FILE"
             echo "$OUTPUT_FILE"
@@ -77,7 +80,7 @@ in
   };
   "image#album-art" = {
     exec = "${album_art}/bin/album_art";
-    size = 24;
+    size = 20;
     interval = 2;
   };
   "group/media" = {
