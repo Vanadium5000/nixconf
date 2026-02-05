@@ -459,6 +459,19 @@
             # When using --proxy with HTTPS daemons, SSL cert verification is required
             PROXY_ARGS=()
             if [[ -n "$VPN_PROXY" && "$VPN_PROXY" != "none" ]]; then
+                # URL-encode the VPN name for SOCKS5 username (spaces -> %20)
+                VPN_ENCODED=$(printf '%s' "$VPN_PROXY" | sed 's/ /%20/g')
+
+                # Warm up the VPN proxy connection before launching wallet
+                # This ensures the VPN tunnel is established (on-demand activation)
+                echo "Establishing VPN proxy connection..."
+                if ! ${pkgs.curl}/bin/curl -s --max-time 30 --proxy "socks5://$VPN_ENCODED@127.0.0.1:$VPN_PROXY_PORT" https://api.ipify.org > /dev/null 2>&1; then
+                    echo "Error: Failed to establish VPN proxy connection"
+                    echo "Please check that vpn-proxy is running: vpn-proxy status"
+                    exit 1
+                fi
+                echo "VPN proxy ready"
+
                 PROXY_ARGS=(--proxy "127.0.0.1:$VPN_PROXY_PORT" --daemon-ssl-allow-any-cert)
             fi
 
@@ -574,24 +587,13 @@
                 exit 1
             fi
 
-            # Stop any existing daemon to avoid conflicts
+            # Clean up any stale daemon state before launching
+            # Electrum manages its own daemon internally when running with GUI
             ${pkgs.electrum}/bin/electrum stop 2>/dev/null || true
-            sleep 0.3  # Give daemon time to shut down
+            rm -f "$HOME/.electrum/daemon" 2>/dev/null || true
 
-            # Start daemon with proxy settings
-            ${pkgs.electrum}/bin/electrum daemon -d "''${PROXY_ARGS[@]}" 2>/dev/null || true
-            sleep 0.5
-
-            # Load wallet - include password if set (for encrypted wallets)
-            if [[ -n "$PASSWORD" ]]; then
-                ${pkgs.electrum}/bin/electrum load_wallet -w "$WALLET_FILE" --password "$PASSWORD" 2>/dev/null || \
-                    ${pkgs.electrum}/bin/electrum load_wallet -w "$WALLET_FILE"  # Fallback for passwordless wallets
-            else
-                ${pkgs.electrum}/bin/electrum load_wallet -w "$WALLET_FILE"
-            fi
-
-            # Launch GUI with --daemon to keep daemon running after GUI closes
-            exec ${pkgs.electrum}/bin/electrum gui --daemon -w "$WALLET_FILE" "''${PROXY_ARGS[@]}" "$@"
+            # Launch Electrum directly - it handles daemon management internally
+            exec ${pkgs.electrum}/bin/electrum -w "$WALLET_FILE" "''${PROXY_ARGS[@]}" "$@"
           '';
       };
 
@@ -697,28 +699,13 @@
                 exit 1
             fi
 
-            # Stop any existing daemon to avoid conflicts
+            # Clean up any stale daemon state before launching
+            # Electrum-LTC manages its own daemon internally when running with GUI
             ${pkgs.electrum-ltc}/bin/electrum-ltc stop 2>/dev/null || true
-            sleep 0.3  # Give daemon time to shut down
+            rm -f "$HOME/.electrum-ltc/daemon" 2>/dev/null || true
 
-            # Kill any remaining daemon processes (electrum-ltc stop can be unreliable)
-            pkill -f "electrum-ltc.*daemon" 2>/dev/null || true
-            sleep 0.2
-
-            # Start daemon with proxy settings
-            ${pkgs.electrum-ltc}/bin/electrum-ltc daemon -d "''${PROXY_ARGS[@]}" 2>/dev/null || true
-            sleep 0.5
-
-            # Load wallet with password (electrum-ltc uses -W for password)
-            if [[ -n "$PASSWORD" ]]; then
-                ${pkgs.electrum-ltc}/bin/electrum-ltc load_wallet -w "$WALLET_FILE" -W "$PASSWORD" 2>/dev/null || \
-                    ${pkgs.electrum-ltc}/bin/electrum-ltc load_wallet -w "$WALLET_FILE"  # Fallback for passwordless
-            else
-                ${pkgs.electrum-ltc}/bin/electrum-ltc load_wallet -w "$WALLET_FILE"
-            fi
-
-            # Launch GUI with --daemon to keep daemon running after GUI closes
-            exec ${pkgs.electrum-ltc}/bin/electrum-ltc gui --daemon -w "$WALLET_FILE" "''${PROXY_ARGS[@]}" "$@"
+            # Launch Electrum-LTC directly - it handles daemon management internally
+            exec ${pkgs.electrum-ltc}/bin/electrum-ltc -w "$WALLET_FILE" "''${PROXY_ARGS[@]}" "$@"
           '';
       };
 

@@ -28,7 +28,7 @@ const STATE_EXPIRY_MS = 60_000; // 60 seconds
 /** Fields that represent username-type values (used for autotype fallback) */
 const USERNAME_FIELD_ALIASES = ["login", "user", "username"] as const;
 
-/** 
+/**
  * Fixed display order for credential fields.
  * Fields appear in this order, with other fields after these, before OTP.
  * "username (from path)" always appears alongside explicit username fields.
@@ -221,7 +221,7 @@ async function selectOption(
   if (options.length === 0) return "";
 
   const cmd = [...menuCommand];
-  
+
   // Pass selection index via environment variable for dmenu.qml
   const env = { ...process.env };
   if (initialIndex !== undefined && initialIndex >= 0) {
@@ -233,7 +233,7 @@ async function selectOption(
       .env(env)
       .nothrow()
       .quiet();
-    
+
     if (result.exitCode !== 0) return "";
     return result.text().trim();
   } catch {
@@ -371,13 +371,49 @@ function buildFieldOptions(
 // Credential Generators
 // =============================================================================
 
+/**
+ * Generate alphanumeric-only username (no underscores or special chars).
+ * Pattern: adjective + noun + digits (e.g., "swiftblade42")
+ */
+function generateAlphanumericUsername(): string {
+  // Use faker words but strip non-alphanumeric characters
+  const adj = faker.word
+    .adjective()
+    .replace(/[^a-z]/gi, "")
+    .toLowerCase();
+  const noun = faker.word
+    .noun()
+    .replace(/[^a-z]/gi, "")
+    .toLowerCase();
+  const num = faker.number.int({ min: 1, max: 99 });
+  return `${adj}${noun}${num}`;
+}
+
+/**
+ * Generate username from a full name.
+ * Pattern: normalized name + digits (e.g., "johnsmith42")
+ */
+function generateUsernameFromName(fullName: string): string {
+  const base = fullName.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const num = faker.number.int({ min: 1, max: 99 });
+  return `${base}${num}`;
+}
+
 const credentialGenerators: Record<string, () => string> = {
   password: () => crypto.randomBytes(32).toString("base64"),
   "password (small)": () => crypto.randomBytes(15).toString("base64"),
-  username: () => faker.internet.username(),
+  username: generateAlphanumericUsername,
   "full name": () => faker.person.fullName(),
   "phone number": () => faker.phone.number({ style: "international" }),
   "lorem ipsum": () => faker.lorem.paragraph(),
+  "US address": () => {
+    // Full comma-separated US address format
+    const street = faker.location.streetAddress();
+    const city = faker.location.city();
+    const state = faker.location.state({ abbreviated: false });
+    const zip = faker.location.zipCode();
+    return `${street}, ${city}, ${state} ${zip}`;
+  },
 };
 
 function generateFakeEmail(): string {
@@ -403,10 +439,11 @@ async function findAssociatedTempEmails(
   const tempEmailPath = join(passDir, "temp_emails", entryPath);
 
   try {
-    const result = await $`find ${tempEmailPath} -maxdepth 1 -type f -name '*.gpg' -printf '%f\n' 2>/dev/null`
-      .nothrow()
-      .quiet()
-      .text();
+    const result =
+      await $`find ${tempEmailPath} -maxdepth 1 -type f -name '*.gpg' -printf '%f\n' 2>/dev/null`
+        .nothrow()
+        .quiet()
+        .text();
 
     if (!result.trim()) {
       return [];
@@ -563,12 +600,14 @@ async function deleteCredential(
  */
 async function showEditOptions(
   menuCommand: string[],
-  entryPath: string
-): Promise<"back" | "exit" | "deleted"> {
+  entryPath: string,
+  passDir: string
+): Promise<"back" | "exit" | "deleted" | "moved"> {
   const options = [
     "← Back",
     "📷 Add TOTP from QR Code",
     "✏️ Edit with $EDITOR",
+    "📦 Move Credential",
     "🗑️ Delete Credential",
   ];
 
@@ -588,6 +627,64 @@ async function showEditOptions(
     case "✏️ Edit with $EDITOR":
       await editCredential(entryPath);
       return "exit";
+    case "📦 Move Credential": {
+      // Check for associated temp emails first
+      const tempEmailPath = join(passDir, "temp_emails", entryPath);
+      let hasTempEmails = false;
+      try {
+        const result =
+          await $`find ${tempEmailPath} -maxdepth 1 -type f -name '*.gpg' 2>/dev/null`
+            .nothrow()
+            .quiet()
+            .text();
+        hasTempEmails = result.trim().length > 0;
+      } catch {
+        // No temp emails directory
+      }
+
+      if (hasTempEmails) {
+        const proceed = await selectOption(
+          menuCommand,
+          ["Cancel", "Move anyway (temp emails will be orphaned)"],
+          "This credential has associated temp emails"
+        );
+        if (proceed !== "Move anyway (temp emails will be orphaned)") {
+          return "back";
+        }
+      }
+
+      const newPath = (
+        await $`echo -n | ${menuCommand} -p 'Enter new path:'`.text()
+      ).trim();
+
+      // Validate path
+      if (!newPath) {
+        return "back";
+      }
+      if (newPath === entryPath) {
+        await notify("New path is same as current", "passmenu");
+        return "back";
+      }
+
+      // Check target doesn't exist
+      try {
+        await $`pass show ${newPath}`.quiet();
+        await notify("Target path already exists", "passmenu");
+        return "back";
+      } catch {
+        // Good, target doesn't exist
+      }
+
+      try {
+        await $`pass mv -f ${entryPath} ${newPath}`.quiet();
+        await notify(`Moved to: ${newPath}`, "passmenu");
+        return "moved";
+      } catch (error) {
+        logError("Failed to move credential", error);
+        await notify("Failed to move credential", "passmenu");
+        return "back";
+      }
+    }
     case "🗑️ Delete Credential":
       const deleted = await deleteCredential(menuCommand, entryPath);
       return deleted ? "deleted" : "back";
@@ -806,10 +903,29 @@ async function handleViewMessages(
     };
     const body = msg.text || msg.html?.replace(/<[^>]*>/g, "") || "No body.";
 
-    // Extract links and codes
+    // Extract links from body
     const links: string[] = body.match(/https?:\/\/[^\s]+/g) || [];
-    const codes: string[] =
-      body.match(/(?:^|[<>\s])(\d{4,8})(?:$|[<>\s])/g) || [];
+
+    // Extract verification codes from both subject and body
+    // Supports: 4-8 digit codes and "nnn nnn" spaced format (e.g., "123 456")
+    const extractCodes = (text: string): string[] => {
+      const codes = new Set<string>();
+
+      // Standard 4-8 digit codes (use matchAll for proper capture group extraction)
+      for (const match of text.matchAll(/(?:^|[<>\s])(\d{4,8})(?:$|[<>\s])/g)) {
+        if (match[1]) codes.add(match[1]);
+      }
+
+      // "nnn nnn" format (6 digits with space separator, common in 2FA)
+      for (const match of text.matchAll(/\b(\d{3})\s+(\d{3})\b/g)) {
+        if (match[1] && match[2]) codes.add(`${match[1]}${match[2]}`);
+      }
+
+      return [...codes];
+    };
+
+    // Combine codes from subject line and body, deduplicated
+    const codes = extractCodes(`${msg.subject} ${body}`);
 
     // Build options
     const messageOptions: string[] = ["Copy Full Message", "Open in Browser"];
@@ -998,8 +1114,10 @@ async function generateCredential(
     "password",
     "password (small)",
     "username",
+    "username (from name)",
     "full name",
     "phone number",
+    "US address",
     "lorem ipsum",
   ];
 
@@ -1054,6 +1172,16 @@ async function generateCredential(
     } else {
       value = generateFakeEmail();
     }
+  } else if (selectedField === "username (from name)") {
+    // Special case: prompt for full name and derive username from it
+    const fullName = (
+      await $`echo -n | ${menuCommand} -p 'Enter full name:'`.text()
+    ).trim();
+    if (!fullName) {
+      await notify("No name entered", "passmenu");
+      return;
+    }
+    value = generateUsernameFromName(fullName);
   } else {
     const generator = credentialGenerators[selectedField];
     if (!generator) {
@@ -1228,13 +1356,15 @@ async function main(): Promise<void> {
     let content = "";
     try {
       if (!selected) throw new Error("Empty selection");
-      
+
       // Clean the selection: remove icons (e.g., "📁 ") and trim
       // This regex removes leading non-alphanumeric chars followed by space, or just trims
       // Specifically target the folder icon and space we add
-      const cleanPath = selected.replace(/^[\p{Emoji}\u2000-\u3300]\s+/u, "").trim();
+      const cleanPath = selected
+        .replace(/^[\p{Emoji}\u2000-\u3300]\s+/u, "")
+        .trim();
       logDebug(`Fetching content for: ${cleanPath} (raw: ${selected})`);
-      
+
       content = await $`pass show ${cleanPath}`.quiet().text();
     } catch (err) {
       logError(`Failed to read entry: ${selected}`, err);
@@ -1298,11 +1428,11 @@ async function main(): Promise<void> {
 
     // Handle credential path selection (edit options)
     if (selectedField.startsWith("📁 ")) {
-      const result = await showEditOptions(menuCommand, selected);
+      const result = await showEditOptions(menuCommand, selected, passDir);
       if (result === "exit") {
         process.exit(0);
       }
-      if (result === "deleted") {
+      if (result === "deleted" || result === "moved") {
         selected = "";
         await clearState();
         continue;

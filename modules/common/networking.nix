@@ -92,14 +92,16 @@
 
           extraConfig = ''
             MulticastDNS=no
-            # Fail faster when upstream is unresponsive (default is 5s per server)
+            # Disable stub listener on port 53 - reserved for external service
+            DNSStubListener=no
             DNSStubListenerExtra=
             ResolveUnicastSingleLabel=no
           '';
         };
 
-        # Ensure /etc/resolv.conf points to systemd-resolved stub
-        environment.etc."resolv.conf".source = "/run/systemd/resolve/stub-resolv.conf";
+        # Use non-stub resolv.conf since stub listener is disabled (port 53 reserved)
+        # This file contains the actual upstream DNS (127.0.0.1:54 → dnscrypt-proxy)
+        environment.etc."resolv.conf".source = lib.mkForce "/run/systemd/resolve/resolv.conf";
 
         # ============================================================================
         # Encrypted DNS via dnscrypt-proxy

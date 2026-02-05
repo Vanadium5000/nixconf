@@ -128,6 +128,7 @@
               hostapd # WiFi access point software
               wirelesstools # Tools for working with wireless devices
               dnsmasq # DNS forwarder and DHCP server
+              ipset # IP set utility
 
               # Reverse Engineering
               ghidra # Software reverse engineering suite
