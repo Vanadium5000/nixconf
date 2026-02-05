@@ -35,7 +35,7 @@
         "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFsIUmSPfK9/ncfGjINjeI7sz+QK7wyaYJZtLhVpiU66 thealfiecrawford@icloud.com"
 
         # NOTE: iPad Termius Key
-        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDZ4tcgk5qphCpwoaDUCl1ixCNUSpIrVMz8XB0OHcOz2"
+        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEg7swCzJy8e8D+gQUtGW6YEdTt6j8RMRBR89Nhco9c+"
       ];
 
       # Use the latest kernel
