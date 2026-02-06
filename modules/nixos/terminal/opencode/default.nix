@@ -82,25 +82,25 @@
             type = "remote";
             url = "https://mcp.grep.app/";
             enabled = true;
-            timeout = 10000;
+            timeout = 20000;
           };
           deepwiki = {
             type = "remote";
             url = "https://mcp.deepwiki.com/mcp";
             enabled = true;
-            timeout = 10000;
+            timeout = 20000;
           };
           context7 = {
             type = "remote";
             url = "https://mcp.context7.com/mcp";
             enabled = true;
-            timeout = 10000;
+            timeout = 20000;
           };
           daisyui = {
             type = "local";
             command = [ "${self.packages.${pkgs.stdenv.hostPlatform.system}.daisyui-mcp}/bin/daisyui-mcp" ];
             enabled = true;
-            timeout = 10000;
+            timeout = 20000;
           };
           playwrite = {
             enabled = true;
@@ -125,7 +125,7 @@
               "${inputs.self.packages.${pkgs.stdenv.hostPlatform.system}.qmllint-mcp}/bin/qmllint-mcp"
             ];
             enabled = true;
-            timeout = 10000;
+            timeout = 20000;
           };
           quickshell = {
             type = "local";
@@ -135,7 +135,7 @@
               }/bin/quickshell-docs-mcp"
             ];
             enabled = true;
-            timeout = 10000;
+            timeout = 20000;
           };
           # Exa MCP - high-quality parallel web search with deep research capabilities
           websearch = {
@@ -282,6 +282,24 @@
         targetFile = "/home/${user}/.local/share/opencode";
         isDirectory = true;
       };
+
+      # Persist opencode-agent-memory data (Letta-style memory blocks)
+      opencodeMemoryPersistence = self.lib.persistence.mkPersistent {
+        method = "bind";
+        inherit user;
+        fileName = "opencode-memory";
+        targetFile = "/home/${user}/.opencode/memory";
+        isDirectory = true;
+      };
+
+      # Persist planning system state (plans, review status, annotations)
+      opencodePlansPersistence = self.lib.persistence.mkPersistent {
+        method = "bind";
+        inherit user;
+        fileName = "opencode-plans";
+        targetFile = "/home/${user}/.opencode/plans";
+        isDirectory = true;
+      };
     in
     {
       environment.systemPackages = [
@@ -292,12 +310,20 @@
 
       # Setup script to ensure files exist before mount
       system.activationScripts.opencode-persistence = {
-        text = toolsPersistence.activationScript + opencodePersistence.activationScript;
+        text =
+          toolsPersistence.activationScript
+          + opencodePersistence.activationScript
+          + opencodeMemoryPersistence.activationScript
+          + opencodePlansPersistence.activationScript;
         deps = [ "users" ];
       };
 
       # Bind mount for reliable persistence (apps can't overwrite)
-      fileSystems = toolsPersistence.fileSystems // opencodePersistence.fileSystems;
+      fileSystems =
+        toolsPersistence.fileSystems
+        // opencodePersistence.fileSystems
+        // opencodeMemoryPersistence.fileSystems
+        // opencodePlansPersistence.fileSystems;
       hjem.users.${user}.files = {
         # Full config with agents - defaults to opus, use `opencode-model` CLI to switch
         "${configFile}".text = builtins.toJSON (mkFullConfig expensiveModel);
