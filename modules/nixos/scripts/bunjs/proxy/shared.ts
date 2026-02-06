@@ -49,6 +49,8 @@ export const CONFIG = {
   SOCKS5_PORT: parseInt(process.env.VPN_PROXY_PORT || "10800", 10),
   /** HTTP CONNECT proxy port */
   HTTP_PORT: parseInt(process.env.VPN_HTTP_PROXY_PORT || "10801", 10),
+  /** Bind address: 0.0.0.0 (all interfaces for LAN sharing) or 127.0.0.1 (localhost only) */
+  BIND_ADDRESS: process.env.VPN_PROXY_BIND_ADDRESS || "0.0.0.0",
   /** Seconds before idle namespace cleanup */
   IDLE_TIMEOUT: parseInt(process.env.VPN_PROXY_IDLE_TIMEOUT || "300", 10),
   /** Seconds between random VPN rotation */

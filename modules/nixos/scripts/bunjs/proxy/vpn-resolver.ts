@@ -177,7 +177,7 @@ const KNOWN_CODES = [
 
 function log(
   level: "DEBUG" | "INFO" | "WARN" | "ERROR",
-  message: string
+  message: string,
 ): void {
   const timestamp = new Date().toISOString();
   console.error(`[${timestamp}] [${level}] [vpn-resolver] ${message}`);
@@ -245,6 +245,20 @@ function getDisplayName(filepath: string): string {
   return name;
 }
 
+/**
+ * Generate slug from display name (spaces removed for easier usage)
+ */
+function generateSlug(displayName: string): string {
+  return displayName.replace(/\s+/g, "");
+}
+
+/**
+ * Normalize a slug for comparison (strip all whitespace)
+ */
+function normalizeSlug(slug: string): string {
+  return slug.replace(/\s+/g, "");
+}
+
 // ============================================================================
 // OpenVPN Config Parsing
 // ============================================================================
@@ -254,7 +268,7 @@ function getDisplayName(filepath: string): string {
  * Parses the `remote <host> <port>` directive
  */
 async function parseOvpnFile(
-  filepath: string
+  filepath: string,
 ): Promise<{ serverIp: string; serverPort: number }> {
   try {
     const content = await readFile(filepath, "utf-8");
@@ -395,7 +409,7 @@ async function discoverVpns(): Promise<VpnConfig[]> {
     const { serverIp, serverPort } = await parseOvpnFile(filepath);
 
     vpns.push({
-      slug: displayName, // Exact match on display name
+      slug: generateSlug(displayName), // Space-free slug for easier usage
       displayName,
       countryCode,
       flag,
@@ -460,14 +474,15 @@ export async function listVpns(): Promise<VpnConfig[]> {
 }
 
 /**
- * Resolve a slug to a VPN config (exact match)
+ * Resolve a slug to a VPN config (normalized match - spaces ignored)
  * Returns null if not found
  */
 export async function resolveVpn(slug: string): Promise<VpnConfig | null> {
   const vpns = await listVpns();
+  const normalizedInput = normalizeSlug(slug);
 
-  // Exact match on display name (slug)
-  const vpn = vpns.find((v) => v.slug === slug || v.displayName === slug);
+  // Match against normalized slug (spaces stripped from both sides)
+  const vpn = vpns.find((v) => v.slug === normalizedInput);
 
   if (vpn) {
     log("INFO", `Resolved "${slug}" to ${vpn.displayName}`);
@@ -499,7 +514,7 @@ export async function getRandomVpn(): Promise<VpnConfig | null> {
  * Get VPN server IP from an ovpn file path
  */
 export async function getVpnServerIp(
-  ovpnPath: string
+  ovpnPath: string,
 ): Promise<{ ip: string; port: number }> {
   const { serverIp, serverPort } = await parseOvpnFile(ovpnPath);
   return { ip: serverIp, port: serverPort };
@@ -519,7 +534,8 @@ export function invalidateCache(): void {
 export async function isValidSlug(slug: string): Promise<boolean> {
   if (!slug || slug === "random") return true;
   const vpns = await listVpns();
-  return vpns.some((v) => v.slug === slug || v.displayName === slug);
+  const normalizedInput = normalizeSlug(slug);
+  return vpns.some((v) => v.slug === normalizedInput);
 }
 
 // ============================================================================

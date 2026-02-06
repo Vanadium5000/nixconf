@@ -76,18 +76,18 @@ Authentication).
 **Usage Examples:**
 
 ```bash
-# Specific VPN (use FULL VPN name from `vpn-resolver list`)
-curl --proxy "socks5h://AirVPN%20AT%20Vienna%20Alderamin%20UDP%2080%20Entry3@127.0.0.1:10800" https://api.ipify.org
+# Specific VPN (use slug from `vpn-resolver list` - no spaces needed)
+curl --proxy "socks5h://AirVPNATViennaAlderaminUDP80Entry3@127.0.0.1:10800" https://api.ipify.org
 
 # Random VPN (any of these work)
 curl --proxy "socks5h://random@127.0.0.1:10800" https://api.ipify.org
 curl --proxy "socks5h://127.0.0.1:10800" https://api.ipify.org
 
 # With separate --proxy-user flag
-curl --proxy "socks5h://127.0.0.1:10800" --proxy-user "AirVPN AT Vienna Alderamin UDP 80 Entry3:" https://api.ipify.org
+curl --proxy "socks5h://127.0.0.1:10800" --proxy-user "AirVPNATViennaAlderaminUDP80Entry3:" https://api.ipify.org
 
 # Using -x shorthand
-curl -x "socks5h://AirVPN%20AT%20Vienna%20Alderamin%20UDP%2080%20Entry3@127.0.0.1:10800" https://api.ipify.org
+curl -x "socks5h://AirVPNATViennaAlderaminUDP80Entry3@127.0.0.1:10800" https://api.ipify.org
 
 # Environment variable
 export ALL_PROXY="socks5h://127.0.0.1:10800"
@@ -114,19 +114,19 @@ Implements RFC 7231 §4.3.6 (HTTP CONNECT method) for HTTPS tunneling.
 **Usage Examples:**
 
 ```bash
-# Specific VPN via --proxy-user (use FULL VPN name from `vpn-resolver list`)
-curl --proxy "http://127.0.0.1:10801" --proxy-user "AirVPN AT Vienna Alderamin UDP 80 Entry3:" https://api.ipify.org
+# Specific VPN via --proxy-user (use slug from `vpn-resolver list`)
+curl --proxy "http://127.0.0.1:10801" --proxy-user "AirVPNATViennaAlderaminUDP80Entry3:" https://api.ipify.org
 
 # Random VPN (no auth)
 curl --proxy "http://127.0.0.1:10801" https://api.ipify.org
 
-# URL-encoded username in proxy URL
-curl --proxy "http://AirVPN%20AT%20Vienna%20Alderamin%20UDP%2080%20Entry3@127.0.0.1:10801" https://api.ipify.org
+# Username in proxy URL
+curl --proxy "http://AirVPNATViennaAlderaminUDP80Entry3@127.0.0.1:10801" https://api.ipify.org
 
 # Using -x shorthand
-curl -x "http://AirVPN%20AT%20Vienna%20Alderamin%20UDP%2080%20Entry3@127.0.0.1:10801" https://api.ipify.org
+curl -x "http://AirVPNATViennaAlderaminUDP80Entry3@127.0.0.1:10801" https://api.ipify.org
 
-# Environment variables (used by most CLI tools)
+# Environment variables (used by most CLI tools: curl, wget, pip, npm, etc.)
 export http_proxy="http://127.0.0.1:10801"
 export https_proxy="http://127.0.0.1:10801"
 curl https://api.ipify.org
@@ -146,14 +146,16 @@ Both proxies use authentication to select which VPN to route through:
 | Username = VPN display name | Specific VPN                      |
 | Invalid username            | Notification + fallback to random |
 
-**VPN Display Names:**
+**VPN Slugs:**
 
-VPN names are derived from `.ovpn` filenames with formatting applied:
+VPN slugs are derived from `.ovpn` filenames with spaces removed for easier usage:
 
-- `AirVPN_AT_Vienna.ovpn` → `AirVPN AT Vienna`
-- `mullvad-us-nyc.ovpn` → `mullvad us nyc`
+- `AirVPN_AT_Vienna.ovpn` → slug: `AirVPNATVienna`, display: `AirVPN AT Vienna`
+- `mullvad-us-nyc.ovpn` → slug: `mullvadusnyc`, display: `mullvad us nyc`
 
-Use `vpn-resolver list` to see all available VPN names.
+Spaces in input are ignored, so `AirVPN AT Vienna` and `AirVPNATVienna` both work.
+
+Use `vpn-resolver list` to see all available VPN slugs.
 
 ## Network Namespace Architecture
 
@@ -278,16 +280,17 @@ vpn-proxy-netns cleanup-all
 
 ### Environment Variables
 
-| Variable                     | Default         | Description                           |
-| ---------------------------- | --------------- | ------------------------------------- |
-| `VPN_DIR`                    | `~/Shared/VPNs` | Directory containing `.ovpn` files    |
-| `VPN_PROXY_PORT`             | `10800`         | SOCKS5 proxy port                     |
-| `VPN_HTTP_PROXY_PORT`        | `10801`         | HTTP CONNECT proxy port               |
-| `VPN_PROXY_IDLE_TIMEOUT`     | `300`           | Seconds before idle namespace cleanup |
-| `VPN_PROXY_RANDOM_ROTATION`  | `300`           | Seconds between random VPN rotation   |
-| `VPN_PROXY_NOTIFY_ROTATION`  | `0`             | Show notification on rotation (0/1)   |
-| `VPN_PROXY_CLEANUP_INTERVAL` | `60`            | Cleanup daemon check interval         |
-| `VPN_PROXY_NETNS_SCRIPT`     | (auto)          | Path to netns.sh script               |
+| Variable                     | Default         | Description                                   |
+| ---------------------------- | --------------- | --------------------------------------------- |
+| `VPN_DIR`                    | `~/Shared/VPNs` | Directory containing `.ovpn` files            |
+| `VPN_PROXY_PORT`             | `10800`         | SOCKS5 proxy port                             |
+| `VPN_HTTP_PROXY_PORT`        | `10801`         | HTTP CONNECT proxy port                       |
+| `VPN_PROXY_BIND_ADDRESS`     | `0.0.0.0`       | Bind address (`127.0.0.1` for localhost only) |
+| `VPN_PROXY_IDLE_TIMEOUT`     | `300`           | Seconds before idle namespace cleanup         |
+| `VPN_PROXY_RANDOM_ROTATION`  | `300`           | Seconds between random VPN rotation           |
+| `VPN_PROXY_NOTIFY_ROTATION`  | `0`             | Show notification on rotation (0/1)           |
+| `VPN_PROXY_CLEANUP_INTERVAL` | `60`            | Cleanup daemon check interval                 |
+| `VPN_PROXY_NETNS_SCRIPT`     | (auto)          | Path to netns.sh script                       |
 
 ### NixOS Service Options
 
@@ -296,11 +299,18 @@ services.vpn-proxy = {
   enable = true;              # Enable the proxy services
   port = 10800;               # SOCKS5 port
   httpPort = 10801;           # HTTP CONNECT port
+  bindAddress = "0.0.0.0";    # Default; use "127.0.0.1" for localhost only
   vpnDir = "/path/to/vpns";   # .ovpn file directory
   idleTimeout = 300;          # Namespace idle timeout
   randomRotation = 300;       # Random VPN rotation interval
 };
+
+# Open firewall ports for LAN access
+networking.firewall.allowedTCPPorts = [ 10800 10801 ];
 ```
+
+Configure LAN clients to use `<your-server-ip>:10800` (SOCKS5) or
+`<your-server-ip>:10801` (HTTP).
 
 ## Systemd Services
 

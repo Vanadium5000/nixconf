@@ -55,7 +55,7 @@ import {
  * Returns: { method, target, version } or null if invalid
  */
 function parseRequestLine(
-  line: string
+  line: string,
 ): { method: string; target: string; version: string } | null {
   const parts = line.split(" ");
   if (parts.length !== 3) return null;
@@ -115,7 +115,7 @@ function parseProxyAuth(authHeader: string | undefined): string | null {
  * Returns { host, port } or null if invalid
  */
 function parseConnectTarget(
-  target: string
+  target: string,
 ): { host: string; port: number } | null {
   const lastColon = target.lastIndexOf(":");
   if (lastColon === -1) {
@@ -158,7 +158,9 @@ async function handleConnection(clientSocket: Socket): Promise<void> {
       // Headers not complete yet - wait for more data
       if (buffer.length > 8192) {
         // Headers too large - reject
-        clientSocket.write("HTTP/1.1 431 Request Header Fields Too Large\r\n\r\n");
+        clientSocket.write(
+          "HTTP/1.1 431 Request Header Fields Too Large\r\n\r\n",
+        );
         clientSocket.end();
       }
       return;
@@ -192,7 +194,7 @@ async function handleConnection(clientSocket: Socket): Promise<void> {
           "Allow: CONNECT\r\n" +
           "Content-Type: text/plain\r\n" +
           "\r\n" +
-          "Only CONNECT method is supported. Use this proxy for HTTPS tunneling.\n"
+          "Only CONNECT method is supported. Use this proxy for HTTPS tunneling.\n",
       );
       clientSocket.end();
       return;
@@ -216,7 +218,7 @@ async function handleConnection(clientSocket: Socket): Promise<void> {
     log(
       "DEBUG",
       `CONNECT request: ${username || "random"}@${target.host}:${target.port}`,
-      "http"
+      "http",
     );
 
     try {
@@ -233,7 +235,7 @@ async function handleConnection(clientSocket: Socket): Promise<void> {
         "HTTP/1.1 502 Bad Gateway\r\n" +
           "Content-Type: text/plain\r\n" +
           "\r\n" +
-          `VPN connection failed: ${error}\n`
+          `VPN connection failed: ${error}\n`,
       );
       clientSocket.end();
     }
@@ -253,7 +255,7 @@ async function tunnelViaNamespace(
   clientSocket: Socket,
   nsInfo: { nsIp: string; socksPort: number; vpnDisplayName: string },
   targetHost: string,
-  targetPort: number
+  targetPort: number,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     // Connect to microsocks inside the namespace
@@ -262,7 +264,7 @@ async function tunnelViaNamespace(
       () => {
         // Send SOCKS5 handshake (no auth)
         proxySocket.write(Buffer.from([0x05, 0x01, 0x00]));
-      }
+      },
     );
 
     proxySocket.once("data", (handshakeReply: Buffer) => {
@@ -308,7 +310,7 @@ async function tunnelViaNamespace(
         clientSocket.write(
           "HTTP/1.1 200 Connection Established\r\n" +
             `Proxy-Agent: VPN-HTTP-Proxy (${nsInfo.vpnDisplayName})\r\n` +
-            "\r\n"
+            "\r\n",
         );
 
         // Bidirectional pipe
@@ -352,8 +354,12 @@ async function startServer(): Promise<void> {
     handleConnection(socket);
   });
 
-  server.listen(CONFIG.HTTP_PORT, "127.0.0.1", () => {
-    log("INFO", `HTTP CONNECT proxy listening on 127.0.0.1:${CONFIG.HTTP_PORT}`, "http");
+  server.listen(CONFIG.HTTP_PORT, CONFIG.BIND_ADDRESS, () => {
+    log(
+      "INFO",
+      `HTTP CONNECT proxy listening on ${CONFIG.BIND_ADDRESS}:${CONFIG.HTTP_PORT}`,
+      "http",
+    );
   });
 
   server.on("error", (err) => {
@@ -400,6 +406,7 @@ Options:
 Environment:
   VPN_DIR                    VPN configs directory (default: ~/Shared/VPNs)
   VPN_HTTP_PROXY_PORT        HTTP CONNECT listening port (default: 10801)
+  VPN_PROXY_BIND_ADDRESS     Bind address: 127.0.0.1 (default) or 0.0.0.0 for LAN
   VPN_PROXY_IDLE_TIMEOUT     Idle cleanup timeout in seconds (default: 300)
   VPN_PROXY_RANDOM_ROTATION  Random VPN rotation interval (default: 300)
   VPN_PROXY_NOTIFY_ROTATION  Show notification on random rotation (default: 0)
@@ -454,7 +461,7 @@ Examples:
     default:
       if (command && command !== "serve") {
         console.error(
-          `Unknown command: ${command}\nRun 'http-proxy --help' for usage.`
+          `Unknown command: ${command}\nRun 'http-proxy --help' for usage.`,
         );
         process.exit(1);
       }

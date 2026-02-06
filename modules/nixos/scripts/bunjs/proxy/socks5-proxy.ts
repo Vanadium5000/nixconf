@@ -70,7 +70,7 @@ export { cleanupIdleProxies, rotateRandom };
  * +----+------+----------+------+----------+
  */
 function parseSocks5Auth(
-  data: Buffer
+  data: Buffer,
 ): { username: string; password: string } | null {
   if (data.length < 5) return null;
   const version = data[0];
@@ -94,14 +94,14 @@ function parseSocks5Auth(
 function forwardToNamespaceSocks(
   clientSocket: Socket,
   nsInfo: NamespaceInfo,
-  socks5Request: Buffer
+  socks5Request: Buffer,
 ): void {
   const upstreamSocket = createConnection(
     { host: nsInfo.nsIp, port: nsInfo.socksPort },
     () => {
       // Send SOCKS5 handshake to upstream (no auth)
       upstreamSocket.write(Buffer.from([0x05, 0x01, 0x00]));
-    }
+    },
   );
 
   upstreamSocket.once("data", (handshakeReply: Buffer) => {
@@ -201,7 +201,7 @@ async function handleConnection(clientSocket: Socket): Promise<void> {
  */
 async function handleSocks5Request(
   clientSocket: Socket,
-  username: string
+  username: string,
 ): Promise<void> {
   clientSocket.once("data", async (data: Buffer) => {
     try {
@@ -211,7 +211,7 @@ async function handleSocks5Request(
       if (data[0] !== 0x05 || data[1] !== 0x01) {
         // Not a CONNECT command - reply with "Command not supported"
         clientSocket.write(
-          Buffer.from([0x05, 0x07, 0x00, 0x01, 0, 0, 0, 0, 0, 0])
+          Buffer.from([0x05, 0x07, 0x00, 0x01, 0, 0, 0, 0, 0, 0]),
         );
         clientSocket.end();
         return;
@@ -234,7 +234,7 @@ async function handleSocks5Request(
       } else if (atyp === 0x04) {
         // IPv6 - not supported
         clientSocket.write(
-          Buffer.from([0x05, 0x08, 0x00, 0x01, 0, 0, 0, 0, 0, 0])
+          Buffer.from([0x05, 0x08, 0x00, 0x01, 0, 0, 0, 0, 0, 0]),
         );
         clientSocket.end();
         return;
@@ -248,7 +248,7 @@ async function handleSocks5Request(
       log(
         "DEBUG",
         `SOCKS5 request: ${username || "random"}@${targetHost}:${targetPort}`,
-        "socks5"
+        "socks5",
       );
 
       // Resolve VPN and get/create namespace
@@ -261,7 +261,7 @@ async function handleSocks5Request(
       log("ERROR", `Request error: ${error}`, "socks5");
       // General SOCKS5 failure reply
       clientSocket.write(
-        Buffer.from([0x05, 0x01, 0x00, 0x01, 0, 0, 0, 0, 0, 0])
+        Buffer.from([0x05, 0x01, 0x00, 0x01, 0, 0, 0, 0, 0, 0]),
       );
       clientSocket.end();
     }
@@ -280,8 +280,12 @@ async function startServer(): Promise<void> {
     handleConnection(socket);
   });
 
-  server.listen(CONFIG.SOCKS5_PORT, "127.0.0.1", () => {
-    log("INFO", `SOCKS5 proxy listening on 127.0.0.1:${CONFIG.SOCKS5_PORT}`, "socks5");
+  server.listen(CONFIG.SOCKS5_PORT, CONFIG.BIND_ADDRESS, () => {
+    log(
+      "INFO",
+      `SOCKS5 proxy listening on ${CONFIG.BIND_ADDRESS}:${CONFIG.SOCKS5_PORT}`,
+      "socks5",
+    );
   });
 
   server.on("error", (err) => {
@@ -329,6 +333,7 @@ Environment:
   VPN_DIR                    VPN configs directory (default: ~/Shared/VPNs)
   VPN_PROXY_PORT             SOCKS5 listening port (default: 10800)
   VPN_HTTP_PROXY_PORT        HTTP CONNECT listening port (default: 10801)
+  VPN_PROXY_BIND_ADDRESS     Bind address: 127.0.0.1 (default) or 0.0.0.0 for LAN
   VPN_PROXY_IDLE_TIMEOUT     Idle cleanup timeout in seconds (default: 300)
   VPN_PROXY_RANDOM_ROTATION  Random VPN rotation interval (default: 300)
   VPN_PROXY_NOTIFY_ROTATION  Show notification on random rotation (default: 0)
@@ -369,7 +374,7 @@ Examples:
     default:
       if (command && command !== "serve") {
         console.error(
-          `Unknown command: ${command}\nRun 'vpn-proxy --help' for usage.`
+          `Unknown command: ${command}\nRun 'vpn-proxy --help' for usage.`,
         );
         process.exit(1);
       }

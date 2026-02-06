@@ -52,6 +52,19 @@
           default = 300;
           description = "Seconds between random VPN rotation";
         };
+
+        bindAddress = mkOption {
+          type = types.str;
+          default = "0.0.0.0";
+          description = ''
+            Address to bind proxy servers to.
+            - "0.0.0.0" (default): all interfaces, allows LAN devices to use the proxy
+            - "127.0.0.1": localhost only, most secure
+            
+            NOTE: To allow LAN access, also open ports 10800/10801 in
+            networking.firewall.allowedTCPPorts.
+          '';
+        };
       };
 
       config = mkIf cfg.enable {
@@ -90,6 +103,7 @@
               VPN_DIR = cfg.vpnDir;
               VPN_PROXY_PORT = toString cfg.port;
               VPN_HTTP_PROXY_PORT = toString cfg.httpPort;
+              VPN_PROXY_BIND_ADDRESS = cfg.bindAddress;
               VPN_PROXY_IDLE_TIMEOUT = toString cfg.idleTimeout;
               VPN_PROXY_RANDOM_ROTATION = toString cfg.randomRotation;
               # Quickshell IPC requires XDG_RUNTIME_DIR to find the socket
