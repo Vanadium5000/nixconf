@@ -102,38 +102,9 @@ let
     ps.fastapi # HTTP server for MCP
     ps.uvicorn # ASGI server
   ]);
-in
-pkgs.stdenv.mkDerivation {
-  pname = "libreoffice-mcp";
-  version = "0.1.0-unstable-2026-02-01";
 
-  src = pkgs.fetchFromGitHub {
-    owner = "WaterPistolAI";
-    repo = "libreoffice-mcp";
-    rev = "fdd2b0dfeb0372524b637b723332028ba744e47f"; # Pin to specific commit
-    hash = "sha256-UPKD4QHtqhVszhaN0T/y6AOJMIeYgd0YFc8eoRS6Ps4=";
-  };
-
-  buildInputs = [ pythonEnv ];
-
-  nativeBuildInputs = [ pkgs.makeWrapper ];
-
-  # Patch the upstream bug: log_level="INFO" should be log_level=20 (logging.INFO)
-  patchPhase = ''
-    # Use sed for robust replacement (handles potential whitespace differences)
-    sed -i -E 's/log_level\s*=\s*"INFO"/log_level=20/g' libreoffice.py
-  '';
-
-  installPhase = ''
-    mkdir -p $out/bin $out/share/libreoffice-mcp
-
-    # Copy the patched MCP server module
-    cp libreoffice.py $out/share/libreoffice-mcp/
-
-        # Wrapper script that sets up UNO environment and runs MCP
-        # OooDev connects via socket to LibreOffice on port 2083
-        cat > $out/bin/libreoffice-mcp << 'WRAPPER'
-    #!/bin/sh
+  # Pre-built wrapper script using writeShellScript for proper escaping
+  wrapperScript = pkgs.writeShellScript "libreoffice-mcp" ''
     # LibreOffice MCP Server (WaterPistolAI/libreoffice-mcp)
     # Uses OooDev for Pythonic LibreOffice API access
     # Requires LibreOffice running with socket listener on port 2083
@@ -170,16 +141,18 @@ pkgs.stdenv.mkDerivation {
     export UNO_PATH="$LO_PATH/program"
 
     # Add LibreOffice's Python uno module to PYTHONPATH
-    export PYTHONPATH="$LO_PATH/program:$PYTHONPATH"
+    # CRITICAL: LibreOffice's program dir must be FIRST so uno.py is found
+    # before ooodev tries to import com.sun.star.* types
+    export PYTHONPATH="$LO_PATH/program:@out@/share/libreoffice-mcp:$PYTHONPATH"
 
     # Start LibreOffice in headless mode with socket if not already running
     if ! pgrep -f "soffice.*accept=socket" > /dev/null 2>&1; then
         echo "Starting LibreOffice in headless mode on port $LIBREOFFICE_PORT..."
-        
+
         # Clean stale profile to avoid NoSuchElementException from version mismatch
         LO_PROFILE="/tmp/libreoffice-mcp-$(id -u)"
         rm -rf "$LO_PROFILE"
-        
+
         # Use isolated user profile to avoid crashes from incompatible user config
         # (e.g., registrymodifications.xcu from different LO version)
         "$LO_PATH/program/soffice" \
@@ -190,22 +163,45 @@ pkgs.stdenv.mkDerivation {
         sleep 3
     fi
 
-    WRAPPER
-
-        # Append the dynamic paths (these get substituted by Nix)
-        # CRITICAL: LibreOffice's program dir must be FIRST in PYTHONPATH so uno.py
-        # is found before ooodev tries to import com.sun.star.* types. The uno module
-        # must be initialized before any UNO type imports occur.
-        cat >> $out/bin/libreoffice-mcp << EOF
-    export PYTHONPATH="\$LO_PATH/program:$out/share/libreoffice-mcp:\$PYTHONPATH"
-    cd $out/share/libreoffice-mcp
+    cd @out@/share/libreoffice-mcp
     exec ${pythonEnv}/bin/python -c "
 import uno  # Initialize UNO runtime BEFORE ooodev imports com.sun.star types
 from libreoffice import mcp
 mcp.run()
-" "\$@"
-    EOF
-        chmod +x $out/bin/libreoffice-mcp
+" "$@"
+  '';
+in
+pkgs.stdenv.mkDerivation {
+  pname = "libreoffice-mcp";
+  version = "0.1.0-unstable-2026-02-01";
+
+  src = pkgs.fetchFromGitHub {
+    owner = "WaterPistolAI";
+    repo = "libreoffice-mcp";
+    rev = "fdd2b0dfeb0372524b637b723332028ba744e47f"; # Pin to specific commit
+    hash = "sha256-UPKD4QHtqhVszhaN0T/y6AOJMIeYgd0YFc8eoRS6Ps4=";
+  };
+
+  buildInputs = [ pythonEnv ];
+
+  nativeBuildInputs = [ pkgs.makeWrapper ];
+
+  # Patch the upstream bug: log_level="INFO" should be log_level=20 (logging.INFO)
+  patchPhase = ''
+    # Use sed for robust replacement (handles potential whitespace differences)
+    sed -i -E 's/log_level\s*=\s*"INFO"/log_level=20/g' libreoffice.py
+  '';
+
+  installPhase = ''
+    mkdir -p $out/bin $out/share/libreoffice-mcp
+
+    # Copy the patched MCP server module
+    cp libreoffice.py $out/share/libreoffice-mcp/
+
+    # Install wrapper script, substituting @out@ placeholder with actual path
+    substitute ${wrapperScript} $out/bin/libreoffice-mcp \
+      --replace-fail "@out@" "$out"
+    chmod +x $out/bin/libreoffice-mcp
   '';
 
   meta = {

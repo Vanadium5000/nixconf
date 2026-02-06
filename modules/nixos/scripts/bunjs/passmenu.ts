@@ -101,7 +101,7 @@ const logDebug = (message: string, ...args: unknown[]) =>
 
 async function notify(
   message: string,
-  title: string = "passmenu"
+  title: string = "passmenu",
 ): Promise<void> {
   console.log(`[${title}] ${message}`);
   try {
@@ -216,7 +216,7 @@ async function selectOption(
   menuCommand: string[],
   options: string[],
   prompt: string,
-  initialIndex?: number
+  initialIndex?: number,
 ): Promise<string> {
   if (options.length === 0) return "";
 
@@ -248,7 +248,7 @@ async function selectOption(
 async function performAction(
   value: string,
   action: "copy" | "type",
-  actionCmd: string[]
+  actionCmd: string[],
 ): Promise<void> {
   const proc = Bun.spawn(actionCmd, { stdin: "pipe" });
   proc.stdin.write(value);
@@ -326,7 +326,7 @@ function parseCredential(content: string, entryPath: string): ParsedCredential {
 function buildFieldOptions(
   credential: ParsedCredential,
   entryPath: string,
-  showAutotype: boolean
+  showAutotype: boolean,
 ): string[] {
   const options: string[] = [];
 
@@ -349,7 +349,8 @@ function buildFieldOptions(
   ]);
   const otherFields = Object.keys(credential.fields)
     .filter(
-      (f) => !excludeFields.has(f as "username" | "password" | "login" | "user")
+      (f) =>
+        !excludeFields.has(f as "username" | "password" | "login" | "user"),
     )
     .sort();
   options.push(...otherFields);
@@ -430,7 +431,7 @@ function generateFakeEmail(): string {
  */
 async function findAssociatedTempEmails(
   passDir: string,
-  entryPath: string
+  entryPath: string,
 ): Promise<string[]> {
   if (!entryPath || entryPath.startsWith("temp_emails/")) {
     return [];
@@ -462,7 +463,7 @@ async function findAssociatedTempEmails(
 async function appendToPass(
   path: string,
   field: string,
-  value: string
+  value: string,
 ): Promise<void> {
   const existing = await $`pass show ${path}`.text().catch(() => "");
   const lines = existing.trim().split("\n").filter(Boolean);
@@ -573,18 +574,54 @@ async function editCredential(entryPath: string): Promise<void> {
 
 async function deleteCredential(
   menuCommand: string[],
-  entryPath: string
+  passDir: string,
+  entryPath: string,
 ): Promise<boolean> {
+  // Check for associated temp emails
+  const associatedTempEmails = await findAssociatedTempEmails(
+    passDir,
+    entryPath,
+  );
+
   const confirm = await selectOption(
     menuCommand,
     ["No, keep it", "Yes, delete permanently"],
-    `Delete ${entryPath}?`
+    `Delete ${entryPath}?`,
   );
 
   if (confirm === "Yes, delete permanently") {
     try {
       await $`pass rm -f ${entryPath}`.quiet();
       await notify(`Deleted: ${entryPath}`, "passmenu");
+
+      // Prompt to delete associated temp emails if any exist
+      if (associatedTempEmails.length > 0) {
+        const deleteTempEmails = await selectOption(
+          menuCommand,
+          [
+            "No, keep temp emails",
+            `Yes, delete ${associatedTempEmails.length} temp email(s)`,
+          ],
+          `Delete ${associatedTempEmails.length} associated temp email(s)?`,
+        );
+
+        if (deleteTempEmails?.startsWith("Yes, delete")) {
+          for (const email of associatedTempEmails) {
+            const tempPath = `temp_emails/${entryPath}/${email}`;
+            try {
+              await $`pass rm -f ${tempPath}`.quiet();
+              logInfo(`Deleted associated temp email: ${tempPath}`);
+            } catch (error) {
+              logError(`Failed to delete temp email: ${tempPath}`, error);
+            }
+          }
+          await notify(
+            `Deleted ${associatedTempEmails.length} temp email(s)`,
+            "passmenu",
+          );
+        }
+      }
+
       return true;
     } catch (error) {
       logError("Failed to delete credential", error);
@@ -601,7 +638,7 @@ async function deleteCredential(
 async function showEditOptions(
   menuCommand: string[],
   entryPath: string,
-  passDir: string
+  passDir: string,
 ): Promise<"back" | "exit" | "deleted" | "moved"> {
   const options = [
     "← Back",
@@ -614,7 +651,7 @@ async function showEditOptions(
   const selected = await selectOption(
     menuCommand,
     options,
-    `Edit: ${entryPath}`
+    `Edit: ${entryPath}`,
   );
 
   switch (selected) {
@@ -646,7 +683,7 @@ async function showEditOptions(
         const proceed = await selectOption(
           menuCommand,
           ["Cancel", "Move anyway (temp emails will be orphaned)"],
-          "This credential has associated temp emails"
+          "This credential has associated temp emails",
         );
         if (proceed !== "Move anyway (temp emails will be orphaned)") {
           return "back";
@@ -686,7 +723,7 @@ async function showEditOptions(
       }
     }
     case "🗑️ Delete Credential":
-      const deleted = await deleteCredential(menuCommand, entryPath);
+      const deleted = await deleteCredential(menuCommand, passDir, entryPath);
       return deleted ? "deleted" : "back";
     default:
       return "back";
@@ -699,7 +736,7 @@ async function showEditOptions(
 
 async function createCredential(
   menuCommand: string[],
-  passDir: string
+  passDir: string,
 ): Promise<void> {
   // Prompt for path
   const path = (
@@ -731,7 +768,7 @@ async function createCredential(
 
 async function fetchHydraCollection(
   url: string,
-  options?: RequestInit
+  options?: RequestInit,
 ): Promise<unknown[]> {
   logDebug(`Fetching Hydra collection from ${url}`);
   const res = await fetch(url, options);
@@ -750,7 +787,7 @@ async function fetchHydraCollection(
 async function createTempEmail(): Promise<{ email: string; tempPass: string }> {
   // Fetch available domains
   const domainsData = (await fetchHydraCollection(
-    "https://api.mail.tm/domains"
+    "https://api.mail.tm/domains",
   )) as Array<{ isActive: boolean; isPrivate: boolean; domain: string }>;
 
   const activeDomains = domainsData
@@ -780,7 +817,7 @@ async function createTempEmail(): Promise<{ email: string; tempPass: string }> {
   if (!createRes.ok) {
     const errorText = await createRes.text();
     throw new Error(
-      `Failed to create email account: ${createRes.statusText} - ${errorText}`
+      `Failed to create email account: ${createRes.statusText} - ${errorText}`,
     );
   }
 
@@ -790,7 +827,7 @@ async function createTempEmail(): Promise<{ email: string; tempPass: string }> {
 
 async function getMailTmToken(
   email: string,
-  password: string
+  password: string,
 ): Promise<string> {
   logDebug(`Fetching token for ${email}`);
   const tokenRes = await fetch("https://api.mail.tm/token", {
@@ -802,7 +839,7 @@ async function getMailTmToken(
   if (!tokenRes.ok) {
     const errorText = await tokenRes.text();
     throw new Error(
-      `Failed to get token: ${tokenRes.statusText} - ${errorText}`
+      `Failed to get token: ${tokenRes.statusText} - ${errorText}`,
     );
   }
 
@@ -819,7 +856,7 @@ async function fetchMessages(token: string): Promise<unknown[]> {
 
 async function fetchMessage(
   token: string,
-  messageId: string
+  messageId: string,
 ): Promise<unknown> {
   logDebug(`Fetching message ${messageId}`);
   const url = `https://api.mail.tm/messages/${messageId}`;
@@ -830,7 +867,7 @@ async function fetchMessage(
   if (!msgRes.ok) {
     const errorText = await msgRes.text();
     throw new Error(
-      `Failed to fetch message: ${msgRes.statusText} - ${errorText}`
+      `Failed to fetch message: ${msgRes.statusText} - ${errorText}`,
     );
   }
 
@@ -852,7 +889,7 @@ async function handleViewMessages(
   menuCommand: string[],
   email: string,
   path: string,
-  options: Options
+  options: Options,
 ): Promise<void> {
   const content = await $`pass show ${path}`.text();
   const password = parseField(content, "password");
@@ -880,12 +917,12 @@ async function handleViewMessages(
 
     // Select message
     const msgOptions = messages.map(
-      (m) => `${m.from.address}: ${m.subject.slice(0, 50)}`
+      (m) => `${m.from.address}: ${m.subject.slice(0, 50)}`,
     );
     const selectedMsgStr = await selectOption(
       menuCommand,
       msgOptions,
-      "Select message:"
+      "Select message:",
     );
     const selectedIndex = msgOptions.indexOf(selectedMsgStr);
     if (selectedIndex === -1) {
@@ -947,7 +984,7 @@ async function handleViewMessages(
     const messageAction = await selectOption(
       menuCommand,
       messageOptions,
-      "Choose action:"
+      "Choose action:",
     );
     if (!messageAction) {
       await notify("No action selected", "passmenu");
@@ -995,7 +1032,7 @@ async function handleViewMessages(
 async function manageTempEmails(
   menuCommand: string[],
   passDir: string,
-  options: Options
+  options: Options,
 ): Promise<void> {
   // List temp emails
   const tempListOutput =
@@ -1023,7 +1060,7 @@ async function manageTempEmails(
   const selectedDisplay = await selectOption(
     menuCommand,
     displayOptions,
-    "Select email:"
+    "Select email:",
   );
   if (!selectedDisplay) {
     await notify("No email selected", "passmenu");
@@ -1043,7 +1080,7 @@ async function manageTempEmails(
   const action = await selectOption(
     menuCommand,
     actions,
-    `Manage: ${selected.email}`
+    `Manage: ${selected.email}`,
   );
   if (!action || action === `📧 ${selected.email}`) {
     if (!action) await notify("No action selected", "passmenu");
@@ -1076,7 +1113,7 @@ async function manageTempEmails(
           menuCommand,
           selected.email,
           selected.path,
-          options
+          options,
         );
         break;
 
@@ -1084,7 +1121,7 @@ async function manageTempEmails(
         const confirm = await selectOption(
           menuCommand,
           ["No, keep it", "Yes, delete permanently"],
-          `Delete ${selected.email}?`
+          `Delete ${selected.email}?`,
         );
 
         if (confirm === "Yes, delete permanently") {
@@ -1107,7 +1144,7 @@ async function generateCredential(
   menuCommand: string[],
   passDir: string,
   action: "copy" | "type",
-  actionCmd: string[]
+  actionCmd: string[],
 ): Promise<void> {
   const fields = [
     "email",
@@ -1124,7 +1161,7 @@ async function generateCredential(
   const selectedField = await selectOption(
     menuCommand,
     fields,
-    "Select credential to generate"
+    "Select credential to generate",
   );
   if (!selectedField) {
     await notify("No field selected", "passmenu");
@@ -1138,7 +1175,7 @@ async function generateCredential(
     const emailType = await selectOption(
       menuCommand,
       ["Temporary (real)", "Fake (generated)"],
-      "Email type"
+      "Email type",
     );
     if (!emailType) {
       await notify("No email type selected", "passmenu");
@@ -1163,6 +1200,16 @@ async function generateCredential(
         const tempContent = `password: ${tempPass}\nassociated: ${path}\n`;
         await $`echo ${tempContent} | pass insert --multiline --force ${tempPath}`;
         logInfo(`Stored temp email creds for ${email} under ${tempPath}`);
+
+        // Initialize the associated path if it doesn't exist
+        try {
+          await $`pass show ${path}`.quiet();
+        } catch {
+          // Path doesn't exist, create it with empty content
+          await $`echo "" | pass insert --multiline --force ${path}`;
+          logInfo(`Initialized associated path: ${path}`);
+        }
+
         isTempEmail = true;
       } catch (error) {
         logError("Failed to generate temp email", error);
@@ -1195,7 +1242,7 @@ async function generateCredential(
   await performAction(value, action, actionCmd);
   await notify(
     action === "copy" ? "Copied to clipboard" : "Typed value",
-    "passmenu"
+    "passmenu",
   );
 
   // Prompt to save (unless temp email, already saved)
@@ -1325,7 +1372,7 @@ async function main(): Promise<void> {
         "Select",
         stateIsRecent && state.lastEntry
           ? displayEntries.indexOf(state.lastEntry)
-          : defaultIndex
+          : defaultIndex,
       );
 
       if (!selected) {
@@ -1383,7 +1430,7 @@ async function main(): Promise<void> {
     const fieldOptions = buildFieldOptions(
       credential,
       selected,
-      options.autotype
+      options.autotype,
     );
 
     // Determine initial selection for field menu
@@ -1409,7 +1456,7 @@ async function main(): Promise<void> {
         menuCommand,
         fieldOptions,
         selected,
-        initialFieldIndex
+        initialFieldIndex,
       );
     }
 
@@ -1469,7 +1516,7 @@ async function main(): Promise<void> {
         await performAction(credential.password, "type", actionCmd);
         await notify(
           "Autotyped credentials (password also copied)",
-          "passmenu"
+          "passmenu",
         );
       } else {
         await notify("Password copied to clipboard", "passmenu");
@@ -1491,7 +1538,7 @@ async function main(): Promise<void> {
     await performAction(value, action, actionCmd);
     await notify(
       action === "copy" ? "Copied to clipboard" : "Typed value",
-      "passmenu"
+      "passmenu",
     );
 
     // Save state and exit
