@@ -66,7 +66,7 @@
         kdePackages.gwenview # Image Viewer
         kdePackages.plasma-systemmonitor # System Monitor GUI
 
-        libreoffice-qt6 # Office suite - also used by libreoffice-mcp for headless doc operations
+        libreoffice-qt6 # Office suite (GUI only - libreoffice-mcp uses Flatpak for headless UNO API)
 
         # KDE Frameworks & System Utilities
         kdePackages.ksystemstats # Core system statistics provider
