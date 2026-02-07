@@ -57,7 +57,10 @@
         nur.repos.ataraxiasjel.waydroid-script # For installing libndk & other tools (for running ARM64 Android apps on x64)
       ];
 
-      virtualisation.waydroid.enable = true;
+      virtualisation.waydroid = {
+        enable = true;
+        package = pkgs.waydroid-nftables;
+      };
 
       # Pesist the waydroid data
       impermanence.home.cache.directories = [

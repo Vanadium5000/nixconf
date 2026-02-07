@@ -173,14 +173,16 @@
         inherit pkgs;
         package = pkgs.writeShellScriptBin "qs-emoji" ''
           # Quickshell Emoji Picker (using qs-dmenu)
-          # Fetches GitHub's gemoji database and allows selection/copy
+          # Uses emojilib for rich keyword search (8-17 keywords per emoji)
 
           CACHE_FILE="$HOME/.cache/qs-emoji.txt"
 
           if [ ! -f "$CACHE_FILE" ]; then
               notify-send "Downloading Emoji List..."
-              curl -sL "https://raw.githubusercontent.com/github/gemoji/master/db/emoji.json" | \
-              jq -r '.[] | "\(.emoji) \(.aliases[0])"' > "$CACHE_FILE"
+              # emojilib provides many keywords per emoji for better search
+              # Format: "😀 grinning_face face smile happy joy :D grin smiley"
+              curl -sL "https://raw.githubusercontent.com/muan/emojilib/main/dist/emoji-en-US.json" | \
+              jq -r 'to_entries | .[] | "\(.key) \(.value | join(" "))"' > "$CACHE_FILE"
           fi
 
           # Verify cache file has content
@@ -705,17 +707,17 @@
               IFS=':' read -r _ key action selected_vpn <<< "$SELECTION"
               # Extract the VPN name from selection (strip flag emoji and checkmark)
               CLEAN_NAME=$(echo "$selected_vpn" | sed 's/^[^ ]* //' | sed 's/ ✓$//')
-              # URL-encode the VPN name for use as proxy username
-              ENCODED_NAME=$(printf '%s' "$CLEAN_NAME" | sed 's/ /%20/g')
+              # Remove all spaces from VPN name for slug (proxy system ignores spaces)
+              SLUG_NAME=$(printf '%s' "$CLEAN_NAME" | tr -d ' ')
               
               case "$action" in
                 copy-socks5)
-                  PROXY_LINK="socks5://$ENCODED_NAME@127.0.0.1:10800"
+                  PROXY_LINK="socks5://$SLUG_NAME@127.0.0.1:10800"
                   printf '%s' "$PROXY_LINK" | wl-copy --type text/plain
                   notify-send "VPN Proxy" "Copied SOCKS5: $PROXY_LINK\n\nVPN activates automatically on first use"
                   ;;
                 copy-http)
-                  PROXY_LINK="http://$ENCODED_NAME:@127.0.0.1:10801"
+                  PROXY_LINK="http://$SLUG_NAME:@127.0.0.1:10801"
                   printf '%s' "$PROXY_LINK" | wl-copy --type text/plain
                   notify-send "VPN Proxy" "Copied HTTP: $PROXY_LINK\n\nVPN activates automatically on first use"
                   ;;

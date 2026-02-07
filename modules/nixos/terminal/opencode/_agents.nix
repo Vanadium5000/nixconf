@@ -16,6 +16,9 @@ in
     build = {
       model = expensiveModel;
       prompt = "{file:./prompts/builder.md}";
+      permission = {
+        bash = "ask";
+      };
     };
 
     # Override built-in Plan agent
@@ -24,7 +27,7 @@ in
       prompt = "{file:./prompts/planner.md}";
       permission = {
         edit = "deny";
-        bash = "deny";
+        bash = "ask";
       };
     };
 

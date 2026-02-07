@@ -20,8 +20,6 @@
     # === NOTIFICATIONS & OBSERVABILITY ===
     "@mohak34/opencode-notifier@latest" # Desktop/Slack/Discord notifications
     "opencode-helicone-session@latest" # LLM observability via Helicone
-    # TODO: Fix quota plugin
-    # "@slkiser/opencode-quota@latest" # Token/cost budget limits - installs but doesn't function
 
     # === SAFETY ===
     "cc-safety-net@latest" # Git checkpoints before destructive operations
