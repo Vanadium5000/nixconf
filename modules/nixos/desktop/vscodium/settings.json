@@ -128,5 +128,6 @@
   "qt-qml.qmlls.customExePath": "/run/current-system/sw/bin/qmlls",
 
   // Other...
-  "json.schemaDownload.enable": true
+  "json.schemaDownload.enable": true,
+  "diffEditor.ignoreTrimWhitespace": false
 }

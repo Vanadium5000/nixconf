@@ -208,6 +208,7 @@
           (kb ",switch:Lid Switch" "exec, wpctl set-volume @DEFAULT_AUDIO_SINK@ 0" "Mute on lid close"
             "System"
           )
+          (kb ",XF86RFKill" "exec, " "Disable airplane mode key" "System") # Prevents accidental WiFi disconnect
         ];
 
         # ── Volume (bindle - repeat) ──

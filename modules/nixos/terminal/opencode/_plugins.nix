@@ -7,7 +7,8 @@
 {
   plugins = [
     # === CONTEXT & MODEL GUIDANCE ===
-    "@tarquinen/opencode-dcp@latest" # Dynamic Context Pruning - essential for long sessions
+    # DCP seems to give the AIs debilitating dementia
+    # "@tarquinen/opencode-dcp@latest" # Dynamic Context Pruning - essential for long sessions
     "opencode-rules@latest" # Injects AGENTS.md into system prompt
     "opencode-handoff@latest" # Session continuity for multi-agent handoffs
 
