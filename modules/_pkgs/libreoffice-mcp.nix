@@ -208,7 +208,7 @@ let
 in
 pkgs.stdenv.mkDerivation {
   pname = "libreoffice-mcp";
-  version = "0.1.0-unstable-2026-02-01";
+  version = "0-unstable-2025-05-28";
 
   src = mcpSource;
 
