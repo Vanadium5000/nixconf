@@ -189,8 +189,8 @@
             ];
           };
         };
-        claude-opus-4-5-thinking = {
-          name = "Claude Opus 4.5 Thinking";
+        claude-opus-4-6-thinking = {
+          name = "Claude Opus 4.6 Thinking";
           limit = {
             context = 128000;
             output = 8192;
