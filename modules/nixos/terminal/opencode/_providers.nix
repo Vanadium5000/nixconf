@@ -80,8 +80,8 @@
         "gemini-2.5-flash" = {
           name = "Gemini 2.5 Flash";
           limit = {
-            context = 128000;
-            output = 8192;
+            context = 1048576; # 1M token context window
+            output = 65536;
           };
           modalities = {
             input = [
@@ -97,8 +97,8 @@
         "gemini-2.5-flash-lite" = {
           name = "Gemini 2.5 Flash Lite";
           limit = {
-            context = 128000;
-            output = 8192;
+            context = 1048576; # 1M token context window
+            output = 65536;
           };
           modalities = {
             input = [
@@ -114,8 +114,8 @@
         "gemini-2.5-flash-thinking" = {
           name = "Gemini 2.5 Flash Thinking";
           limit = {
-            context = 128000;
-            output = 8192;
+            context = 1048576; # 1M token context window
+            output = 65536;
           };
           modalities = {
             input = [
@@ -158,8 +158,8 @@
         claude-sonnet-4-5 = {
           name = "Claude Sonnet 4.5";
           limit = {
-            context = 128000;
-            output = 8192;
+            context = 200000; # 200K default (1M available via beta header)
+            output = 64000;
           };
           modalities = {
             input = [
@@ -175,8 +175,8 @@
         claude-sonnet-4-5-thinking = {
           name = "Claude Sonnet 4.5 Thinking";
           limit = {
-            context = 128000;
-            output = 8192;
+            context = 200000; # 200K default (1M available via beta header)
+            output = 64000;
           };
           modalities = {
             input = [
@@ -192,8 +192,8 @@
         claude-opus-4-6-thinking = {
           name = "Claude Opus 4.6 Thinking";
           limit = {
-            context = 128000;
-            output = 8192;
+            context = 200000; # 200K default (1M available via beta header)
+            output = 128000; # 128K - doubled from Opus 4.5's 64K (Feb 2026)
           };
           modalities = {
             input = [
