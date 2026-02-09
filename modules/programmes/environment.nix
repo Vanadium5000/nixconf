@@ -52,6 +52,10 @@
             fd
             ripgrep
 
+            # Required for ESP32 USB access
+            platformio-core.udev
+            openocd
+
             tealdeer # Very fast implementation of tldr in Rust
             btop # System resource monitor
             bat
