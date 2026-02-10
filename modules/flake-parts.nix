@@ -52,6 +52,15 @@
               nurpkgs = prev;
               pkgs = prev;
             };
+            pythonPackagesExtensions = prev.pythonPackagesExtensions ++ [
+              (python-final: python-prev: {
+                tenacity = python-prev.tenacity.overridePythonAttrs (old: {
+                  # Disable flaky tests (AssertionError: 4 not less than 1.1)
+                  # Fixes build failures when system is under load
+                  doCheck = false;
+                });
+              })
+            ];
           })
           inputs.nix4vscode.overlays.default
         ];
