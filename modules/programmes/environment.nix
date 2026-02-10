@@ -56,6 +56,9 @@
             platformio-core.udev
             openocd
 
+            busybox # Tiny versions of common UNIX utilities in a single small executable
+            psmisc # Set of small useful utilities that use the proc filesystem (such as fuser, killall and pstree)
+
             tealdeer # Very fast implementation of tldr in Rust
             btop # System resource monitor
             bat
