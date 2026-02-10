@@ -1,7 +1,8 @@
 # VPN Proxy System
 
 A modular proxy system that routes traffic through OpenVPN configurations with
-network namespace isolation and zero IP leak guarantee.
+network namespace isolation and zero IP leak guarantee. Also supports a "none"
+mode for direct connections that bypass device-level VPNs.
 
 ## Architecture Overview
 
@@ -21,28 +22,28 @@ network namespace isolation and zero IP leak guarantee.
                                            │
                               ┌────────────┴────────────┐
                               │    Username = VPN Slug  │
-                              │    (or "random"/empty)  │
+                              │ "random"/empty/"none"   │
                               └────────────┬────────────┘
                                            │
-              ┌────────────────────────────┼────────────────────────────┐
-              ▼                            ▼                            ▼
-    ┌─────────────────┐          ┌─────────────────┐          ┌─────────────────┐
-    │  vpn-proxy-0    │          │  vpn-proxy-1    │          │  vpn-proxy-N    │
-    │  ┌───────────┐  │          │  ┌───────────┐  │          │  ┌───────────┐  │
-    │  │ OpenVPN   │  │          │  │ OpenVPN   │  │          │  │ OpenVPN   │  │
-    │  │ + tun0    │  │          │  │ + tun0    │  │          │  │ + tun0    │  │
-    │  └───────────┘  │          │  └───────────┘  │          │  └───────────┘  │
-    │  ┌───────────┐  │          │  ┌───────────┐  │          │  ┌───────────┐  │
-    │  │microsocks │  │          │  │microsocks │  │          │  │microsocks │  │
-    │  │ :10900    │  │          │  │ :10901    │  │          │  │ :1090N    │  │
-    │  └───────────┘  │          │  └───────────┘  │          │  └───────────┘  │
-    │  ┌───────────┐  │          │  ┌───────────┐  │          │  ┌───────────┐  │
-    │  │Kill-switch│  │          │  │Kill-switch│  │          │  │Kill-switch│  │
-    │  │ (nftables)│  │          │  │ (nftables)│  │          │  │ (nftables)│  │
-    │  └───────────┘  │          │  └───────────┘  │          │  └───────────┘  │
-    └────────┬────────┘          └────────┬────────┘          └────────┬────────┘
-             │                            │                            │
-             └────────────────────────────┴────────────────────────────┘
+          ┌────────────────────────────────┼──────────────────┐
+          ▼                                ▼                  ▼
+┌─────────────────┐              ┌─────────────────┐  ┌─────────────────┐
+│  vpn-proxy-0    │              │  vpn-proxy-1    │  │  vpn-proxy-N    │
+│  ┌───────────┐  │              │  ┌───────────┐  │  │  ┌───────────┐  │
+│  │ OpenVPN   │  │              │  │ (no VPN)  │  │  │  │ OpenVPN   │  │
+│  │ + tun0    │  │              │  │  direct   │  │  │  │ + tun0    │  │
+│  └───────────┘  │              │  └───────────┘  │  │  └───────────┘  │
+│  ┌───────────┐  │              │  ┌───────────┐  │  │  ┌───────────┐  │
+│  │microsocks │  │              │  │microsocks │  │  │  │microsocks │  │
+│  │ :10900    │  │              │  │ :10901    │  │  │  │ :1090N    │  │
+│  └───────────┘  │              │  └───────────┘  │  │  └───────────┘  │
+│  ┌───────────┐  │              │                 │  │  ┌───────────┐  │
+│  │Kill-switch│  │              │  (no kill-sw)   │  │  │Kill-switch│  │
+│  │ (nftables)│  │              │                 │  │  │ (nftables)│  │
+│  └───────────┘  │              │                 │  │  └───────────┘  │
+└────────┬────────┘              └────────┬────────┘  └────────┬────────┘
+         │                                │                    │
+         └────────────────────────────────┴────────────────────┘
                                           │
                                           ▼
                                      ┌─────────┐
@@ -83,6 +84,9 @@ curl --proxy "socks5h://AirVPNATViennaAlderaminUDP80Entry3@127.0.0.1:10800" http
 curl --proxy "socks5h://random@127.0.0.1:10800" https://api.ipify.org
 curl --proxy "socks5h://127.0.0.1:10800" https://api.ipify.org
 
+# Direct connection (bypass device VPN, use real IP)
+curl --proxy "socks5h://none@127.0.0.1:10800" https://api.ipify.org
+
 # With separate --proxy-user flag
 curl --proxy "socks5h://127.0.0.1:10800" --proxy-user "AirVPNATViennaAlderaminUDP80Entry3:" https://api.ipify.org
 
@@ -120,6 +124,9 @@ curl --proxy "http://127.0.0.1:10801" --proxy-user "AirVPNATViennaAlderaminUDP80
 # Random VPN (no auth)
 curl --proxy "http://127.0.0.1:10801" https://api.ipify.org
 
+# Direct connection (bypass device VPN, use real IP)
+curl --proxy "http://127.0.0.1:10801" --proxy-user "none:" https://api.ipify.org
+
 # Username in proxy URL
 curl --proxy "http://AirVPNATViennaAlderaminUDP80Entry3@127.0.0.1:10801" https://api.ipify.org
 
@@ -139,12 +146,13 @@ curl https://api.ipify.org
 
 Both proxies use authentication to select which VPN to route through:
 
-| Authentication              | VPN Selection                     |
-| --------------------------- | --------------------------------- |
-| No auth / empty username    | Random VPN (rotates every 5 min)  |
-| Username = "random"         | Random VPN (rotates every 5 min)  |
-| Username = VPN display name | Specific VPN                      |
-| Invalid username            | Notification + fallback to random |
+| Authentication              | VPN Selection                                   |
+| --------------------------- | ----------------------------------------------- |
+| No auth / empty username    | Random VPN (rotates every 5 min)                |
+| Username = "random"         | Random VPN (rotates every 5 min)                |
+| Username = "none"           | Direct connection (no VPN, bypasses device VPN) |
+| Username = VPN display name | Specific VPN                                    |
+| Invalid username            | Notification + fallback to random               |
 
 **VPN Slugs:**
 
@@ -156,6 +164,40 @@ VPN slugs are derived from `.ovpn` filenames with spaces removed for easier usag
 Spaces in input are ignored, so `AirVPN AT Vienna` and `AirVPNATVienna` both work.
 
 Use `vpn-resolver list` to see all available VPN slugs.
+
+## Direct Connection Mode ("none")
+
+When the username is set to `"none"`, the proxy creates a network namespace
+with **no VPN and no kill-switch**. Traffic goes directly through the host's
+real internet connection via NAT masquerading.
+
+**Why?** A network namespace has its own routing table, completely independent
+of the host. If the host has an active VPN (e.g., via NetworkManager OpenVPN),
+the "none" namespace bypasses it — traffic exits through the host's physical
+interface, not through the VPN tunnel.
+
+**Use cases:**
+
+- Accessing services that block VPN IP addresses
+- Checking your real IP while a device VPN is active
+- Running specific requests without VPN overhead
+
+**How it works:**
+
+1. A new namespace is created with a veth pair and NAT (same as VPN namespaces)
+2. No OpenVPN is started — no tunnel, no kill-switch
+3. microsocks runs inside the namespace for SOCKS5 proxying
+4. Traffic routes: app → proxy → namespace → host NAT → real internet
+
+**The namespace is idle-cleaned** like VPN namespaces (default 5 minutes).
+
+```bash
+# SOCKS5
+curl --proxy "socks5h://none@127.0.0.1:10800" https://api.ipify.org
+
+# HTTP CONNECT
+curl --proxy "http://127.0.0.1:10801" --proxy-user "none:" https://api.ipify.org
+```
 
 ## Network Namespace Architecture
 
@@ -270,6 +312,7 @@ vpn-resolver server-ip <path>  # Get server IP from .ovpn file
 
 ```bash
 vpn-proxy-netns create <name> <index> <vpn_ip> [port]
+vpn-proxy-netns create-direct <name> <index>
 vpn-proxy-netns destroy <name>
 vpn-proxy-netns list
 vpn-proxy-netns check <name>
@@ -440,7 +483,9 @@ await fetch("https://api.ipify.org", {
   proxy: {
     url: "http://127.0.0.1:10801",
     headers: {
-      "Proxy-Authorization": `Basic ${Buffer.from(`${vpnName}:`).toString("base64")}`,
+      "Proxy-Authorization": `Basic ${Buffer.from(`${vpnName}:`).toString(
+        "base64"
+      )}`,
     },
   },
 });
@@ -460,7 +505,7 @@ import { HttpsProxyAgent } from "https-proxy-agent";
 
 const vpnName = "AirVPN AT Vienna Alderamin UDP 80 Entry3";
 const agent = new HttpsProxyAgent(
-  `http://${encodeURIComponent(vpnName)}:@127.0.0.1:10801`,
+  `http://${encodeURIComponent(vpnName)}:@127.0.0.1:10801`
 );
 
 const response = await fetch("https://api.ipify.org", { agent });
@@ -562,16 +607,19 @@ modules/nixos/scripts/bunjs/proxy/
 
 ## Security Considerations
 
-1. **Kill-switch is mandatory**: All traffic is blocked if VPN drops
+1. **Kill-switch is mandatory**: All VPN traffic is blocked if VPN drops
 2. **DNS isolation**: Each namespace has its own resolvers
 3. **No credential storage**: VPN configs are read-only from disk
 4. **tmpfs state**: Sensitive data never persists to disk
 5. **Namespace isolation**: VPNs cannot interfere with each other
 6. **localhost-only**: Proxies only listen on `127.0.0.1`
+7. **"none" mode has no kill-switch**: Direct namespaces intentionally skip
+   the kill-switch since there is no VPN to protect
 
 ## Performance Notes
 
 - **Namespace creation**: ~3-5 seconds (OpenVPN handshake)
+- **Direct namespace**: ~0.5 seconds (no VPN handshake needed)
 - **First request**: May be slow while namespace is created
 - **Subsequent requests**: Fast (reuses existing namespace)
 - **Idle cleanup**: 5 minutes default (configurable)

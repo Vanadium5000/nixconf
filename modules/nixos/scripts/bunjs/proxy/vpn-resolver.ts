@@ -532,7 +532,7 @@ export function invalidateCache(): void {
  * Check if a slug is a valid VPN name (without resolving)
  */
 export async function isValidSlug(slug: string): Promise<boolean> {
-  if (!slug || slug === "random") return true;
+  if (!slug || slug === "random" || slug === "none") return true;
   const vpns = await listVpns();
   const normalizedInput = normalizeSlug(slug);
   return vpns.some((v) => v.slug === normalizedInput);

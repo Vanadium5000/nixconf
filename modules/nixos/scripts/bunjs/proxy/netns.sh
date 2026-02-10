@@ -4,8 +4,12 @@
 # Creates isolated network namespaces with:
 # - veth pair for host<->namespace connectivity
 # - NAT masquerading for outbound traffic
-# - nftables kill-switch (blocks all non-VPN traffic)
+# - nftables kill-switch (blocks all non-VPN traffic) [VPN mode only]
 # - Per-namespace DNS to prevent leaks
+#
+# Two modes:
+# - create:        Full VPN namespace with kill-switch (blocks all non-VPN traffic)
+# - create-direct: Direct namespace without VPN/kill-switch (bypasses device VPN)
 #
 # Security: Kill-switch ensures zero IP leaks - if VPN drops, all traffic blocked
 #
@@ -44,13 +48,11 @@ die() {
     exit 1
 }
 
-create_namespace() {
+# Common namespace setup: veth pair, NAT, DNS, microsocks
+# Used by both create_namespace (VPN) and create_direct_namespace (no VPN)
+setup_namespace_base() {
     local ns="$1"
     local idx="$2"
-    local vpn_ip="$3"
-    local vpn_port="$4"
-    
-    log "Creating namespace: $ns (index=$idx, vpn=$vpn_ip:$vpn_port)"
     
     if run ip netns list 2>/dev/null | grep -q "^$ns"; then
         log "Namespace $ns already exists, destroying first"
@@ -107,8 +109,6 @@ create_namespace() {
     echo "nameserver 1.1.1.1" | run tee "/etc/netns/$ns/resolv.conf" >/dev/null
     echo "nameserver 1.0.0.1" | run tee -a "/etc/netns/$ns/resolv.conf" >/dev/null
     
-    apply_killswitch "$ns" "$vpn_ip" "$vpn_port"
-    
     mkdir -p "$STATE_DIR"
     
     # Start microsocks SOCKS5 proxy inside namespace, bound to veth IP for host access
@@ -123,6 +123,25 @@ create_namespace() {
     else
         log "WARNING: Could not determine microsocks PID"
     fi
+}
+
+create_namespace() {
+    local ns="$1"
+    local idx="$2"
+    local vpn_ip="$3"
+    local vpn_port="$4"
+    
+    log "Creating namespace: $ns (index=$idx, vpn=$vpn_ip:$vpn_port)"
+    
+    setup_namespace_base "$ns" "$idx"
+    
+    apply_killswitch "$ns" "$vpn_ip" "$vpn_port"
+    
+    local veth_host="veth-h-$idx"
+    local veth_ns="veth-n-$idx"
+    local host_ip="10.200.$idx.1"
+    local ns_ip="10.200.$idx.2"
+    local socks_port=$((10900 + idx))
     
     cat > "$STATE_DIR/ns-$ns.json" <<EOF
 {
@@ -140,6 +159,44 @@ create_namespace() {
 EOF
     
     log "Namespace $ns created successfully"
+    echo "$ns_ip:$socks_port"
+}
+
+# Create a direct namespace (no VPN, no kill-switch)
+# Bypasses any device-level VPN by using a separate network namespace
+# with its own routing table that goes directly through the host's real interface
+create_direct_namespace() {
+    local ns="$1"
+    local idx="$2"
+    
+    log "Creating direct namespace: $ns (index=$idx, no VPN)"
+    
+    setup_namespace_base "$ns" "$idx"
+    
+    # No kill-switch applied — traffic goes out directly via host NAT
+    
+    local veth_host="veth-h-$idx"
+    local veth_ns="veth-n-$idx"
+    local host_ip="10.200.$idx.1"
+    local ns_ip="10.200.$idx.2"
+    local socks_port=$((10900 + idx))
+    
+    cat > "$STATE_DIR/ns-$ns.json" <<EOF
+{
+  "name": "$ns",
+  "index": $idx,
+  "vethHost": "$veth_host",
+  "vethNs": "$veth_ns",
+  "hostIp": "$host_ip",
+  "nsIp": "$ns_ip",
+  "socksPort": $socks_port,
+  "vpnServerIp": "none",
+  "vpnServerPort": 0,
+  "createdAt": $(date +%s)
+}
+EOF
+    
+    log "Direct namespace $ns created successfully"
     echo "$ns_ip:$socks_port"
 }
 
@@ -254,6 +311,10 @@ case "$ACTION" in
         [[ -z "$VPN_SERVER_IP" ]] && die "VPN server IP is required"
         create_namespace "$NS_NAME" "$NS_INDEX" "$VPN_SERVER_IP" "$VPN_SERVER_PORT"
         ;;
+    create-direct)
+        [[ -z "$NS_NAME" ]] && die "Usage: $0 create-direct <name> <index>"
+        create_direct_namespace "$NS_NAME" "$NS_INDEX"
+        ;;
     destroy)
         [[ -z "$NS_NAME" ]] && die "Usage: $0 destroy <name>"
         destroy_namespace "$NS_NAME"
@@ -291,6 +352,7 @@ case "$ACTION" in
 
 Usage:
   $0 create <name> <index> <vpn_server_ip> [vpn_server_port]
+  $0 create-direct <name> <index>
   $0 destroy <name>
   $0 list
   $0 check <name>
@@ -298,6 +360,7 @@ Usage:
 
 Examples:
   $0 create vpn-proxy-0 0 185.189.114.57 443
+  $0 create-direct vpn-proxy-1 1
   $0 destroy vpn-proxy-0
   $0 cleanup-all
 "

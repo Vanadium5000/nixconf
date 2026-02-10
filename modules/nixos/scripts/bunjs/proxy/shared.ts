@@ -401,6 +401,55 @@ export async function createNamespace(
 }
 
 /**
+ * Create a direct network namespace (no VPN, no kill-switch)
+ *
+ * Bypasses any device-level VPN by using a separate network namespace with
+ * its own routing table. Traffic goes directly through the host's real
+ * interface via NAT masquerading — no OpenVPN, no nftables kill-switch.
+ *
+ * Steps:
+ * 1. Call netns.sh create-direct to set up namespace with veth/NAT/DNS/microsocks
+ * 2. Update state with new namespace info (no OpenVPN PID)
+ */
+export async function createDirectNamespace(
+  state: ProxyState,
+): Promise<NamespaceInfo> {
+  const nsIndex = state.nextIndex;
+  const nsName = `vpn-proxy-${nsIndex}`;
+  const nsIp = `10.200.${nsIndex}.2`;
+
+  log("INFO", `Creating direct namespace ${nsName} (no VPN)`);
+
+  const result = runNetnsScript(["create-direct", nsName, nsIndex.toString()], {
+    notifySudo: true,
+  });
+
+  if (!result.success) {
+    log("ERROR", `Failed to create direct namespace: ${result.output}`);
+    throw new Error(`Direct namespace creation failed`);
+  }
+
+  const info: NamespaceInfo = {
+    nsName,
+    nsIndex,
+    nsIp,
+    socksPort: 10900 + nsIndex, // microsocks port inside namespace
+    slug: "none",
+    vpnDisplayName: "Direct (no VPN)",
+    lastUsed: Date.now(),
+    openvpnPid: -1, // Sentinel: no OpenVPN process (avoids process.kill(0,0) footgun)
+    status: "connected",
+  };
+
+  state.namespaces["none"] = info;
+  state.nextIndex++;
+  await saveState(state);
+
+  log("INFO", `Direct namespace ${nsName} ready`);
+  return info;
+}
+
+/**
  * Destroy a namespace and clean up all resources
  */
 export async function destroyNamespace(
@@ -420,6 +469,7 @@ export async function destroyNamespace(
 /**
  * Check if a namespace is still healthy
  * Verifies: namespace exists, tun0 is up, OpenVPN process is running
+ * For "none" (direct) namespaces: only checks namespace + veth interface
  */
 export async function isNamespaceHealthy(
   info: NamespaceInfo,
@@ -431,6 +481,26 @@ export async function isNamespaceHealthy(
   if (!nsCheck.stdout.toString().includes(info.nsName)) {
     log("WARN", `Namespace ${info.nsName} no longer exists`);
     return false;
+  }
+
+  // Direct namespaces have no tun0 or OpenVPN — just verify veth is up
+  if (info.slug === "none") {
+    const vethCheck = spawnSync([
+      ...sudoPrefix,
+      "ip",
+      "netns",
+      "exec",
+      info.nsName,
+      "ip",
+      "link",
+      "show",
+      `veth-n-${info.nsIndex}`,
+    ]);
+    if (vethCheck.exitCode !== 0) {
+      log("WARN", `veth-n-${info.nsIndex} not found in ${info.nsName}`);
+      return false;
+    }
+    return true;
   }
 
   // Check tunnel interface exists
@@ -490,6 +560,13 @@ export async function getOrCreateNamespace(
       await destroyNamespace(slug, freshState);
     }
 
+    // Direct namespace — no VPN resolution needed
+    if (slug === "none") {
+      const result = await createDirectNamespace(freshState);
+      Object.assign(state, freshState);
+      return result;
+    }
+
     const vpn = await resolveVpn(slug);
     if (!vpn) throw new Error(`VPN not found: ${slug}`);
 
@@ -508,6 +585,7 @@ export async function getOrCreateNamespace(
  * Resolve username/auth to VPN slug
  *
  * - Empty or "random" → rotating random VPN
+ * - "none" → direct connection (no VPN, bypasses device VPN)
  * - Valid VPN name → that specific VPN
  * - Invalid name → notify user, fall back to random
  */
@@ -515,6 +593,11 @@ export async function resolveSlugFromUsername(
   username: string,
   state: ProxyState,
 ): Promise<string> {
+  // Direct connection — bypass VPN entirely
+  if (username === "none") {
+    return "none";
+  }
+
   if (!username || username === "random") {
     const now = Date.now();
     if (state.random && state.random.expiresAt > now) {
