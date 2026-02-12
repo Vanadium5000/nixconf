@@ -19,7 +19,7 @@
       opencode = inputs.opencode.packages.${pkgs.stdenv.hostPlatform.system}.default;
 
       # Model definitions for switching
-      opusModel = "antigravity-claude/claude-opus-4-5-thinking";
+      opusModel = "antigravity-claude/claude-opus-4-6-thinking";
       geminiProModel = "antigravity-gemini/gemini-3-pro-preview";
 
       # Default expensive model (switched via opencode-model CLI)
