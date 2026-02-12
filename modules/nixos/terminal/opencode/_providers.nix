@@ -12,8 +12,8 @@
         gemini-3-pro-high = {
           name = "Gemini 3 Pro High";
           limit = {
-            context = 128000;
-            output = 8192;
+            context = 1048576;
+            output = 65535;
           };
           modalities = {
             input = [
@@ -23,14 +23,20 @@
             ];
             output = [
               "text"
+              "image"
             ];
+          };
+          reasoning = true;
+          variants = {
+            low.thinkingLevel = "low";
+            high.thinkingLevel = "high";
           };
         };
         gemini-3-pro-low = {
           name = "Gemini 3 Pro Low";
           limit = {
-            context = 128000;
-            output = 8192;
+            context = 1048576;
+            output = 65535;
           };
           modalities = {
             input = [
@@ -40,47 +46,19 @@
             ];
             output = [
               "text"
-            ];
-          };
-        };
-        gemini-3-pro-preview = {
-          name = "Gemini 3 Pro Preview";
-          limit = {
-            context = 128000;
-            output = 8192;
-          };
-          modalities = {
-            input = [
-              "text"
               "image"
-              "pdf"
             ];
-            output = [
-              "text"
-            ];
+          };
+          reasoning = true;
+          variants = {
+            low.thinkingLevel = "low";
+            high.thinkingLevel = "high";
           };
         };
         gemini-3-flash = {
           name = "Gemini 3 Flash";
           limit = {
-            context = 128000;
-            output = 8192;
-          };
-          modalities = {
-            input = [
-              "text"
-              "image"
-              "pdf"
-            ];
-            output = [
-              "text"
-            ];
-          };
-        };
-        "gemini-2.5-flash" = {
-          name = "Gemini 2.5 Flash";
-          limit = {
-            context = 1048576; # 1M token context window
+            context = 1048576;
             output = 65536;
           };
           modalities = {
@@ -93,51 +71,25 @@
               "text"
             ];
           };
-        };
-        "gemini-2.5-flash-lite" = {
-          name = "Gemini 2.5 Flash Lite";
-          limit = {
-            context = 1048576; # 1M token context window
-            output = 65536;
-          };
-          modalities = {
-            input = [
-              "text"
-              "image"
-              "pdf"
-            ];
-            output = [
-              "text"
-            ];
+          reasoning = true;
+          variants = {
+            minimal.thinkingLevel = "minimal";
+            low.thinkingLevel = "low";
+            medium.thinkingLevel = "medium";
+            high.thinkingLevel = "high";
           };
         };
-        "gemini-2.5-flash-thinking" = {
-          name = "Gemini 2.5 Flash Thinking";
-          limit = {
-            context = 1048576; # 1M token context window
-            output = 65536;
-          };
-          modalities = {
-            input = [
-              "text"
-              "image"
-              "pdf"
-            ];
-            output = [
-              "text"
-            ];
-          };
-        };
-        "gemini-3-pro-image" = {
+        gemini-3-pro-image = {
           name = "Gemini 3 Pro Image";
           limit = {
-            context = 128000;
-            output = 8192;
+            context = 1048576;
+            output = 65535;
           };
           modalities = {
             input = [
               "text"
               "image"
+              "pdf"
             ];
             output = [
               "text"
@@ -158,7 +110,7 @@
         claude-sonnet-4-5 = {
           name = "Claude Sonnet 4.5";
           limit = {
-            context = 200000; # 200K default (1M available via beta header)
+            context = 200000;
             output = 64000;
           };
           modalities = {
@@ -175,7 +127,7 @@
         claude-sonnet-4-5-thinking = {
           name = "Claude Sonnet 4.5 Thinking";
           limit = {
-            context = 200000; # 200K default (1M available via beta header)
+            context = 200000;
             output = 64000;
           };
           modalities = {
@@ -188,12 +140,43 @@
               "text"
             ];
           };
+          reasoning = true;
+          variants = {
+            low = {
+              thinkingConfig.thinkingBudget = 8192;
+              thinking = {
+                type = "enabled";
+                budget_tokens = 8192;
+              };
+            };
+            medium = {
+              thinkingConfig.thinkingBudget = 16384;
+              thinking = {
+                type = "enabled";
+                budget_tokens = 16384;
+              };
+            };
+            high = {
+              thinkingConfig.thinkingBudget = 24576;
+              thinking = {
+                type = "enabled";
+                budget_tokens = 24576;
+              };
+            };
+            max = {
+              thinkingConfig.thinkingBudget = 32768;
+              thinking = {
+                type = "enabled";
+                budget_tokens = 32768;
+              };
+            };
+          };
         };
         claude-opus-4-6-thinking = {
           name = "Claude Opus 4.6 Thinking";
           limit = {
-            context = 200000; # 200K default (1M available via beta header)
-            output = 128000; # 128K - doubled from Opus 4.5's 64K (Feb 2026)
+            context = 1000000; # 1M token context window (beta)
+            output = 128000;
           };
           modalities = {
             input = [
@@ -204,6 +187,37 @@
             output = [
               "text"
             ];
+          };
+          reasoning = true;
+          variants = {
+            low = {
+              thinkingConfig.thinkingBudget = 8192;
+              thinking = {
+                type = "enabled";
+                budget_tokens = 8192;
+              };
+            };
+            medium = {
+              thinkingConfig.thinkingBudget = 16384;
+              thinking = {
+                type = "enabled";
+                budget_tokens = 16384;
+              };
+            };
+            high = {
+              thinkingConfig.thinkingBudget = 24576;
+              thinking = {
+                type = "enabled";
+                budget_tokens = 24576;
+              };
+            };
+            max = {
+              thinkingConfig.thinkingBudget = 32768;
+              thinking = {
+                type = "enabled";
+                budget_tokens = 32768;
+              };
+            };
           };
         };
       };

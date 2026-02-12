@@ -18,9 +18,25 @@
 
       opencode = inputs.opencode.packages.${pkgs.stdenv.hostPlatform.system}.default;
 
-      # Model definitions for switching
+      # Model definitions for switching — change these to update everything automatically
       opusModel = "antigravity-claude/claude-opus-4-6-thinking";
-      geminiProModel = "antigravity-gemini/gemini-3-pro-preview";
+      geminiProModel = "antigravity-gemini/gemini-3-pro-high";
+
+      # Derive human-readable names from provider config
+      modelName =
+        model:
+        let
+          parts = builtins.split "/" model;
+          providerId = builtins.elemAt parts 0;
+          modelId = builtins.elemAt parts 2;
+        in
+        providers.config.${providerId}.models.${modelId}.name;
+
+      opusName = modelName opusModel;
+      geminiProName = modelName geminiProModel;
+
+      # Extract the model ID (after the /) for grep detection
+      modelId = model: builtins.elemAt (builtins.split "/" model) 2;
 
       # Default expensive model (switched via opencode-model CLI)
       expensiveModel = opusModel;
@@ -180,7 +196,7 @@
 
         get_current() {
           if [ -f "$CONFIG_FILE" ]; then
-            if grep -q "claude-opus-4-5-thinking" "$CONFIG_FILE" 2>/dev/null; then
+            if grep -q "${modelId opusModel}" "$CONFIG_FILE" 2>/dev/null; then
               echo "opus"
             else
               echo "gemini-pro"
@@ -199,12 +215,12 @@
         case "''${1:-}" in
           opus)
             switch_config "$OPUS_CONFIG"
-            echo "Switched to Claude Opus 4.5 Thinking"
+            echo "Switched to ${opusName}"
             echo "Restart OpenCode for changes to take effect."
             ;;
           gemini|gemini-pro|pro)
             switch_config "$GEMINI_CONFIG"
-            echo "Switched to Gemini 3 Pro Preview"
+            echo "Switched to ${geminiProName}"
             echo "Restart OpenCode for changes to take effect."
             ;;
           status|"")
@@ -215,10 +231,10 @@
             current=$(get_current)
             if [ "$current" = "opus" ]; then
               switch_config "$GEMINI_CONFIG"
-              echo "Switched to Gemini 3 Pro Preview"
+              echo "Switched to ${geminiProName}"
             else
               switch_config "$OPUS_CONFIG"
-              echo "Switched to Claude Opus 4.5 Thinking"
+              echo "Switched to ${opusName}"
             fi
             echo "Restart OpenCode for changes to take effect."
             ;;
@@ -226,8 +242,8 @@
             echo "Usage: opencode-model [opus|gemini-pro|toggle|status]"
             echo ""
             echo "Commands:"
-            echo "  opus       Switch to Claude Opus 4.5 Thinking (expensive)"
-            echo "  gemini-pro Switch to Gemini 3 Pro Preview (cheaper)"
+            echo "  opus       Switch to ${opusName} (expensive)"
+            echo "  gemini-pro Switch to ${geminiProName} (cheaper)"
             echo "  toggle     Toggle between opus and gemini-pro"
             echo "  status     Show current model (default)"
             exit 1
