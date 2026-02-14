@@ -144,107 +144,144 @@ function parseConnectTarget(
 
 /**
  * Handle incoming HTTP CONNECT request
+ *
+ * Auth flow (RFC 7235):
+ * 1. Client sends CONNECT without Proxy-Authorization
+ * 2. Server responds 407 with Proxy-Authenticate challenge (keep-alive)
+ * 3. Client retries on SAME connection with Proxy-Authorization header
+ * 4. Server establishes tunnel
+ *
+ * This two-step handshake is required by browsers (Firefox, Chrome) which
+ * only send credentials after receiving a 407 challenge. CLI tools like
+ * curl also follow this flow when using -x "http://USER@host:port".
  */
 async function handleConnection(clientSocket: Socket): Promise<void> {
-  let buffer = Buffer.alloc(0);
+  // Track whether we've already sent a 407 challenge on this connection
+  let challengeSent = false;
 
-  const onData = async (chunk: Buffer) => {
-    buffer = Buffer.concat([buffer, chunk]);
+  const processRequest = async () => {
+    let buffer = Buffer.alloc(0);
 
-    // Look for end of HTTP headers (double CRLF)
-    const headerEnd = buffer.indexOf("\r\n\r\n");
-    if (headerEnd === -1) {
-      // Headers not complete yet - wait for more data
-      if (buffer.length > 8192) {
-        // Headers too large - reject
+    const onData = async (chunk: Buffer) => {
+      buffer = Buffer.concat([buffer, chunk]);
+
+      // Look for end of HTTP headers (double CRLF)
+      const headerEnd = buffer.indexOf("\r\n\r\n");
+      if (headerEnd === -1) {
+        // Headers not complete yet - wait for more data
+        if (buffer.length > 8192) {
+          // Headers too large - reject
+          clientSocket.write(
+            "HTTP/1.1 431 Request Header Fields Too Large\r\n\r\n",
+          );
+          clientSocket.end();
+        }
+        return;
+      }
+
+      // Remove data listener - we have complete headers
+      clientSocket.off("data", onData);
+
+      const headerData = buffer.subarray(0, headerEnd).toString("utf-8");
+      const lines = headerData.split("\r\n");
+
+      if (lines.length === 0) {
+        clientSocket.write("HTTP/1.1 400 Bad Request\r\n\r\n");
+        clientSocket.end();
+        return;
+      }
+
+      // Parse request line
+      const requestLine = parseRequestLine(lines[0]!);
+      if (!requestLine) {
+        clientSocket.write("HTTP/1.1 400 Bad Request\r\n\r\n");
+        clientSocket.end();
+        return;
+      }
+
+      // Only support CONNECT method
+      if (requestLine.method !== "CONNECT") {
+        log("WARN", `Unsupported method: ${requestLine.method}`, "http");
         clientSocket.write(
-          "HTTP/1.1 431 Request Header Fields Too Large\r\n\r\n",
+          "HTTP/1.1 405 Method Not Allowed\r\n" +
+            "Allow: CONNECT\r\n" +
+            "Content-Type: text/plain\r\n" +
+            "\r\n" +
+            "Only CONNECT method is supported. Use this proxy for HTTPS tunneling.\n",
+        );
+        clientSocket.end();
+        return;
+      }
+
+      // Parse headers
+      const headers = parseHeaders(lines.slice(1));
+
+      // Parse target host:port
+      const target = parseConnectTarget(requestLine.target);
+      if (!target) {
+        clientSocket.write("HTTP/1.1 400 Bad Request\r\n\r\n");
+        clientSocket.end();
+        return;
+      }
+
+      // Extract username from Proxy-Authorization header
+      const authHeader = headers.get("proxy-authorization");
+
+      if (!authHeader && !challengeSent) {
+        // First request without auth: send 407 challenge and keep connection
+        // alive so the client can retry with credentials on the same socket.
+        // This is required by browsers (Firefox, Chrome) which only send
+        // Proxy-Authorization after receiving a 407 challenge.
+        challengeSent = true;
+        clientSocket.write(
+          "HTTP/1.1 407 Proxy Authentication Required\r\n" +
+            "Proxy-Authenticate: Basic realm=\"VPN Proxy (Username=VPN Name or 'random')\"\r\n" +
+            "Content-Length: 0\r\n" +
+            "\r\n",
+        );
+        // Re-enter the request processing loop for the retry
+        processRequest();
+        return;
+      }
+
+      // Either we have auth credentials, or this is a no-auth retry (random VPN)
+      const username = parseProxyAuth(authHeader) || "";
+
+      log(
+        "DEBUG",
+        `CONNECT request: ${username || "random"}@${target.host}:${target.port}`,
+        "http",
+      );
+
+      try {
+        // Resolve VPN and get/create namespace
+        const state = await loadState();
+        const slug = await resolveSlugFromUsername(username, state);
+        const nsInfo = await getOrCreateNamespace(slug, state);
+
+        // Connect to target via namespace's SOCKS5 proxy
+        await tunnelViaNamespace(
+          clientSocket,
+          nsInfo,
+          target.host,
+          target.port,
+        );
+      } catch (error) {
+        log("ERROR", `Connection failed: ${error}`, "http");
+        clientSocket.write(
+          "HTTP/1.1 502 Bad Gateway\r\n" +
+            "Content-Type: text/plain\r\n" +
+            "\r\n" +
+            `VPN connection failed: ${error}\n`,
         );
         clientSocket.end();
       }
-      return;
-    }
+    };
 
-    // Remove data listener - we have complete headers
-    clientSocket.off("data", onData);
-
-    const headerData = buffer.subarray(0, headerEnd).toString("utf-8");
-    const lines = headerData.split("\r\n");
-
-    if (lines.length === 0) {
-      clientSocket.write("HTTP/1.1 400 Bad Request\r\n\r\n");
-      clientSocket.end();
-      return;
-    }
-
-    // Parse request line
-    const requestLine = parseRequestLine(lines[0]!);
-    if (!requestLine) {
-      clientSocket.write("HTTP/1.1 400 Bad Request\r\n\r\n");
-      clientSocket.end();
-      return;
-    }
-
-    // Only support CONNECT method
-    if (requestLine.method !== "CONNECT") {
-      log("WARN", `Unsupported method: ${requestLine.method}`, "http");
-      clientSocket.write(
-        "HTTP/1.1 405 Method Not Allowed\r\n" +
-          "Allow: CONNECT\r\n" +
-          "Content-Type: text/plain\r\n" +
-          "\r\n" +
-          "Only CONNECT method is supported. Use this proxy for HTTPS tunneling.\n",
-      );
-      clientSocket.end();
-      return;
-    }
-
-    // Parse headers
-    const headers = parseHeaders(lines.slice(1));
-
-    // Parse target host:port
-    const target = parseConnectTarget(requestLine.target);
-    if (!target) {
-      clientSocket.write("HTTP/1.1 400 Bad Request\r\n\r\n");
-      clientSocket.end();
-      return;
-    }
-
-    // Extract username from Proxy-Authorization header
-    const authHeader = headers.get("proxy-authorization");
-
-    // No auth header = random VPN (don't challenge with 407)
-    // This allows simple usage: curl -x http://127.0.0.1:10801 https://example.com
-    // Browsers that need specific VPN selection can use Proxy-Authorization header
-    const username = parseProxyAuth(authHeader) || "";
-
-    log(
-      "DEBUG",
-      `CONNECT request: ${username || "random"}@${target.host}:${target.port}`,
-      "http",
-    );
-
-    try {
-      // Resolve VPN and get/create namespace
-      const state = await loadState();
-      const slug = await resolveSlugFromUsername(username, state);
-      const nsInfo = await getOrCreateNamespace(slug, state);
-
-      // Connect to target via namespace's SOCKS5 proxy
-      await tunnelViaNamespace(clientSocket, nsInfo, target.host, target.port);
-    } catch (error) {
-      log("ERROR", `Connection failed: ${error}`, "http");
-      clientSocket.write(
-        "HTTP/1.1 502 Bad Gateway\r\n" +
-          "Content-Type: text/plain\r\n" +
-          "\r\n" +
-          `VPN connection failed: ${error}\n`,
-      );
-      clientSocket.end();
-    }
+    clientSocket.on("data", onData);
   };
 
-  clientSocket.on("data", onData);
+  processRequest();
 
   clientSocket.on("error", (err) => {
     log("DEBUG", `Client socket error: ${err.message}`, "http");
