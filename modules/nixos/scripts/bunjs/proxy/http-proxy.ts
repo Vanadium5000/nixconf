@@ -213,6 +213,27 @@ async function handleConnection(clientSocket: Socket): Promise<void> {
 
     // Extract username from Proxy-Authorization header
     const authHeader = headers.get("proxy-authorization");
+
+    // If no auth header is present, send 407 Challenge to force browser to send credentials
+    // This is required because browsers (Firefox) won't send auth unless challenged
+    if (!authHeader) {
+      clientSocket.write(
+        "HTTP/1.1 407 Proxy Authentication Required\r\n" +
+          "Proxy-Authenticate: Basic realm=\"VPN Proxy (Username=VPN Name or 'random')\"\r\n" +
+          "Content-Type: text/plain\r\n" +
+          "Connection: keep-alive\r\n" +
+          "Proxy-Connection: keep-alive\r\n" +
+          "\r\n" +
+          "Proxy authentication required. Use 'random' for random VPN.\n",
+      );
+      // Don't close the socket immediately to allow keep-alive, but effectively end this request processing
+      // In a simple implementation like this, we can just return. The browser will open a new connection or reuse this one.
+      // However, since we're handling raw TCP, we should probably close after the response for simplicity
+      // unless we implement a full state machine.
+      clientSocket.end();
+      return;
+    }
+
     const username = parseProxyAuth(authHeader) || "";
 
     log(
