@@ -87,7 +87,7 @@
     {
       environment.systemPackages = with pkgs; [
         vscodium
-        inputs.antigravity-nix.packages.x86_64-linux.default
+        unstable.antigravity
 
         # LSPs/Dependencies
         nixd
