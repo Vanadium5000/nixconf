@@ -84,6 +84,12 @@
       inputs.nixpkgs.follows = "nixpkgs-unstable"; # Use unstable packages
     };
 
+    # Antigravity
+    antigravity-nix = {
+      url = "github:jacopone/antigravity-nix";
+      inputs.nixpkgs.follows = "nixpkgs-unstable"; # Use unstable packages
+    };
+
     # HyprQt6Engine
     # TODO: Switch to hyprqt6engine when it is added to nixpkgs
     hyprqt6engine = {
