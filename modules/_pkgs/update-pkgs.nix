@@ -290,8 +290,8 @@ pkgs.writeShellApplication {
     $(for pkg in "''${PACKAGES[@]}"; do
       if [ "$pkg" == "antigravity-manager" ]; then
         echo "  $pkg = (pkgs.callPackage ./$pkg.nix {}).unwrapped;"
-      elif [ "$pkg" == "sora-watermark-cleaner" ]; then
-        # Skip - has complex Python deps that may not eval cleanly
+      elif [ "$pkg" == "sora-watermark-cleaner" ] || [ "$pkg" == "personalive" ]; then
+        # Skip - has complex Python/CUDA deps that may not eval cleanly
         echo "  # $pkg = pkgs.callPackage ./$pkg.nix {}; # skipped - complex deps"
       else
         echo "  $pkg = pkgs.callPackage ./$pkg.nix {};"
@@ -360,7 +360,7 @@ pkgs.writeShellApplication {
           fi
           ;;
 
-        "daisyui-mcp"|"pomodoro-for-waybar"|"libreoffice-mcp")
+        "daisyui-mcp"|"pomodoro-for-waybar"|"libreoffice-mcp"|"waydroid-total-spoof")
           # Track branches - use nix-update with branch mode
           # These packages pin to latest commit on main/master branch
           set +e
