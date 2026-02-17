@@ -191,6 +191,98 @@ pkgs.writeShellApplication {
       fi
     }
 
+    # Update binary release packages with multiple platform-specific URLs/hashes
+    # Handles packages like snitch that have per-platform fetchurl blocks
+    # Works by collecting all URL→hash pairs, updating version, then prefetching each
+    update_release_binary_package() {
+      local pkg="$1"
+      local file="$pkg.nix"
+      local owner="$2"
+      local repo="$3"
+
+      echo "  Checking for new release of $owner/$repo..."
+
+      local current_version
+      current_version=$(grep -oP 'version = "[^"]+' "$file" | head -1 | sed 's/version = "//' || echo "")
+      [ -z "$current_version" ] && { echo "    Could not extract version"; return 1; }
+
+      echo "    Current version: $current_version"
+
+      local latest_tag
+      latest_tag=$(get_latest_release "$owner" "$repo")
+      [ -z "$latest_tag" ] && latest_tag=$(get_latest_tag "$owner" "$repo")
+      [ -z "$latest_tag" ] && { echo "    Could not fetch latest release/tag"; return 1; }
+
+      local latest_version="''${latest_tag#v}"
+      latest_version="''${latest_version#V}"
+
+      echo "    Latest version: $latest_version"
+
+      [ "$current_version" == "$latest_version" ] && { echo "    Already up to date"; return 1; }
+
+      echo "    Updating from $current_version to $latest_version"
+
+      # Collect URL→hash pairs BEFORE modifying the file
+      # Each URL has an adjacent hash within a few lines
+      local -a url_patterns=()
+      local -a old_hashes=()
+
+      while IFS= read -r url_line; do
+        [ -z "$url_line" ] && continue
+        local url_pattern
+        url_pattern=$(echo "$url_line" | grep -oP '"[^"]+' | sed 's/"//' | head -1)
+        [ -z "$url_pattern" ] && continue
+
+        # Find hash on next few lines after this URL in the file
+        local line_num
+        line_num=$(grep -nF "$(echo "$url_pattern" | head -c 50)" "$file" | head -1 | cut -d: -f1)
+        [ -z "$line_num" ] && continue
+
+        local adjacent_hash
+        adjacent_hash=$(sed -n "$((line_num)),$((line_num+5))p" "$file" | grep -oP 'sha256-[^"]+' | head -1)
+        [ -z "$adjacent_hash" ] && continue
+
+        url_patterns+=("$url_pattern")
+        old_hashes+=("$adjacent_hash")
+      done < <(grep 'url = "' "$file")
+
+      # Update version string in file
+      sed -i "s|version = \"$current_version\"|version = \"$latest_version\"|g" "$file"
+
+      # Prefetch each URL with new version and update its hash
+      local i
+      for i in "''${!url_patterns[@]}"; do
+        local url_pattern="''${url_patterns[$i]}"
+        local old_hash="''${old_hashes[$i]}"
+
+        # Resolve ${version} interpolation to actual version
+        # shellcheck disable=SC2001
+        local resolved_url
+        resolved_url=$(echo "$url_pattern" | sed "s/\''${version}/$latest_version/g")
+
+        echo "    Prefetching: $resolved_url"
+        local new_hash
+        new_hash=$(prefetch_url "$resolved_url")
+
+        if [ -n "$new_hash" ]; then
+          # Extract SRI hash value for comparison (sha256-XXX=)
+          local new_hash_sri
+          new_hash_sri=$(echo "$new_hash" | grep -oP 'sha256-.*')
+
+          if [ -n "$new_hash_sri" ] && [ "$old_hash" != "$new_hash_sri" ]; then
+            echo "      Hash: $old_hash -> $new_hash_sri"
+            sed -i "s|$old_hash|$new_hash_sri|g" "$file"
+          else
+            echo "      Hash unchanged"
+          fi
+        else
+          echo "      Warning: prefetch failed"
+        fi
+      done
+
+      return 0
+    }
+
     # Update packages with dynamic version URLs (like antigravity-manager)
     update_versioned_url_package() {
       local pkg="$1"
@@ -351,15 +443,6 @@ pkgs.writeShellApplication {
           fi
           ;;
 
-        "deep-live-cam")
-          # Uses GitHub release tags
-          if update_versioned_url_package "$pkg" "hacksider" "Deep-Live-Cam"; then
-            UPDATED+=("$pkg")
-          else
-            SKIPPED+=("$pkg")
-          fi
-          ;;
-
         "daisyui-mcp"|"pomodoro-for-waybar"|"libreoffice-mcp"|"waydroid-total-spoof")
           # Track branches - use nix-update with branch mode
           # These packages pin to latest commit on main/master branch
@@ -388,15 +471,37 @@ pkgs.writeShellApplication {
           set -e
           ;;
 
-        "iloader"|"sideloader")
-          # AppImage/binary packages - check for new releases
-          set +e
-          if nix-update -f packages.nix "$pkg"; then
+        "iloader")
+          # AppImage binary release - version interpolated in URL
+          if update_release_binary_package "$pkg" "nab138" "iloader"; then
             UPDATED+=("$pkg")
           else
             SKIPPED+=("$pkg")
           fi
-          set -e
+          ;;
+
+        "sideloader")
+          # Pre-built binary release - version interpolated in URL
+          if update_release_binary_package "$pkg" "Dadoum" "Sideloader"; then
+            UPDATED+=("$pkg")
+          else
+            SKIPPED+=("$pkg")
+          fi
+          ;;
+
+        "snitch")
+          # Multi-platform binary release (x86_64 + aarch64 hashes)
+          if update_release_binary_package "$pkg" "karol-broda" "snitch"; then
+            UPDATED+=("$pkg")
+          else
+            SKIPPED+=("$pkg")
+          fi
+          ;;
+
+        "aptos-fonts")
+          # Local source file - cannot auto-update
+          echo "    Skipping aptos-fonts (local source, manual update only)"
+          SKIPPED+=("$pkg")
           ;;
 
         "personalive")
