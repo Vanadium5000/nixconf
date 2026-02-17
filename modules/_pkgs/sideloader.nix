@@ -5,7 +5,7 @@ pkgs.stdenv.mkDerivation (finalAttrs: rec {
   version = "1.0-pre4";
 
   src = pkgs.fetchurl {
-    url = "https://github.com/Dadoum/Sideloader/releases/download/1.0-pre4/sideloader-cli-x86_64-linux-gnu.zip";
+    url = "https://github.com/Dadoum/Sideloader/releases/download/${version}/sideloader-cli-x86_64-linux-gnu.zip";
     hash = "sha256-4ZPALWYaXXl69LRBhshlXQeKC/3kGb3quTTFE9Gntzc=";
   };
 
