@@ -255,7 +255,7 @@ pkgs.writeShellApplication {
         local url_pattern="''${url_patterns[$i]}"
         local old_hash="''${old_hashes[$i]}"
 
-        # Resolve ${version} interpolation to actual version
+        # Resolve ''${version} interpolation to actual version
         # shellcheck disable=SC2001
         local resolved_url
         resolved_url=$(echo "$url_pattern" | sed "s/\''${version}/$latest_version/g")
