@@ -3,7 +3,7 @@
 {
   config = {
     antigravity-gemini = {
-      npm = "@ai-sdk/anthropic";
+      npm = "@ai-sdk/openai-compatible";
       name = "Antigravity Gemini";
       options = {
         baseURL = "http://127.0.0.1:8045/v1";
@@ -171,7 +171,7 @@
       npm = "@ai-sdk/anthropic";
       name = "Antigravity Claude";
       options = {
-        baseURL = "http://127.0.0.1:8045/v1";
+        baseURL = "http://127.0.0.1:8045/compatible";
         apiKey = self.secrets.ANTIGRAVITY_MANAGER_KEY;
       };
       models = {

@@ -22,28 +22,28 @@
 
   // Language-specific settings
   "[html]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
   "[json]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
   "[jsonc]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
   "[javascript]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
   "[typescriptreact]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
   "[svelte]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
   "[typescript]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
   "[markdown]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
   "[dockercompose]": {
     "editor.insertSpaces": true,
@@ -52,12 +52,12 @@
     "editor.quickSuggestions": {
       "other": true,
       "comments": false,
-      "strings": true,
+      "strings": true
     },
-    "editor.defaultFormatter": "redhat.vscode-yaml",
+    "editor.defaultFormatter": "redhat.vscode-yaml"
   },
   "[github-actions-workflow]": {
-    "editor.defaultFormatter": "redhat.vscode-yaml",
+    "editor.defaultFormatter": "redhat.vscode-yaml"
   },
 
   // Nix extension settings
@@ -71,13 +71,13 @@
       //  "ignored": ["unused_binding", "unused_with"],
       // },
       "formatting": {
-        "command": ["nixfmt"],
-      },
+        "command": ["nixfmt"]
+      }
     },
     // check https://github.com/nix-community/nixd/blob/main/nixd/docs/configuration.md for all nixd config
     "nixd": {
       "formatting": {
-        "command": ["nixfmt"],
+        "command": ["nixfmt"]
       },
       "options": {
         // By default, this entry will be read from `import <nixpkgs> { }`.
@@ -86,8 +86,8 @@
         // "nixos": {
         //   "expr": "(builtins.getFlake \"/home/.../nixconf\").nixosConfigurations.x.options"
         // }
-      },
-    },
+      }
+    }
   },
 
   // Git settings
@@ -131,4 +131,5 @@
   "json.schemaDownload.enable": true,
   "diffEditor.ignoreTrimWhitespace": false,
   "luau.trace.server": "messages",
+  "kilo-code.debug": false
 }
