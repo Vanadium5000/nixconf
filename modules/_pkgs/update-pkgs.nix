@@ -377,8 +377,9 @@ pkgs.writeShellApplication {
           set -e
           ;;
 
-        "niri-screen-time")
+        "niri-screen-time"|"snitch")
           # Go package with vendorHash - standard nix-update
+          # or multi-arch binary package with release tags
           set +e
           if nix-update -f packages.nix "$pkg"; then
             UPDATED+=("$pkg")

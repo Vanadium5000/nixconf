@@ -16,7 +16,7 @@
 
 stdenv.mkDerivation {
   pname = "waydroid-total-spoof";
-  version = "0-unstable-2025-05-20"; # No releases/tags - tracks main branch
+  version = "0-unstable-2025-08-18"; # No releases/tags - tracks main branch
 
   src = fetchFromGitHub {
     owner = "lil-xhris";
