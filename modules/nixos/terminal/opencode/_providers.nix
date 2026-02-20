@@ -12,7 +12,7 @@
         "gemini-3.1-pro-high" = {
           name = "Gemini 3.1 Pro High";
           limit = {
-            context = 2097152;
+            context = 1048576;
             output = 65536;
           };
           modalities = {
@@ -20,10 +20,11 @@
               "text"
               "image"
               "pdf"
+              "video"
+              "audio"
             ];
             output = [
               "text"
-              "image"
             ];
           };
           reasoning = true;
@@ -37,7 +38,7 @@
         "gemini-3.1-pro-low" = {
           name = "Gemini 3.1 Pro Low";
           limit = {
-            context = 2097152;
+            context = 1048576;
             output = 65536;
           };
           modalities = {
@@ -45,10 +46,11 @@
               "text"
               "image"
               "pdf"
+              "video"
+              "audio"
             ];
             output = [
               "text"
-              "image"
             ];
           };
           reasoning = true;
@@ -62,7 +64,7 @@
         "gemini-3-pro-high" = {
           name = "Gemini 3 Pro High";
           limit = {
-            context = 2097152;
+            context = 1048576;
             output = 65536;
           };
           modalities = {
@@ -70,10 +72,11 @@
               "text"
               "image"
               "pdf"
+              "video"
+              "audio"
             ];
             output = [
               "text"
-              "image"
             ];
           };
           reasoning = true;
@@ -87,7 +90,7 @@
         "gemini-3-pro-preview" = {
           name = "Gemini 3 Pro Preview";
           limit = {
-            context = 2097152;
+            context = 1048576;
             output = 65536;
           };
           modalities = {
@@ -95,10 +98,11 @@
               "text"
               "image"
               "pdf"
+              "video"
+              "audio"
             ];
             output = [
               "text"
-              "image"
             ];
           };
         };
@@ -114,6 +118,8 @@
               "text"
               "image"
               "pdf"
+              "video"
+              "audio"
             ];
             output = [
               "text"
@@ -132,6 +138,8 @@
               "text"
               "image"
               "pdf"
+              "video"
+              "audio"
             ];
             output = [ "text" ];
           };
@@ -155,7 +163,7 @@
         "gemini-3-pro-image" = {
           name = "Gemini 3 Pro Image";
           limit = {
-            context = 2097152;
+            context = 1048576;
             output = 65536;
           };
           modalities = {
@@ -163,6 +171,8 @@
               "text"
               "image"
               "pdf"
+              "video"
+              "audio"
             ];
             output = [
               "text"
@@ -224,7 +234,7 @@
     };
 
     antigravity-claude = {
-      npm = "@ai-sdk/anthropic";
+      npm = "@ai-sdk/openai-compatible";
       name = "Antigravity Claude";
       options = {
         baseURL = "http://127.0.0.1:8317/compatible";
@@ -241,6 +251,8 @@
               "text"
               "image"
               "pdf"
+              "video"
+              "audio"
             ];
             output = [ "text" ];
           };
@@ -249,53 +261,43 @@
         "claude-opus-4-6-thinking" = {
           name = "Claude Opus 4.6 Thinking";
           limit = {
-            context = 200000;
-            output = 64000;
+            context = 1000000;
+            output = 128000;
           };
           modalities = {
             input = [
               "text"
               "image"
               "pdf"
+              "video"
+              "audio"
             ];
             output = [ "text" ];
           };
           reasoning = true;
           variants = {
             low = {
-              thinkingConfig = {
-                thinkingBudget = 8192;
-              };
               thinking = {
-                type = "enabled";
-                budget_tokens = 8192;
+                type = "adaptive";
+                effort = "low";
               };
             };
             medium = {
-              thinkingConfig = {
-                thinkingBudget = 16384;
-              };
               thinking = {
-                type = "enabled";
-                budget_tokens = 16384;
+                type = "adaptive";
+                effort = "medium";
               };
             };
             high = {
-              thinkingConfig = {
-                thinkingBudget = 24576;
-              };
               thinking = {
-                type = "enabled";
-                budget_tokens = 24576;
+                type = "adaptive";
+                effort = "high";
               };
             };
             max = {
-              thinkingConfig = {
-                thinkingBudget = 32768;
-              };
               thinking = {
-                type = "enabled";
-                budget_tokens = 32768;
+                type = "adaptive";
+                effort = "max";
               };
             };
           };
