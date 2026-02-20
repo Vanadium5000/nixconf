@@ -220,30 +220,6 @@
             output = [ "text" ];
           };
         };
-
-        "tab_jump_flash_lite_preview" = {
-          name = "Tab Jump Flash Lite Preview";
-          limit = {
-            context = 1048576;
-            output = 8192;
-          };
-          modalities = {
-            input = [ "text" ];
-            output = [ "text" ];
-          };
-        };
-
-        "tab_flash_lite_preview" = {
-          name = "Tab Flash Lite Preview";
-          limit = {
-            context = 1048576;
-            output = 8192;
-          };
-          modalities = {
-            input = [ "text" ];
-            output = [ "text" ];
-          };
-        };
       };
     };
 
@@ -322,27 +298,6 @@
                 budget_tokens = 32768;
               };
             };
-          };
-        };
-      };
-    };
-
-    antigravity-oss = {
-      npm = "@ai-sdk/openai-compatible";
-      name = "Antigravity OSS";
-      options = {
-        baseURL = "http://127.0.0.1:8317/v1";
-      };
-      models = {
-        "gpt-oss-120b-medium" = {
-          name = "GPT OSS 120B Medium";
-          limit = {
-            context = 128000;
-            output = 16384;
-          };
-          modalities = {
-            input = [ "text" ];
-            output = [ "text" ];
           };
         };
       };
