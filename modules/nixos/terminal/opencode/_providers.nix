@@ -1,4 +1,4 @@
-{ self }:
+{ ... }:
 
 {
   config = {
@@ -6,15 +6,39 @@
       npm = "@ai-sdk/openai-compatible";
       name = "Antigravity Gemini";
       options = {
-        baseURL = "http://127.0.0.1:8045/v1";
-        apiKey = self.secrets.ANTIGRAVITY_MANAGER_KEY;
+        baseURL = "http://127.0.0.1:8317/v1";
       };
       models = {
-        "gemini-3-pro-high" = {
-          name = "Gemini 3 Pro High";
+        "gemini-3.1-pro-high" = {
+          name = "Gemini 3.1 Pro High";
           limit = {
-            context = 1048576;
-            output = 65535;
+            context = 2097152;
+            output = 65536;
+          };
+          modalities = {
+            input = [
+              "text"
+              "image"
+              "pdf"
+            ];
+            output = [
+              "text"
+              "image"
+            ];
+          };
+          reasoning = true;
+          variants = {
+            high = {
+              thinkingLevel = "high";
+            };
+          };
+        };
+
+        "gemini-3.1-pro-low" = {
+          name = "Gemini 3.1 Pro Low";
+          limit = {
+            context = 2097152;
+            output = 65536;
           };
           modalities = {
             input = [
@@ -32,9 +56,68 @@
             low = {
               thinkingLevel = "low";
             };
+          };
+        };
+
+        "gemini-3-pro-high" = {
+          name = "Gemini 3 Pro High";
+          limit = {
+            context = 2097152;
+            output = 65536;
+          };
+          modalities = {
+            input = [
+              "text"
+              "image"
+              "pdf"
+            ];
+            output = [
+              "text"
+              "image"
+            ];
+          };
+          reasoning = true;
+          variants = {
             high = {
               thinkingLevel = "high";
             };
+          };
+        };
+
+        "gemini-3-pro-preview" = {
+          name = "Gemini 3 Pro Preview";
+          limit = {
+            context = 2097152;
+            output = 65536;
+          };
+          modalities = {
+            input = [
+              "text"
+              "image"
+              "pdf"
+            ];
+            output = [
+              "text"
+              "image"
+            ];
+          };
+        };
+
+        "gemini-3-flash-preview" = {
+          name = "Gemini 3 Flash Preview";
+          limit = {
+            context = 1048576;
+            output = 65536;
+          };
+          modalities = {
+            input = [
+              "text"
+              "image"
+              "pdf"
+            ];
+            output = [
+              "text"
+            ];
           };
         };
 
@@ -72,8 +155,8 @@
         "gemini-3-pro-image" = {
           name = "Gemini 3 Pro Image";
           limit = {
-            context = 1048576;
-            output = 65535;
+            context = 2097152;
+            output = 65536;
           };
           modalities = {
             input = [
@@ -88,11 +171,11 @@
           };
         };
 
-        "gemini-3-pro-low" = {
-          name = "Gemini 3 Pro Low";
+        "gemini-2.5-pro" = {
+          name = "Gemini 2.5 Pro";
           limit = {
-            context = 1048576;
-            output = 65535;
+            context = 2097152;
+            output = 8192;
           };
           modalities = {
             input = [
@@ -102,26 +185,15 @@
             ];
             output = [
               "text"
-              "image"
             ];
-          };
-          reasoning = true;
-          variants = {
-            low = {
-              thinkingLevel = "low";
-            };
-            high = {
-              thinkingLevel = "high";
-            };
           };
         };
 
-        # Kept (still appears useful / not contradicted in new data)
         "gemini-2.5-flash" = {
           name = "Gemini 2.5 Flash";
           limit = {
             context = 1048576;
-            output = 65536;
+            output = 8192;
           };
           modalities = {
             input = [
@@ -137,7 +209,7 @@
           name = "Gemini 2.5 Flash Lite";
           limit = {
             context = 1048576;
-            output = 65536;
+            output = 8192;
           };
           modalities = {
             input = [
@@ -149,18 +221,26 @@
           };
         };
 
-        "gemini-2.5-flash-thinking" = {
-          name = "Gemini 2.5 Flash Thinking";
+        "tab_jump_flash_lite_preview" = {
+          name = "Tab Jump Flash Lite Preview";
           limit = {
             context = 1048576;
-            output = 65536;
+            output = 8192;
           };
           modalities = {
-            input = [
-              "text"
-              "image"
-              "pdf"
-            ];
+            input = [ "text" ];
+            output = [ "text" ];
+          };
+        };
+
+        "tab_flash_lite_preview" = {
+          name = "Tab Flash Lite Preview";
+          limit = {
+            context = 1048576;
+            output = 8192;
+          };
+          modalities = {
+            input = [ "text" ];
             output = [ "text" ];
           };
         };
@@ -171,12 +251,11 @@
       npm = "@ai-sdk/anthropic";
       name = "Antigravity Claude";
       options = {
-        baseURL = "http://127.0.0.1:8045/compatible";
-        apiKey = self.secrets.ANTIGRAVITY_MANAGER_KEY;
+        baseURL = "http://127.0.0.1:8317/compatible";
       };
       models = {
-        "claude-sonnet-4-5" = {
-          name = "Claude Sonnet 4.5";
+        "claude-sonnet-4-6" = {
+          name = "Claude Sonnet 4.6";
           limit = {
             context = 200000;
             output = 64000;
@@ -188,61 +267,6 @@
               "pdf"
             ];
             output = [ "text" ];
-          };
-        };
-
-        "claude-sonnet-4-5-thinking" = {
-          name = "Claude Sonnet 4.5 Thinking";
-          limit = {
-            context = 200000;
-            output = 64000;
-          };
-          modalities = {
-            input = [
-              "text"
-              "image"
-              "pdf"
-            ];
-            output = [ "text" ];
-          };
-          reasoning = true;
-          variants = {
-            low = {
-              thinkingConfig = {
-                thinkingBudget = 8192;
-              };
-              thinking = {
-                type = "enabled";
-                budget_tokens = 8192;
-              };
-            };
-            medium = {
-              thinkingConfig = {
-                thinkingBudget = 16384;
-              };
-              thinking = {
-                type = "enabled";
-                budget_tokens = 16384;
-              };
-            };
-            high = {
-              thinkingConfig = {
-                thinkingBudget = 24576;
-              };
-              thinking = {
-                type = "enabled";
-                budget_tokens = 24576;
-              };
-            };
-            max = {
-              thinkingConfig = {
-                thinkingBudget = 32768;
-              };
-              thinking = {
-                type = "enabled";
-                budget_tokens = 32768;
-              };
-            };
           };
         };
 
@@ -250,7 +274,7 @@
           name = "Claude Opus 4.6 Thinking";
           limit = {
             context = 200000;
-            output = 64000; # using new data value (your previous comment said 128k but new json = 64000)
+            output = 64000;
           };
           modalities = {
             input = [
@@ -298,6 +322,27 @@
                 budget_tokens = 32768;
               };
             };
+          };
+        };
+      };
+    };
+
+    antigravity-oss = {
+      npm = "@ai-sdk/openai-compatible";
+      name = "Antigravity OSS";
+      options = {
+        baseURL = "http://127.0.0.1:8317/v1";
+      };
+      models = {
+        "gpt-oss-120b-medium" = {
+          name = "GPT OSS 120B Medium";
+          limit = {
+            context = 128000;
+            output = 16384;
+          };
+          modalities = {
+            input = [ "text" ];
+            output = [ "text" ];
           };
         };
       };
