@@ -5,7 +5,7 @@
   ...
 }:
 
-unstable.buildGoModule rec {
+unstable.buildGo126Module rec {
   pname = "cliproxyapi";
   version = "6.8.22";
 
