@@ -5,7 +5,7 @@
   ...
 }:
 let
-  version = "2.0.2";
+  version = "2.0.5";
 in
 appimageTools.wrapType2 {
   pname = "iloader";
@@ -13,7 +13,7 @@ appimageTools.wrapType2 {
 
   src = fetchurl {
     url = "https://github.com/nab138/iloader/releases/download/v${version}/iloader-linux-amd64.AppImage";
-    hash = "sha256-HP8RlWulJ1xxAvd2NrtoC+nfYjiOQWP0Bz+PTPQ6HCc=";
+    hash = "sha256-df8/9sKBkCozF3vb+u3xf4+sDRA4zUOmF/pvcIVK2r8=";
   };
 
   extraPkgs =

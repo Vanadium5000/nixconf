@@ -41,13 +41,6 @@
       # Use the latest kernel
       hardware.apple-t2.kernelChannel = "latest"; # 6.14+ for rtw89_8852bu USB support
 
-      # Open firewall for Local Web Development
-      networking.firewall.allowedTCPPorts = [
-        5173 # Vite - Frontend
-        3000 # Backend
-        4096 # OpenCode
-      ];
-
       # Preferences
       preferences = {
         hostName = "macbook";
