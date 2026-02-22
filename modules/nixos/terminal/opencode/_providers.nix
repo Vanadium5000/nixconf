@@ -51,8 +51,8 @@
           reasoning = true;
         };
 
-        "gemini-3.1-pro-preview" = {
-          name = "Gemini 3.1 Pro Preview";
+        "gemini-3-pro-high" = {
+          name = "Gemini 3 Pro High";
           limit = {
             context = 1048576;
             output = 65536;
