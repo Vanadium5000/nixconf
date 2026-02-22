@@ -290,6 +290,8 @@ pkgs.writeShellApplication {
     $(for pkg in "''${PACKAGES[@]}"; do
       if [ "$pkg" == "antigravity-manager" ]; then
         echo "  $pkg = (pkgs.callPackage ./$pkg.nix {}).unwrapped;"
+      elif [ "$pkg" == "cliproxyapi" ]; then
+        echo "  $pkg = pkgs.callPackage ./$pkg.nix { unstable = pkgs // { buildGo126Module = pkgs.buildGoModule or pkgs.buildGo123Module; }; };"
       elif [ "$pkg" == "sora-watermark-cleaner" ] || [ "$pkg" == "personalive" ]; then
         # Skip - has complex Python/CUDA deps that may not eval cleanly
         echo "  # $pkg = pkgs.callPackage ./$pkg.nix {}; # skipped - complex deps"
@@ -377,7 +379,7 @@ pkgs.writeShellApplication {
           set -e
           ;;
 
-        "niri-screen-time"|"snitch")
+        "niri-screen-time"|"snitch"|"cliproxyapi")
           # Go package with vendorHash - standard nix-update
           # or multi-arch binary package with release tags
           set +e

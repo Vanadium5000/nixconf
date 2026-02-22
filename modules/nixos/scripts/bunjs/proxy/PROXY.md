@@ -169,9 +169,9 @@ Each VPN runs in an isolated Linux network namespace with its own:
 
 ```text
 Namespace: vpn-proxy-{index}
-Host veth: veth-h-{index}  →  10.200.{index}.1/24
-NS veth:   veth-n-{index}  →  10.200.{index}.2/24
-SOCKS port inside NS:         10900 + {index}
+Host veth: veth-h-{index}  →  10.200.{subnet}.1/24 (subnet = index % 254 + 1)
+NS veth:   veth-n-{index}  →  10.200.{subnet}.2/24
+SOCKS port inside NS:         10900 + {index % 50000}
 ```
 
 ### Kill-Switch Implementation

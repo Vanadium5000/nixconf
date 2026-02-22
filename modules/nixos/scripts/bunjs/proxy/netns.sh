@@ -10,8 +10,8 @@
 # Security: Kill-switch ensures zero IP leaks - if VPN drops, all traffic blocked
 #
 # Addressing scheme:
-#   Host veth:      10.200.{index}.1/24
-#   Namespace veth: 10.200.{index}.2/24
+#   Host veth:      10.200.{subnet}.1/24 (subnet = index % 254 + 1)
+#   Namespace veth: 10.200.{subnet}.2/24
 #   Namespace name: vpn-proxy-{index}
 #
 # Dependencies: iproute2, iptables, nftables, jq, coreutils
@@ -78,6 +78,7 @@ create_namespace() {
     
     local veth_host="veth-h-$idx"
     local veth_ns="veth-n-$idx"
+    local subnet=$(( (idx % 254) + 1 ))
     
     run ip link delete "$veth_host" 2>/dev/null || true
     run ip link delete "$veth_ns" 2>/dev/null || true
@@ -85,9 +86,9 @@ create_namespace() {
     run ip link add "$veth_host" type veth peer name "$veth_ns" || die "Failed to create veth pair"
     run ip link set "$veth_ns" netns "$ns" || die "Failed to move veth to namespace"
     
-    local host_ip="10.200.$idx.1"
-    local ns_ip="10.200.$idx.2"
-    local socks_port=$((10900 + idx))
+    local host_ip="10.200.$subnet.1"
+    local ns_ip="10.200.$subnet.2"
+    local socks_port=$((10900 + (idx % 50000)))
     
     run ip addr add "$host_ip/24" dev "$veth_host" || die "Failed to set host IP"
     run ip link set "$veth_host" up || die "Failed to bring up host veth"
@@ -99,7 +100,7 @@ create_namespace() {
     
     run sysctl -w net.ipv4.ip_forward=1 >/dev/null
     
-    run iptables -t nat -A POSTROUTING -s "10.200.$idx.0/24" -j MASQUERADE
+    run iptables -t nat -A POSTROUTING -s "10.200.$subnet.0/24" -j MASQUERADE
     run iptables -A FORWARD -i "$veth_host" -j ACCEPT
     run iptables -A FORWARD -o "$veth_host" -j ACCEPT
     
@@ -189,11 +190,12 @@ destroy_namespace() {
     
     local info_file="$STATE_DIR/ns-$ns.json"
     if [[ -f "$info_file" ]]; then
-        local idx veth_host
+        local idx veth_host subnet
         idx=$(jq -r '.index' "$info_file")
         veth_host=$(jq -r '.vethHost' "$info_file")
+        subnet=$(( (idx % 254) + 1 ))
         
-        run iptables -t nat -D POSTROUTING -s "10.200.$idx.0/24" -j MASQUERADE 2>/dev/null || true
+        run iptables -t nat -D POSTROUTING -s "10.200.$subnet.0/24" -j MASQUERADE 2>/dev/null || true
         run iptables -D FORWARD -i "$veth_host" -j ACCEPT 2>/dev/null || true
         run iptables -D FORWARD -o "$veth_host" -j ACCEPT 2>/dev/null || true
         run ip link delete "$veth_host" 2>/dev/null || true

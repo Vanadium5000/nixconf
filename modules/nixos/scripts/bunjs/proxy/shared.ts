@@ -441,8 +441,9 @@ export async function createNamespace(
   vpn: VpnConfig,
 ): Promise<NamespaceInfo> {
   const nsIndex = state.nextIndex;
+  const subnet = (nsIndex % 254) + 1;
   const nsName = `vpn-proxy-${nsIndex}`;
-  const nsIp = `10.200.${nsIndex}.2`;
+  const nsIp = `10.200.${subnet}.2`;
 
   // Always advance nextIndex so failed indexes are never reused
   state.nextIndex++;
@@ -481,7 +482,7 @@ export async function createNamespace(
       nsName,
       nsIndex,
       nsIp,
-      socksPort: 10900 + nsIndex, // microsocks port inside namespace
+      socksPort: 10900 + (nsIndex % 50000), // microsocks port inside namespace
       slug: vpn.slug,
       vpnDisplayName: vpn.displayName,
       lastUsed: Date.now(),
