@@ -88,8 +88,6 @@
           "org.gimp.GIMP" # GIMP - Image Editor
           "org.inkscape.Inkscape" # Inkscape - Vector Graphics Editor
 
-          "org.libreoffice.LibreOffice" # Required for libreoffice-mcp (headless UNO API)
-
           # "org.vinegarhq.Sober" # Sober
         ];
       };

@@ -35,8 +35,6 @@
       opusName = modelName opusModel;
       geminiProName = modelName geminiProModel;
 
-      opusModelId = "claude-opus-4-6-thinking";
-
       # Default expensive model (switched via opencode-model CLI)
       expensiveModel = opusModel;
 
@@ -194,7 +192,7 @@
 
         get_current() {
           if [ -f "$CONFIG_FILE" ]; then
-            if grep -q "${opusModelId}" "$CONFIG_FILE" 2>/dev/null; then
+            if grep -q "\"model\":\"${opusModel}\"" "$CONFIG_FILE" 2>/dev/null; then
               echo "opus"
             else
               echo "gemini-pro"
