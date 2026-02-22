@@ -15,9 +15,6 @@
     # === PLANNING ===
     "@plannotator/opencode@latest" # Visual plan annotation, approval workflow, hard enforcement
 
-    # === MEMORY ===
-    "opencode-agent-memory@latest" # Letta-style persistent memory blocks
-
     # === NOTIFICATIONS & OBSERVABILITY ===
     "@mohak34/opencode-notifier@latest" # Desktop/Slack/Discord notifications
     "opencode-helicone-session@latest" # LLM observability via Helicone
