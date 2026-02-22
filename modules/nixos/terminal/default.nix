@@ -15,6 +15,18 @@
           "sora-watermark-cleaner"
           "personalive"
         ];
+        ionos_vps = [
+          "antigravity-manager"
+          "aptos-fonts"
+          "iloader"
+          "libreoffice-mcp"
+          "niri-screen-time"
+          "personalive"
+          "pomodoro-for-waybar"
+          "sideloader"
+          "sora-watermark-cleaner"
+          "waydroid-total-spoof"
+        ];
         # Example: Add more hosts as needed
         # ionos_vps = [ "some-gui-package" ];
       };
