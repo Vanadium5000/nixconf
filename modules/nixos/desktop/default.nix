@@ -28,8 +28,6 @@
 
         self.nixosModules.obs
 
-        self.nixosModules.extra_hjem
-
         self.nixosModules.qt
       ];
 

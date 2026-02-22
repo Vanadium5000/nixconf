@@ -18,6 +18,8 @@
       cfg = config.preferences;
     in
     {
+      imports = [ self.nixosModules.extra_hjem ];
+
       options.preferences = {
         enable = mkOption {
           type = types.bool;
