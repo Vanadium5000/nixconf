@@ -6,7 +6,7 @@
 
 python3Packages.buildPythonApplication {
   pname = "office-powerpoint-mcp-server";
-  version = "2.0.7";
+  version = "2.0.7-unstable-2025-12-31";
   pyproject = true;
 
   src = fetchFromGitHub {
