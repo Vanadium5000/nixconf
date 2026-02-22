@@ -28,11 +28,6 @@
             ];
           };
           reasoning = true;
-          variants = {
-            high = {
-              thinkingLevel = "high";
-            };
-          };
         };
 
         "gemini-3.1-pro-low" = {
@@ -54,15 +49,10 @@
             ];
           };
           reasoning = true;
-          variants = {
-            low = {
-              thinkingLevel = "low";
-            };
-          };
         };
 
-        "gemini-3-pro-high" = {
-          name = "Gemini 3 Pro High";
+        "gemini-3.1-pro-preview" = {
+          name = "Gemini 3.1 Pro Preview";
           limit = {
             context = 1048576;
             output = 65536;
@@ -78,12 +68,6 @@
             output = [
               "text"
             ];
-          };
-          reasoning = true;
-          variants = {
-            high = {
-              thinkingLevel = "high";
-            };
           };
         };
 
@@ -144,20 +128,6 @@
             output = [ "text" ];
           };
           reasoning = true;
-          variants = {
-            minimal = {
-              thinkingLevel = "minimal";
-            };
-            low = {
-              thinkingLevel = "low";
-            };
-            medium = {
-              thinkingLevel = "medium";
-            };
-            high = {
-              thinkingLevel = "high";
-            };
-          };
         };
 
         "gemini-3-pro-image" = {
@@ -275,32 +245,6 @@
             output = [ "text" ];
           };
           reasoning = true;
-          variants = {
-            low = {
-              thinking = {
-                type = "adaptive";
-                effort = "low";
-              };
-            };
-            medium = {
-              thinking = {
-                type = "adaptive";
-                effort = "medium";
-              };
-            };
-            high = {
-              thinking = {
-                type = "adaptive";
-                effort = "high";
-              };
-            };
-            max = {
-              thinking = {
-                type = "adaptive";
-                effort = "max";
-              };
-            };
-          };
         };
       };
     };

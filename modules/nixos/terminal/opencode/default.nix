@@ -20,7 +20,7 @@
 
       # Model definitions for switching — change these to update everything automatically
       opusModel = "antigravity-claude/claude-opus-4-6-thinking";
-      geminiProModel = "antigravity-gemini/gemini-3-pro-high";
+      geminiProModel = "antigravity-gemini/gemini-3.1-pro-high";
 
       # Derive human-readable names from provider config
       modelName =
@@ -35,8 +35,7 @@
       opusName = modelName opusModel;
       geminiProName = modelName geminiProModel;
 
-      # Extract the model ID (after the /) for grep detection
-      modelId = model: builtins.elemAt (builtins.split "/" model) 2;
+      opusModelId = "claude-opus-4-6-thinking";
 
       # Default expensive model (switched via opencode-model CLI)
       expensiveModel = opusModel;
@@ -160,16 +159,15 @@
             enabled = true;
             timeout = 30000; # 30s for deep searches
           };
-          # LibreOffice MCP - create/edit/convert documents (Writer, Calc, Impress, Draw)
-          # Supports: ODT, ODS, ODP, DOCX, XLSX, PPTX, PDF, HTML, and 50+ formats
-          # Use for creating presentations, reports, spreadsheets programmatically
-          libreoffice = {
+          # PowerPoint MCP - create/edit presentations using python-pptx
+          # Supports creating and manipulating pptx files programmatically
+          powerpoint = {
             type = "local";
             command = [
-              "${self.packages.${pkgs.stdenv.hostPlatform.system}.libreoffice-mcp}/bin/libreoffice-mcp"
+              "${self.packages.${pkgs.stdenv.hostPlatform.system}.powerpoint-mcp}/bin/ppt_mcp_server"
             ];
             enabled = true;
-            timeout = 60000; # 60s - first invocation starts LibreOffice (slow)
+            timeout = 30000;
           };
         };
         formatter = languages.formatter;
@@ -196,7 +194,7 @@
 
         get_current() {
           if [ -f "$CONFIG_FILE" ]; then
-            if grep -q "${modelId opusModel}" "$CONFIG_FILE" 2>/dev/null; then
+            if grep -q "${opusModelId}" "$CONFIG_FILE" 2>/dev/null; then
               echo "opus"
             else
               echo "gemini-pro"

@@ -19,7 +19,7 @@
           "antigravity-manager"
           "aptos-fonts"
           "iloader"
-          "libreoffice-mcp"
+          "powerpoint-mcp"
           "niri-screen-time"
           "personalive"
           "pomodoro-for-waybar"
