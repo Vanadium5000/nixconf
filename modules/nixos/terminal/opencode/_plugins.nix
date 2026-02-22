@@ -20,5 +20,7 @@
     "@tarquinen/opencode-dcp@1.2.7" # Dynamic Context Pruning - essential for long sessions
     "@franlol/opencode-md-table-formatter"
     "opencode-ralph-loop"
+    "opencode-todo-reminder"
+    "opencode-snippets"
   ];
 }
