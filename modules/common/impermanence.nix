@@ -69,6 +69,7 @@
 
       config = lib.mkIf cfg.enable {
         fileSystems."/persist".neededForBoot = true; # Needed for boot
+        fileSystems."/".neededForBoot = true; # Needed for boot
 
         # Allow non-root users to specify the allow_other or allow_root mount options, see mount.fuse3(8).
         programs.fuse.userAllowOther = true;

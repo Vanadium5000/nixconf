@@ -98,6 +98,8 @@
         }) # Nixfmt-tree
         alejandra
         jq
+        stylua
+        luau-lsp
 
         kdePackages.qtdeclarative # Provides qmlls - language server for QML
 

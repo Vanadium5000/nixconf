@@ -129,5 +129,7 @@
 
   // Other...
   "json.schemaDownload.enable": true,
-  "diffEditor.ignoreTrimWhitespace": false
+  "diffEditor.ignoreTrimWhitespace": true,
+  "luau.trace.server": "messages",
+  "kilo-code.debug": false
 }

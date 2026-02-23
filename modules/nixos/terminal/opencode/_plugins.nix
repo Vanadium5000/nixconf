@@ -6,23 +6,21 @@
 # Then use: ralph "prompt" --max-iterations 10
 {
   plugins = [
-    # === CONTEXT & MODEL GUIDANCE ===
-    # DCP seems to give the AIs debilitating dementia
-    # "@tarquinen/opencode-dcp@latest" # Dynamic Context Pruning - essential for long sessions
-    "opencode-rules@latest" # Injects AGENTS.md into system prompt
-    "opencode-handoff@latest" # Session continuity for multi-agent handoffs
-
     # === PLANNING ===
     "@plannotator/opencode@latest" # Visual plan annotation, approval workflow, hard enforcement
 
-    # === MEMORY ===
-    "opencode-agent-memory@latest" # Letta-style persistent memory blocks
-
     # === NOTIFICATIONS & OBSERVABILITY ===
-    "@mohak34/opencode-notifier@latest" # Desktop/Slack/Discord notifications
-    "opencode-helicone-session@latest" # LLM observability via Helicone
+    "@mohak34/opencode-notifier@latest" # Desktop notifications
+    # "opencode-helicone-session@latest" # Removed: Not using Helicone for observability
 
     # === SAFETY ===
-    "cc-safety-net@latest" # Git checkpoints before destructive operations
+    # "cc-safety-net@latest" # Removed: Git checkpoints before destructive operations. Hardcoded, and I manually approve commands anyway.
+
+    # === ORCHESTRATION & BUNDLE ===
+    "@tarquinen/opencode-dcp@1.2.7" # Dynamic Context Pruning - essential for long sessions
+    "@franlol/opencode-md-table-formatter"
+    "opencode-ralph-loop"
+    "opencode-todo-reminder"
+    "opencode-snippets"
   ];
 }

@@ -492,6 +492,11 @@
           "float, class:^(flameshot)$"
           "move 0 0, class:^(flameshot)$"
           "pin, class:^(flameshot)$"
+
+          # Waydroid
+          # Float + suppress focus for popup surfaces only
+          "float, class:^(waydroid\\.InputMethod)$"
+          "nofocus, class:^(waydroid\\.InputMethod)$"
         ];
 
         layerrule = [

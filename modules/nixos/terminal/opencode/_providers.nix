@@ -1,86 +1,120 @@
-{ self }:
+{ ... }:
+
 {
   config = {
     antigravity-gemini = {
-      npm = "@ai-sdk/anthropic";
+      npm = "@ai-sdk/openai-compatible";
       name = "Antigravity Gemini";
       options = {
-        baseURL = "http://127.0.0.1:8045/v1";
-        apiKey = self.secrets.ANTIGRAVITY_MANAGER_KEY;
+        baseURL = "http://127.0.0.1:8317/v1";
       };
       models = {
-        gemini-3-pro-high = {
+        "gemini-3.1-pro-high" = {
+          name = "Gemini 3.1 Pro High";
+          limit = {
+            context = 1048576;
+            output = 65536;
+          };
+          modalities = {
+            input = [
+              "text"
+              "image"
+              "pdf"
+              "video"
+              "audio"
+            ];
+            output = [
+              "text"
+            ];
+          };
+          reasoning = true;
+        };
+
+        "gemini-3.1-pro-low" = {
+          name = "Gemini 3.1 Pro Low";
+          limit = {
+            context = 1048576;
+            output = 65536;
+          };
+          modalities = {
+            input = [
+              "text"
+              "image"
+              "pdf"
+              "video"
+              "audio"
+            ];
+            output = [
+              "text"
+            ];
+          };
+          reasoning = true;
+        };
+
+        "gemini-3-pro-high" = {
           name = "Gemini 3 Pro High";
           limit = {
-            context = 128000;
-            output = 8192;
+            context = 1048576;
+            output = 65536;
           };
           modalities = {
             input = [
               "text"
               "image"
               "pdf"
+              "video"
+              "audio"
             ];
             output = [
               "text"
             ];
           };
         };
-        gemini-3-pro-low = {
-          name = "Gemini 3 Pro Low";
-          limit = {
-            context = 128000;
-            output = 8192;
-          };
-          modalities = {
-            input = [
-              "text"
-              "image"
-              "pdf"
-            ];
-            output = [
-              "text"
-            ];
-          };
-        };
-        gemini-3-pro-preview = {
+
+        "gemini-3-pro-preview" = {
           name = "Gemini 3 Pro Preview";
           limit = {
-            context = 128000;
-            output = 8192;
+            context = 1048576;
+            output = 65536;
           };
           modalities = {
             input = [
               "text"
               "image"
               "pdf"
+              "video"
+              "audio"
             ];
             output = [
               "text"
             ];
           };
         };
-        gemini-3-flash = {
+
+        "gemini-3-flash-preview" = {
+          name = "Gemini 3 Flash Preview";
+          limit = {
+            context = 1048576;
+            output = 65536;
+          };
+          modalities = {
+            input = [
+              "text"
+              "image"
+              "pdf"
+              "video"
+              "audio"
+            ];
+            output = [
+              "text"
+            ];
+          };
+        };
+
+        "gemini-3-flash" = {
           name = "Gemini 3 Flash";
           limit = {
-            context = 128000;
-            output = 8192;
-          };
-          modalities = {
-            input = [
-              "text"
-              "image"
-              "pdf"
-            ];
-            output = [
-              "text"
-            ];
-          };
-        };
-        "gemini-2.5-flash" = {
-          name = "Gemini 2.5 Flash";
-          limit = {
-            context = 1048576; # 1M token context window
+            context = 1048576;
             output = 65536;
           };
           modalities = {
@@ -88,77 +122,98 @@
               "text"
               "image"
               "pdf"
+              "video"
+              "audio"
             ];
-            output = [
-              "text"
-            ];
+            output = [ "text" ];
           };
+          reasoning = true;
         };
-        "gemini-2.5-flash-lite" = {
-          name = "Gemini 2.5 Flash Lite";
-          limit = {
-            context = 1048576; # 1M token context window
-            output = 65536;
-          };
-          modalities = {
-            input = [
-              "text"
-              "image"
-              "pdf"
-            ];
-            output = [
-              "text"
-            ];
-          };
-        };
-        "gemini-2.5-flash-thinking" = {
-          name = "Gemini 2.5 Flash Thinking";
-          limit = {
-            context = 1048576; # 1M token context window
-            output = 65536;
-          };
-          modalities = {
-            input = [
-              "text"
-              "image"
-              "pdf"
-            ];
-            output = [
-              "text"
-            ];
-          };
-        };
+
         "gemini-3-pro-image" = {
           name = "Gemini 3 Pro Image";
           limit = {
-            context = 128000;
+            context = 1048576;
+            output = 65536;
+          };
+          modalities = {
+            input = [
+              "text"
+              "image"
+              "pdf"
+              "video"
+              "audio"
+            ];
+            output = [
+              "text"
+              "image"
+            ];
+          };
+        };
+
+        "gemini-2.5-pro" = {
+          name = "Gemini 2.5 Pro";
+          limit = {
+            context = 2097152;
             output = 8192;
           };
           modalities = {
             input = [
               "text"
               "image"
+              "pdf"
             ];
             output = [
               "text"
-              "image"
             ];
+          };
+        };
+
+        "gemini-2.5-flash" = {
+          name = "Gemini 2.5 Flash";
+          limit = {
+            context = 1048576;
+            output = 8192;
+          };
+          modalities = {
+            input = [
+              "text"
+              "image"
+              "pdf"
+            ];
+            output = [ "text" ];
+          };
+        };
+
+        "gemini-2.5-flash-lite" = {
+          name = "Gemini 2.5 Flash Lite";
+          limit = {
+            context = 1048576;
+            output = 8192;
+          };
+          modalities = {
+            input = [
+              "text"
+              "image"
+              "pdf"
+            ];
+            output = [ "text" ];
           };
         };
       };
     };
+
     antigravity-claude = {
-      npm = "@ai-sdk/anthropic";
+      npm = "@ai-sdk/openai-compatible";
       name = "Antigravity Claude";
       options = {
-        baseURL = "http://127.0.0.1:8045/v1";
-        apiKey = self.secrets.ANTIGRAVITY_MANAGER_KEY;
+        baseURL = "http://127.0.0.1:8317/compatible";
       };
       models = {
-        claude-sonnet-4-5 = {
-          name = "Claude Sonnet 4.5";
+        "claude-sonnet-4-6" = {
+          name = "Claude Sonnet 4.6";
           limit = {
-            context = 200000; # 200K default (1M available via beta header)
+            context = 200000;
             output = 64000;
           };
           modalities = {
@@ -166,45 +221,30 @@
               "text"
               "image"
               "pdf"
+              "video"
+              "audio"
             ];
-            output = [
-              "text"
-            ];
+            output = [ "text" ];
           };
         };
-        claude-sonnet-4-5-thinking = {
-          name = "Claude Sonnet 4.5 Thinking";
-          limit = {
-            context = 200000; # 200K default (1M available via beta header)
-            output = 64000;
-          };
-          modalities = {
-            input = [
-              "text"
-              "image"
-              "pdf"
-            ];
-            output = [
-              "text"
-            ];
-          };
-        };
-        claude-opus-4-6-thinking = {
+
+        "claude-opus-4-6-thinking" = {
           name = "Claude Opus 4.6 Thinking";
           limit = {
-            context = 200000; # 200K default (1M available via beta header)
-            output = 128000; # 128K - doubled from Opus 4.5's 64K (Feb 2026)
+            context = 1000000;
+            output = 128000;
           };
           modalities = {
             input = [
               "text"
               "image"
               "pdf"
+              "video"
+              "audio"
             ];
-            output = [
-              "text"
-            ];
+            output = [ "text" ];
           };
+          reasoning = true;
         };
       };
     };

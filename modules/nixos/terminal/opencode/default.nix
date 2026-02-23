@@ -18,12 +18,25 @@
 
       opencode = inputs.opencode.packages.${pkgs.stdenv.hostPlatform.system}.default;
 
-      # Model definitions for switching
-      opusModel = "antigravity-claude/claude-opus-4-5-thinking";
-      geminiProModel = "antigravity-gemini/gemini-3-pro-preview";
+      # Model definitions for switching — change these to update everything automatically
+      opusModel = "antigravity-claude/claude-opus-4-6-thinking";
+      geminiProModel = "antigravity-gemini/gemini-3.1-pro-high";
+
+      # Derive human-readable names from provider config
+      modelName =
+        model:
+        let
+          parts = builtins.split "/" model;
+          providerId = builtins.elemAt parts 0;
+          modelId = builtins.elemAt parts 2;
+        in
+        providers.config.${providerId}.models.${modelId}.name;
+
+      opusName = modelName opusModel;
+      geminiProName = modelName geminiProModel;
 
       # Default expensive model (switched via opencode-model CLI)
-      expensiveModel = opusModel;
+      expensiveModel = geminiProModel;
 
       # Generate full config with agents for a given model
       mkFullConfig = model: {
@@ -84,12 +97,6 @@
             enabled = true;
             timeout = 20000;
           };
-          deepwiki = {
-            type = "remote";
-            url = "https://mcp.deepwiki.com/mcp";
-            enabled = true;
-            timeout = 20000;
-          };
           context7 = {
             type = "remote";
             url = "https://mcp.context7.com/mcp";
@@ -99,11 +106,11 @@
           daisyui = {
             type = "local";
             command = [ "${self.packages.${pkgs.stdenv.hostPlatform.system}.daisyui-mcp}/bin/daisyui-mcp" ];
-            enabled = true;
+            enabled = false;
             timeout = 20000;
           };
           playwrite = {
-            enabled = true;
+            enabled = false;
             type = "local";
             command = [
               "${pkgs.playwright-mcp}/bin/mcp-server-playwright"
@@ -124,7 +131,7 @@
             command = [
               "${inputs.self.packages.${pkgs.stdenv.hostPlatform.system}.qmllint-mcp}/bin/qmllint-mcp"
             ];
-            enabled = true;
+            enabled = false;
             timeout = 20000;
           };
           quickshell = {
@@ -134,7 +141,7 @@
                 inputs.self.packages.${pkgs.stdenv.hostPlatform.system}.quickshell-docs-mcp
               }/bin/quickshell-docs-mcp"
             ];
-            enabled = true;
+            enabled = false;
             timeout = 20000;
           };
           # Exa MCP - high-quality parallel web search with deep research capabilities
@@ -144,20 +151,19 @@
             enabled = true;
             timeout = 30000; # 30s for deep searches
           };
-          # LibreOffice MCP - create/edit/convert documents (Writer, Calc, Impress, Draw)
-          # Supports: ODT, ODS, ODP, DOCX, XLSX, PPTX, PDF, HTML, and 50+ formats
-          # Use for creating presentations, reports, spreadsheets programmatically
-          libreoffice = {
+          # PowerPoint MCP - create/edit presentations using python-pptx
+          # Supports creating and manipulating pptx files programmatically
+          powerpoint = {
             type = "local";
             command = [
-              "${self.packages.${pkgs.stdenv.hostPlatform.system}.libreoffice-mcp}/bin/libreoffice-mcp"
+              "${self.packages.${pkgs.stdenv.hostPlatform.system}.powerpoint-mcp}/bin/ppt_mcp_server"
             ];
-            enabled = true;
-            timeout = 60000; # 60s - first invocation starts LibreOffice (slow)
+            enabled = false;
+            timeout = 30000;
           };
         };
-        formatter = languages.formatter;
-        lsp = languages.lsp;
+        inherit (languages) formatter;
+        inherit (languages) lsp;
         provider = providers.config;
       };
 
@@ -173,66 +179,284 @@
       '';
 
       # CLI tool to switch between configs (replaces full config.json)
-      opencodeModelSwitch = pkgs.writeShellScriptBin "opencode-model" ''
-        CONFIG_FILE="$HOME/.config/opencode/config.json"
-        OPUS_CONFIG="${configVariantsDir}/opus.json"
-        GEMINI_CONFIG="${configVariantsDir}/gemini-pro.json"
+      opencodeModelSwitch = pkgs.writeShellScriptBin "opencode-models" ''
+                        # Global config path
+                        GLOBAL_CONFIG_FILE="$HOME/.config/opencode/config.json"
+                        
+                # Local config paths (.opencode inside current directory)
+                LOCAL_CONFIG_DIR="$PWD/.opencode"
+                LOCAL_CONFIG_FILE="$LOCAL_CONFIG_DIR/config.json"
+                LOCAL_MCP_FILE="$LOCAL_CONFIG_DIR/opencode.json"
+                        
+                        # Which config to use (default to global unless local exists and we are not forcing global operations)
+                        CONFIG_FILE="$GLOBAL_CONFIG_FILE"
+                        if [ -f "$LOCAL_CONFIG_FILE" ]; then
+                          CONFIG_FILE="$LOCAL_CONFIG_FILE"
+                        fi
 
-        get_current() {
-          if [ -f "$CONFIG_FILE" ]; then
-            if grep -q "claude-opus-4-5-thinking" "$CONFIG_FILE" 2>/dev/null; then
-              echo "opus"
-            else
-              echo "gemini-pro"
-            fi
-          else
-            echo "unknown"
-          fi
+                        OPUS_CONFIG="${configVariantsDir}/opus.json"
+                        GEMINI_CONFIG="${configVariantsDir}/gemini-pro.json"
+                        JQ="${pkgs.jq}/bin/jq"
+                        GUM="${pkgs.gum}/bin/gum"
+
+                        update_model_in_config() {
+                          local target_config="$1"
+                          local scope="$2"
+                          local config_path="$CONFIG_FILE"
+                          
+                          # If specifically global scope requested, use global config
+                          if [ "$scope" = "global" ]; then
+                            config_path="$GLOBAL_CONFIG_FILE"
+                          fi
+                          
+                          if [ -f "$config_path" ]; then
+                            # Patch existing config with new model settings, preserving MCPs
+                            local temp_file=$(mktemp)
+                            
+                            # Merge .agent, .provider, and .small_model from target_config into existing config
+                            $JQ '.agent = $target[0].agent | .provider = $target[0].provider | .small_model = $target[0].small_model' \
+                              --slurpfile target "$target_config" "$config_path" > "$temp_file" && mv "$temp_file" "$config_path"
+                              
+                            # Now if there is an mcp.json in the same directory as config_path, merge it too!
+                            local config_dir=$(dirname "$config_path")
+                            local mcp_file="$config_dir/opencode.json"
+                            
+                            if [ -f "$mcp_file" ]; then
+                               local temp_mcp_file=$(mktemp)
+                               $JQ '.mcp *= $mcp_data[0].mcp' --slurpfile mcp_data "$mcp_file" "$config_path" > "$temp_mcp_file" && mv "$temp_mcp_file" "$config_path"
+                            fi
+                          else
+                            # No existing config, just copy the target
+                            # If we are doing this for a local project, create the dir first
+                            if [ "$config_path" = "$LOCAL_CONFIG_FILE" ]; then
+                              mkdir -p "$LOCAL_CONFIG_DIR"
+                            fi
+                            cp "$target_config" "$config_path"
+                            chmod 644 "$config_path"
+                          fi
+                        }
+
+                        get_current() {
+                          if [ -f "$CONFIG_FILE" ]; then
+                            if grep -q "\"model\":\"${opusModel}\"" "$CONFIG_FILE" 2>/dev/null; then
+                              echo "opus"
+                            else
+                              echo "gemini-pro"
+                            fi
+                          else
+                            echo "unknown"
+                          fi
+                        }
+
+                        init_project() {
+                          local choice
+                          choice=$($GUM choose "Web Project" "OS Project" "All MCPs" "No MCPs" "Custom MCP File" --header "📦 Select Project Template (initializes in $PWD)" --cursor="▶ " --selected.foreground="212" --cursor.foreground="212")
+
+                          if [ -z "$choice" ]; then
+                            echo "Operation cancelled."
+                            return 1
+                          fi
+                          
+                          # Force using local config for init
+                          CONFIG_FILE="$LOCAL_CONFIG_FILE"
+                          mkdir -p "$LOCAL_CONFIG_DIR"
+                          
+                          # Initialize from base config if not exists
+                          if [ ! -f "$CONFIG_FILE" ]; then
+                            # Use global config as base if it exists, otherwise fall back to gemini
+                            if [ -f "$GLOBAL_CONFIG_FILE" ]; then
+                              cp "$GLOBAL_CONFIG_FILE" "$CONFIG_FILE"
+                            else
+                              cp "$GEMINI_CONFIG" "$CONFIG_FILE"
+                            fi
+                            chmod 644 "$CONFIG_FILE"
+                          fi
+
+                          local temp_file=$(mktemp)
+                          
+                          case "$choice" in
+                            "Web Project")
+                              $JQ '.mcp.daisyui.enabled = true | 
+                                   .mcp.playwrite.enabled = true | 
+                                   .mcp.websearch.enabled = true |
+                                   .mcp.context7.enabled = true |
+                                   .mcp.gh_grep.enabled = true |
+                                   .mcp.quickshell.enabled = false |
+                                   .mcp.qmllint.enabled = false |
+                                   .mcp.powerpoint.enabled = false' \
+                                   "$CONFIG_FILE" > "$temp_file"
+                              mv "$temp_file" "$CONFIG_FILE"
+                              ;;
+                            "OS Project")
+                              $JQ '.mcp.quickshell.enabled = true | 
+                                   .mcp.qmllint.enabled = true |
+                                   .mcp.daisyui.enabled = false |
+                                   .mcp.playwrite.enabled = false |
+                                   .mcp.powerpoint.enabled = false |
+                                   .mcp.websearch.enabled = true |
+                                   .mcp.gh_grep.enabled = true' \
+                                   "$CONFIG_FILE" > "$temp_file"
+                              mv "$temp_file" "$CONFIG_FILE"
+                              ;;
+                            "All MCPs")
+                              $JQ '.mcp[].enabled = true' "$CONFIG_FILE" > "$temp_file"
+                              mv "$temp_file" "$CONFIG_FILE"
+                              ;;
+                            "No MCPs")
+                               $JQ '(.mcp[] | select(.type != "core")).enabled = false' "$CONFIG_FILE" > "$temp_file"
+                               mv "$temp_file" "$CONFIG_FILE"
+                               ;;
+                            "Custom MCP File")
+                               cat << 'EOF' > "$LOCAL_MCP_FILE"
+        {
+          "mcp": {
+            "daisyui": {
+              "enabled": false
+            },
+            "playwrite": {
+              "enabled": false
+            },
+            "websearch": {
+              "enabled": true
+            },
+            "context7": {
+              "enabled": true
+            },
+            "gh_grep": {
+              "enabled": true
+            },
+            "quickshell": {
+              "enabled": false
+            },
+            "qmllint": {
+              "enabled": false
+            },
+            "powerpoint": {
+              "enabled": false
+            }
+          }
         }
+        EOF
+                               $GUM style --foreground 212 "Created $LOCAL_MCP_FILE! Edit this file to toggle specific MCPs for this project."
+                               # If there's an existing config, try to update it right now.
+                               update_model_in_config "$CONFIG_FILE" "local"
+                               ;;
+                          esac
+                          
+                          chmod 644 "$CONFIG_FILE"
+                          
+                          # Create a nice message using gum
+                          $GUM style \
+                            --foreground 212 --border-foreground 212 --border double \
+                            --align center --width 50 --margin "1 2" --padding "1 2" \
+                            "✨ Project Initialized ✨" "Template: $choice" "Saved to: .opencode/"
+                        }
+                        
+                        tui_menu() {
+                          local context_msg="Context: Global"
+                          if [ "$CONFIG_FILE" = "$LOCAL_CONFIG_FILE" ]; then
+                            context_msg="Context: Local Project ($PWD)"
+                          fi
+                          
+                          local current_model=$(get_current)
+                          local model_disp="Unknown"
+                          if [ "$current_model" = "opus" ]; then
+                            model_disp="${opusName}"
+                          elif [ "$current_model" = "gemini-pro" ]; then
+                            model_disp="${geminiProName}"
+                          fi
+                          
+                          local action
+                          action=$($GUM choose \
+                            "Init Project MCPs (Current Dir)" \
+                            "Switch to Opus (Expensive)" \
+                            "Switch to Gemini Pro (Cheaper)" \
+                            "Toggle Model" \
+                            "Exit" \
+                            --header "🤖 OpenCode Configuration Manager
+                $context_msg
+                Current Model: $model_disp
+                " \
+                            --cursor="▶ " --selected.foreground="212" --cursor.foreground="212")
+                            
+                          case "$action" in
+                            "Init Project MCPs (Current Dir)")
+                              init_project
+                              ;;
+                            "Switch to Opus (Expensive)")
+                              update_model_in_config "$OPUS_CONFIG" "current"
+                              $GUM style --foreground 212 "✅ Switched to ${opusName} ($context_msg)"
+                              ;;
+                            "Switch to Gemini Pro (Cheaper)")
+                              update_model_in_config "$GEMINI_CONFIG" "current"
+                              $GUM style --foreground 212 "✅ Switched to ${geminiProName} ($context_msg)"
+                              ;;
+                            "Toggle Model")
+                              if [ "$current_model" = "opus" ]; then
+                                update_model_in_config "$GEMINI_CONFIG" "current"
+                                $GUM style --foreground 212 "✅ Switched to ${geminiProName} ($context_msg)"
+                              else
+                                update_model_in_config "$OPUS_CONFIG" "current"
+                                $GUM style --foreground 212 "✅ Switched to ${opusName} ($context_msg)"
+                              fi
+                              ;;
+                            *)
+                              exit 0
+                              ;;
+                          esac
+                        }
 
-        # Remove read-only Nix-managed file before copying
-        switch_config() {
-          rm -f "$CONFIG_FILE"
-          cp "$1" "$CONFIG_FILE"
-        }
+                        # If no arguments provided, open the TUI
+                        if [ $# -eq 0 ]; then
+                          tui_menu
+                          exit 0
+                        fi
 
-        case "''${1:-}" in
-          opus)
-            switch_config "$OPUS_CONFIG"
-            echo "Switched to Claude Opus 4.5 Thinking"
-            echo "Restart OpenCode for changes to take effect."
-            ;;
-          gemini|gemini-pro|pro)
-            switch_config "$GEMINI_CONFIG"
-            echo "Switched to Gemini 3 Pro Preview"
-            echo "Restart OpenCode for changes to take effect."
-            ;;
-          status|"")
-            current=$(get_current)
-            echo "Current model: $current"
-            ;;
-          toggle)
-            current=$(get_current)
-            if [ "$current" = "opus" ]; then
-              switch_config "$GEMINI_CONFIG"
-              echo "Switched to Gemini 3 Pro Preview"
-            else
-              switch_config "$OPUS_CONFIG"
-              echo "Switched to Claude Opus 4.5 Thinking"
-            fi
-            echo "Restart OpenCode for changes to take effect."
-            ;;
-          *)
-            echo "Usage: opencode-model [opus|gemini-pro|toggle|status]"
-            echo ""
-            echo "Commands:"
-            echo "  opus       Switch to Claude Opus 4.5 Thinking (expensive)"
-            echo "  gemini-pro Switch to Gemini 3 Pro Preview (cheaper)"
-            echo "  toggle     Toggle between opus and gemini-pro"
-            echo "  status     Show current model (default)"
-            exit 1
-            ;;
-        esac
+                        case "''${1:-}" in
+                          opus)
+                            update_model_in_config "$OPUS_CONFIG" "current"
+                            echo "Switched to ${opusName}"
+                            ;;
+                          gemini|gemini-pro|pro)
+                            update_model_in_config "$GEMINI_CONFIG" "current"
+                            echo "Switched to ${geminiProName}"
+                            ;;
+                          init)
+                            init_project
+                            ;;
+                          status)
+                            current=$(get_current)
+                            if [ "$CONFIG_FILE" = "$LOCAL_CONFIG_FILE" ]; then
+                              echo "Context: Local ($LOCAL_CONFIG_FILE)"
+                            else
+                              echo "Context: Global"
+                            fi
+                            echo "Current model: $current"
+                            ;;
+                          toggle)
+                            current=$(get_current)
+                            if [ "$current" = "opus" ]; then
+                              update_model_in_config "$GEMINI_CONFIG" "current"
+                              echo "Switched to ${geminiProName}"
+                            else
+                              update_model_in_config "$OPUS_CONFIG" "current"
+                              echo "Switched to ${opusName}"
+                            fi
+                            ;;
+                          *)
+                            echo "Usage: opencode-models [opus|gemini-pro|toggle|status|init]"
+                            echo ""
+                            echo "Run without arguments to open the interactive UI."
+                            echo ""
+                            echo "Commands:"
+                            echo "  init       Initialize project MCPs in current directory"
+                            echo "  opus       Switch to ${opusName} (expensive)"
+                            echo "  gemini-pro Switch to ${geminiProName} (cheaper)"
+                            echo "  toggle     Toggle between opus and gemini-pro"
+                            echo "  status     Show current model and context"
+                            exit 1
+                            ;;
+                        esac
       '';
 
       opencodeEnv = pkgs.buildEnv {

@@ -465,7 +465,7 @@
                 # Warm up the VPN proxy connection before launching wallet
                 # This ensures the VPN tunnel is established (on-demand activation)
                 echo "Establishing VPN proxy connection..."
-                if ! ${pkgs.curl}/bin/curl -s --max-time 30 --proxy "socks5://$VPN_ENCODED@127.0.0.1:$VPN_PROXY_PORT" https://api.ipify.org > /dev/null 2>&1; then
+                if ! ${pkgs.curl}/bin/curl -s --max-time 30 --proxy "socks5h://$VPN_ENCODED@127.0.0.1:$VPN_PROXY_PORT" https://api.ipify.org > /dev/null 2>&1; then
                     echo "Error: Failed to establish VPN proxy connection"
                     echo "Please check that vpn-proxy is running: vpn-proxy status"
                     exit 1
@@ -734,7 +734,7 @@
 
             # Set proxy environment variables if VPN_PROXY is configured
             if [[ -n "$VPN_PROXY" && "$VPN_PROXY" != "none" ]]; then
-                export ALL_PROXY="socks5://127.0.0.1:$VPN_PROXY_PORT"
+                export ALL_PROXY="socks5h://127.0.0.1:$VPN_PROXY_PORT"
                 export all_proxy="$ALL_PROXY"
             fi
 

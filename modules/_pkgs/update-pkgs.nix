@@ -290,8 +290,10 @@ pkgs.writeShellApplication {
     $(for pkg in "''${PACKAGES[@]}"; do
       if [ "$pkg" == "antigravity-manager" ]; then
         echo "  $pkg = (pkgs.callPackage ./$pkg.nix {}).unwrapped;"
-      elif [ "$pkg" == "sora-watermark-cleaner" ]; then
-        # Skip - has complex Python deps that may not eval cleanly
+      elif [ "$pkg" == "cliproxyapi" ]; then
+        echo "  $pkg = pkgs.callPackage ./$pkg.nix { unstable = pkgs // { buildGo126Module = pkgs.buildGoModule or pkgs.buildGo123Module; }; };"
+      elif [ "$pkg" == "sora-watermark-cleaner" ] || [ "$pkg" == "personalive" ]; then
+        # Skip - has complex Python/CUDA deps that may not eval cleanly
         echo "  # $pkg = pkgs.callPackage ./$pkg.nix {}; # skipped - complex deps"
       else
         echo "  $pkg = pkgs.callPackage ./$pkg.nix {};"
@@ -360,7 +362,7 @@ pkgs.writeShellApplication {
           fi
           ;;
 
-        "daisyui-mcp"|"pomodoro-for-waybar"|"libreoffice-mcp")
+        "daisyui-mcp"|"pomodoro-for-waybar"|"powerpoint-mcp"|"waydroid-total-spoof")
           # Track branches - use nix-update with branch mode
           # These packages pin to latest commit on main/master branch
           set +e
@@ -377,8 +379,9 @@ pkgs.writeShellApplication {
           set -e
           ;;
 
-        "niri-screen-time")
+        "niri-screen-time"|"snitch"|"cliproxyapi")
           # Go package with vendorHash - standard nix-update
+          # or multi-arch binary package with release tags
           set +e
           if nix-update -f packages.nix "$pkg"; then
             UPDATED+=("$pkg")

@@ -15,7 +15,15 @@
  */
 
 import { spawn, spawnSync } from "bun";
-import { readFile, writeFile, mkdir, unlink } from "fs/promises";
+import {
+  readFile,
+  writeFile,
+  mkdir,
+  unlink,
+  rename,
+  rm,
+  stat as fsStat,
+} from "fs/promises";
 import { join } from "path";
 import {
   resolveVpn,
@@ -168,11 +176,15 @@ export async function loadState(): Promise<ProxyState> {
 
 /**
  * Save proxy state to disk
- * State is persisted to tmpfs for sharing between processes
+ * Uses atomic write (write to temp file then rename) to prevent corruption
+ * when multiple processes write concurrently.
  */
 export async function saveState(state: ProxyState): Promise<void> {
   await ensureStateDir();
-  await writeFile(STATE_FILE, JSON.stringify(state, null, 2));
+  const tmpFile = `${STATE_FILE}.tmp.${process.pid}`;
+  await writeFile(tmpFile, JSON.stringify(state, null, 2));
+  // rename is atomic on the same filesystem (tmpfs)
+  await rename(tmpFile, STATE_FILE);
 }
 
 // ============================================================================
@@ -180,29 +192,90 @@ export async function saveState(state: ProxyState): Promise<void> {
 // ============================================================================
 
 /**
+ * Cross-process file lock using atomic mkdir
+ *
+ * Both SOCKS5 and HTTP proxy are separate systemd services sharing state.json.
+ * The in-memory mutex only protects within a single process; this lock
+ * serializes namespace creation across processes to prevent state corruption
+ * and duplicate namespace creation.
+ *
+ * Uses mkdir as the atomic primitive: mkdir fails if the directory already
+ * exists, making it a reliable cross-process lock. Includes a stale lock
+ * timeout (60s) to recover from crashed processes.
+ */
+const LOCK_DIR = `${LOCK_FILE}.d`;
+const LOCK_STALE_MS = 60_000; // 60s stale lock timeout
+
+async function withFileLock<T>(fn: () => Promise<T>): Promise<T> {
+  await ensureStateDir();
+  const deadline = Date.now() + 30_000; // 30s acquisition timeout
+
+  // Spin until we acquire the lock or timeout
+  while (true) {
+    try {
+      await mkdir(LOCK_DIR);
+      // Lock acquired — write PID for stale detection
+      await writeFile(join(LOCK_DIR, "pid"), `${process.pid}\n`);
+      break;
+    } catch {
+      // Lock exists — check if it's stale (holder crashed)
+      try {
+        const lockStat = await fsStat(LOCK_DIR);
+        if (Date.now() - lockStat.mtimeMs > LOCK_STALE_MS) {
+          log("WARN", "Breaking stale file lock (holder likely crashed)");
+          await rm(LOCK_DIR, { recursive: true, force: true });
+          continue; // Retry immediately
+        }
+      } catch {
+        // Lock dir vanished between our check — retry
+        continue;
+      }
+
+      if (Date.now() > deadline) {
+        log("WARN", "File lock acquisition timed out, proceeding anyway");
+        break;
+      }
+      await Bun.sleep(50);
+    }
+  }
+
+  try {
+    return await fn();
+  } finally {
+    // Release lock
+    try {
+      await rm(LOCK_DIR, { recursive: true, force: true });
+    } catch {
+      // Best-effort cleanup
+    }
+  }
+}
+
+/**
  * In-memory mutex for namespace creation
  *
- * Prevents race conditions when multiple concurrent requests try to create
- * namespaces simultaneously. Each slug gets its own lock to allow parallel
- * creation of different VPNs while serializing requests for the same VPN.
+ * Prevents race conditions when multiple concurrent requests within the same
+ * process try to create namespaces simultaneously. Each slug gets its own lock
+ * to allow parallel creation of different VPNs while serializing requests for
+ * the same VPN.
  */
 const namespaceLocks = new Map<string, Promise<void>>();
 
 /**
- * Acquire a lock for a specific slug, execute the function, then release
- * This ensures only one namespace creation happens per slug at a time
+ * Acquire both in-process and cross-process locks for a slug
+ * This ensures only one namespace creation happens per slug across all processes
  */
 async function withNamespaceLock<T>(
   slug: string,
   fn: () => Promise<T>,
 ): Promise<T> {
-  // Wait for any existing lock on this slug
+  // Wait for any existing in-process lock on this slug
   const existingLock = namespaceLocks.get(slug);
   if (existingLock) {
     await existingLock;
   }
 
-  // Create a new lock for our operation
+  // Create a new in-process lock for our operation
   let releaseLock: () => void;
   const lockPromise = new Promise<void>((resolve) => {
     releaseLock = resolve;
@@ -210,7 +283,8 @@ async function withNamespaceLock<T>(
   namespaceLocks.set(slug, lockPromise);
 
   try {
-    return await fn();
+    // Wrap the actual work in a cross-process file lock
+    return await withFileLock(fn);
   } finally {
     releaseLock!();
     // Only delete if this is still our lock (another request might have queued)
@@ -288,7 +362,20 @@ async function startOpenVPN(nsName: string, vpn: VpnConfig): Promise<number> {
 
   if (proc.exitCode !== 0) {
     const stderr = await new Response(proc.stderr).text();
-    throw new Error(`OpenVPN failed: ${stderr}`);
+    // --daemon mode writes errors to the log file, not stderr
+    // Read the log file for the actual error if stderr is empty
+    let errorDetail = stderr.trim();
+    if (!errorDetail) {
+      try {
+        const logContent = await readFile(logFile, "utf-8");
+        // Take last few lines which usually contain the error
+        const lines = logContent.trim().split("\n");
+        errorDetail = lines.slice(-5).join(" | ");
+      } catch {
+        errorDetail = "(no error output - check log file)";
+      }
+    }
+    throw new Error(`OpenVPN failed: ${errorDetail}`);
   }
 
   // Wait for daemon to write PID file
@@ -345,14 +432,22 @@ async function waitForTunnel(
  * 2. Start OpenVPN daemon inside namespace
  * 3. Wait for tun0 interface to come up
  * 4. Update state with new namespace info
+ *
+ * On failure: always cleans up the partial namespace and advances nextIndex
+ * to avoid infinite retry loops on the same broken index.
  */
 export async function createNamespace(
   state: ProxyState,
   vpn: VpnConfig,
 ): Promise<NamespaceInfo> {
   const nsIndex = state.nextIndex;
+  const subnet = (nsIndex % 254) + 1;
   const nsName = `vpn-proxy-${nsIndex}`;
-  const nsIp = `10.200.${nsIndex}.2`;
+  const nsIp = `10.200.${subnet}.2`;
+
+  // Always advance nextIndex so failed indexes are never reused
+  state.nextIndex++;
+  await saveState(state);
 
   log("INFO", `Creating namespace ${nsName} for ${vpn.displayName}`);
 
@@ -369,35 +464,43 @@ export async function createNamespace(
 
   if (!result.success) {
     log("ERROR", `Failed to create namespace: ${result.output}`);
-    throw new Error(`Namespace creation failed`);
-  }
-
-  const openvpnPid = await startOpenVPN(nsName, vpn);
-  const tunnelUp = await waitForTunnel(nsName);
-
-  if (!tunnelUp) {
+    // Clean up any partial namespace state
     runNetnsScript(["destroy", nsName]);
-    throw new Error("VPN tunnel failed to establish");
+    throw new Error(`Namespace creation failed: ${result.output}`);
   }
 
-  const info: NamespaceInfo = {
-    nsName,
-    nsIndex,
-    nsIp,
-    socksPort: 10900 + nsIndex, // microsocks port inside namespace
-    slug: vpn.slug,
-    vpnDisplayName: vpn.displayName,
-    lastUsed: Date.now(),
-    openvpnPid,
-    status: "connected",
-  };
+  try {
+    const openvpnPid = await startOpenVPN(nsName, vpn);
+    const tunnelUp = await waitForTunnel(nsName);
 
-  state.namespaces[vpn.slug] = info;
-  state.nextIndex++;
-  await saveState(state);
+    if (!tunnelUp) {
+      runNetnsScript(["destroy", nsName]);
+      throw new Error("VPN tunnel failed to establish");
+    }
 
-  log("INFO", `Namespace ${nsName} ready for ${vpn.displayName}`);
-  return info;
+    const info: NamespaceInfo = {
+      nsName,
+      nsIndex,
+      nsIp,
+      socksPort: 10900 + (nsIndex % 50000), // microsocks port inside namespace
+      slug: vpn.slug,
+      vpnDisplayName: vpn.displayName,
+      lastUsed: Date.now(),
+      openvpnPid,
+      status: "connected",
+    };
+
+    state.namespaces[vpn.slug] = info;
+    await saveState(state);
+
+    log("INFO", `Namespace ${nsName} ready for ${vpn.displayName}`);
+    return info;
+  } catch (error) {
+    // OpenVPN or tunnel failed - destroy the namespace to avoid stale state
+    log("ERROR", `Namespace ${nsName} setup failed, cleaning up: ${error}`);
+    runNetnsScript(["destroy", nsName]);
+    throw error;
+  }
 }
 
 /**

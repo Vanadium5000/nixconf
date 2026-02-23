@@ -318,6 +318,9 @@
             # Don't suggest stuff in the urlbar
             "browser.urlbar.suggest.history" = false;
 
+            # Enable support for local proxies
+            "network.proxy.allow_hijacking_localhost" = true;
+
             # Re-enable browser rendering stuff
             "webgl.disabled" = false;
 
