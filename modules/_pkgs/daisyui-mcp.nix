@@ -2,7 +2,11 @@
 
 let
   python = pkgs.python313;
-  pythonEnv = python.withPackages (ps: [ ps.fastmcp ]);
+  # HACK: Disable tests for fastmcp due to pytest marker and deprecation errors
+  fastmcp = pkgs.python313Packages.fastmcp.overridePythonAttrs (old: {
+    doCheck = false;
+  });
+  pythonEnv = python.withPackages (ps: [ fastmcp ]);
 in
 pkgs.stdenv.mkDerivation {
   pname = "daisyui-mcp";
