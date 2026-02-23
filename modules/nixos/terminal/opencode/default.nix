@@ -179,72 +179,71 @@
       '';
 
       # CLI tool to switch between configs (replaces full config.json)
-      # CLI tool to switch between configs (replaces full config.json)
       opencodeModelSwitch = pkgs.writeShellScriptBin "opencode-models" ''
-                                        # Global config path
-                                GLOBAL_CONFIG_FILE="$HOME/.config/opencode/config.json"
-                                
-                                # Local config paths
-                                LOCAL_JSONC_FILE="$PWD/opencode.jsonc"
-                                
-                                OPUS_CONFIG="${configVariantsDir}/opus.json"
-                                GEMINI_CONFIG="${configVariantsDir}/gemini-pro.json"
-                                JQ="${pkgs.jq}/bin/jq"
-                                GUM="${pkgs.gum}/bin/gum"
+                                                # Global config path
+                                        GLOBAL_CONFIG_FILE="$HOME/.config/opencode/config.json"
+                                        
+                                        # Local config paths
+                                        LOCAL_JSONC_FILE="$PWD/opencode.jsonc"
+                                        
+                                        OPUS_CONFIG="${configVariantsDir}/opus.json"
+                                        GEMINI_CONFIG="${configVariantsDir}/gemini-pro.json"
+                                        JQ="${pkgs.jq}/bin/jq"
+                                        GUM="${pkgs.gum}/bin/gum"
 
-                                        update_model_in_config() {
-                                          local target_config="$1"
-                                          
-                                          if [ -f "$GLOBAL_CONFIG_FILE" ]; then
-                                            # Patch existing global config with new model settings, preserving MCPs
-                                            local temp_file=$(mktemp)
-                                            
-                                            # Merge .agent, .provider, and .small_model from target_config into existing config
-                                            $JQ '.agent = $target[0].agent | .provider = $target[0].provider | .small_model = $target[0].small_model' \
-                                              --slurpfile target "$target_config" "$GLOBAL_CONFIG_FILE" > "$temp_file" && mv "$temp_file" "$GLOBAL_CONFIG_FILE"
-                                          else
-                                            # No existing config, just copy the target
-                                            cp "$target_config" "$GLOBAL_CONFIG_FILE"
-                                            chmod 644 "$GLOBAL_CONFIG_FILE"
-                                          fi
-                                        }
+                                                update_model_in_config() {
+                                                  local target_config="$1"
+                                                  
+                                                  if [ -f "$GLOBAL_CONFIG_FILE" ]; then
+                                                    # Patch existing global config with new model settings, preserving MCPs
+                                                    local temp_file=$(mktemp)
+                                                    
+                                                    # Merge .agent, .provider, and .small_model from target_config into existing config
+                                                    $JQ '.agent = $target[0].agent | .provider = $target[0].provider | .small_model = $target[0].small_model' \
+                                                      --slurpfile target "$target_config" "$GLOBAL_CONFIG_FILE" > "$temp_file" && mv "$temp_file" "$GLOBAL_CONFIG_FILE"
+                                                  else
+                                                    # No existing config, just copy the target
+                                                    cp "$target_config" "$GLOBAL_CONFIG_FILE"
+                                                    chmod 644 "$GLOBAL_CONFIG_FILE"
+                                                  fi
+                                                }
 
-                                        get_current() {
-                                          if [ -f "$GLOBAL_CONFIG_FILE" ]; then
-                                            local current_model=$($JQ -r '.agent.build.model // empty' "$GLOBAL_CONFIG_FILE" 2>/dev/null)
-                                            if [ "$current_model" = "${opusModel}" ]; then
-                                              echo "opus"
-                                            elif [ "$current_model" = "${geminiProModel}" ]; then
-                                              echo "gemini-pro"
-                                            else
-                                              echo "unknown"
-                                            fi
-                                          else
-                                            echo "unknown"
-                                          fi
-                                        }
+                                                get_current() {
+                                                  if [ -f "$GLOBAL_CONFIG_FILE" ]; then
+                                                    local current_model=$($JQ -r '.agent.build.model // empty' "$GLOBAL_CONFIG_FILE" 2>/dev/null)
+                                                    if [ "$current_model" = "${opusModel}" ]; then
+                                                      echo "opus"
+                                                    elif [ "$current_model" = "${geminiProModel}" ]; then
+                                                      echo "gemini-pro"
+                                                    else
+                                                      echo "unknown"
+                                                    fi
+                                                  else
+                                                    echo "unknown"
+                                                  fi
+                                                }
 
-                                init_project() {
-                                  local choice
-                                  choice=$($GUM choose "Web Project" "OS Project" "All MCPs" "No MCPs" "Custom MCP File" --header "📦 Select Project Template (initializes in $PWD)" --cursor="▶ " --selected.foreground="212" --cursor.foreground="212")
+                                        init_project() {
+                                          local choice
+                                           choice=$($GUM choose "Web Development" "NixOS Config" "PowerPoint/Office Work" "All MCPs" "No MCPs" "Custom MCP File" --header "📦 Select Project Template (initializes in $PWD)" --cursor="▶ " --selected.foreground="212" --cursor.foreground="212")
 
-                                  if [ -z "$choice" ]; then
-                                    echo "Operation cancelled."
-                                    return 1
-                                  fi
-                                  
-                                  # Check for existing manual configs to warn the user
-                                  if [ -f "$LOCAL_JSONC_FILE" ] || [ -f "$PWD/.opencode/config.json" ]; then
-                                    if ! $GUM confirm "This will overwrite your existing opencode.jsonc. Continue?"; then
-                                      echo "Operation cancelled."
-                                      return 1
-                                    fi
-                                  fi
+                                           if [ -z "$choice" ]; then
+                                             echo "Operation cancelled."
+                                             return 1
+                                           fi
+                                           
+                                           # Check for existing manual configs to warn the user
+                                           if [ -f "$LOCAL_JSONC_FILE" ] || [ -f "$PWD/.opencode/config.json" ]; then
+                                             if ! $GUM confirm "This will overwrite your existing opencode.jsonc. Continue?"; then
+                                               echo "Operation cancelled."
+                                               return 1
+                                             fi
+                                           fi
 
-                                  local temp_file=$(mktemp)
-                                  
+                                           local temp_file=$(mktemp)
+                                           
                                   case "$choice" in
-                                    "Web Project")
+                                    "Web Development")
                                        cat << 'JSONC' > "$LOCAL_JSONC_FILE"
         {
           "mcp": {
@@ -260,7 +259,7 @@
         }
         JSONC
                                       ;;
-                                    "OS Project")
+                                    "NixOS Config")
                                        cat << 'JSONC' > "$LOCAL_JSONC_FILE"
         {
           "mcp": {
@@ -276,6 +275,22 @@
         }
         JSONC
                                       ;;
+                                    "PowerPoint/Office Work")
+                                       cat << 'JSONC' > "$LOCAL_JSONC_FILE"
+        {
+          "mcp": {
+            "powerpoint": { "enabled": true },
+            "websearch": { "enabled": true },
+            "gh_grep": { "enabled": true }
+            // "daisyui": { "enabled": false },
+            // "playwrite": { "enabled": false },
+            // "context7": { "enabled": false },
+            // "quickshell": { "enabled": false },
+            // "qmllint": { "enabled": false }
+          }
+        }
+        JSONC
+                                       ;;
                                     "All MCPs")
                                        cat << 'JSONC' > "$LOCAL_JSONC_FILE"
         {
@@ -334,112 +349,112 @@
                                     --align center --width 50 --margin "1 2" --padding "1 2" \
                                     "✨ Project Initialized ✨" "Template: $choice" "Saved to: opencode.jsonc"
                                 }
-                                
-                                tui_menu() {
-                                          local context_msg="Context: Global"
-                                          if [ -f "$LOCAL_JSONC_FILE" ]; then
-                                            context_msg="Context: Local Project ($LOCAL_JSONC_FILE)"
-                                          fi
-                                          
-                                          local current_model=$(get_current)
-                                          local model_disp="Unknown"
-                                          if [ "$current_model" = "opus" ]; then
-                                            model_disp="${opusName}"
-                                          elif [ "$current_model" = "gemini-pro" ]; then
-                                            model_disp="${geminiProName}"
-                                          fi
-                                          
-                                          local action
-                                          action=$($GUM choose \
-                                            "Init Project MCPs (Current Dir)" \
-                                            "Switch to Opus (Expensive)" \
-                                            "Switch to Gemini Pro (Cheaper)" \
-                                            "Toggle Model" \
-                                            "Exit" \
-                                            --header "🤖 OpenCode Configuration Manager
-                                $context_msg
-                                Current Model: $model_disp
-                                " \
-                                            --cursor="▶ " --selected.foreground="212" --cursor.foreground="212")
-                                            
-                                          case "$action" in
-                                            "Init Project MCPs (Current Dir)")
-                                              init_project
-                                              ;;
-                                            "Switch to Opus (Expensive)")
-                                              update_model_in_config "$OPUS_CONFIG"
-                                              $GUM style --foreground 212 "✅ Switched to ${opusName} (Global)"
-                                              ;;
-                                            "Switch to Gemini Pro (Cheaper)")
-                                              update_model_in_config "$GEMINI_CONFIG"
-                                              $GUM style --foreground 212 "✅ Switched to ${geminiProName} (Global)"
-                                              ;;
-                                            "Toggle Model")
-                                              if [ "$current_model" = "opus" ]; then
-                                                update_model_in_config "$GEMINI_CONFIG"
-                                                $GUM style --foreground 212 "✅ Switched to ${geminiProName} (Global)"
-                                              else
-                                                update_model_in_config "$OPUS_CONFIG"
-                                                $GUM style --foreground 212 "✅ Switched to ${opusName} (Global)"
-                                              fi
-                                              ;;
-                                            *)
-                                              exit 0
-                                              ;;
-                                          esac
-                                        }
+                                        
+                                        tui_menu() {
+                                                  local context_msg="Context: Global"
+                                                  if [ -f "$LOCAL_JSONC_FILE" ]; then
+                                                    context_msg="Context: Local Project ($LOCAL_JSONC_FILE)"
+                                                  fi
+                                                  
+                                                  local current_model=$(get_current)
+                                                  local model_disp="Unknown"
+                                                  if [ "$current_model" = "opus" ]; then
+                                                    model_disp="${opusName}"
+                                                  elif [ "$current_model" = "gemini-pro" ]; then
+                                                    model_disp="${geminiProName}"
+                                                  fi
+                                                  
+                                                  local action
+                                                  action=$($GUM choose \
+                                                    "Init Project MCPs (Current Dir)" \
+                                                    "Switch to Opus (Expensive)" \
+                                                    "Switch to Gemini Pro (Cheaper)" \
+                                                    "Toggle Model" \
+                                                    "Exit" \
+                                                    --header "🤖 OpenCode Configuration Manager
+                                        $context_msg
+                                        Current Model: $model_disp
+                                        " \
+                                                    --cursor="▶ " --selected.foreground="212" --cursor.foreground="212")
+                                                    
+                                                  case "$action" in
+                                                    "Init Project MCPs (Current Dir)")
+                                                      init_project
+                                                      ;;
+                                                    "Switch to Opus (Expensive)")
+                                                      update_model_in_config "$OPUS_CONFIG"
+                                                      $GUM style --foreground 212 "✅ Switched to ${opusName} (Global)"
+                                                      ;;
+                                                    "Switch to Gemini Pro (Cheaper)")
+                                                      update_model_in_config "$GEMINI_CONFIG"
+                                                      $GUM style --foreground 212 "✅ Switched to ${geminiProName} (Global)"
+                                                      ;;
+                                                    "Toggle Model")
+                                                      if [ "$current_model" = "opus" ]; then
+                                                        update_model_in_config "$GEMINI_CONFIG"
+                                                        $GUM style --foreground 212 "✅ Switched to ${geminiProName} (Global)"
+                                                      else
+                                                        update_model_in_config "$OPUS_CONFIG"
+                                                        $GUM style --foreground 212 "✅ Switched to ${opusName} (Global)"
+                                                      fi
+                                                      ;;
+                                                    *)
+                                                      exit 0
+                                                      ;;
+                                                  esac
+                                                }
 
-                                        # If no arguments provided, open the TUI
-                                        if [ $# -eq 0 ]; then
-                                          tui_menu
-                                          exit 0
-                                        fi
+                                                # If no arguments provided, open the TUI
+                                                if [ $# -eq 0 ]; then
+                                                  tui_menu
+                                                  exit 0
+                                                fi
 
-                                        case "''${1:-}" in
-                                          opus)
-                                            update_model_in_config "$OPUS_CONFIG"
-                                            echo "Switched to ${opusName}"
-                                            ;;
-                                          gemini|gemini-pro|pro)
-                                            update_model_in_config "$GEMINI_CONFIG"
-                                            echo "Switched to ${geminiProName}"
-                                            ;;
-                                          init)
-                                            init_project
-                                            ;;
-                                          status)
-                                            current=$(get_current)
-                                            if [ -f "$LOCAL_JSONC_FILE" ]; then
-                                              echo "Context: Local ($LOCAL_JSONC_FILE)"
-                                            else
-                                              echo "Context: Global"
-                                            fi
-                                            echo "Current model: $current"
-                                            ;;
-                                          toggle)
-                                            current=$(get_current)
-                                            if [ "$current" = "opus" ]; then
-                                              update_model_in_config "$GEMINI_CONFIG"
-                                              echo "Switched to ${geminiProName}"
-                                            else
-                                              update_model_in_config "$OPUS_CONFIG"
-                                              echo "Switched to ${opusName}"
-                                            fi
-                                            ;;
-                                          *)
-                                            echo "Usage: opencode-models [opus|gemini-pro|toggle|status|init]"
-                                            echo ""
-                                            echo "Run without arguments to open the interactive UI."
-                                            echo ""
-                                            echo "Commands:"
-                                            echo "  init       Initialize project MCPs in current directory"
-                                            echo "  opus       Switch to ${opusName} (expensive)"
-                                            echo "  gemini-pro Switch to ${geminiProName} (cheaper)"
-                                            echo "  toggle     Toggle between opus and gemini-pro"
-                                            echo "  status     Show current model and context"
-                                            exit 1
-                                            ;;
-                                        esac
+                                                case "''${1:-}" in
+                                                  opus)
+                                                    update_model_in_config "$OPUS_CONFIG"
+                                                    echo "Switched to ${opusName}"
+                                                    ;;
+                                                  gemini|gemini-pro|pro)
+                                                    update_model_in_config "$GEMINI_CONFIG"
+                                                    echo "Switched to ${geminiProName}"
+                                                    ;;
+                                                  init)
+                                                    init_project
+                                                    ;;
+                                                  status)
+                                                    current=$(get_current)
+                                                    if [ -f "$LOCAL_JSONC_FILE" ]; then
+                                                      echo "Context: Local ($LOCAL_JSONC_FILE)"
+                                                    else
+                                                      echo "Context: Global"
+                                                    fi
+                                                    echo "Current model: $current"
+                                                    ;;
+                                                  toggle)
+                                                    current=$(get_current)
+                                                    if [ "$current" = "opus" ]; then
+                                                      update_model_in_config "$GEMINI_CONFIG"
+                                                      echo "Switched to ${geminiProName}"
+                                                    else
+                                                      update_model_in_config "$OPUS_CONFIG"
+                                                      echo "Switched to ${opusName}"
+                                                    fi
+                                                    ;;
+                                                  *)
+                                                    echo "Usage: opencode-models [opus|gemini-pro|toggle|status|init]"
+                                                    echo ""
+                                                    echo "Run without arguments to open the interactive UI."
+                                                    echo ""
+                                                    echo "Commands:"
+                                                    echo "  init       Initialize project MCPs in current directory"
+                                                    echo "  opus       Switch to ${opusName} (expensive)"
+                                                    echo "  gemini-pro Switch to ${geminiProName} (cheaper)"
+                                                    echo "  toggle     Toggle between opus and gemini-pro"
+                                                    echo "  status     Show current model and context"
+                                                    exit 1
+                                                    ;;
+                                                esac
       '';
 
       opencodeEnv = pkgs.buildEnv {
