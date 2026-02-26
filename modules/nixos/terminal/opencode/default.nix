@@ -36,7 +36,7 @@
       geminiProName = modelName geminiProModel;
 
       # Default expensive model (switched via opencode-model CLI)
-      expensiveModel = geminiProModel;
+      expensiveModel = opusModel;
 
       # Generate full config with agents for a given model
       mkFullConfig = model: {
