@@ -264,6 +264,9 @@
             # ══════════════════════════════════════════════════════════════════
             # Environment Setup
             # ══════════════════════════════════════════════════════════════════
+            # Bun CLIs
+            export PATH="$HOME/.cache/.bun/bin:$PATH"
+
             # Setup GPG_TTY for GPG-support
             export GPG_TTY=$(tty)
             gpg-connect-agent updatestartuptty /bye >/dev/null 2>&1 # Silent
