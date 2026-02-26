@@ -3,14 +3,14 @@
 {
   config = {
     antigravity-gemini = {
-      npm = "@ai-sdk/openai-compatible";
+      npm = "@ai-sdk/anthropic";
       name = "Antigravity Gemini";
       options = {
-        baseURL = "http://127.0.0.1:8317/v1";
+        baseURL = "http://127.0.0.1:8317/v1beta";
       };
       models = {
         "gemini-3.1-pro-high" = {
-          name = "Gemini 3.1 Pro High";
+          name = "Gemini 3.1 Pro (High)";
           limit = {
             context = 1048576;
             output = 65536;
@@ -23,14 +23,12 @@
               "video"
               "audio"
             ];
-            output = [
-              "text"
-            ];
+            output = [ "text" ];
           };
         };
 
         "gemini-3.1-pro-low" = {
-          name = "Gemini 3.1 Pro Low";
+          name = "Gemini 3.1 Pro (Low)";
           limit = {
             context = 1048576;
             output = 65536;
@@ -43,9 +41,7 @@
               "video"
               "audio"
             ];
-            output = [
-              "text"
-            ];
+            output = [ "text" ];
           };
         };
 
@@ -63,14 +59,12 @@
               "video"
               "audio"
             ];
-            output = [
-              "text"
-            ];
+            output = [ "text" ];
           };
         };
 
         "gemini-3-pro-high" = {
-          name = "Gemini 3 Pro High";
+          name = "Gemini 3 Pro (High)";
           limit = {
             context = 1048576;
             output = 65536;
@@ -83,29 +77,7 @@
               "video"
               "audio"
             ];
-            output = [
-              "text"
-            ];
-          };
-        };
-
-        "gemini-3-pro-preview" = {
-          name = "Gemini 3 Pro Preview";
-          limit = {
-            context = 1048576;
-            output = 65536;
-          };
-          modalities = {
-            input = [
-              "text"
-              "image"
-              "pdf"
-              "video"
-              "audio"
-            ];
-            output = [
-              "text"
-            ];
+            output = [ "text" ];
           };
         };
 
@@ -123,9 +95,7 @@
               "video"
               "audio"
             ];
-            output = [
-              "text"
-            ];
+            output = [ "text" ];
           };
         };
 
@@ -144,6 +114,27 @@
               "audio"
             ];
             output = [ "text" ];
+          };
+        };
+
+        "gemini-3.1-flash-image" = {
+          name = "Gemini 3.1 Flash Image";
+          limit = {
+            context = 1048576;
+            output = 65536;
+          };
+          modalities = {
+            input = [
+              "text"
+              "image"
+              "pdf"
+              "video"
+              "audio"
+            ];
+            output = [
+              "text"
+              "image"
+            ];
           };
         };
 
@@ -171,8 +162,8 @@
         "gemini-2.5-pro" = {
           name = "Gemini 2.5 Pro";
           limit = {
-            context = 2097152;
-            output = 8192;
+            context = 1048576;
+            output = 65536;
           };
           modalities = {
             input = [
@@ -180,9 +171,7 @@
               "image"
               "pdf"
             ];
-            output = [
-              "text"
-            ];
+            output = [ "text" ];
           };
         };
 
@@ -190,7 +179,7 @@
           name = "Gemini 2.5 Flash";
           limit = {
             context = 1048576;
-            output = 8192;
+            output = 65536;
           };
           modalities = {
             input = [
@@ -206,7 +195,7 @@
           name = "Gemini 2.5 Flash Lite";
           limit = {
             context = 1048576;
-            output = 8192;
+            output = 65536;
           };
           modalities = {
             input = [
@@ -219,7 +208,7 @@
         };
 
         "tab_jump_flash_lite_preview" = {
-          name = "Tab Jump Flash Lite Preview";
+          name = "tab_jump_flash_lite_preview";
           limit = {
             context = 1048576;
             output = 65536;
@@ -232,14 +221,12 @@
               "video"
               "audio"
             ];
-            output = [
-              "text"
-            ];
+            output = [ "text" ];
           };
         };
 
         "tab_flash_lite_preview" = {
-          name = "Tab Flash Lite Preview";
+          name = "tab_flash_lite_preview";
           limit = {
             context = 1048576;
             output = 65536;
@@ -252,16 +239,14 @@
               "video"
               "audio"
             ];
-            output = [
-              "text"
-            ];
+            output = [ "text" ];
           };
         };
 
         "gpt-oss-120b-medium" = {
-          name = "GPT OSS 120b Medium";
+          name = "GPT-OSS 120B (Medium)";
           limit = {
-            context = 131072;
+            context = 1048576;
             output = 65536;
           };
           modalities = {
@@ -270,23 +255,21 @@
               "image"
               "pdf"
             ];
-            output = [
-              "text"
-            ];
+            output = [ "text" ];
           };
         };
       };
     };
 
     antigravity-claude = {
-      npm = "@ai-sdk/openai-compatible";
+      npm = "@ai-sdk/anthropic";
       name = "Antigravity Claude";
       options = {
-        baseURL = "http://127.0.0.1:8317/compatible";
+        baseURL = "http://127.0.0.1:8317/v1beta";
       };
       models = {
         "claude-sonnet-4-6" = {
-          name = "Claude Sonnet 4.6";
+          name = "Claude Sonnet 4.6 (Thinking)";
           limit = {
             context = 200000;
             output = 64000;
@@ -304,7 +287,7 @@
         };
 
         "claude-opus-4-6-thinking" = {
-          name = "Claude Opus 4.6 Thinking";
+          name = "Claude Opus 4.6 (Thinking)";
           limit = {
             context = 1000000;
             output = 128000;
