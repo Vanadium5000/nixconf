@@ -27,7 +27,6 @@
               "text"
             ];
           };
-          reasoning = true;
         };
 
         "gemini-3.1-pro-low" = {
@@ -48,7 +47,26 @@
               "text"
             ];
           };
-          reasoning = true;
+        };
+
+        "gemini-3.1-pro-preview" = {
+          name = "Gemini 3.1 Pro Preview";
+          limit = {
+            context = 1048576;
+            output = 65536;
+          };
+          modalities = {
+            input = [
+              "text"
+              "image"
+              "pdf"
+              "video"
+              "audio"
+            ];
+            output = [
+              "text"
+            ];
+          };
         };
 
         "gemini-3-pro-high" = {
@@ -127,7 +145,6 @@
             ];
             output = [ "text" ];
           };
-          reasoning = true;
         };
 
         "gemini-3-pro-image" = {
@@ -200,6 +217,64 @@
             output = [ "text" ];
           };
         };
+
+        "tab_jump_flash_lite_preview" = {
+          name = "Tab Jump Flash Lite Preview";
+          limit = {
+            context = 1048576;
+            output = 65536;
+          };
+          modalities = {
+            input = [
+              "text"
+              "image"
+              "pdf"
+              "video"
+              "audio"
+            ];
+            output = [
+              "text"
+            ];
+          };
+        };
+
+        "tab_flash_lite_preview" = {
+          name = "Tab Flash Lite Preview";
+          limit = {
+            context = 1048576;
+            output = 65536;
+          };
+          modalities = {
+            input = [
+              "text"
+              "image"
+              "pdf"
+              "video"
+              "audio"
+            ];
+            output = [
+              "text"
+            ];
+          };
+        };
+
+        "gpt-oss-120b-medium" = {
+          name = "GPT OSS 120b Medium";
+          limit = {
+            context = 131072;
+            output = 65536;
+          };
+          modalities = {
+            input = [
+              "text"
+              "image"
+              "pdf"
+            ];
+            output = [
+              "text"
+            ];
+          };
+        };
       };
     };
 
@@ -244,7 +319,6 @@
             ];
             output = [ "text" ];
           };
-          reasoning = true;
         };
       };
     };
