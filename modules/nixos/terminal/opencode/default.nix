@@ -4,6 +4,7 @@
     {
       pkgs,
       config,
+      lib,
       ...
     }:
     let
@@ -34,6 +35,31 @@
 
       opusName = modelName opusModel;
       geminiProName = modelName geminiProModel;
+
+      # Dynamic image model detection - finds first model with "image" in output modalities
+      # This avoids hardcoding model names that change frequently
+      imageModel =
+        let
+          # Helper to check if a model supports image output
+          isImageModel =
+            providerId: modelId: model:
+            builtins.elem "image" (model.modalities.output or [ ]);
+
+          # Flatten providers into a list of { id, modelId, model }
+          allModels = lib.flatten (
+            lib.mapAttrsToList (
+              providerId: provider:
+              lib.mapAttrsToList (modelId: model: {
+                id = "${providerId}/${modelId}";
+                inherit providerId modelId model;
+              }) provider.models
+            ) providers.config
+          );
+
+          # Find the first one that matches
+          firstImageModel = lib.findFirst (m: isImageModel m.providerId m.modelId m.model) null allModels;
+        in
+        if firstImageModel != null then firstImageModel.id else "unknown/unknown";
 
       # Default expensive model (switched via opencode-model CLI)
       expensiveModel = opusModel;
@@ -161,7 +187,32 @@
             enabled = false;
             timeout = 30000;
           };
+          # Image Generation MCP - generates images using the first available image model
+          image_gen = {
+            type = "local";
+            command = [
+              "${pkgs.bun}/bin/bun"
+              "${/home/matrix/nixconf/modules/nixos/scripts/bunjs/mcp/image-gen.ts}"
+            ];
+            enabled = true;
+            timeout = 60000; # Image generation can take a while
+            env = {
+              CLIPROXYAPI_KEY = self.secrets.CLIPROXYAPI_KEY;
+              IMAGE_MODEL = imageModel;
+            };
+          };
+          # Slide Preview MCP - converts presentation slides to images for previewing
+          slide_preview = {
+            type = "local";
+            command = [
+              "${pkgs.bun}/bin/bun"
+              "${/home/matrix/nixconf/modules/nixos/scripts/bunjs/mcp/slide-preview.ts}"
+            ];
+            enabled = false;
+            timeout = 30000;
+          };
         };
+
         inherit (languages) formatter;
         inherit (languages) lsp;
         provider = providers.config;
@@ -243,70 +294,79 @@
                                            local temp_file=$(mktemp)
                                            
                                   case "$choice" in
-                                    "Web Development")
-                                       cat << 'JSONC' > "$LOCAL_JSONC_FILE"
-        {
-          "mcp": {
-            "daisyui": { "enabled": true },
-            "playwrite": { "enabled": true },
-            "websearch": { "enabled": true },
-            "context7": { "enabled": true },
-            "gh_grep": { "enabled": true }
-            // "quickshell": { "enabled": false },
-            // "qmllint": { "enabled": false },
-            // "powerpoint": { "enabled": false }
-          }
-        }
-        JSONC
-                                      ;;
-                                    "NixOS Config")
-                                       cat << 'JSONC' > "$LOCAL_JSONC_FILE"
-        {
-          "mcp": {
-            "quickshell": { "enabled": true },
-            "qmllint": { "enabled": true },
-            "websearch": { "enabled": true },
-            "gh_grep": { "enabled": true }
-            // "daisyui": { "enabled": false },
-            // "playwrite": { "enabled": false },
-            // "context7": { "enabled": false },
-            // "powerpoint": { "enabled": false }
-          }
-        }
-        JSONC
-                                      ;;
-                                    "PowerPoint/Office Work")
-                                       cat << 'JSONC' > "$LOCAL_JSONC_FILE"
-        {
-          "mcp": {
-            "powerpoint": { "enabled": true },
-            "websearch": { "enabled": true },
-            "gh_grep": { "enabled": true }
-            // "daisyui": { "enabled": false },
-            // "playwrite": { "enabled": false },
-            // "context7": { "enabled": false },
-            // "quickshell": { "enabled": false },
-            // "qmllint": { "enabled": false }
-          }
-        }
-        JSONC
+                                     "Web Development")
+                                        cat << 'JSONC' > "$LOCAL_JSONC_FILE"
+         {
+           "mcp": {
+             "daisyui": { "enabled": true },
+             "playwrite": { "enabled": true },
+             "websearch": { "enabled": true },
+             "context7": { "enabled": true },
+             "gh_grep": { "enabled": true },
+             "image_gen": { "enabled": true }
+             // "quickshell": { "enabled": false },
+             // "qmllint": { "enabled": false },
+             // "powerpoint": { "enabled": false },
+             // "slide_preview": { "enabled": false }
+           }
+         }
+         JSONC
                                        ;;
-                                    "All MCPs")
-                                       cat << 'JSONC' > "$LOCAL_JSONC_FILE"
-        {
-          "mcp": {
-            "daisyui": { "enabled": true },
-            "playwrite": { "enabled": true },
-            "websearch": { "enabled": true },
-            "context7": { "enabled": true },
-            "gh_grep": { "enabled": true },
-            "quickshell": { "enabled": true },
-            "qmllint": { "enabled": true },
-            "powerpoint": { "enabled": true }
-          }
-        }
-        JSONC
-                                      ;;
+                                     "NixOS Config")
+                                        cat << 'JSONC' > "$LOCAL_JSONC_FILE"
+         {
+           "mcp": {
+             "quickshell": { "enabled": true },
+             "qmllint": { "enabled": true },
+             "websearch": { "enabled": true },
+             "gh_grep": { "enabled": true },
+             "image_gen": { "enabled": true }
+             // "daisyui": { "enabled": false },
+             // "playwrite": { "enabled": false },
+             // "context7": { "enabled": false },
+             // "powerpoint": { "enabled": false },
+             // "slide_preview": { "enabled": false }
+           }
+         }
+         JSONC
+                                       ;;
+                                     "PowerPoint/Office Work")
+                                        cat << 'JSONC' > "$LOCAL_JSONC_FILE"
+         {
+           "mcp": {
+             "powerpoint": { "enabled": true },
+             "slide_preview": { "enabled": true },
+             "websearch": { "enabled": true },
+             "gh_grep": { "enabled": true },
+             "image_gen": { "enabled": true }
+             // "daisyui": { "enabled": false },
+             // "playwrite": { "enabled": false },
+             // "context7": { "enabled": false },
+             // "quickshell": { "enabled": false },
+             // "qmllint": { "enabled": false }
+           }
+         }
+         JSONC
+                                        ;;
+                                     "All MCPs")
+                                        cat << 'JSONC' > "$LOCAL_JSONC_FILE"
+         {
+           "mcp": {
+             "daisyui": { "enabled": true },
+             "playwrite": { "enabled": true },
+             "websearch": { "enabled": true },
+             "context7": { "enabled": true },
+             "gh_grep": { "enabled": true },
+             "quickshell": { "enabled": true },
+             "qmllint": { "enabled": true },
+             "powerpoint": { "enabled": true },
+             "image_gen": { "enabled": true },
+             "slide_preview": { "enabled": true }
+           }
+         }
+         JSONC
+                                       ;;
+
                                     "No MCPs")
                                        cat << 'JSONC' > "$LOCAL_JSONC_FILE"
         {
@@ -459,7 +519,7 @@
 
       opencodeEnv = pkgs.buildEnv {
         name = "opencode-env";
-        paths = languages.packages ++ skills.packages;
+        paths = languages.packages ++ skills.packages ++ [ pkgs.libreoffice ];
       };
 
       opencodeInitScript = pkgs.writeShellScript "opencode-init" ''
