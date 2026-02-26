@@ -1,4 +1,4 @@
-{ ... }:
+{ self, ... }:
 
 {
   config = {
@@ -6,7 +6,8 @@
       npm = "@ai-sdk/anthropic";
       name = "Antigravity Gemini";
       options = {
-        baseURL = "http://127.0.0.1:8317/v1beta";
+        baseURL = "http://127.0.0.1:8317/v1";
+        apiKey = self.secrets.CLIPROXYAPI_KEY;
       };
       models = {
         "gemini-3.1-pro-high" = {
@@ -265,7 +266,8 @@
       npm = "@ai-sdk/anthropic";
       name = "Antigravity Claude";
       options = {
-        baseURL = "http://127.0.0.1:8317/v1beta";
+        baseURL = "http://127.0.0.1:8317/v1";
+        apiKey = self.secrets.CLIPROXYAPI_KEY;
       };
       models = {
         "claude-sonnet-4-6" = {

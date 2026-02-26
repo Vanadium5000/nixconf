@@ -124,7 +124,7 @@
           pkgs.bun
           pkgs.nodejs_latest
           pkgs.libnotify
-          pkgs.yt-dlp
+          pkgs.unstable.yt-dlp
           pkgs.mpc
           pkgs.curl
           pkgs.ffmpeg # for yt-dlp audio conversion usually

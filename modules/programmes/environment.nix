@@ -99,7 +99,7 @@
             [
               imagemagick
               ffmpeg
-              yt-dlp
+              unstable.yt-dlp
             ]
           ++
             # Just cool
