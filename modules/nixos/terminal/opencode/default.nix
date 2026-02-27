@@ -187,20 +187,20 @@
             enabled = false;
             timeout = 30000;
           };
-          # Image Generation MCP - generates images using the first available image model
-          image_gen = {
-            type = "local";
-            command = [
-              "${pkgs.bun}/bin/bun"
-              "${/home/matrix/nixconf/modules/nixos/scripts/bunjs/mcp/image-gen.ts}"
-            ];
-            enabled = true;
-            timeout = 60000; # Image generation can take a while
-            env = {
-              CLIPROXYAPI_KEY = self.secrets.CLIPROXYAPI_KEY;
-              IMAGE_MODEL = imageModel;
-            };
-          };
+      # Image Generation MCP - generates images using the first available image model
+      image_gen = {
+        type = "local";
+        command = [
+          "${pkgs.writeShellScript "image-gen-mcp-wrapper" ''
+            export CLIPROXYAPI_KEY="${self.secrets.CLIPROXYAPI_KEY}"
+            export IMAGE_MODEL="${imageModel}"
+            exec ${pkgs.bun}/bin/bun ${/home/matrix/nixconf/modules/nixos/scripts/bunjs/mcp/image-gen.ts}
+          ''}"
+        ];
+        enabled = true;
+        timeout = 60000; # Image generation can take a while
+      };
+
           # Slide Preview MCP - converts presentation slides to images for previewing
           slide_preview = {
             type = "local";
