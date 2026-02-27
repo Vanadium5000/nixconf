@@ -62,7 +62,7 @@
         if firstImageModel != null then firstImageModel.id else "unknown/unknown";
 
       # Default expensive model (switched via opencode-model CLI)
-      expensiveModel = opusModel;
+      expensiveModel = geminiProModel;
 
       # Generate full config with agents for a given model
       mkFullConfig = model: {
@@ -187,26 +187,33 @@
             enabled = false;
             timeout = 30000;
           };
-      # Image Generation MCP - generates images using the first available image model
-      image_gen = {
-        type = "local";
-        command = [
-          "${pkgs.writeShellScript "image-gen-mcp-wrapper" ''
-            export CLIPROXYAPI_KEY="${self.secrets.CLIPROXYAPI_KEY}"
-            export IMAGE_MODEL="${imageModel}"
-            exec ${pkgs.bun}/bin/bun ${/home/matrix/nixconf/modules/nixos/scripts/bunjs/mcp/image-gen.ts}
-          ''}"
-        ];
-        enabled = true;
-        timeout = 60000; # Image generation can take a while
-      };
+          # Image Generation MCP - generates images using the first available image model
+          image_gen = {
+            type = "local";
+            command = [
+              "${pkgs.writeShellScript "image-gen-mcp-wrapper" ''
+                export CLIPROXYAPI_KEY="${self.secrets.CLIPROXYAPI_KEY}"
+                export IMAGE_MODEL="${imageModel}"
+                exec ${pkgs.bun}/bin/bun ${/home/matrix/nixconf/modules/nixos/scripts/bunjs/mcp/image-gen.ts}
+              ''}"
+            ];
+            enabled = true;
+            timeout = 60000; # Image generation can take a while
+          };
 
           # Slide Preview MCP - converts presentation slides to images for previewing
           slide_preview = {
             type = "local";
             command = [
-              "${pkgs.bun}/bin/bun"
-              "${/home/matrix/nixconf/modules/nixos/scripts/bunjs/mcp/slide-preview.ts}"
+              "${pkgs.writeShellScript "slide-preview-mcp-wrapper" ''
+                export PATH="${
+                  pkgs.lib.makeBinPath [
+                    pkgs.libreoffice
+                    pkgs.poppler_utils
+                  ]
+                }:$PATH"
+                exec ${pkgs.bun}/bin/bun ${/home/matrix/nixconf/modules/nixos/scripts/bunjs/mcp/slide-preview.ts}
+              ''}"
             ];
             enabled = false;
             timeout = 30000;
