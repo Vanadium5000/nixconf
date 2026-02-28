@@ -12,8 +12,8 @@ let
   quickshellSrc = fetchFromGitHub {
     owner = "quickshell-mirror";
     repo = "quickshell";
-    rev = "2cf57f43d5f2a5b139d1f1702c83e126e17f27f8";
-    hash = "sha256-ii717A9saVvTtn3WIYRV5WG171IL7AuVueUjwjKaLIo=";
+    rev = "cddb4f061bab495f4473ca5f2c571b6c710efef7";
+    hash = "sha256-QbXuSLhiSxOq6ydBL3+KGe1aiYWBW+e3J6qjJZaRMq0=";
   };
 
   # Source for the documentation repo
