@@ -78,12 +78,6 @@
       flake = false;
     };
 
-    # Opencode
-    opencode = {
-      url = "github:anomalyco/opencode";
-      inputs.nixpkgs.follows = "nixpkgs-unstable"; # Use unstable packages
-    };
-
     # HyprQt6Engine
     # TODO: Switch to hyprqt6engine when it is added to nixpkgs
     hyprqt6engine = {

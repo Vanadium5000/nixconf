@@ -17,7 +17,7 @@
       pluginsConfig = import ./_plugins.nix;
       agentsConfig = import ./_agents.nix { };
 
-      opencode = inputs.opencode.packages.${pkgs.stdenv.hostPlatform.system}.default;
+      opencode = pkgs.unstable.opencode;
 
       # Model definitions for switching — change these to update everything automatically
       opusModel = "antigravity-claude/claude-opus-4-6-thinking";
@@ -209,7 +209,7 @@
                 export PATH="${
                   pkgs.lib.makeBinPath [
                     pkgs.libreoffice
-                    pkgs.poppler_utils
+                    pkgs.poppler-utils
                   ]
                 }:$PATH"
                 exec ${pkgs.bun}/bin/bun ${/home/matrix/nixconf/modules/nixos/scripts/bunjs/mcp/slide-preview.ts}
