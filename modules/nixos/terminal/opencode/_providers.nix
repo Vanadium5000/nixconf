@@ -1,7 +1,11 @@
 { self, ... }:
 
+# Configure API providers and their respective models
+# Each provider defines its endpoint, authentication, and the models it exposes
 {
   config = {
+    # Antigravity Gemini Provider
+    # Handles access to Gemini models via local proxy
     antigravity-gemini = {
       npm = "@ai-sdk/anthropic";
       name = "Antigravity Gemini";
@@ -30,42 +34,6 @@
 
         "gemini-3.1-pro-low" = {
           name = "Gemini 3.1 Pro (Low)";
-          limit = {
-            context = 1048576;
-            output = 65536;
-          };
-          modalities = {
-            input = [
-              "text"
-              "image"
-              "pdf"
-              "video"
-              "audio"
-            ];
-            output = [ "text" ];
-          };
-        };
-
-        "gemini-3.1-pro-preview" = {
-          name = "Gemini 3.1 Pro Preview";
-          limit = {
-            context = 1048576;
-            output = 65536;
-          };
-          modalities = {
-            input = [
-              "text"
-              "image"
-              "pdf"
-              "video"
-              "audio"
-            ];
-            output = [ "text" ];
-          };
-        };
-
-        "gemini-3-flash-preview" = {
-          name = "Gemini 3 Flash Preview";
           limit = {
             context = 1048576;
             output = 65536;
@@ -156,8 +124,8 @@
         "gemini-2.5-flash-lite" = {
           name = "Gemini 2.5 Flash Lite";
           limit = {
-            context = 1048576;
-            output = 65536;
+            context = 128000;
+            output = 8192;
           };
           modalities = {
             input = [
@@ -172,7 +140,7 @@
         "gpt-oss-120b-medium" = {
           name = "GPT-OSS 120B (Medium)";
           limit = {
-            context = 1048576;
+            context = 131072;
             output = 65536;
           };
           modalities = {
@@ -187,6 +155,8 @@
       };
     };
 
+    # Antigravity Claude Provider
+    # Handles access to Claude models via local proxy
     antigravity-claude = {
       npm = "@ai-sdk/anthropic";
       name = "Antigravity Claude";
@@ -233,6 +203,8 @@
       };
     };
 
+    # Kilo Code Provider
+    # Handles access to various free/community models via local proxy
     kilo-code = {
       npm = "@ai-sdk/anthropic";
       name = "Kilo Code";
@@ -244,8 +216,8 @@
         "minimax/minimax-m2.5:free" = {
           name = "MiniMax M2.5 (Free)";
           limit = {
-            context = 1048576;
-            output = 131072;
+            context = 196608;
+            output = 65536;
           };
           modalities = {
             input = [
@@ -260,7 +232,7 @@
           name = "Kimi K2.5 (Free)";
           limit = {
             context = 262144;
-            output = 262144;
+            output = 33000;
           };
           modalities = {
             input = [

@@ -11,81 +11,44 @@
       user = config.preferences.user.username;
       languages = import ./_languages.nix { inherit pkgs self; };
       providers = import ./_providers.nix { inherit self; };
-      skills = import ./_skills.nix { inherit pkgs; };
-
-      # Modular plugin and agent configuration
       pluginsConfig = import ./_plugins.nix;
       agentsConfig = import ./_agents.nix { };
 
       inherit (pkgs.unstable) opencode;
 
-      # Model definitions for switching — change these to update everything automatically
-      opusModel = "antigravity-claude/claude-opus-4-6-thinking";
-      geminiProModel = "antigravity-gemini/gemini-3.1-pro-high";
+      # Define the available models mapping
+      models = {
+        "gemini-3.1-pro-high" = "antigravity-gemini/gemini-3.1-pro-high";
+        "claude-opus" = "antigravity-claude/claude-opus-4-6-thinking";
+        "gemini-3-flash" = "antigravity-gemini/gemini-3-flash";
+        "gemini-3.1-flash-image" = "antigravity-gemini/gemini-3.1-flash-image";
+        "kimi-2.5" = "kilo-code/moonshotai/kimi-k2.5:free";
+      };
 
-      # Derive human-readable names from provider config
-      modelName =
-        model:
-        let
-          parts = lib.splitString "/" model;
-          providerId = lib.head parts;
-          modelId = lib.concatStringsSep "/" (lib.tail parts);
-        in
-        providers.config.${providerId}.models.${modelId}.name;
-
-      opusName = modelName opusModel;
-      geminiProName = modelName geminiProModel;
-
-      # Dynamic image model detection - finds first model with "image" in output modalities
-      # This avoids hardcoding model names that change frequently
-      imageModel =
-        let
-          # Helper to check if a model supports image output
-          isImageModel =
-            providerId: modelId: model:
-            builtins.elem "image" (model.modalities.output or [ ]);
-
-          # Flatten providers into a list of { id, modelId, model }
-          allModels = lib.flatten (
-            lib.mapAttrsToList (
-              providerId: provider:
-              lib.mapAttrsToList (modelId: model: {
-                id = "${providerId}/${modelId}";
-                inherit providerId modelId model;
-              }) provider.models
-            ) providers.config
-          );
-
-          # Find the first one that matches
-          firstImageModel = lib.findFirst (m: isImageModel m.providerId m.modelId m.model) null allModels;
-        in
-        if firstImageModel != null then firstImageModel.id else "unknown/unknown";
-
-      # Default expensive model (switched via opencode-model CLI)
-      expensiveModel = geminiProModel;
-
-      # MCP server configuration - shared between config.json and CLI templates
+      # MCP server configuration shared between configs and project templates
       mcpConfig = {
+        # Remote tool: Fast AST-based regex search over public GitHub repositories
         gh_grep = {
           type = "remote";
           url = "https://mcp.grep.app/";
           enabled = true;
           timeout = 20000;
         };
+        # Remote tool: Advanced documentation index, useful for looking up up-to-date APIs
         context7 = {
           type = "remote";
           url = "https://mcp.context7.com/mcp";
           enabled = true;
           timeout = 20000;
         };
+        # Local tool: Manage UI components using DaisyUI schemas
         daisyui = {
           type = "local";
-          command = [
-            "${self.packages.${pkgs.stdenv.hostPlatform.system}.daisyui-mcp}/bin/daisyui-mcp"
-          ];
+          command = [ "${self.packages.${pkgs.stdenv.hostPlatform.system}.daisyui-mcp}/bin/daisyui-mcp" ];
           enabled = false;
           timeout = 20000;
         };
+        # Local tool: Headless browser automation and end-to-end testing
         playwrite = {
           enabled = false;
           type = "local";
@@ -95,6 +58,7 @@
             "--headless"
           ];
         };
+        # Local tool: Lints markdown files to ensure compliance with format standards
         markdown_lint = {
           type = "local";
           command = [
@@ -103,6 +67,7 @@
           enabled = true;
           timeout = 10000;
         };
+        # Local tool: Validates Qt/QML syntax for NixOS widget configurations
         qmllint = {
           type = "local";
           command = [
@@ -111,6 +76,7 @@
           enabled = false;
           timeout = 20000;
         };
+        # Local tool: Reads documentation for the custom Quickshell UI compositor
         quickshell = {
           type = "local";
           command = [
@@ -121,15 +87,14 @@
           enabled = false;
           timeout = 20000;
         };
-        # Exa MCP - high-quality parallel web search with deep research capabilities
+        # Remote tool: High-quality parallel web search with deep research capabilities
         websearch = {
           type = "remote";
           url = "https://mcp.exa.ai/mcp?exaApiKey=${self.secrets.EXA_API_KEY}&tools=web_search_exa,deep_search_exa,get_code_context_exa,crawling_exa,deep_researcher_start,deep_researcher_check";
           enabled = true;
-          timeout = 30000; # 30s for deep searches
+          timeout = 30000;
         };
-        # PowerPoint MCP - create/edit presentations using python-pptx
-        # Supports creating and manipulating pptx files programmatically
+        # Local tool: Create and manipulate PowerPoint presentations programmatically
         powerpoint = {
           type = "local";
           command = [
@@ -138,21 +103,20 @@
           enabled = false;
           timeout = 30000;
         };
-        # Image Generation MCP - generates images using the first available image model
+        # Local tool: Generates images via the primary image-capable model
         image_gen = {
           type = "local";
           command = [
             "${pkgs.writeShellScript "image-gen-mcp-wrapper" ''
               export CLIPROXYAPI_KEY="${self.secrets.CLIPROXYAPI_KEY}"
-              export IMAGE_MODEL="${imageModel}"
+              export IMAGE_MODEL="${models."gemini-3.1-flash-image"}"
               exec ${pkgs.bun}/bin/bun ${/home/matrix/nixconf/modules/nixos/scripts/bunjs/mcp/image-gen.ts}
             ''}"
           ];
           enabled = true;
-          timeout = 60000; # Image generation can take a while
+          timeout = 60000;
         };
-
-        # Slide Preview MCP - converts presentation slides to images for previewing
+        # Local tool: Renders presentation slides to images for visual previewing
         slide_preview = {
           type = "local";
           command = [
@@ -171,17 +135,15 @@
         };
       };
 
-      # Generate full config with agents for a given model
-      mkFullConfig = model: {
+      # Base configuration containing non-dynamic parts
+      baseConfig = {
         "$schema" = "https://opencode.ai/config.json";
-        agent = agentsConfig.mkAgentConfig model;
         plugin = pluginsConfig.plugins;
         small_model = "opencode/gpt-5-nano";
         autoupdate = false;
         share = "disabled";
         permission = {
           read = {
-            # Don't allow the AI to read *.redacted.*, e.g. .../script.redacted.ts
             "*.redacted.*" = "deny";
           };
         };
@@ -225,13 +187,20 @@
           "kilo-code"
         ];
         mcp = mcpConfig;
-
-        inherit (languages) formatter;
-        inherit (languages) lsp;
+        inherit (languages) formatter lsp;
         provider = providers.config;
       };
 
-      # MCP templates for different project types
+      # Generate initial fallback config so opencode has *something* to launch with if modified
+      initialConfig = baseConfig // {
+        agent = agentsConfig.mkAgentConfig {
+          advancedModel = models."gemini-3.1-pro-high";
+          mediumModel = models."gemini-3-flash";
+          fastModel = models."kimi-2.5";
+        };
+      };
+
+      # Define project MCP templates
       mcpTemplates =
         let
           mkTemplate = enabled: {
@@ -239,7 +208,6 @@
               inherit (mcpConfig.${name}) enabled;
             });
           };
-          # All available MCP names
           allMcpNames = lib.attrNames mcpConfig;
         in
         {
@@ -276,23 +244,13 @@
           ];
         };
 
-      # Config variants stored in nix store for model switching
+      # Store templates in the Nix store for rapid switching
       configVariantsDir = pkgs.runCommand "opencode-configs" { } ''
-        mkdir -p $out
-        cat > $out/opus.json << 'EOF'
-        ${builtins.toJSON (mkFullConfig opusModel)}
-        EOF
-        cat > $out/gemini-pro.json << 'EOF'
-        ${builtins.toJSON (mkFullConfig geminiProModel)}
-        EOF
-
-        # Store templates as individual JSON files for easy access in script
         mkdir -p $out/templates
         ${lib.concatStringsSep "\n" (
           lib.mapAttrsToList (
             name: value:
             let
-              # Sanitize filename: replace spaces/slashes with underscores
               safeName = lib.replaceStrings [ " " "/" ] [ "_" "_" ] name;
             in
             ''
@@ -304,203 +262,183 @@
         )}
       '';
 
-      # CLI tool to switch between configs (replaces full config.json)
+      # TUI for model/profile and template switching
       opencodeModelSwitch = pkgs.writeShellScriptBin "opencode-models" ''
-        # Global config path
-        GLOBAL_CONFIG_FILE="$HOME/.config/opencode/config.json"
+                GLOBAL_CONFIG_FILE="$HOME/.config/opencode/config.json"
+                LOCAL_JSONC_FILE="$PWD/opencode.jsonc"
+                TEMPLATES_DIR="${configVariantsDir}/templates"
+                JQ="${pkgs.jq}/bin/jq"
+                GUM="${pkgs.gum}/bin/gum"
 
-        # Local config paths
-        LOCAL_JSONC_FILE="$PWD/opencode.jsonc"
+                # Safe extraction without subshells breaking syntax
+                get_current() {
+                  local agent_key="$1"
+                  if [ -f "$GLOBAL_CONFIG_FILE" ]; then
+                    if [ "$agent_key" = "advanced" ]; then
+                       $JQ -r '.agent.build.model // empty' "$GLOBAL_CONFIG_FILE" 2>/dev/null
+                    elif [ "$agent_key" = "medium" ]; then
+                       $JQ -r '.agent.researcher.model // empty' "$GLOBAL_CONFIG_FILE" 2>/dev/null
+                    elif [ "$agent_key" = "fast" ]; then
+                       $JQ -r '.agent.scout.model // empty' "$GLOBAL_CONFIG_FILE" 2>/dev/null
+                    fi
+                  else
+                    echo "unknown"
+                  fi
+                }
 
-        OPUS_CONFIG="${configVariantsDir}/opus.json"
-        GEMINI_CONFIG="${configVariantsDir}/gemini-pro.json"
-        TEMPLATES_DIR="${configVariantsDir}/templates"
-        JQ="${pkgs.jq}/bin/jq"
-        GUM="${pkgs.gum}/bin/gum"
+                update_model_in_config() {
+                  local agent_key="$1"
+                  local new_model="$2"
 
-        update_model_in_config() {
-          local target_config="$1"
+                  if [ -f "$GLOBAL_CONFIG_FILE" ]; then
+                    local temp_file=$(mktemp)
+                    
+                    # Map the agents that use the selected category
+                    if [ "$agent_key" = "advanced" ]; then
+                      $JQ ".agent.build.model = \"$new_model\" | .agent.plan.model = \"$new_model\" | .agent[\"plan-reviewer\"].model = \"$new_model\" | .agent.advisor.model = \"$new_model\"" "$GLOBAL_CONFIG_FILE" > "$temp_file" && mv "$temp_file" "$GLOBAL_CONFIG_FILE"
+                    elif [ "$agent_key" = "medium" ]; then
+                       $JQ ".agent.researcher.model = \"$new_model\" | .agent.tester.model = \"$new_model\"" "$GLOBAL_CONFIG_FILE" > "$temp_file" && mv "$temp_file" "$GLOBAL_CONFIG_FILE"
+                    elif [ "$agent_key" = "fast" ]; then
+                       $JQ ".agent.scout.model = \"$new_model\" | .agent.verifier.model = \"$new_model\"" "$GLOBAL_CONFIG_FILE" > "$temp_file" && mv "$temp_file" "$GLOBAL_CONFIG_FILE"
+                    fi
+                    
+                  else
+                     echo "Error: Global config not found. Please reboot to initialize."
+                  fi
+                }
 
-          if [ -f "$GLOBAL_CONFIG_FILE" ]; then
-            # Patch existing global config with new model settings, preserving MCPs
-            local temp_file=$(mktemp)
+                init_project() {
+                  local choice
+                  choice=$($GUM choose ${
+                    lib.concatStringsSep " " (map (n: ''"${n}"'') (lib.attrNames mcpTemplates))
+                  } --header "📦 Select Project Template (initializes in $PWD)" --cursor="▶ " --selected.foreground="212" --cursor.foreground="212")
 
-            # Merge .agent, .provider, and .small_model from target_config into existing config
-            $JQ '.agent = $target[0].agent | .provider = $target[0].provider | .small_model = $target[0].small_model' \
-              --slurpfile target "$target_config" "$GLOBAL_CONFIG_FILE" > "$temp_file" && mv "$temp_file" "$GLOBAL_CONFIG_FILE"
-          else
-            # No existing config, just copy the target
-            cp "$target_config" "$GLOBAL_CONFIG_FILE"
-            chmod 644 "$GLOBAL_CONFIG_FILE"
-          fi
-        }
+                  if [ -z "$choice" ]; then echo "Operation cancelled."; return 1; fi
 
-        get_current() {
-          if [ -f "$GLOBAL_CONFIG_FILE" ]; then
-            local current_model=$($JQ -r '.agent.build.model // empty' "$GLOBAL_CONFIG_FILE" 2>/dev/null)
-            if [ "$current_model" = "${opusModel}" ]; then
-              echo "opus"
-            elif [ "$current_model" = "${geminiProModel}" ]; then
-              echo "gemini-pro"
-            else
-              echo "unknown"
-            fi
-          else
-            echo "unknown"
-          fi
-        }
+                  if [ -f "$LOCAL_JSONC_FILE" ] || [ -f "$PWD/.opencode/config.json" ]; then
+                    if ! $GUM confirm "This will overwrite your existing opencode.jsonc. Continue?"; then
+                      echo "Operation cancelled."; return 1
+                    fi
+                  fi
 
-        init_project() {
-          local choice
-          choice=$($GUM choose ${
-            lib.concatStringsSep " " (map (n: ''"${n}"'') (lib.attrNames mcpTemplates))
-          } --header "📦 Select Project Template (initializes in $PWD)" --cursor="▶ " --selected.foreground="212" --cursor.foreground="212")
+                  local template_name=$(echo "$choice" | tr ' /' '__')
+                  local template_file="$TEMPLATES_DIR/$template_name.json"
+                  
+                  if [ ! -f "$template_file" ]; then echo "Error: Template not found."; return 1; fi
 
-          if [ -z "$choice" ]; then
-            echo "Operation cancelled."
-            return 1
-          fi
+                  $JQ '.' "$template_file" > "$LOCAL_JSONC_FILE"
+                  $GUM style --foreground 212 --border double --align center --padding "1 2" "✨ Project Initialized ✨" "Template: $choice" "Saved to: opencode.jsonc"
+                }
 
-          # Check for existing manual configs to warn the user
-          if [ -f "$LOCAL_JSONC_FILE" ] || [ -f "$PWD/.opencode/config.json" ]; then
-            if ! $GUM confirm "This will overwrite your existing opencode.jsonc. Continue?"; then
-              echo "Operation cancelled."
-              return 1
-            fi
-          fi
+                tui_menu() {
+                  local context_msg="Context: Global"
+                  if [ -f "$LOCAL_JSONC_FILE" ]; then context_msg="Context: Local Project ($LOCAL_JSONC_FILE)"; fi
+                  
+                  local cur_adv=$(get_current "advanced")
+                  local cur_med=$(get_current "medium")
+                  local cur_fast=$(get_current "fast")
 
-          local template_name=$(echo "$choice" | tr ' /' '__')
-          local template_file="$TEMPLATES_DIR/$template_name.json"
-          if [ ! -f "$template_file" ]; then
-            echo "Error: Template '$choice' (as $template_name.json) not found at $template_file"
-            return 1
-          fi
+                  # Build array of choices
+                  local action
+                  action=$($GUM choose \
+                    "Init Project MCPs (Current Dir)" \
+                    "Change Advanced Model (Builder, Planner, Advisor)" \
+                    "Change Medium Model (Researcher, Tester)" \
+                    "Change Fast Model (Scout, Verifier)" \
+                    "Exit" \
+                    --header "🤖 OpenCode Configuration Manager
+        $context_msg
+        Current Adv : $cur_adv
+        Current Med : $cur_med
+        Current Fast: $cur_fast" --cursor="▶ " --selected.foreground="212" --cursor.foreground="212")
+                    
+                  case "$action" in
+                    "Init Project MCPs (Current Dir)") init_project ;;
+                    "Change Advanced Model (Builder, Planner, Advisor)")
+                      local adv_choice=$($GUM choose ${
+                        lib.concatStringsSep " " (
+                          map (n: ''"${n}"'') [
+                            "gemini-3.1-pro-high"
+                            "claude-opus"
+                            "gemini-3-flash"
+                            "kimi-2.5"
+                          ]
+                        )
+                      } "Cancel" --header "Select Advanced Model")
+                      if [ "$adv_choice" != "Cancel" ]; then
+                        local selected_id
+                        case "$adv_choice" in
+                          ${lib.concatStringsSep "\n                  " (
+                            lib.mapAttrsToList (name: id: ''"${name}") selected_id="${id}" ;;'') models
+                          )}
+                        esac
+                        update_model_in_config "advanced" "$selected_id"
+                        $GUM style --foreground 212 "✅ Switched Advanced to $adv_choice"
+                      fi
+                      ;;
+                    "Change Medium Model (Researcher, Tester)")
+                      local med_choice=$($GUM choose ${
+                        lib.concatStringsSep " " (
+                          map (n: ''"${n}"'') [
+                            "gemini-3-flash"
+                            "gemini-3.1-flash-image"
+                            "gemini-3.1-pro-high"
+                            "kimi-2.5"
+                          ]
+                        )
+                      } "Cancel" --header "Select Medium Model")
+                      if [ "$med_choice" != "Cancel" ]; then
+                        local selected_id
+                        case "$med_choice" in
+                          ${lib.concatStringsSep "\n                  " (
+                            lib.mapAttrsToList (name: id: ''"${name}") selected_id="${id}" ;;'') models
+                          )}
+                        esac
+                        update_model_in_config "medium" "$selected_id"
+                        $GUM style --foreground 212 "✅ Switched Medium to $med_choice"
+                      fi
+                      ;;
+                    "Change Fast Model (Scout, Verifier)")
+                      local fast_choice=$($GUM choose ${
+                        lib.concatStringsSep " " (
+                          map (n: ''"${n}"'') [
+                            "kimi-2.5"
+                            "gemini-3-flash"
+                            "gemini-3.1-flash-image"
+                            "gemini-3.1-pro-high"
+                          ]
+                        )
+                      } "Cancel" --header "Select Fast Model")
+                      if [ "$fast_choice" != "Cancel" ]; then
+                        local selected_id
+                        case "$fast_choice" in
+                          ${lib.concatStringsSep "\n                  " (
+                            lib.mapAttrsToList (name: id: ''"${name}") selected_id="${id}" ;;'') models
+                          )}
+                        esac
+                        update_model_in_config "fast" "$selected_id"
+                        $GUM style --foreground 212 "✅ Switched Fast to $fast_choice"
+                      fi
+                      ;;
+                    *) exit 0 ;;
+                  esac
+                }
 
-          # Format the JSON nicely for the user
-          $JQ '.' "$template_file" > "$LOCAL_JSONC_FILE"
+                if [ $# -eq 0 ]; then tui_menu; exit 0; fi
 
-          $GUM style --foreground 212 "Created opencode.jsonc! Edit this file to toggle specific MCPs for this project."
-
-          # Create a nice message using gum
-          $GUM style \
-            --foreground 212 --border-foreground 212 --border double \
-            --align center --width 50 --margin "1 2" --padding "1 2" \
-            "✨ Project Initialized ✨" "Template: $choice" "Saved to: opencode.jsonc"
-        }
-
-                                        
-                                        tui_menu() {
-                                                  local context_msg="Context: Global"
-                                                  if [ -f "$LOCAL_JSONC_FILE" ]; then
-                                                    context_msg="Context: Local Project ($LOCAL_JSONC_FILE)"
-                                                  fi
-                                                  
-                                                  local current_model=$(get_current)
-                                                  local model_disp="Unknown"
-                                                  if [ "$current_model" = "opus" ]; then
-                                                    model_disp="${opusName}"
-                                                  elif [ "$current_model" = "gemini-pro" ]; then
-                                                    model_disp="${geminiProName}"
-                                                  fi
-                                                  
-                                                  local action
-                                                  action=$($GUM choose \
-                                                    "Init Project MCPs (Current Dir)" \
-                                                    "Switch to Opus (Expensive)" \
-                                                    "Switch to Gemini Pro (Cheaper)" \
-                                                    "Toggle Model" \
-                                                    "Exit" \
-                                                    --header "🤖 OpenCode Configuration Manager
-                                        $context_msg
-                                        Current Model: $model_disp
-                                        " \
-                                                    --cursor="▶ " --selected.foreground="212" --cursor.foreground="212")
-                                                    
-                                                  case "$action" in
-                                                    "Init Project MCPs (Current Dir)")
-                                                      init_project
-                                                      ;;
-                                                    "Switch to Opus (Expensive)")
-                                                      update_model_in_config "$OPUS_CONFIG"
-                                                      $GUM style --foreground 212 "✅ Switched to ${opusName} (Global)"
-                                                      ;;
-                                                    "Switch to Gemini Pro (Cheaper)")
-                                                      update_model_in_config "$GEMINI_CONFIG"
-                                                      $GUM style --foreground 212 "✅ Switched to ${geminiProName} (Global)"
-                                                      ;;
-                                                    "Toggle Model")
-                                                      if [ "$current_model" = "opus" ]; then
-                                                        update_model_in_config "$GEMINI_CONFIG"
-                                                        $GUM style --foreground 212 "✅ Switched to ${geminiProName} (Global)"
-                                                      else
-                                                        update_model_in_config "$OPUS_CONFIG"
-                                                        $GUM style --foreground 212 "✅ Switched to ${opusName} (Global)"
-                                                      fi
-                                                      ;;
-                                                    *)
-                                                      exit 0
-                                                      ;;
-                                                  esac
-                                                }
-
-                                                # If no arguments provided, open the TUI
-                                                if [ $# -eq 0 ]; then
-                                                  tui_menu
-                                                  exit 0
-                                                fi
-
-                                                case "''${1:-}" in
-                                                  opus)
-                                                    update_model_in_config "$OPUS_CONFIG"
-                                                    echo "Switched to ${opusName}"
-                                                    ;;
-                                                  gemini|gemini-pro|pro)
-                                                    update_model_in_config "$GEMINI_CONFIG"
-                                                    echo "Switched to ${geminiProName}"
-                                                    ;;
-                                                  init)
-                                                    init_project
-                                                    ;;
-                                                  status)
-                                                    current=$(get_current)
-                                                    if [ -f "$LOCAL_JSONC_FILE" ]; then
-                                                      echo "Context: Local ($LOCAL_JSONC_FILE)"
-                                                    else
-                                                      echo "Context: Global"
-                                                    fi
-                                                    echo "Current model: $current"
-                                                    ;;
-                                                  toggle)
-                                                    current=$(get_current)
-                                                    if [ "$current" = "opus" ]; then
-                                                      update_model_in_config "$GEMINI_CONFIG"
-                                                      echo "Switched to ${geminiProName}"
-                                                    else
-                                                      update_model_in_config "$OPUS_CONFIG"
-                                                      echo "Switched to ${opusName}"
-                                                    fi
-                                                    ;;
-                                                  *)
-                                                    echo "Usage: opencode-models [opus|gemini-pro|toggle|status|init]"
-                                                    echo ""
-                                                    echo "Run without arguments to open the interactive UI."
-                                                    echo ""
-                                                    echo "Commands:"
-                                                    echo "  init       Initialize project MCPs in current directory"
-                                                    echo "  opus       Switch to ${opusName} (expensive)"
-                                                    echo "  gemini-pro Switch to ${geminiProName} (cheaper)"
-                                                    echo "  toggle     Toggle between opus and gemini-pro"
-                                                    echo "  status     Show current model and context"
-                                                    exit 1
-                                                    ;;
-                                                esac
+                case "''${1:-}" in
+                  init) init_project ;;
+                  *) echo "Usage: opencode-models [init]"; exit 1 ;;
+                esac
       '';
 
       opencodeEnv = pkgs.buildEnv {
         name = "opencode-env";
-        paths = languages.packages ++ skills.packages ++ [ pkgs.libreoffice ];
+        paths = languages.packages ++ [ pkgs.libreoffice ];
       };
 
+      # Init script creates required cache/plugin directories before launching opencode
+      # This ensures local plugins have correct symlinks required by OpenCode architecture
       opencodeInitScript = pkgs.writeShellScript "opencode-init" ''
         mkdir -p "$HOME/.local/cache/opencode/node_modules/@opencode-ai"
         mkdir -p "$HOME/.config/opencode/node_modules/@opencode-ai"
@@ -511,21 +449,16 @@
           fi
         fi
 
-
         exec ${opencode}/bin/opencode "$@"
       '';
 
-      opencodeWrapped =
-        pkgs.runCommand "opencode-wrapped"
-          {
-            buildInputs = [ pkgs.makeWrapper ];
-          }
-          ''
-            mkdir -p $out/bin
-            makeWrapper ${opencodeInitScript} $out/bin/opencode \
-              --prefix PATH : ${opencodeEnv}/bin \
-              --set OPENCODE_LIBC ${pkgs.glibc}/lib/libc.so.6
-          '';
+      opencodeWrapped = pkgs.runCommand "opencode-wrapped" { buildInputs = [ pkgs.makeWrapper ]; } ''
+        mkdir -p $out/bin
+        makeWrapper ${opencodeInitScript} $out/bin/opencode \
+          --prefix PATH : ${opencodeEnv}/bin \
+          --set OPENCODE_LIBC ${pkgs.glibc}/lib/libc.so.6
+      '';
+
       configFile = ".config/opencode/config.json";
 
       # Persistence configuration using bind mount for reliability
@@ -545,24 +478,6 @@
         targetFile = "/home/${user}/.local/share/opencode";
         isDirectory = true;
       };
-
-      # Persist opencode-agent-memory data (Letta-style memory blocks)
-      opencodeMemoryPersistence = self.lib.persistence.mkPersistent {
-        method = "bind";
-        inherit user;
-        fileName = "opencode-memory";
-        targetFile = "/home/${user}/.opencode/memory";
-        isDirectory = true;
-      };
-
-      # Persist planning system state (plans, review status, annotations)
-      opencodePlansPersistence = self.lib.persistence.mkPersistent {
-        method = "bind";
-        inherit user;
-        fileName = "opencode-plans";
-        targetFile = "/home/${user}/.opencode/plans";
-        isDirectory = true;
-      };
     in
     {
       environment.systemPackages = [
@@ -573,31 +488,22 @@
 
       # Setup script to ensure files exist before mount
       system.activationScripts.opencode-persistence = {
-        text =
-          toolsPersistence.activationScript
-          + opencodePersistence.activationScript
-          + opencodeMemoryPersistence.activationScript
-          + opencodePlansPersistence.activationScript;
+        text = toolsPersistence.activationScript + opencodePersistence.activationScript;
         deps = [ "users" ];
       };
 
       # Bind mount for reliable persistence (apps can't overwrite)
-      fileSystems =
-        toolsPersistence.fileSystems
-        // opencodePersistence.fileSystems
-        // opencodeMemoryPersistence.fileSystems
-        // opencodePlansPersistence.fileSystems;
+      fileSystems = toolsPersistence.fileSystems // opencodePersistence.fileSystems;
+
       hjem.users.${user}.files = {
-        # Full config with agents - defaults to opus, use `opencode-model` CLI to switch
-        "${configFile}".text = builtins.toJSON (mkFullConfig expensiveModel);
-        # Skills (AI-loadable instructions) - note: "skill" not "skills"
-        ".config/opencode/skill".source = skills.skillsSource + "/skill";
-        # Commands (slash command definitions)
-        ".config/opencode/command".source = skills.commandsSource + "/command";
-        # Plugins (custom logic/extensions)
+        # Deploy initial config structure
+        "${configFile}".text = builtins.toJSON initialConfig;
+
+        # Source skills & commands using hjem as requested
+        ".config/opencode/skill".source = ./skill;
+        ".config/opencode/command".source = ./command;
         ".config/opencode/plugin".source = ./plugin;
         ".config/opencode/AGENTS.md".source = ./AGENTS.md;
-        # Agent prompts - referenced via {file:./prompts/*.md} in config
         ".config/opencode/prompts".source = ./prompts;
       };
     };

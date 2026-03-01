@@ -14,11 +14,11 @@
     # "opencode-helicone-session@latest" # Removed: Not using Helicone for observability
 
     # === SAFETY ===
-    # "cc-safety-net@latest" # Removed: Git checkpoints before destructive operations. Hardcoded, and I manually approve commands anyway.
+    # "cc-safety-net@latest" # Removed: Git checkpoints before destructive operations.
 
     # === ORCHESTRATION & BUNDLE ===
     "@tarquinen/opencode-dcp@1.2.7" # Dynamic Context Pruning - essential for long sessions
-    "@franlol/opencode-md-table-formatter"
-    "opencode-snippets"
+    "@franlol/opencode-md-table-formatter" # Format markdown tables
+    "opencode-snippets" # Manage codebase snippets
   ];
 }
