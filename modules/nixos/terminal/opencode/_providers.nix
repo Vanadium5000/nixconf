@@ -46,26 +46,8 @@
           };
         };
 
-        "gemini-3-pro-preview" = {
-          name = "Gemini 3 Pro Preview";
-          limit = {
-            context = 1048576;
-            output = 65536;
-          };
-          modalities = {
-            input = [
-              "text"
-              "image"
-              "pdf"
-              "video"
-              "audio"
-            ];
-            output = [ "text" ];
-          };
-        };
-
-        "gemini-3-pro-high" = {
-          name = "Gemini 3 Pro (High)";
+        "gemini-3.1-pro-preview" = {
+          name = "Gemini 3.1 Pro Preview";
           limit = {
             context = 1048576;
             output = 65536;
@@ -182,42 +164,6 @@
               "text"
               "image"
               "pdf"
-            ];
-            output = [ "text" ];
-          };
-        };
-
-        "tab_jump_flash_lite_preview" = {
-          name = "tab_jump_flash_lite_preview";
-          limit = {
-            context = 1048576;
-            output = 65536;
-          };
-          modalities = {
-            input = [
-              "text"
-              "image"
-              "pdf"
-              "video"
-              "audio"
-            ];
-            output = [ "text" ];
-          };
-        };
-
-        "tab_flash_lite_preview" = {
-          name = "tab_flash_lite_preview";
-          limit = {
-            context = 1048576;
-            output = 65536;
-          };
-          modalities = {
-            input = [
-              "text"
-              "image"
-              "pdf"
-              "video"
-              "audio"
             ];
             output = [ "text" ];
           };
