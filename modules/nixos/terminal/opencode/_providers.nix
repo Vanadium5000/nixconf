@@ -46,8 +46,8 @@
           };
         };
 
-        "gemini-3.1-pro-preview" = {
-          name = "Gemini 3.1 Pro Preview";
+        "gemini-3-pro-preview" = {
+          name = "Gemini 3 Pro Preview";
           limit = {
             context = 1048576;
             output = 65536;
@@ -120,27 +120,6 @@
 
         "gemini-3.1-flash-image" = {
           name = "Gemini 3.1 Flash Image";
-          limit = {
-            context = 1048576;
-            output = 65536;
-          };
-          modalities = {
-            input = [
-              "text"
-              "image"
-              "pdf"
-              "video"
-              "audio"
-            ];
-            output = [
-              "text"
-              "image"
-            ];
-          };
-        };
-
-        "gemini-3-pro-image" = {
-          name = "Gemini 3 Pro Image";
           limit = {
             context = 1048576;
             output = 65536;
