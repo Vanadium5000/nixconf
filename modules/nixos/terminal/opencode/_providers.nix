@@ -232,5 +232,51 @@
         };
       };
     };
+
+    kilo-code = {
+      npm = "@ai-sdk/openai"; # Kilo Code uses OpenAI compatible API
+      name = "Kilo Code";
+      options = {
+        baseURL = "http://127.0.0.1:8317/v1";
+        apiKey = self.secrets.CLIPROXYAPI_KEY;
+      };
+      models = {
+        "minimax/minimax-m2.5:free" = {
+          name = "MiniMax M2.5 (Free)";
+          limit = {
+            context = 128000;
+            output = 4096;
+          };
+          modalities = {
+            input = [ "text" ];
+            output = [ "text" ];
+          };
+        };
+
+        "moonshotai/kimi-k2.5:free" = {
+          name = "Kimi K2.5 (Free)";
+          limit = {
+            context = 128000;
+            output = 4096;
+          };
+          modalities = {
+            input = [ "text" ];
+            output = [ "text" ];
+          };
+        };
+
+        "arcee-ai/trinity-large-preview:free" = {
+          name = "Arcee Trinity Large Preview (Free)";
+          limit = {
+            context = 128000;
+            output = 4096;
+          };
+          modalities = {
+            input = [ "text" ];
+            output = [ "text" ];
+          };
+        };
+      };
+    };
   };
 }

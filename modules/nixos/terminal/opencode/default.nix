@@ -27,9 +27,9 @@
       modelName =
         model:
         let
-          parts = builtins.split "/" model;
-          providerId = builtins.elemAt parts 0;
-          modelId = builtins.elemAt parts 2;
+          parts = lib.splitString "/" model;
+          providerId = lib.head parts;
+          modelId = lib.concatStringsSep "/" (lib.tail parts);
         in
         providers.config.${providerId}.models.${modelId}.name;
 
@@ -222,6 +222,7 @@
           "opencode"
           "antigravity-gemini"
           "antigravity-claude"
+          "kilo-code"
         ];
         mcp = mcpConfig;
 
