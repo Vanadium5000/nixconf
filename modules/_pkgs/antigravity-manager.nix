@@ -2,7 +2,7 @@
 
 let
   pname = "antigravity-manager";
-  version = "4.1.26";
+  version = "4.1.27";
 
   unwrapped = pkgs.stdenv.mkDerivation {
     pname = "${pname}-unwrapped";
@@ -10,7 +10,7 @@ let
 
     src = pkgs.fetchurl {
       url = "https://github.com/lbjlaq/Antigravity-Manager/releases/download/v${version}/Antigravity.Tools-${version}-1.x86_64.rpm";
-      hash = "sha256-h2Srq1tQ0ry6UYJJ1ndHA4q0gxLIkW+TO4IjSM9zwVI=";
+      hash = "sha256-tmQ8i5QGZofRW7rRxsGmeQAKBgA9qfJnlpJdfToflRs=";
     };
 
     nativeBuildInputs = with pkgs; [

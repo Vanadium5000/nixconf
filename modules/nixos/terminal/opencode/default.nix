@@ -288,11 +288,18 @@
         # Store templates as individual JSON files for easy access in script
         mkdir -p $out/templates
         ${lib.concatStringsSep "\n" (
-          lib.mapAttrsToList (name: value: ''
-            cat > "$out/templates/${name}.json" << 'EOF'
-            ${builtins.toJSON value}
-            EOF
-          '') mcpTemplates
+          lib.mapAttrsToList (
+            name: value:
+            let
+              # Sanitize filename: replace spaces/slashes with underscores
+              safeName = lib.replaceStrings [ " " "/" ] [ "_" "_" ] name;
+            in
+            ''
+              cat > "$out/templates/${safeName}.json" << 'EOF'
+              ${builtins.toJSON value}
+              EOF
+            ''
+          ) mcpTemplates
         )}
       '';
 
@@ -361,9 +368,10 @@
             fi
           fi
 
-          local template_file="$TEMPLATES_DIR/$choice.json"
+          local template_name=$(echo "$choice" | tr ' /' '__')
+          local template_file="$TEMPLATES_DIR/$template_name.json"
           if [ ! -f "$template_file" ]; then
-            echo "Error: Template '$choice' not found at $template_file"
+            echo "Error: Template '$choice' (as $template_name.json) not found at $template_file"
             return 1
           fi
 
