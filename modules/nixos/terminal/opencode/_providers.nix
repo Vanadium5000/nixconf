@@ -234,7 +234,7 @@
     };
 
     kilo-code = {
-      npm = "@ai-sdk/openai"; # Kilo Code uses OpenAI compatible API
+      npm = "@ai-sdk/anthropic";
       name = "Kilo Code";
       options = {
         baseURL = "http://127.0.0.1:8317/v1";
@@ -244,11 +244,14 @@
         "minimax/minimax-m2.5:free" = {
           name = "MiniMax M2.5 (Free)";
           limit = {
-            context = 128000;
-            output = 4096;
+            context = 1048576;
+            output = 131072;
           };
           modalities = {
-            input = [ "text" ];
+            input = [
+              "text"
+              "image"
+            ];
             output = [ "text" ];
           };
         };
@@ -256,11 +259,15 @@
         "moonshotai/kimi-k2.5:free" = {
           name = "Kimi K2.5 (Free)";
           limit = {
-            context = 128000;
-            output = 4096;
+            context = 262144;
+            output = 262144;
           };
           modalities = {
-            input = [ "text" ];
+            input = [
+              "text"
+              "image"
+              "video"
+            ];
             output = [ "text" ];
           };
         };
@@ -268,8 +275,8 @@
         "arcee-ai/trinity-large-preview:free" = {
           name = "Arcee Trinity Large Preview (Free)";
           limit = {
-            context = 128000;
-            output = 4096;
+            context = 131072;
+            output = 32768;
           };
           modalities = {
             input = [ "text" ];
