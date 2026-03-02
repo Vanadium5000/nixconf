@@ -101,7 +101,7 @@
       "https://nix-community.cachix.org?priority=2"
       "https://cache.nixos-cuda.org?priority=3" # Cuda
       "https://hyprland.cachix.org?priority=4" # Hyprland
-      "https://cache.soopy.moe?priority=5" # Apple T2
+      # "https://cache.soopy.moe?priority=5" # Apple T2
     ];
     extra-trusted-public-keys = [
       "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
@@ -109,7 +109,7 @@
       "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
       "cache.nixos-cuda.org:74DUi4Ye579gUqzH4ziL9IyiJBlDpMRn9MBN8oNan9M=" # Cuda
       "hyprland.cachix.org-1:a7pgxzMz7+chwVL3/pzj6jIBMioiJM7ypFP8PwtkuGc=" # Hyprland
-      "cache.soopy.moe-1:0RZVsQeR+GOh0VQI9rvnHz55nVXkFardDqfm4+afjPo=" # Apple T2
+      # "cache.soopy.moe-1:0RZVsQeR+GOh0VQI9rvnHz55nVXkFardDqfm4+afjPo=" # Apple T2
     ];
   };
 

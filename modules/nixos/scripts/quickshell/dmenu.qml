@@ -13,6 +13,15 @@
  *   DMENU_SELECTED        - Index of initially selected item
  *   DMENU_PLACEHOLDER     - Placeholder text for empty input
  *   DMENU_FILTER          - Filter mode: "fuzzy", "prefix", "exact"
+ *   DMENU_DROPDOWN        - Dropdown mode: "hidden", "inline", "submenu"
+ *   DMENU_DROPDOWN_INDENT - Indentation for sub-items in pixels (default: 24)
+ *
+ * Dropdown Support:
+ *   Items can have expandable sub-items. Add a dropdown marker after your text:
+ *   label\0dropdown\x1f{"expanded":false,"subItems":["sub1","sub2"]}
+ *
+ *   Click the > arrow or press Alt+Enter to expand/collapse.
+ *   Sub-item selection outputs: QS_DMENU_DROPDOWN:parentIndex:subIndex:value
  */
 
 import QtQuick
@@ -44,6 +53,11 @@ Scope {
     property int gridIconSize: parseInt(Quickshell.env("DMENU_ICON_SIZE") ?? "128")
     property string keybindsJson: Quickshell.env("DMENU_KEYBINDS") ?? "{}"
     property var keybinds: JSON.parse(keybindsJson)
+    property string dropdownMode: Quickshell.env("DMENU_DROPDOWN") ?? "hidden" // "hidden", "inline", "submenu"
+    property int dropdownIndent: parseInt(Quickshell.env("DMENU_DROPDOWN_INDENT") ?? "24")
+
+    // Track expanded items by their unique index in filteredModel
+    property var expandedItems: ({})
 
     // Track loading state
     property bool isLoading: true
@@ -286,14 +300,21 @@ Scope {
                                 }
 
                                     onAccepted: {
-                                    var result = "";
                                     var item = viewLoader.getCurrentItem();
                                     if (item) {
-                                        result = item.originalText || item.text;
+                                        if (item.isSubItem) {
+                                            handleSubItemSelection(viewLoader.item.currentIndex);
+                                            return;
+                                        }
+                                        if (item.hasDropdown) {
+                                            // Regular Enter on dropdown parent - select it (not toggle)
+                                            outputAndQuit(item.originalText || item.text);
+                                            return;
+                                        }
+                                        outputAndQuit(item.originalText || item.text);
                                     } else if (text) {
-                                        result = text;
+                                        outputAndQuit(text);
                                     }
-                                    if (result) outputAndQuit(result);
                                 }
 
                                 onTextChanged: {
@@ -303,28 +324,38 @@ Scope {
                                     }
                                 }
 
-                                Keys.onPressed: event => {
-                                    if (event.key === Qt.Key_Down) {
-                                        viewLoader.increment();
-                                        event.accepted = true;
-                                    } else if (event.key === Qt.Key_Up) {
-                                        viewLoader.decrement();
-                                        event.accepted = true;
-                                    } else if (event.key === Qt.Key_Escape) {
-                                        Qt.quit();
-                                    } else if (event.key === Qt.Key_Tab) {
-                                        var item = viewLoader.getCurrentItem();
-                                        if (item) {
-                                            searchInput.text = item.displayText;
+                                    Keys.onPressed: event => {
+                                        // Alt+Enter to toggle dropdown expansion
+                                        if ((event.modifiers & Qt.AltModifier) && (event.key === Qt.Key_Return || event.key === Qt.Key_Enter)) {
+                                            var dropdownItem = viewLoader.getCurrentItem();
+                                            if (dropdownItem && dropdownItem.hasDropdown) {
+                                                toggleDropdown(viewLoader.item.currentIndex);
+                                                event.accepted = true;
+                                                return;
+                                            }
                                         }
-                                        event.accepted = true;
-                                    } else if (event.key === Qt.Key_PageDown) {
-                                        viewLoader.pageDown();
-                                        event.accepted = true;
-                                    } else if (event.key === Qt.Key_PageUp) {
-                                        viewLoader.pageUp();
-                                        event.accepted = true;
-                                    } else {
+
+                                        if (event.key === Qt.Key_Down) {
+                                            viewLoader.increment();
+                                            event.accepted = true;
+                                        } else if (event.key === Qt.Key_Up) {
+                                            viewLoader.decrement();
+                                            event.accepted = true;
+                                        } else if (event.key === Qt.Key_Escape) {
+                                            Qt.quit();
+                                        } else if (event.key === Qt.Key_Tab) {
+                                            var item = viewLoader.getCurrentItem();
+                                            if (item) {
+                                                searchInput.text = item.displayText;
+                                            }
+                                            event.accepted = true;
+                                        } else if (event.key === Qt.Key_PageDown) {
+                                            viewLoader.pageDown();
+                                            event.accepted = true;
+                                        } else if (event.key === Qt.Key_PageUp) {
+                                            viewLoader.pageUp();
+                                            event.accepted = true;
+                                        } else {
                                         // Build keybind string with modifiers
                                         var keyParts = [];
                                         if (event.modifiers & Qt.ControlModifier) keyParts.push("ctrl");
@@ -435,6 +466,16 @@ Scope {
 
                                     property bool isSelected: index === ListView.view.currentIndex
                                     property bool isHovered: delegateMouseArea.containsMouse
+                                    property bool isDropdownParent: model.hasDropdown && !model.isSubItem
+                                    property bool isExpanded: model.hasDropdown && root.expandedItems[getOriginalIndex()]
+
+                                    function getOriginalIndex() {
+                                        if (model.isSubItem) return model.parentIndex;
+                                        for (var i = 0; i < itemsModel.count; i++) {
+                                            if (itemsModel.get(i).text === model.text) return i;
+                                        }
+                                        return -1;
+                                    }
 
                                     // Glass button styling based on state
                                     color: {
@@ -450,9 +491,19 @@ Scope {
 
                                     RowLayout {
                                         anchors.fill: parent
-                                        anchors.leftMargin: 14
+                                        anchors.leftMargin: model.isSubItem ? (14 + root.dropdownIndent) : 14
                                         anchors.rightMargin: 14
                                         spacing: 10
+
+                                        // Dropdown expand/collapse indicator
+                                        Text {
+                                            visible: delegateItem.isDropdownParent
+                                            text: delegateItem.isExpanded ? "v" : ">"
+                                            font.family: Theme.glass.fontFamily
+                                            font.pixelSize: Theme.glass.fontSizeMedium
+                                            font.bold: true
+                                            color: delegateItem.isSelected ? Theme.glass.accentColorAlt : Theme.glass.accentColor
+                                        }
 
                                         Text {
                                             visible: (model.iconPath || "") !== ""
@@ -477,7 +528,16 @@ Scope {
                                         id: delegateMouseArea
                                         anchors.fill: parent
                                         hoverEnabled: true
-                                        onClicked: outputAndQuit(model.originalText || model.text);
+                                        onClicked: {
+                                            if (model.isSubItem) {
+                                                handleSubItemSelection(index);
+                                            } else if (model.hasDropdown) {
+                                                // Click on dropdown parent - toggle expansion
+                                                toggleDropdown(index);
+                                            } else {
+                                                outputAndQuit(model.originalText || model.text);
+                                            }
+                                        }
                                     }
                                 }
                                 
@@ -632,13 +692,40 @@ Scope {
     }
 
     /**
-     * Parse a line of input, extracting icon if present.
+     * Parse a line of input, extracting icon and dropdown info if present.
      * Supports Rofi's icon format: Text\0icon\x1fIconPath
+     * Supports dropdown format: Text\0dropdown\x1f{"expanded":false,"subItems":["item1","item2"]}
      */
     function parseLine(line) {
+        var originalLine = line;
+        var hasDropdown = false;
+        var isExpanded = false;
+        var subItems = [];
+        var subIcons = [];
+
+        // Handle dropdown marker first
+        var dropdownMarker = "\0dropdown\x1f";
+        var dropdownIdx = line.indexOf(dropdownMarker);
+        if (dropdownIdx !== -1) {
+            var remaining = line.substring(dropdownIdx + dropdownMarker.length);
+            var endIdx = remaining.indexOf("\0");
+            var jsonStr = endIdx !== -1 ? remaining.substring(0, endIdx) : remaining;
+            try {
+                var dropdownData = JSON.parse(jsonStr);
+                hasDropdown = true;
+                isExpanded = dropdownData.expanded || false;
+                subItems = dropdownData.subItems || [];
+                subIcons = dropdownData.subIcons || [];
+            } catch (e) {
+                console.log("Failed to parse dropdown JSON: " + jsonStr);
+            }
+            // Remove dropdown marker from line for further processing
+            line = line.substring(0, dropdownIdx) + (endIdx !== -1 ? remaining.substring(endIdx) : "");
+        }
+
         var text = line;
         var icon = "";
-
+        
         // Handle Rofi icon format
         var iconMarker = "\0icon\x1f";
         var iconIdx = line.indexOf(iconMarker);
@@ -652,9 +739,13 @@ Scope {
 
         return {
             text: text,
-            originalText: line,
+            originalText: originalLine,
             displayText: displayText,
-            iconPath: icon
+            iconPath: icon,
+            hasDropdown: hasDropdown,
+            isExpanded: isExpanded,
+            subItems: subItems,
+            subIcons: subIcons
         };
     }
 
@@ -668,7 +759,13 @@ Scope {
         // No filter - show all items
         if (query === "") {
             for (var i = 0; i < itemsModel.count; i++) {
-                filteredModel.append(itemsModel.get(i));
+                var item = itemsModel.get(i);
+                filteredModel.append(item);
+                // Also add expanded sub-items
+                // Check both the model's isExpanded (initial) and root.expandedItems (toggled)
+                if (item.hasDropdown && (root.expandedItems[i] !== undefined ? root.expandedItems[i] : item.isExpanded)) {
+                    appendDropdownSubItems(item, i);
+                }
             }
             return;
         }
@@ -676,8 +773,8 @@ Scope {
         var q = root.caseInsensitive ? query.toLowerCase() : query;
 
         for (var j = 0; j < itemsModel.count; j++) {
-            var item = itemsModel.get(j);
-            var t = root.caseInsensitive ? item.text.toLowerCase() : item.text;
+            var item2 = itemsModel.get(j);
+            var t = root.caseInsensitive ? item2.text.toLowerCase() : item2.text;
 
             var match = false;
             if (root.filterMode === "prefix") {
@@ -690,8 +787,82 @@ Scope {
             }
 
             if (match) {
-                filteredModel.append(item);
+                filteredModel.append(item2);
+                // Also add expanded sub-items if parent matches
+                if (item2.hasDropdown && (root.expandedItems[j] !== undefined ? root.expandedItems[j] : item2.isExpanded)) {
+                    appendDropdownSubItems(item2, j);
+                }
             }
         }
+    }
+
+    /**
+     * Append dropdown sub-items to filteredModel for a given parent item.
+     */
+    function appendDropdownSubItems(parentItem, parentIndex) {
+        if (!parentItem.subItems) return;
+        for (var k = 0; k < parentItem.subItems.length; k++) {
+            filteredModel.append({
+                text: parentItem.subItems[k],
+                originalText: "SUBITEM:" + parentIndex + ":" + k + ":" + parentItem.subItems[k],
+                displayText: "    " + parentItem.subItems[k],
+                iconPath: parentItem.subIcons && parentItem.subIcons[k] ? parentItem.subIcons[k] : "",
+                isSubItem: true,
+                parentIndex: parentIndex,
+                subItemIndex: k
+            });
+        }
+    }
+
+    /**
+     * Toggle dropdown expanded state for an item.
+     */
+    function toggleDropdown(index) {
+        var item = filteredModel.get(index);
+        if (!item || !item.hasDropdown) return;
+
+        // Find the original item index in itemsModel
+        var originalIndex = -1;
+        for (var i = 0; i < itemsModel.count; i++) {
+            if (itemsModel.get(i).text === item.text) {
+                originalIndex = i;
+                break;
+            }
+        }
+        if (originalIndex === -1) return;
+
+        // Toggle expanded state
+        var isExpanded = !root.expandedItems[originalIndex];
+        root.expandedItems[originalIndex] = isExpanded;
+
+        // Update the item model
+        var oldItem = itemsModel.get(originalIndex);
+        itemsModel.set(originalIndex, {
+            text: oldItem.text,
+            originalText: oldItem.originalText,
+            displayText: oldItem.displayText,
+            iconPath: oldItem.iconPath,
+            hasDropdown: oldItem.hasDropdown,
+            isExpanded: isExpanded,
+            subItems: oldItem.subItems,
+            subIcons: oldItem.subIcons
+        });
+
+        // Re-apply filter to show/hide sub-items
+        filterItems(searchInput.text);
+    }
+
+    /**
+     * Check if an item is a sub-item and handle selection appropriately.
+     * Returns true if it was a sub-item and was handled.
+     */
+    function handleSubItemSelection(index) {
+        var item = filteredModel.get(index);
+        if (!item || !item.isSubItem) return false;
+
+        // Output format: DROPDOWN_RESULT:parentIndex:subIndex:value
+        console.log("QS_DMENU_DROPDOWN:" + item.parentIndex + ":" + item.subItemIndex + ":" + item.text);
+        Qt.quit();
+        return true;
     }
 }

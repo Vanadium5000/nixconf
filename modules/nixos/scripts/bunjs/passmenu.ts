@@ -45,6 +45,12 @@ const FIELD_DISPLAY_ORDER = [
 /** Prefix for temp email fields in the field options menu */
 const TEMP_EMAIL_FIELD_PREFIX = "email (from temp emails)" as const;
 
+/** Marker for dropdown items in qs-dmenu */
+const DROPDOWN_MARKER = "\0dropdown\x1f" as const;
+
+/** Marker for icon in qs-dmenu */
+const ICON_MARKER = "\0icon\x1f" as const;
+
 /** Special menu entries in main menu */
 const SPECIAL_ENTRIES = [
   "Generate Credential",
@@ -208,9 +214,59 @@ function isStateRecent(state: State): boolean {
 // Menu Helpers
 // =============================================================================
 
+/** Dropdown item definition */
+interface DropdownItem {
+  label: string;
+  subItems: string[];
+  expanded?: boolean;
+}
+
+/**
+ * Format options with dropdown support for qs-dmenu
+ * Each item can optionally have a dropdown indicator.
+ */
+function formatDropdownOptions(items: Array<string | DropdownItem>): string[] {
+  return items.map((item) => {
+    if (typeof item === "string") {
+      return item;
+    }
+    // Format: label\0dropdown\x1f{"expanded":false,"subItems":["item1","item2"]}
+    const dropdownData = JSON.stringify({
+      expanded: item.expanded ?? false,
+      subItems: item.subItems,
+    });
+    return `${item.label}${DROPDOWN_MARKER}${dropdownData}`;
+  });
+}
+
+/**
+ * Check if a result is a dropdown selection
+ * Format: QS_DMENU_DROPDOWN:parentIndex:subIndex:value
+ */
+function parseDropdownResult(result: string): {
+  isDropdown: boolean;
+  parentIndex: number;
+  subIndex: number;
+  value: string;
+} | null {
+  if (result.startsWith("QS_DMENU_DROPDOWN:")) {
+    const parts = result.substring("QS_DMENU_DROPDOWN:".length).split(":");
+    if (parts.length >= 3) {
+      return {
+        isDropdown: true,
+        parentIndex: parseInt(parts[0]!, 10),
+        subIndex: parseInt(parts[1]!, 10),
+        value: parts.slice(2).join(":"),
+      };
+    }
+  }
+  return null;
+}
+
 /**
  * Display a menu and return the selected option
  * @param initialIndex - 0-based index to pre-select
+ * @param dropdownItems - Optional array of dropdown items for multi-level menus
  */
 async function selectOption(
   menuCommand: string[],
@@ -229,14 +285,26 @@ async function selectOption(
   }
 
   try {
-    const result = await $`printf '%s\n' ${options} | ${cmd} -p ${prompt}`
-      .env(env)
-      .nothrow()
-      .quiet();
+    const proc = Bun.spawn([...cmd, "-p", prompt], {
+      stdin: "pipe",
+      stdout: "pipe",
+      stderr: "inherit",
+      env,
+    });
 
-    if (result.exitCode !== 0) return "";
-    return result.text().trim();
-  } catch {
+    // Join with newlines and write directly to stdin as a buffer/string
+    // Bun's writer handles this efficiently.
+    const input = options.join("\n") + "\n";
+    proc.stdin.write(input);
+    proc.stdin.end();
+
+    const output = await new Response(proc.stdout).text();
+    const status = await proc.exited;
+
+    if (status !== 0) return "";
+    return output.trim();
+  } catch (error) {
+    logError("selectOption failed", error);
     return "";
   }
 }
@@ -322,13 +390,15 @@ function parseCredential(content: string, entryPath: string): ParsedCredential {
 /**
  * Build ordered field options for display
  * Order: [credential path], username, password, [other fields...], otp, autotype
+ * Now returns DropdownItem or string array for flexible dropdown support.
  */
 function buildFieldOptions(
   credential: ParsedCredential,
   entryPath: string,
   showAutotype: boolean,
-): string[] {
-  const options: string[] = [];
+  associatedTempEmails: string[] = [],
+): Array<string | DropdownItem> {
+  const options: Array<string | DropdownItem> = [];
 
   // First entry: credential path (for edit options)
   options.push(`📁 ${entryPath}`);
@@ -337,8 +407,22 @@ function buildFieldOptions(
   for (const field of FIELD_DISPLAY_ORDER) {
     if (field === "password" && credential.password) {
       options.push("password");
-    } else if (credential.fields[field]) {
-      options.push(field);
+    } else if (
+      credential.fields[field] ||
+      (field === "email" && associatedTempEmails.length > 0)
+    ) {
+      // Special handling for email field - add dropdown if temp emails exist
+      if (field === "email" && associatedTempEmails.length > 0) {
+        options.push({
+          label: credential.fields[field]
+            ? `email (${credential.fields[field]})`
+            : "email",
+          expanded: false,
+          subItems: associatedTempEmails,
+        });
+      } else {
+        options.push(field);
+      }
     }
   }
 
@@ -366,6 +450,15 @@ function buildFieldOptions(
   }
 
   return options;
+}
+
+/**
+ * Format options for qs-dmenu display, converting dropdown items to proper format.
+ */
+function formatOptionsForDisplay(
+  options: Array<string | DropdownItem>,
+): string[] {
+  return formatDropdownOptions(options);
 }
 
 // =============================================================================
@@ -1427,17 +1520,29 @@ async function main(): Promise<void> {
 
     // Parse credential
     const credential = parseCredential(content, selected);
+
+    // Find associated temp emails for this credential
+    const associatedTempEmails = await findAssociatedTempEmails(
+      passDir,
+      selected,
+    );
+
     const fieldOptions = buildFieldOptions(
       credential,
       selected,
       options.autotype,
+      associatedTempEmails,
     );
 
     // Determine initial selection for field menu
     // 2nd entry (index 1) is the first real field (after credential path)
     let initialFieldIndex = 1;
     if (stateIsRecent && selected === state.lastEntry && state.lastField) {
-      const savedIdx = fieldOptions.indexOf(state.lastField);
+      // Find saved field index in the new format
+      const savedIdx = fieldOptions.findIndex((opt) => {
+        if (typeof opt === "string") return opt === state.lastField;
+        return opt.label === state.lastField;
+      });
       if (savedIdx !== -1) {
         initialFieldIndex = savedIdx;
       }
@@ -1452,12 +1557,35 @@ async function main(): Promise<void> {
     ) {
       selectedField = "password";
     } else {
+      // Format options for display (handles dropdown items)
+      const displayOptions = formatOptionsForDisplay(fieldOptions);
       selectedField = await selectOption(
         menuCommand,
-        fieldOptions,
+        displayOptions,
         selected,
         initialFieldIndex,
       );
+    }
+
+    // Check if result is a dropdown selection
+    const dropdownResult = parseDropdownResult(selectedField);
+    if (dropdownResult) {
+      // This is a dropdown sub-item - handle email actions
+      const parentIdx = dropdownResult.parentIndex;
+      const parentItem = fieldOptions[parentIdx];
+      // Check if the label starts with "email" instead of strictly equaling "email"
+      if (
+        typeof parentItem === "object" &&
+        parentItem.label.startsWith("email")
+      ) {
+        const selectedEmail = dropdownResult.value;
+        // Default: copy the email
+        const copyCmd = await getCopyCommand();
+        await performAction(selectedEmail, "copy", copyCmd);
+        await notify(`Copied temp email: ${selectedEmail}`, "passmenu");
+        await saveState({ lastEntry: selected, lastField: "email" });
+        process.exit(0);
+      }
     }
 
     if (!selectedField) {

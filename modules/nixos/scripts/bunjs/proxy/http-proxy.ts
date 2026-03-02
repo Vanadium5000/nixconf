@@ -428,17 +428,18 @@ async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const command = args[0];
 
-  if (args.includes("--help") || args.includes("-h")) {
+  if (args.includes("--help") || args.includes("-h") || !command) {
     console.log(`VPN HTTP CONNECT Proxy - Routes HTTPS traffic through VPNs
 
 Usage:
   http-proxy [command]
 
 Commands:
-  serve         Start the HTTP CONNECT proxy server (default if no command)
+  serve         Start the HTTP CONNECT proxy server
   status        Show active VPN proxies and their idle times
   stop-all      Stop all VPN proxies and clean up namespaces
   rotate-random Force rotate the random VPN immediately
+  tool          Launch tools TUI or CLI subcommands
 
 Options:
   -h, --help  Show this help message
@@ -498,15 +499,16 @@ Examples:
     case "serve":
       await startServer();
       break;
-    default:
-      if (command && command !== "serve") {
-        console.error(
-          `Unknown command: ${command}\nRun 'http-proxy --help' for usage.`,
-        );
-        process.exit(1);
-      }
-      await startServer();
+    case "tool":
+    case "tools":
+      const { runTools } = await import("./cli-tools");
+      await runTools(args.slice(1));
       break;
+    default:
+      console.error(
+        `Unknown command: ${command || "none"}\nRun 'http-proxy --help' for usage.`,
+      );
+      process.exit(1);
   }
 }
 
