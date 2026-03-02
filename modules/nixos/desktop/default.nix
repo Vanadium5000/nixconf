@@ -65,6 +65,7 @@
         kdePackages.plasma-systemmonitor # System Monitor GUI
 
         libreoffice-qt6 # Office suite (GUI only)
+        onlyoffice-desktopeditors # Office suite 2
 
         # KDE Frameworks & System Utilities
         kdePackages.ksystemstats # Core system statistics provider

@@ -86,6 +86,7 @@ Scope {
             onRead: data => {
                 if (data.trim() !== "") {
                     var parsed = root.parseLine(data);
+                    parsed.originalIndex = itemsModel.count;
                     itemsModel.append(parsed);
                     filteredModel.append(parsed);
                 }
@@ -787,10 +788,11 @@ Scope {
             }
 
             if (match) {
-                filteredModel.append(item2);
+                var newItem = itemsModel.get(j);
+                filteredModel.append(newItem);
                 // Also add expanded sub-items if parent matches
-                if (item2.hasDropdown && (root.expandedItems[j] !== undefined ? root.expandedItems[j] : item2.isExpanded)) {
-                    appendDropdownSubItems(item2, j);
+                if (newItem.hasDropdown && (root.expandedItems[j] !== undefined ? root.expandedItems[j] : newItem.isExpanded)) {
+                    appendDropdownSubItems(newItem, j);
                 }
             }
         }
@@ -802,15 +804,16 @@ Scope {
     function appendDropdownSubItems(parentItem, parentIndex) {
         if (!parentItem.subItems) return;
         for (var k = 0; k < parentItem.subItems.length; k++) {
-            filteredModel.append({
+            var subItem = {
                 text: parentItem.subItems[k],
                 originalText: "SUBITEM:" + parentIndex + ":" + k + ":" + parentItem.subItems[k],
-                displayText: "    " + parentItem.subItems[k],
+                displayText: parentItem.subItems[k],
                 iconPath: parentItem.subIcons && parentItem.subIcons[k] ? parentItem.subIcons[k] : "",
                 isSubItem: true,
                 parentIndex: parentIndex,
                 subItemIndex: k
-            });
+            };
+            filteredModel.append(subItem);
         }
     }
 
@@ -822,31 +825,20 @@ Scope {
         if (!item || !item.hasDropdown) return;
 
         // Find the original item index in itemsModel
-        var originalIndex = -1;
-        for (var i = 0; i < itemsModel.count; i++) {
-            if (itemsModel.get(i).text === item.text) {
-                originalIndex = i;
-                break;
+        var originalIndex = item.originalIndex !== undefined ? item.originalIndex : -1;
+        if (originalIndex === -1) {
+            for (var i = 0; i < itemsModel.count; i++) {
+                if (itemsModel.get(i).text === item.text) {
+                    originalIndex = i;
+                    break;
+                }
             }
         }
         if (originalIndex === -1) return;
 
         // Toggle expanded state
-        var isExpanded = !root.expandedItems[originalIndex];
+        var isExpanded = !(root.expandedItems[originalIndex] !== undefined ? root.expandedItems[originalIndex] : item.isExpanded);
         root.expandedItems[originalIndex] = isExpanded;
-
-        // Update the item model
-        var oldItem = itemsModel.get(originalIndex);
-        itemsModel.set(originalIndex, {
-            text: oldItem.text,
-            originalText: oldItem.originalText,
-            displayText: oldItem.displayText,
-            iconPath: oldItem.iconPath,
-            hasDropdown: oldItem.hasDropdown,
-            isExpanded: isExpanded,
-            subItems: oldItem.subItems,
-            subIcons: oldItem.subIcons
-        });
 
         // Re-apply filter to show/hide sub-items
         filterItems(searchInput.text);

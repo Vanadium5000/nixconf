@@ -418,7 +418,7 @@ function buildFieldOptions(
             ? `email (${credential.fields[field]})`
             : "email",
           expanded: false,
-          subItems: associatedTempEmails,
+          subItems: associatedTempEmails.map((e) => `temp email - ${e}`),
         });
       } else {
         options.push(field);
