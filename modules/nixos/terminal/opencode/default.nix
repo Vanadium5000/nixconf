@@ -23,6 +23,7 @@
         "gemini-3-flash" = "antigravity-gemini/gemini-3-flash";
         "gemini-3.1-flash-image" = "antigravity-gemini/gemini-3.1-flash-image";
         "kimi-2.5" = "kilo-code/moonshotai/kimi-k2.5:free";
+        "minimax-2.5" = "opencode/minimax-m2.5-free";
       };
 
       # MCP server configuration shared between configs and project templates
@@ -196,7 +197,7 @@
         agent = agentsConfig.mkAgentConfig {
           advancedModel = models."gemini-3.1-pro-high";
           mediumModel = models."gemini-3-flash";
-          fastModel = models."kimi-2.5";
+          fastModel = models."minimax-2.5";
         };
       };
 
@@ -362,6 +363,7 @@
                             "claude-opus"
                             "gemini-3-flash"
                             "kimi-2.5"
+                            "minimax-2.5"
                           ]
                         )
                       } "Cancel" --header "Select Advanced Model")
@@ -384,6 +386,7 @@
                             "gemini-3.1-flash-image"
                             "gemini-3.1-pro-high"
                             "kimi-2.5"
+                            "minimax-2.5"
                           ]
                         )
                       } "Cancel" --header "Select Medium Model")
@@ -406,6 +409,7 @@
                             "gemini-3-flash"
                             "gemini-3.1-flash-image"
                             "gemini-3.1-pro-high"
+                            "minimax-2.5"
                           ]
                         )
                       } "Cancel" --header "Select Fast Model")
