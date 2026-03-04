@@ -104,6 +104,9 @@
           + ":${config.hardware.nvidia.package}/lib:$LD_LIBRARY_PATH"; # Extra for btop nvidia support
       };
 
+      # HTTPS traffic analyzer — on-demand: systemctl start mitmproxy
+      services.mitmproxy.enable = true;
+
       # State version
       system.stateVersion = "25.11";
     };

@@ -38,6 +38,15 @@
       services.opencode-server.enable = true;
       services.cliproxyapi.enable = true;
 
+      # System monitoring — real-time metrics with persistent history
+      services.netdata-monitor.enable = true;
+
+      # Fleet dashboard portal — accessible via Tailscale at http://ionos-vps:8082
+      services.homepage-monitor.enable = true;
+
+      # HTTPS traffic analyzer — on-demand: systemctl start mitmproxy
+      services.mitmproxy.enable = true;
+
       # Preferences
       preferences = {
         hostName = "ionos_vps";

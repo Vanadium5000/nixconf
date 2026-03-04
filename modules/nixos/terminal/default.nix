@@ -143,7 +143,7 @@
 
       # Network monitoring tools
       # - snitch: TUI for inspecting network connections (netstat for humans)
-      # - mitmproxy: HTTPS traffic inspection via proxy (apps must trust its CA)
+      # - mitmproxy: managed by services.mitmproxy module (monitoring/mitmproxy.nix)
       # - termshark: TUI packet analyzer (in environment.nix, uses tshark)
 
       # Grant network capture capabilities for packet sniffing tools
@@ -169,7 +169,6 @@
         # Add all packages exported by the Flake
         lib.attrValues filteredFlakePackages
         ++ (with pkgs; [
-          mitmproxy # HTTPS interception proxy - run `mitmproxy` or `mitmweb`
           whisper-cpp
           wtype
           monero-cli

@@ -162,6 +162,9 @@
       #   "$shift,XF86KbdBrightnessDown, exec, brightness-down-small 'apple::kbd_backlight'" # Kbd Brightness Down Small
       # ];
 
+      # HTTPS traffic analyzer — on-demand: systemctl start mitmproxy
+      services.mitmproxy.enable = true;
+
       # No cuda - doesn't have an Nvidia GPU
       nixpkgs.config.cudaSupport = false;
 
