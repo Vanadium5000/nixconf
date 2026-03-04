@@ -263,177 +263,165 @@
         )}
       '';
 
+      # Model display names in selection order — shared across all tiers
+      modelNames = lib.attrNames models;
+
+      # Gum choose arguments for the model picker (same order for all tiers)
+      gumModelChoices = lib.concatStringsSep " " (map (n: ''"${n}"'') modelNames);
+
+      # Single case block mapping display names → provider model IDs
+      modelCaseBlock = lib.concatStringsSep "\n          " (
+        lib.mapAttrsToList (name: id: ''"${name}") selected_id="${id}" ;;'') models
+      );
+
       # TUI for model/profile and template switching
       opencodeModelSwitch = pkgs.writeShellScriptBin "opencode-models" ''
-                GLOBAL_CONFIG_FILE="$HOME/.config/opencode/config.json"
-                LOCAL_JSONC_FILE="$PWD/opencode.jsonc"
-                TEMPLATES_DIR="${configVariantsDir}/templates"
-                JQ="${pkgs.jq}/bin/jq"
-                GUM="${pkgs.gum}/bin/gum"
+        GLOBAL_CONFIG_FILE="$HOME/.config/opencode/config.json"
+        LOCAL_JSONC_FILE="$PWD/opencode.jsonc"
+        TEMPLATES_DIR="${configVariantsDir}/templates"
+        JQ="${pkgs.jq}/bin/jq"
+        GUM="${pkgs.gum}/bin/gum"
+        SYSTEMCTL="${pkgs.systemd}/bin/systemctl"
 
-                # Safe extraction without subshells breaking syntax
-                get_current() {
-                  local agent_key="$1"
-                  if [ -f "$GLOBAL_CONFIG_FILE" ]; then
-                    if [ "$agent_key" = "advanced" ]; then
-                       $JQ -r '.agent.build.model // empty' "$GLOBAL_CONFIG_FILE" 2>/dev/null
-                    elif [ "$agent_key" = "medium" ]; then
-                       $JQ -r '.agent.researcher.model // empty' "$GLOBAL_CONFIG_FILE" 2>/dev/null
-                    elif [ "$agent_key" = "fast" ]; then
-                       $JQ -r '.agent.scout.model // empty' "$GLOBAL_CONFIG_FILE" 2>/dev/null
-                    fi
-                  else
-                    echo "unknown"
-                  fi
-                }
+        # Resolve a display name to its provider model ID
+        resolve_model_id() {
+          local name="$1"
+          local selected_id=""
+          case "$name" in
+            ${modelCaseBlock}
+          esac
+          echo "$selected_id"
+        }
 
-                update_model_in_config() {
-                  local agent_key="$1"
-                  local new_model="$2"
+        # Read the current model for a tier from the config
+        # Each tier uses a representative agent (build/researcher/scout)
+        get_current() {
+          local tier="$1"
+          if [ ! -f "$GLOBAL_CONFIG_FILE" ]; then echo "unknown"; return; fi
+          case "$tier" in
+            advanced)  $JQ -r '.agent.build.model // empty' "$GLOBAL_CONFIG_FILE" 2>/dev/null ;;
+            medium)    $JQ -r '.agent.researcher.model // empty' "$GLOBAL_CONFIG_FILE" 2>/dev/null ;;
+            fast)      $JQ -r '.agent.scout.model // empty' "$GLOBAL_CONFIG_FILE" 2>/dev/null ;;
+          esac
+        }
 
-                  if [ -f "$GLOBAL_CONFIG_FILE" ]; then
-                    local temp_file=$(mktemp)
-                    
-                    # Map the agents that use the selected category
-                    if [ "$agent_key" = "advanced" ]; then
-                      $JQ ".agent.build.model = \"$new_model\" | .agent.plan.model = \"$new_model\" | .agent[\"plan-reviewer\"].model = \"$new_model\" | .agent.advisor.model = \"$new_model\"" "$GLOBAL_CONFIG_FILE" > "$temp_file" && mv "$temp_file" "$GLOBAL_CONFIG_FILE"
-                    elif [ "$agent_key" = "medium" ]; then
-                       $JQ ".agent.researcher.model = \"$new_model\" | .agent.tester.model = \"$new_model\"" "$GLOBAL_CONFIG_FILE" > "$temp_file" && mv "$temp_file" "$GLOBAL_CONFIG_FILE"
-                    elif [ "$agent_key" = "fast" ]; then
-                       $JQ ".agent.scout.model = \"$new_model\" | .agent.verifier.model = \"$new_model\"" "$GLOBAL_CONFIG_FILE" > "$temp_file" && mv "$temp_file" "$GLOBAL_CONFIG_FILE"
-                    fi
-                    
-                  else
-                     echo "Error: Global config not found. Please reboot to initialize."
-                  fi
-                }
+        # Update all agents in a tier to use the given model
+        update_model_in_config() {
+          local tier="$1"
+          local new_model="$2"
+          if [ ! -f "$GLOBAL_CONFIG_FILE" ]; then
+            echo "Error: Global config not found. Please reboot to initialize."
+            return 1
+          fi
+          local temp_file
+          temp_file=$(mktemp)
+          case "$tier" in
+            advanced)
+              $JQ ".agent.build.model = \"$new_model\"
+                 | .agent.plan.model = \"$new_model\"
+                 | .agent[\"plan-reviewer\"].model = \"$new_model\"
+                 | .agent.advisor.model = \"$new_model\"" \
+                "$GLOBAL_CONFIG_FILE" > "$temp_file" && mv "$temp_file" "$GLOBAL_CONFIG_FILE" ;;
+            medium)
+              $JQ ".agent.researcher.model = \"$new_model\"
+                 | .agent.tester.model = \"$new_model\"" \
+                "$GLOBAL_CONFIG_FILE" > "$temp_file" && mv "$temp_file" "$GLOBAL_CONFIG_FILE" ;;
+            fast)
+              $JQ ".agent.scout.model = \"$new_model\"
+                 | .agent.verifier.model = \"$new_model\"" \
+                "$GLOBAL_CONFIG_FILE" > "$temp_file" && mv "$temp_file" "$GLOBAL_CONFIG_FILE" ;;
+          esac
+        }
 
-                init_project() {
-                  local choice
-                  choice=$($GUM choose ${
-                    lib.concatStringsSep " " (map (n: ''"${n}"'') (lib.attrNames mcpTemplates))
-                  } --header "📦 Select Project Template (initializes in $PWD)" --cursor="▶ " --selected.foreground="212" --cursor.foreground="212")
+        # Restart opencode-server if it's running so config changes take effect
+        maybe_restart_server() {
+          if $SYSTEMCTL is-active --quiet opencode-server 2>/dev/null; then
+            $SYSTEMCTL restart opencode-server 2>/dev/null && \
+              $GUM style --foreground 99 "↻ Restarted opencode-server" || \
+              $GUM style --foreground 196 "⚠ Failed to restart opencode-server"
+          fi
+        }
 
-                  if [ -z "$choice" ]; then echo "Operation cancelled."; return 1; fi
+        # Prompt the user to pick a model for a tier and apply it
+        choose_model() {
+          local tier="$1"
+          local header="$2"
+          local choice
+          choice=$($GUM choose ${gumModelChoices} "Cancel" \
+            --header "$header" --cursor="▶ " --selected.foreground="212" --cursor.foreground="212")
 
-                  if [ -f "$LOCAL_JSONC_FILE" ] || [ -f "$PWD/.opencode/config.json" ]; then
-                    if ! $GUM confirm "This will overwrite your existing opencode.jsonc. Continue?"; then
-                      echo "Operation cancelled."; return 1
-                    fi
-                  fi
+          if [ -z "$choice" ] || [ "$choice" = "Cancel" ]; then return 1; fi
+          local selected_id
+          selected_id=$(resolve_model_id "$choice")
+          update_model_in_config "$tier" "$selected_id"
+          $GUM style --foreground 212 "✅ Switched $tier to $choice"
+          maybe_restart_server
+        }
 
-                  local template_name=$(echo "$choice" | tr ' /' '__')
-                  local template_file="$TEMPLATES_DIR/$template_name.json"
-                  
-                  if [ ! -f "$template_file" ]; then echo "Error: Template not found."; return 1; fi
+        init_project() {
+          local choice
+          choice=$($GUM choose ${
+            lib.concatStringsSep " " (map (n: ''"${n}"'') (lib.attrNames mcpTemplates))
+          } --header "📦 Select Project Template (initializes in $PWD)" --cursor="▶ " --selected.foreground="212" --cursor.foreground="212")
 
-                  $JQ '.' "$template_file" > "$LOCAL_JSONC_FILE"
-                  $GUM style --foreground 212 --border double --align center --padding "1 2" "✨ Project Initialized ✨" "Template: $choice" "Saved to: opencode.jsonc"
-                }
+          if [ -z "$choice" ]; then echo "Operation cancelled."; return 1; fi
 
-                tui_menu() {
-                  local context_msg="Context: Global"
-                  if [ -f "$LOCAL_JSONC_FILE" ]; then context_msg="Context: Local Project ($LOCAL_JSONC_FILE)"; fi
-                  
-                  local cur_adv=$(get_current "advanced")
-                  local cur_med=$(get_current "medium")
-                  local cur_fast=$(get_current "fast")
+          if [ -f "$LOCAL_JSONC_FILE" ] || [ -f "$PWD/.opencode/config.json" ]; then
+            if ! $GUM confirm "This will overwrite your existing opencode.jsonc. Continue?"; then
+              echo "Operation cancelled."; return 1
+            fi
+          fi
 
-                  # Build array of choices
-                  local action
-                  action=$($GUM choose \
-                    "Init Project MCPs (Current Dir)" \
-                    "Change Advanced Model (Builder, Planner, Advisor)" \
-                    "Change Medium Model (Researcher, Tester)" \
-                    "Change Fast Model (Scout, Verifier)" \
-                    "Exit" \
-                    --header "🤖 OpenCode Configuration Manager
+          local template_name
+          template_name=$(echo "$choice" | tr ' /' '__')
+          local template_file="$TEMPLATES_DIR/$template_name.json"
+
+          if [ ! -f "$template_file" ]; then echo "Error: Template not found."; return 1; fi
+
+          $JQ '.' "$template_file" > "$LOCAL_JSONC_FILE"
+          $GUM style --foreground 212 --border double --align center --padding "1 2" "✨ Project Initialized ✨" "Template: $choice" "Saved to: opencode.jsonc"
+        }
+
+        tui_menu() {
+          local context_msg="Context: Global"
+          if [ -f "$LOCAL_JSONC_FILE" ]; then context_msg="Context: Local Project ($LOCAL_JSONC_FILE)"; fi
+
+          local cur_adv cur_med cur_fast
+          cur_adv=$(get_current "advanced")
+          cur_med=$(get_current "medium")
+          cur_fast=$(get_current "fast")
+
+          local action
+          action=$($GUM choose \
+            "Init Project MCPs (Current Dir)" \
+            "Change Advanced Model (Builder, Planner, Advisor)" \
+            "Change Medium Model (Researcher, Tester)" \
+            "Change Fast Model (Scout, Verifier)" \
+            "Exit" \
+            --header "🤖 OpenCode Configuration Manager
         $context_msg
         Current Adv : $cur_adv
         Current Med : $cur_med
         Current Fast: $cur_fast" --cursor="▶ " --selected.foreground="212" --cursor.foreground="212")
-                    
-                  case "$action" in
-                    "Init Project MCPs (Current Dir)") init_project ;;
-                    "Change Advanced Model (Builder, Planner, Advisor)")
-                      local adv_choice=$($GUM choose ${
-                        lib.concatStringsSep " " (
-                          map (n: ''"${n}"'') [
-                            "gemini-3.1-pro-high"
-                            "claude-opus"
-                            "gemini-3-flash"
-                            "kimi-2.5"
-                            "minimax-2.5"
-                          ]
-                        )
-                      } "Cancel" --header "Select Advanced Model")
-                      if [ "$adv_choice" != "Cancel" ]; then
-                        local selected_id
-                        case "$adv_choice" in
-                          ${lib.concatStringsSep "\n                  " (
-                            lib.mapAttrsToList (name: id: ''"${name}") selected_id="${id}" ;;'') models
-                          )}
-                        esac
-                        update_model_in_config "advanced" "$selected_id"
-                        $GUM style --foreground 212 "✅ Switched Advanced to $adv_choice"
-                      fi
-                      ;;
-                    "Change Medium Model (Researcher, Tester)")
-                      local med_choice=$($GUM choose ${
-                        lib.concatStringsSep " " (
-                          map (n: ''"${n}"'') [
-                            "gemini-3-flash"
-                            "gemini-3.1-flash-image"
-                            "gemini-3.1-pro-high"
-                            "kimi-2.5"
-                            "minimax-2.5"
-                          ]
-                        )
-                      } "Cancel" --header "Select Medium Model")
-                      if [ "$med_choice" != "Cancel" ]; then
-                        local selected_id
-                        case "$med_choice" in
-                          ${lib.concatStringsSep "\n                  " (
-                            lib.mapAttrsToList (name: id: ''"${name}") selected_id="${id}" ;;'') models
-                          )}
-                        esac
-                        update_model_in_config "medium" "$selected_id"
-                        $GUM style --foreground 212 "✅ Switched Medium to $med_choice"
-                      fi
-                      ;;
-                    "Change Fast Model (Scout, Verifier)")
-                      local fast_choice=$($GUM choose ${
-                        lib.concatStringsSep " " (
-                          map (n: ''"${n}"'') [
-                            "kimi-2.5"
-                            "gemini-3-flash"
-                            "gemini-3.1-flash-image"
-                            "gemini-3.1-pro-high"
-                            "minimax-2.5"
-                          ]
-                        )
-                      } "Cancel" --header "Select Fast Model")
-                      if [ "$fast_choice" != "Cancel" ]; then
-                        local selected_id
-                        case "$fast_choice" in
-                          ${lib.concatStringsSep "\n                  " (
-                            lib.mapAttrsToList (name: id: ''"${name}") selected_id="${id}" ;;'') models
-                          )}
-                        esac
-                        update_model_in_config "fast" "$selected_id"
-                        $GUM style --foreground 212 "✅ Switched Fast to $fast_choice"
-                      fi
-                      ;;
-                    *) exit 0 ;;
-                  esac
-                }
 
-                if [ $# -eq 0 ]; then tui_menu; exit 0; fi
+          case "$action" in
+            "Init Project MCPs (Current Dir)") init_project ;;
+            "Change Advanced Model (Builder, Planner, Advisor)")
+              choose_model "advanced" "Select Advanced Model" ;;
+            "Change Medium Model (Researcher, Tester)")
+              choose_model "medium" "Select Medium Model" ;;
+            "Change Fast Model (Scout, Verifier)")
+              choose_model "fast" "Select Fast Model" ;;
+            *) exit 0 ;;
+          esac
+        }
 
-                case "''${1:-}" in
-                  init) init_project ;;
-                  *) echo "Usage: opencode-models [init]"; exit 1 ;;
-                esac
+        if [ $# -eq 0 ]; then tui_menu; exit 0; fi
+
+        case "''${1:-}" in
+          init) init_project ;;
+          *) echo "Usage: opencode-models [init]"; exit 1 ;;
+        esac
       '';
 
       opencodeEnv = pkgs.buildEnv {
