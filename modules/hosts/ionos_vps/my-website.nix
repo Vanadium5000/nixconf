@@ -136,6 +136,23 @@
         defaults.email = "vanadium5000@gmail.com"; # Required for cert issuance
       };
 
+      # Persist uploaded images and ACME/SSL certificates across reboots
+      # Without this, user images are lost and Let's Encrypt rate-limits hit on every reboot
+      impermanence.nixos.directories = [
+        {
+          directory = "/var/lib/my-website-backend";
+          user = "my-website-backend";
+          group = "my-website-backend";
+          mode = "0750";
+        }
+        {
+          directory = "/var/lib/acme";
+          user = "acme";
+          group = "acme";
+          mode = "0750";
+        }
+      ];
+
       # Open firewall for HTTP/HTTPS
       networking.firewall.allowedTCPPorts = [
         80

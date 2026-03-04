@@ -33,6 +33,11 @@
       # Disable git-sync for passwords, I don't want any important credentials on the system
       services.git-sync.enable = lib.mkForce false;
 
+      # Server services — only enabled on this VPS host
+      services.zeroclaw.enable = true;
+      services.opencode-server.enable = true;
+      services.cliproxyapi.enable = true;
+
       # Preferences
       preferences = {
         hostName = "ionos_vps";

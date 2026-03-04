@@ -128,6 +128,27 @@ Access flake outputs via `self`:
 - `self.theme` / `self.colors` / `self.colorsNoHash` / `self.colorsRgba`
 - `self.secrets.SECRET_NAME` — runtime secrets from `pass` via `secrets.nix`
 
+### Secrets Management
+
+Secrets are **auto-generated** by `rebuild.sh` from `pass` (password-store).
+`secrets.nix` is gitignored and should never be edited manually.
+
+**How it works**: `rebuild.sh` defines a `SECRETS_MAP` associative array
+mapping environment variable names to `pass` paths. On rebuild, `load_secrets()`
+reads each secret from `pass` and `write_secrets_nix()` generates `secrets.nix`
+as `{ flake.secrets = { KEY = "value"; ... }; }`.
+
+**To add a new secret**:
+
+1. Add entry to `SECRETS_MAP` in `rebuild.sh`:
+   `["MY_NEW_SECRET"]="path/in/pass"`
+2. Create the `pass` entry: `pass insert path/in/pass`
+3. Run `./rebuild.sh` — the secret becomes available as `self.secrets.MY_NEW_SECRET`
+
+**Current secrets**: `PASSWORD_HASH`, `MY_WEBSITE_ENV`, `MONGODB_PASSWORD`,
+`MONGO_EXPRESS_PASSWORD`, `ANTIGRAVITY_MANAGER_KEY`, `CLIPROXYAPI_KEY`,
+`EXA_API_KEY`, `OPENCODE_SERVER_PASSWORD`.
+
 **Input handling**: Use `inputs.nixpkgs.lib` for stdlib, `self` for internal.
 Never commit secrets — `secrets.nix` is gitignored.
 
@@ -198,3 +219,46 @@ environment.variables = lib.mkIf (config.nixpkgs.config.cudaSupport or false) {
         ":${config.hardware.nvidia.package}/lib") + ":$LD_LIBRARY_PATH";
 };
 ```
+
+## Server Services (ionos_vps only)
+
+Three server services run exclusively on the `ionos_vps` host, enabled via
+`services.<name>.enable = true` in the host config. All are disabled by default.
+
+### ZeroClaw (`services.zeroclaw`)
+
+Autonomous AI agent daemon running in sandboxed `zeroclaw daemon` mode.
+
+- **Module**: `modules/nixos/terminal/zeroclaw.nix`
+- **User**: Dedicated `zeroclaw` system user (isolated)
+- **Data**: `/var/lib/zeroclaw/` (persisted via impermanence)
+- **Config**: `/var/lib/zeroclaw/.zeroclaw/config.toml` (mutable, bootstrapped
+  on first activation, never overwritten by Nix)
+- **Workspace**: `/var/lib/zeroclaw/.zeroclaw/workspace/` (memory, skills, state)
+- **Gateway**: `127.0.0.1:3100` (avoids port 3000 conflict with my-website)
+- **Hardening**: `ProtectSystem=strict`, `ProtectHome=true`, own user/group
+
+### OpenCode Server (`services.opencode-server`)
+
+Headless OpenCode API server (`opencode serve`) for remote `opencode attach`.
+
+- **Module**: `modules/nixos/terminal/opencode/server.nix` (extends `opencode` module)
+- **Port**: `4096` (default, open in firewall, HTTP Basic auth via
+  `OPENCODE_SERVER_PASSWORD`)
+- **User**: Runs as `config.preferences.user.username` (needs hjem-deployed config)
+- **Config**: Reads existing `~/.config/opencode/` deployed by the opencode module
+- **Connect**: `opencode attach http://<host>:4096`
+
+### CLIProxyAPI (`services.cliproxyapi`)
+
+OpenAI-compatible API wrapping AI CLIs (Gemini, Claude, etc.).
+
+- **Module**: `modules/nixos/terminal/cliproxyapi.nix`
+- **User**: Dedicated `cliproxyapi` system user (isolated)
+- **Data**: `/var/lib/cliproxyapi/` (persisted via impermanence)
+- **Config**: `/var/lib/cliproxyapi/config.yaml` (mutable, hot-reloadable,
+  bootstrapped on first activation)
+- **Auth**: `/var/lib/cliproxyapi/auths/` (OAuth tokens for AI providers)
+- **Port**: `8317` (default, open in firewall)
+- **Initial setup**: OAuth requires one-time manual login per provider:
+  `sudo -u cliproxyapi cliproxyapi -claude-login`

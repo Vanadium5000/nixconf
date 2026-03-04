@@ -55,6 +55,10 @@
 
         # VPN Proxy Services (SOCKS5 + HTTP CONNECT)
         self.nixosModules.vpn-proxy-service
+
+        # Server services (disabled by default, enable per-host)
+        self.nixosModules.zeroclaw
+        self.nixosModules.cliproxyapi
       ];
 
       # VPN Proxy (SOCKS5 on :10800, HTTP CONNECT on :10801)
