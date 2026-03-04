@@ -164,6 +164,20 @@ Never commit secrets — `secrets.nix` is gitignored.
 
 **Debug**: Check `nix log`, verify `path:.` usage, check `impermanence` paths.
 
+## Nix Evaluation
+
+**Always use `path:.#`** for flake references from the repo root, not `.#`.
+The `path:.` prefix includes untracked/dirty files; `.#` only sees
+git-tracked files and will fail on new modules.
+
+```bash
+# BAD — misses untracked files, fails on new modules
+nix eval .#nixosConfigurations.ionos_vps.config.services.zeroclaw.enable
+
+# GOOD — includes all files in working tree
+nix eval path:.#nixosConfigurations.ionos_vps.config.services.zeroclaw.enable
+```
+
 ## Wayland Clipboard
 
 **Critical**: When piping to `wl-copy`, always use `--type text/plain`.

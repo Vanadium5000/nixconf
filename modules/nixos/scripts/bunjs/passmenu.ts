@@ -241,7 +241,7 @@ function formatDropdownOptions(items: Array<string | DropdownItem>): string[] {
 
 /**
  * Check if a result is a dropdown selection
- * Format: QS_DMENU_DROPDOWN:parentIndex:subIndex:value
+ * The qs-dmenu wrapper outputs: DROPDOWN:parentIndex:subIndex:value
  */
 function parseDropdownResult(result: string): {
   isDropdown: boolean;
@@ -249,8 +249,8 @@ function parseDropdownResult(result: string): {
   subIndex: number;
   value: string;
 } | null {
-  if (result.startsWith("QS_DMENU_DROPDOWN:")) {
-    const parts = result.substring("QS_DMENU_DROPDOWN:".length).split(":");
+  if (result.startsWith("DROPDOWN:")) {
+    const parts = result.substring("DROPDOWN:".length).split(":");
     if (parts.length >= 3) {
       return {
         isDropdown: true,
@@ -407,22 +407,22 @@ function buildFieldOptions(
   for (const field of FIELD_DISPLAY_ORDER) {
     if (field === "password" && credential.password) {
       options.push("password");
-    } else if (
-      credential.fields[field] ||
-      (field === "email" && associatedTempEmails.length > 0)
-    ) {
-      // Special handling for email field - add dropdown if temp emails exist
-      if (field === "email" && associatedTempEmails.length > 0) {
+    } else if (field === "email" && associatedTempEmails.length > 0) {
+      // Show temp emails as expandable dropdowns
+      // Default action (Enter) copies the email, sub-items offer more actions
+      for (let i = 0; i < associatedTempEmails.length; i++) {
         options.push({
-          label: credential.fields[field]
-            ? `email (${credential.fields[field]})`
-            : "email",
+          label: `temp email - ${associatedTempEmails[i]}`,
           expanded: false,
-          subItems: associatedTempEmails.map((e) => `temp email - ${e}`),
+          subItems: ["Copy Email", "Open Email"],
         });
-      } else {
+      }
+      // Also add the real email field if it exists
+      if (credential.fields[field]) {
         options.push(field);
       }
+    } else if (credential.fields[field]) {
+      options.push(field);
     }
   }
 
@@ -1570,22 +1570,100 @@ async function main(): Promise<void> {
     // Check if result is a dropdown selection
     const dropdownResult = parseDropdownResult(selectedField);
     if (dropdownResult) {
-      // This is a dropdown sub-item - handle email actions
+      // This is a dropdown sub-item - handle temp email actions
       const parentIdx = dropdownResult.parentIndex;
       const parentItem = fieldOptions[parentIdx];
-      // Check if the label starts with "email" instead of strictly equaling "email"
       if (
         typeof parentItem === "object" &&
-        parentItem.label.startsWith("email")
+        parentItem.label.startsWith("temp email - ")
       ) {
-        const selectedEmail = dropdownResult.value;
-        // Default: copy the email
-        const copyCmd = await getCopyCommand();
-        await performAction(selectedEmail, "copy", copyCmd);
-        await notify(`Copied temp email: ${selectedEmail}`, "passmenu");
-        await saveState({ lastEntry: selected, lastField: "email" });
+        // Extract the email address from the parent label
+        const emailAddr = parentItem.label.substring("temp email - ".length);
+        const subAction = dropdownResult.value; // "Copy Email" or "Open Email"
+
+        if (subAction === "Copy Email") {
+          const copyCmd = await getCopyCommand();
+          await performAction(emailAddr, "copy", copyCmd);
+          await notify(`Copied: ${emailAddr}`, "passmenu");
+        } else if (subAction === "Open Email") {
+          // Use existing temp email management flow (view messages, copy, delete)
+          const tempPath = `temp_emails/${selected}/${emailAddr}`;
+          const actions = [
+            `📧 ${emailAddr}`,
+            "Copy Email",
+            "Copy Password",
+            "View Messages",
+            "Delete Email",
+          ];
+          const action = await selectOption(
+            menuCommand,
+            actions,
+            `Manage: ${emailAddr}`,
+          );
+          if (!action || action === `📧 ${emailAddr}`) {
+            // No action selected
+          } else {
+            try {
+              const copyCmd = await getCopyCommand();
+              switch (action) {
+                case "Copy Email":
+                  await performAction(emailAddr, "copy", copyCmd);
+                  await notify("Email copied to clipboard", "passmenu");
+                  break;
+                case "Copy Password": {
+                  const emailContent = await $`pass show ${tempPath}`.text();
+                  const emailPassword = parseField(emailContent, "password");
+                  if (emailPassword) {
+                    await performAction(emailPassword, "copy", copyCmd);
+                    await notify("Password copied to clipboard", "passmenu");
+                  } else {
+                    await notify("No password found", "passmenu");
+                  }
+                  break;
+                }
+                case "View Messages":
+                  await handleViewMessages(
+                    menuCommand,
+                    emailAddr,
+                    tempPath,
+                    options,
+                  );
+                  break;
+                case "Delete Email": {
+                  const confirm = await selectOption(
+                    menuCommand,
+                    ["No, keep it", "Yes, delete permanently"],
+                    `Delete ${emailAddr}?`,
+                  );
+                  if (confirm === "Yes, delete permanently") {
+                    await $`pass rm -f ${tempPath}`.quiet();
+                    await notify(
+                      `Deleted temp email: ${emailAddr}`,
+                      "passmenu",
+                    );
+                  }
+                  break;
+                }
+              }
+            } catch (error) {
+              logError("Failed to perform action", error);
+              await notify("Failed to perform action", "passmenu");
+            }
+          }
+        }
+        await saveState({ lastEntry: selected, lastField: parentItem.label });
         process.exit(0);
       }
+    }
+
+    // Handle "temp email - ..." parent selection (Enter on parent = copy email)
+    if (selectedField.startsWith("temp email - ")) {
+      const emailAddr = selectedField.substring("temp email - ".length);
+      const copyCmd = await getCopyCommand();
+      await performAction(emailAddr, "copy", copyCmd);
+      await notify(`Copied: ${emailAddr}`, "passmenu");
+      await saveState({ lastEntry: selected, lastField: selectedField });
+      process.exit(0);
     }
 
     if (!selectedField) {

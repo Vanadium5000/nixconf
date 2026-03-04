@@ -308,8 +308,8 @@ Scope {
                                             return;
                                         }
                                         if (item.hasDropdown) {
-                                            // Regular Enter on dropdown parent - select it (not toggle)
-                                            outputAndQuit(item.originalText || item.text);
+                                            // Regular Enter on dropdown parent - output the clean text
+                                            outputAndQuit(item.text);
                                             return;
                                         }
                                         outputAndQuit(item.originalText || item.text);
@@ -472,6 +472,7 @@ Scope {
 
                                     function getOriginalIndex() {
                                         if (model.isSubItem) return model.parentIndex;
+                                        if (model.originalIndex !== undefined) return model.originalIndex;
                                         for (var i = 0; i < itemsModel.count; i++) {
                                             if (itemsModel.get(i).text === model.text) return i;
                                         }
@@ -701,8 +702,10 @@ Scope {
         var originalLine = line;
         var hasDropdown = false;
         var isExpanded = false;
-        var subItems = [];
-        var subIcons = [];
+        // Serialize arrays as JSON strings for QML ListModel compatibility
+        // (ListModel silently drops JS array properties)
+        var subItemsJson = "[]";
+        var subIconsJson = "[]";
 
         // Handle dropdown marker first
         var dropdownMarker = "\0dropdown\x1f";
@@ -715,8 +718,8 @@ Scope {
                 var dropdownData = JSON.parse(jsonStr);
                 hasDropdown = true;
                 isExpanded = dropdownData.expanded || false;
-                subItems = dropdownData.subItems || [];
-                subIcons = dropdownData.subIcons || [];
+                subItemsJson = JSON.stringify(dropdownData.subItems || []);
+                subIconsJson = JSON.stringify(dropdownData.subIcons || []);
             } catch (e) {
                 console.log("Failed to parse dropdown JSON: " + jsonStr);
             }
@@ -745,8 +748,8 @@ Scope {
             iconPath: icon,
             hasDropdown: hasDropdown,
             isExpanded: isExpanded,
-            subItems: subItems,
-            subIcons: subIcons
+            subItemsJson: subItemsJson,
+            subIconsJson: subIconsJson
         };
     }
 
@@ -800,20 +803,32 @@ Scope {
 
     /**
      * Append dropdown sub-items to filteredModel for a given parent item.
+     * subItems are stored as JSON strings in the model (ListModel can't store arrays).
      */
     function appendDropdownSubItems(parentItem, parentIndex) {
-        if (!parentItem.subItems) return;
-        for (var k = 0; k < parentItem.subItems.length; k++) {
-            var subItem = {
-                text: parentItem.subItems[k],
-                originalText: "SUBITEM:" + parentIndex + ":" + k + ":" + parentItem.subItems[k],
-                displayText: parentItem.subItems[k],
-                iconPath: parentItem.subIcons && parentItem.subIcons[k] ? parentItem.subIcons[k] : "",
+        var subItems = [];
+        var subIcons = [];
+        try {
+            subItems = JSON.parse(parentItem.subItemsJson || "[]");
+            subIcons = JSON.parse(parentItem.subIconsJson || "[]");
+        } catch (e) {
+            return;
+        }
+        if (subItems.length === 0) return;
+        for (var k = 0; k < subItems.length; k++) {
+            filteredModel.append({
+                text: subItems[k],
+                originalText: "SUBITEM:" + parentIndex + ":" + k + ":" + subItems[k],
+                displayText: subItems[k],
+                iconPath: subIcons[k] ? subIcons[k] : "",
                 isSubItem: true,
                 parentIndex: parentIndex,
-                subItemIndex: k
-            };
-            filteredModel.append(subItem);
+                subItemIndex: k,
+                hasDropdown: false,
+                isExpanded: false,
+                subItemsJson: "[]",
+                subIconsJson: "[]"
+            });
         }
     }
 
