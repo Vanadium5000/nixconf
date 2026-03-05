@@ -20,6 +20,7 @@
           self'.packages.toggle-dictation-overlay
           pkgs.bun
           pkgs.wtype
+          pkgs.wl-clipboard
           pkgs.coreutils
           #pkgs.whisper-cpp # using whisper-cpp as a runtimeInput makes it not work.
           pkgs.ffmpeg
@@ -41,6 +42,7 @@
           pkgs.wl-clipboard
           # pkgs.xclip
           # pkgs.wtype
+          pkgs.wl-clipboard
           pkgs.ydotool
           pkgs.bun
           pkgs.nodejs_latest
@@ -165,7 +167,7 @@
           pkgs.bun
           pkgs.nodejs_latest
           pkgs.playerctl
-          self'.packages.toggle-dictation-overlay
+          self'.packages.toggle-lyrics-overlay
 
           # Core utilities
           pkgs.coreutils

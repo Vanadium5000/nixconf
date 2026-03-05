@@ -642,21 +642,17 @@ async function runWhisperStream(
     }
   }, 60000);
 
+  // Use appropriate flags for hallucination reduction depending on available options
   const proc = Bun.spawn(
     [
       bin,
-      "-m",
-      modelPath,
-      "-t",
-      "4",
-      "--step",
-      "500",
-      "--length",
-      "5000",
-      "-vth",
-      "0.5",
-      "-c",
-      "0", // Force default device, as PULSE_SOURCE handles selection
+      "-m", modelPath,
+      "-t", "4",
+      "--step", "500", // Fast updates
+      "--length", "5000", // Keep it relatively short to avoid rambling context errors
+      "-vth", "0.6", // Voice activity detection threshold to cut silence hallucinations
+      "-kc", // Keep context across chunks
+      "-c", "0", // Force default device, as PULSE_SOURCE handles selection
     ],
     {
       stdio: ["ignore", "pipe", "pipe"],
@@ -837,10 +833,29 @@ async function runWhisperStream(
 
                 const backspaces = typedText.length - commonLen;
 
-                if (backspaces > 50 || commonLen < 3) {
-                  // New segment from whisper - append with space, reset tracking
-                  const separator = typedText.length > 0 ? " " : "";
-                  await $`wtype -- ${separator}${text}`.quiet();
+                if (backspaces > 10 || commonLen < 3) {
+                  // If it's a huge rewrite or we're starting fresh
+                  if (typedText.length > 0 && commonLen < 3) {
+                     // Just start a new word rather than trying to delete everything
+                     const separator = typedText.length > 0 ? " " : "";
+                     await $`wtype -- ${separator}${text}`.quiet();
+                  } else {
+                     // For large corrections, wtype backspace loop is too slow
+                     // Use wl-copy to paste replacement
+                     const newText = text.slice(commonLen);
+                     
+                     // Send backspaces
+                     for (let i = 0; i < backspaces; i++) {
+                       await $`wtype -k BackSpace`.quiet();
+                     }
+                     
+                     if (newText) {
+                         // Paste instant
+                         await $`echo -n "${newText}" | wl-copy --type text/plain`.quiet();
+                         await Bun.sleep(50); // Small wait for clipboard to propagate
+                         await $`wtype -M ctrl -k v -m ctrl`.quiet();
+                     }
+                  }
                   typedText = text;
                 } else {
                   // Small correction - backspace and fix
@@ -1043,21 +1058,7 @@ async function startOverlay() {
   });
 
   try {
-    const cmd = `${process.argv[0]} ${process.argv[1]} source`;
-    const env = {
-      ...process.env,
-      OVERLAY_COMMAND: cmd,
-      LYRICS_POSITION: getArg("--position") || "top",
-      LYRICS_LINES: getArg("--lines") || "2",
-      LYRICS_FONT_SIZE: getArg("--font-size") || "32",
-      LYRICS_COLOR: getArg("--color") || "#ffffff",
-      LYRICS_OPACITY: getArg("--opacity") || "0.95",
-      LYRICS_UPDATE_INTERVAL: getArg("--interval") || "100",
-      LYRICS_SHADOW: "true",
-    };
-
-    Bun.spawn(["toggle-lyrics-overlay", "show"], {
-      env,
+    Bun.spawn(["toggle-dictation-overlay", "show"], {
       stdio: ["ignore", "ignore", "ignore"],
       detached: true,
     }).unref();
@@ -1183,7 +1184,7 @@ async function updateState(newState: Partial<State>) {
 
 async function cleanup() {
   try {
-    await $`toggle-lyrics-overlay hide`.quiet().catch(() => {});
+    await $`toggle-dictation-overlay hide`.quiet().catch(() => {});
     if (existsSync(CONFIG.pidFile)) await unlink(CONFIG.pidFile);
     if (existsSync(CONFIG.stateFile)) await unlink(CONFIG.stateFile);
   } catch {}
