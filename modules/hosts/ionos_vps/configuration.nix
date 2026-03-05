@@ -46,6 +46,7 @@
 
       # HTTPS traffic analyzer — on-demand: systemctl start mitmproxy
       services.mitmproxy.enable = true;
+      services.mitmproxy.trustCA = true;
 
       # Preferences
       preferences = {

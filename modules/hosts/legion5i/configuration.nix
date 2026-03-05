@@ -106,6 +106,7 @@
 
       # HTTPS traffic analyzer — on-demand: systemctl start mitmproxy
       services.mitmproxy.enable = true;
+      services.mitmproxy.trustCA = true;
 
       # State version
       system.stateVersion = "25.11";

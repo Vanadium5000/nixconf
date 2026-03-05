@@ -164,6 +164,7 @@
 
       # HTTPS traffic analyzer — on-demand: systemctl start mitmproxy
       services.mitmproxy.enable = true;
+      services.mitmproxy.trustCA = true;
 
       # No cuda - doesn't have an Nvidia GPU
       nixpkgs.config.cudaSupport = false;
