@@ -39,6 +39,9 @@
               scanRandMacAddress = true; # Also randomize during Wi-Fi scans for extra privacy
             };
 
+            # Preserve hardware MAC for ethernet (VPS providers like IONOS bind IPs to specific MACs)
+            ethernet.macAddress = "preserve";
+
             # Global defaults for all new + existing connections for better privacy
             settings = {
               # Very important: prevents sending your real hostname to every network
