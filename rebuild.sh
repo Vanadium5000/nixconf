@@ -111,6 +111,8 @@ declare -A SECRETS_MAP=(
     ["CLIPROXYAPI_KEY"]="system/cliproxyapi-key"
     ["EXA_API_KEY"]="system/exa-api-key"
     ["OPENCODE_SERVER_PASSWORD"]="system/opencode-server-password"
+    ["MITMPROXY_CA_KEY"]="system/mitmproxy-ca-key"
+    ["MITMPROXY_CA_CERT"]="system/mitmproxy-ca-cert"
 )
 
 # Load a single secret from password-store
@@ -146,9 +148,18 @@ write_secrets_nix() {
             local var_name="$env_var"
             local var_value="${!var_name:-}"
             if [ -n "$var_value" ]; then
-                # Escape double quotes and backslashes for Nix
-                escaped_value=$(printf '%s' "$var_value" | sed 's/\\/\\\\/g; s/"/\\"/g')
-                echo "  ${var_name} = \"${escaped_value}\";"
+                # Check if string contains newlines (multiline like PEM certs)
+                if printf '%s' "$var_value" | grep -q $'\n'; then
+                    # Multiline string: use Nix '' syntax and escape existing ''
+                    escaped_value=$(printf '%s' "$var_value" | sed "s/''/'''/g")
+                    echo "  ${var_name} = ''"
+                    echo "${escaped_value}'';"
+                else
+                    # Single line string (passwords, hashes): use standard "" syntax and strip trailing newline
+                    var_value=$(printf '%s' "$var_value" | tr -d '\n')
+                    escaped_value=$(printf '%s' "$var_value" | sed 's/\\/\\\\/g; s/"/\\"/g')
+                    echo "  ${var_name} = \"${escaped_value}\";"
+                fi
             fi
         done
         echo "}; }"

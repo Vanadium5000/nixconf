@@ -290,6 +290,32 @@ All wallets use `pass` for password management and VPN proxy for privacy:
 | Reverse Engineering | ghidra, radare2, binwalk                                 |
 | Utilities           | rustscan, socat, proxychains-ng, hcxtools                |
 
+### 📊 System Monitoring & Dashboards
+
+A fully declarative, ephemeral-root compatible monitoring stack.
+
+| Service       | Port    | Description                                                                                                                                                 |
+| ------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Homepage**  | `8082`  | Central fleet dashboard portal linking all nodes and services. (ionos_vps only)                                                                             |
+| **Netdata**   | `19999` | Real-time system monitoring (CPU, RAM, Disk, Containers). Runs in RAM mode on laptops to save disk/battery, and dbengine on servers for historical metrics. |
+| **mitmproxy** | `8083`  | On-demand HTTPS traffic analysis proxy. See details below.                                                                                                  |
+
+#### 🔍 mitmproxy (HTTPS Traffic Analysis)
+
+A custom NixOS service module (`services.mitmproxy`) for on-demand packet inspection.
+
+**Interception Modes:**
+
+- `explicit`: Set `HTTPS_PROXY=http://127.0.0.1:8080` per-app (safest)
+- `transparent`: nftables redirects all port 80/443 traffic to the proxy
+- `local`: eBPF hooks into the `connect()` syscall (experimental)
+
+**CA Certificate Setup:**
+To avoid certificate errors, the OS must trust the mitmproxy CA. The CA is pre-generated securely and stored in `password-store`, then injected into the system via `secrets.nix`.
+Because it's injected securely during evaluation, you can immediately set `services.mitmproxy.trustCA = true;` without needing a two-step deploy!
+
+Access the Web UI at `http://127.0.0.1:8083` (password: `nixos`).
+
 ### 🖥️ Virtualisation
 
 | Platform   | Tools                                                                      |

@@ -11,9 +11,9 @@
 # The interception flow:
 #
 #   1. CERTIFICATE AUTHORITY
-#      On first run, mitmproxy generates a root CA certificate and key
-#      (stored in /var/lib/mitmproxy/). This CA is the foundation of
-#      all interception — it's what lets mitmproxy forge certificates.
+#      The module uses a pre-generated root CA stored in the nixconf repo
+#      (monitoring/mitmproxy-ca/). This CA is installed into the system
+#      trust store, allowing mitmproxy to forge certificates seamlessly.
 #
 #   2. CLIENT CONNECTS
 #      An app (curl, browser, etc.) tries to connect to https://example.com.
@@ -35,12 +35,6 @@
 #      Between the two TLS tunnels, mitmproxy sees all HTTP traffic in
 #      plaintext — URLs, headers, cookies, request bodies, response data.
 #      This is logged in the mitmweb UI (Chrome DevTools-like interface).
-#
-#   6. WHY APPS MUST TRUST THE CA
-#      Without the mitmproxy CA in the system's trusted root store, apps
-#      will reject the forged certificates with errors like
-#      SEC_ERROR_UNKNOWN_ISSUER or "certificate verify failed".
-#      Set trustCA = true after generating the cert (two-step process).
 #
 # == Modes of operation ==
 #
@@ -68,7 +62,7 @@
 # == Quick start ==
 #
 #   systemctl start mitmproxy              # start on-demand
-#   open http://127.0.0.1:8083             # mitmweb UI
+#   open http://127.0.0.1:8083             # mitmweb UI (password: nixos)
 #   HTTPS_PROXY=http://127.0.0.1:8080 curl https://api.example.com
 #   systemctl stop mitmproxy               # stop when done
 #
@@ -79,7 +73,7 @@
 #   mitmweb port (8083) to the internet. The service binds to 127.0.0.1.
 #
 # =========================================================================
-{ ... }:
+{ self, ... }:
 {
   flake.nixosModules.mitmproxy =
     {
@@ -136,6 +130,26 @@
       nftablesCleanupScript = pkgs.writeShellScript "mitmproxy-nft-cleanup" ''
         ${pkgs.nftables}/bin/nft delete table inet mitmproxy 2>/dev/null || true
       '';
+
+      # Script to deploy the CA certificates to the data directory from the Nix store
+      # Since the secrets are already embedded in the system config, we write them
+      # to files natively and then copy them to the mutable /var/lib/mitmproxy/ directory.
+      caKeyFile = pkgs.writeText "mitmproxy-ca.pem" (self.secrets.MITMPROXY_CA_KEY or "");
+      caCertFile = pkgs.writeText "mitmproxy-ca-cert.pem" (self.secrets.MITMPROXY_CA_CERT or "");
+
+      deployCAScript = pkgs.writeShellScript "mitmproxy-deploy-ca" ''
+        # Ensure the data directory exists
+        mkdir -p "${cfg.dataDir}"
+
+        # Copy the CA files into the runtime directory
+        cp -f ${caKeyFile} "${cfg.dataDir}/mitmproxy-ca.pem"
+        cp -f ${caCertFile} "${cfg.dataDir}/mitmproxy-ca-cert.pem"
+
+        # Ensure correct ownership and permissions
+        chown -R mitmproxy:mitmproxy "${cfg.dataDir}"
+        chmod -R 600 "${cfg.dataDir}"/*
+        chmod 700 "${cfg.dataDir}"
+      '';
     in
     {
       options.services.mitmproxy = {
@@ -178,8 +192,6 @@
           default = "/var/lib/mitmproxy";
           description = ''
             Directory for mitmproxy's CA certificates and configuration.
-            Must be persisted — the CA cert is generated on first run and
-            must survive reboots for consistent HTTPS interception.
           '';
         };
 
@@ -187,14 +199,11 @@
           type = types.bool;
           default = false;
           description = ''
-            Trust mitmproxy's CA certificate system-wide via security.pki.
+            Trust the repository's mitmproxy CA certificate system-wide via security.pki.
 
-            Two-step setup required:
-            1. Deploy with trustCA = false (default), then run:
-               systemctl start mitmproxy
-               This generates the CA cert in /var/lib/mitmproxy/
-            2. Rebuild with trustCA = true — the cert file now exists
-               and NixOS will trust it for all TLS connections.
+            Because the CA certificate is pre-generated and stored in the repository
+            (modules/nixos/terminal/monitoring/mitmproxy-ca/), you can safely enable
+            this on the very first deploy without needing to start the service first.
 
             Without this, apps will show certificate errors when proxied.
             Only the "explicit" mode works without CA trust (apps that
@@ -242,6 +251,14 @@
           serviceConfig = mkMerge [
             # Common config for all modes
             {
+              Environment = [
+                "MITMPROXY_CA_KEY=${self.secrets.MITMPROXY_CA_KEY or ""}"
+                "MITMPROXY_CA_CERT=${self.secrets.MITMPROXY_CA_CERT or ""}"
+              ];
+
+              # Deploy the pre-generated CA certificates before starting
+              ExecStartPre = [ "+${deployCAScript}" ];
+
               ExecStart = concatStringsSep " " [
                 "${cfg.package}/bin/mitmweb"
                 modeFlags
@@ -249,7 +266,7 @@
                 "--web-port ${toString cfg.webPort}"
                 "--set confdir=${cfg.dataDir}"
                 "--no-web-open-browser" # Don't try to open browser on headless server
-                "--set web_auth_basic=''" # Disable authentication (protected by Tailscale/localhost)
+                "--set web_password=nixos" # Fixed password for the web UI
                 # Listen host/port only applies to explicit and transparent modes
                 (
                   if cfg.mode != "local" then
@@ -290,8 +307,12 @@
               ];
 
               # Set up and tear down nftables rules for traffic redirection
-              ExecStartPre = "+${nftablesRedirectScript}";
-              ExecStopPost = "+${nftablesCleanupScript}";
+              ExecStartPre = [
+                "+${nftablesRedirectScript}"
+              ];
+              ExecStopPost = [
+                "+${nftablesCleanupScript}"
+              ];
             })
 
             # Local/eBPF mode — needs kernel-level capabilities for BPF programs
@@ -314,29 +335,10 @@
           ];
         };
 
-        # Trust the mitmproxy CA system-wide so intercepted HTTPS works
-        # without certificate errors in all applications.
-        #
-        # Two-step process:
-        # 1. First deploy with trustCA = false, start the service once
-        #    to generate the CA cert in /var/lib/mitmproxy/
-        # 2. Then rebuild with trustCA = true — cert file must exist or
-        #    the build will fail (Nix copies the file into the store)
-        security.pki.certificateFiles = mkIf cfg.trustCA [
-          "${cfg.dataDir}/mitmproxy-ca-cert.pem"
-        ];
-
-        # CA certificates are CRITICAL data — they must survive reboots
-        # and should be backed up (not cache). Regenerating the CA would
-        # invalidate all previously-trusted connections and require
-        # re-enabling trustCA after regeneration.
-        impermanence.nixos.directories = [
-          {
-            directory = cfg.dataDir;
-            user = "mitmproxy";
-            group = "mitmproxy";
-            mode = "0700";
-          }
+        # Trust the pre-generated mitmproxy CA system-wide so intercepted
+        # HTTPS works without certificate errors in all applications.
+        security.pki.certificates = mkIf cfg.trustCA [
+          (self.secrets.MITMPROXY_CA_CERT or "")
         ];
       };
     };
