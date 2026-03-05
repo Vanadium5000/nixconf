@@ -52,16 +52,41 @@
         # ── Windows ──
         windows = [
           (kb "${mod},Q" "killactive," "Close active window" "Windows")
-          (kb "${altMod},T" "togglefloating," "Toggle floating mode" "Windows")
+          (kb "${mod} ALT, Q" "exec, hyprctl kill" "Force kill window (click)" "Windows")
+          (kb "${shiftMod},F" "togglefloating," "Toggle floating mode" "Windows")
+          (kb "${shiftMod},C" "centerwindow" "Center floating window" "Windows")
           (kb "${mod},F" "fullscreen" "Toggle fullscreen" "Windows")
           (kb "${mod},left" "movefocus, l" "Focus window left" "Windows")
           (kb "${mod},right" "movefocus, r" "Focus window right" "Windows")
           (kb "${mod},up" "movefocus, u" "Focus window up" "Windows")
           (kb "${mod},down" "movefocus, d" "Focus window down" "Windows")
-          (kb "${shiftMod},up" "focusmonitor, -1" "Focus previous monitor" "Windows")
-          (kb "${shiftMod},down" "focusmonitor, 1" "Focus next monitor" "Windows")
-          (kb "${shiftMod},left" "layoutmsg, addmaster" "Add window to master" "Windows")
-          (kb "${shiftMod},right" "layoutmsg, removemaster" "Remove window from master" "Windows")
+          (kb "${shiftMod},left" "movewindow, l" "Move window left" "Windows")
+          (kb "${shiftMod},right" "movewindow, r" "Move window right" "Windows")
+          (kb "${shiftMod},up" "movewindow, u" "Move window up" "Windows")
+          (kb "${shiftMod},down" "movewindow, d" "Move window down" "Windows")
+          (kb "${mod} ALT, left" "focusmonitor, l" "Focus left monitor" "Windows")
+          (kb "${mod} ALT, right" "focusmonitor, r" "Focus right monitor" "Windows")
+          (kb "${shiftMod} ALT, left" "movewindow, mon:l" "Move window to left monitor" "Windows")
+          (kb "${shiftMod} ALT, right" "movewindow, mon:r" "Move window to right monitor" "Windows")
+          (kb "${mod},backslash" "togglesplit," "Toggle window split direction" "Windows")
+          (kb "${mod},TAB" "cyclenext," "Focus next window" "Windows")
+          (kb "${shiftMod},TAB" "cyclenext, prev" "Focus previous window" "Windows")
+        ];
+
+        # ── Resize (binde - repeat) ──
+        resize = [
+          (kb "${mod} CTRL, right" "resizeactive, 30 0" "Resize window right" "Windows")
+          (kb "${mod} CTRL, left" "resizeactive, -30 0" "Resize window left" "Windows")
+          (kb "${mod} CTRL, up" "resizeactive, 0 -30" "Resize window up" "Windows")
+          (kb "${mod} CTRL, down" "resizeactive, 0 30" "Resize window down" "Windows")
+        ];
+
+        # ── Workspaces ──
+        workspaces = [
+          (kb "${mod},mouse_down" "workspace, e+1" "Next workspace" "Workspaces")
+          (kb "${mod},mouse_up" "workspace, e-1" "Previous workspace" "Workspaces")
+          (kb "${mod},A" "togglespecialworkspace, magic" "Toggle scratchpad" "Workspaces")
+          (kb "${shiftMod},A" "movetoworkspace, special:magic" "Move window to scratchpad" "Workspaces")
         ];
 
         # ── Menus ──
@@ -281,7 +306,8 @@
         ++ keybinds.accessibility
         ++ keybinds.help
         ++ keybinds.capture
-        ++ keybinds.captureScripts;
+        ++ keybinds.captureScripts
+        ++ keybinds.workspaces;
 
       # Convert keybind to hyprland bind string
       toBindString = kb: "${kb.key}, ${kb.exec}";
@@ -294,6 +320,9 @@
           replaced =
             builtins.replaceStrings
               [
+                "${shiftMod} ALT,"
+                "${mod} ALT,"
+                "${mod} CTRL,"
                 "${mod},"
                 "${shiftMod},"
                 "${altMod},"
@@ -308,6 +337,9 @@
                 "mouse:"
               ]
               [
+                "SUPER + SHIFT + ALT + "
+                "SUPER + ALT + "
+                "SUPER + CTRL + "
                 "SUPER + "
                 "SUPER + SHIFT + "
                 "ALT + "
@@ -332,6 +364,10 @@
             "RETURN"
             "MINUS"
             "EQUAL"
+            "backslash"
+            "TAB"
+            "mouse_down"
+            "mouse_up"
           ]
           [
             "←"
@@ -341,6 +377,10 @@
             "Return"
             "-"
             "="
+            "\\"
+            "Tab"
+            "Scroll Down"
+            "Scroll Up"
           ]
           replaced;
 
@@ -353,7 +393,8 @@
             ++ keybinds.media
             ++ keybinds.system
             ++ keybinds.volume
-            ++ keybinds.brightness;
+            ++ keybinds.brightness
+            ++ keybinds.resize;
         in
         map (kb: {
           key = humanizeKey kb.key;
@@ -618,6 +659,9 @@
 
         # Repeat bindings generated from unified definitions
         bindle = (map toBindString keybinds.volume) ++ (map toBindString keybinds.brightness);
+
+        # Continuous bindings (e.g. resize)
+        binde = map toBindString keybinds.resize;
 
         # GUI-session Environment Variables
         env = [

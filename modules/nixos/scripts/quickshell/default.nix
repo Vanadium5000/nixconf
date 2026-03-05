@@ -85,6 +85,37 @@
         '';
       };
 
+      packages.toggle-dictation-overlay = inputs.wrappers.lib.makeWrapper {
+        inherit pkgs;
+        package = pkgs.writeShellScriptBin "toggle-dictation-overlay" ''
+          # Toggle QuickShell dictation overlay
+
+          QML_FILE="${mkQml "dictation-overlay.qml" ./dictation-overlay.qml}"
+          QS_BIN="${pkgs.quickshell}/bin/qs"
+          export QML2_IMPORT_PATH="${pkgs.qt6.qt5compat}/lib/qt-6/qml:$QML2_IMPORT_PATH"
+
+          case "''${1:-toggle}" in
+            show)
+              # Kill existing instance first
+              "$QS_BIN" kill -p "$QML_FILE" 2>/dev/null || true
+              "$QS_BIN" -p "$QML_FILE" &
+              ;;
+            hide)
+              "$QS_BIN" kill -p "$QML_FILE"
+              ;;
+            *)  # toggle
+              if ! "$QS_BIN" kill -p "$QML_FILE" 2>/dev/null; then
+                "$QS_BIN" -p "$QML_FILE" &
+              fi
+              ;;
+          esac
+        '';
+        runtimeInputs = [
+          pkgs.coreutils
+          pkgs.quickshell
+        ];
+      };
+
       packages.toggle-lyrics-overlay = inputs.wrappers.lib.makeWrapper {
         inherit pkgs;
         package = pkgs.writeShellScriptBin "toggle-lyrics-overlay" ''
@@ -609,7 +640,7 @@
           # Cache location (RAM-backed tmpfs for speed)
           CACHE_DIR="/dev/shm/qs-vpn-$UID"
           CACHE_FILE="$CACHE_DIR/vpn-cache"
-          
+
           # Check if cache is valid (VPN dir hasn't changed)
           cache_valid() {
             [ -f "$CACHE_FILE" ] || return 1
@@ -628,7 +659,7 @@
             # Cache valid if newer than both dir and newest file
             [[ "$cache_mtime" -gt "$dir_mtime" ]] && [[ "$cache_mtime" -gt "''${newest_file%.*}" ]]
           }
-          
+
           # Build and cache VPN entries
           build_cache() {
             mkdir -p "$CACHE_DIR"
@@ -648,7 +679,7 @@
               echo "$flag|$display_name|$ovpn_file" >> "$CACHE_FILE"
             done
           }
-          
+
           # Load entries from cache into arrays
           load_from_cache() {
             declare -gA FILE_MAP

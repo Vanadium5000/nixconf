@@ -17,7 +17,7 @@
         '';
 
         runtimeInputs = [
-          self'.packages.toggle-lyrics-overlay
+          self'.packages.toggle-dictation-overlay
           pkgs.bun
           pkgs.wtype
           pkgs.coreutils
@@ -165,7 +165,7 @@
           pkgs.bun
           pkgs.nodejs_latest
           pkgs.playerctl
-          self'.packages.toggle-lyrics-overlay
+          self'.packages.toggle-dictation-overlay
 
           # Core utilities
           pkgs.coreutils
