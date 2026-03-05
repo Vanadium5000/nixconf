@@ -39,9 +39,6 @@
               scanRandMacAddress = true; # Also randomize during Wi-Fi scans for extra privacy
             };
 
-            # Also randomize ethernet
-            ethernet.macAddress = "random";
-
             # Global defaults for all new + existing connections for better privacy
             settings = {
               # Very important: prevents sending your real hostname to every network

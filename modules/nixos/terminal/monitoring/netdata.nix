@@ -92,6 +92,8 @@
             plugins = {
               "freeipmi" = "no"; # Only useful on bare-metal enterprise servers with IPMI
               "tc" = "no"; # Only useful if using FireQOS for traffic shaping
+              "charts.d" = "no"; # Legacy bash plugins (causes opensipsctl errors)
+              "python.d" = "no"; # Legacy python plugins (causes MissingModule errors, mostly replaced by go.d)
             };
           };
         };

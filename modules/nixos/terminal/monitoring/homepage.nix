@@ -192,7 +192,7 @@
         # Next.js 15 requires strict Host header validation
         # Setting to * allows all hosts since it's already protected by Tailscale
         systemd.services.homepage-dashboard.environment = {
-          HOMEPAGE_ALLOWED_HOSTS = "*";
+          HOMEPAGE_ALLOWED_HOSTS = lib.mkForce "*";
         };
       };
     };
