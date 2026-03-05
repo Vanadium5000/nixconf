@@ -248,6 +248,8 @@
                 "--web-host 127.0.0.1"
                 "--web-port ${toString cfg.webPort}"
                 "--set confdir=${cfg.dataDir}"
+                "--no-web-open-browser" # Don't try to open browser on headless server
+                "--set web_auth_basic=''" # Disable authentication (protected by Tailscale/localhost)
                 # Listen host/port only applies to explicit and transparent modes
                 (
                   if cfg.mode != "local" then

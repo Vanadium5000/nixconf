@@ -25,11 +25,13 @@
         host: "${cfg.host}"
         port: ${toString cfg.port}
         auth-dir: "/var/lib/cliproxyapi/auths"
-        logging-to-file: false
+        logging-to-file: true
 
         remote-management:
-          allow-remote: false
-          # secret-key: "change-me"  # Auto-hashed on startup
+          allow-remote: true
+          secret-key: "change-me"  # Auto-hashed on startup
+
+        usage-statistics-enabled: true
 
         # TLS (enable if exposing without reverse proxy)
         # tls:

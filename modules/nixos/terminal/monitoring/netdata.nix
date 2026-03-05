@@ -87,6 +87,12 @@
             db = mkIf (cfg.memoryMode == "dbengine") {
               "dbengine tier backfill" = "new";
             };
+
+            # Explicitly disable plugins that cause log spam on systems without the required hardware/software
+            plugins = {
+              "freeipmi" = "no"; # Only useful on bare-metal enterprise servers with IPMI
+              "tc" = "no"; # Only useful if using FireQOS for traffic shaping
+            };
           };
         };
 
