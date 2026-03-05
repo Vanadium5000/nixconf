@@ -45,7 +45,8 @@
             # Global defaults for all new + existing connections for better privacy
             settings = {
               # Very important: prevents sending your real hostname to every network
-              connection.dhcp-send-hostname = false;
+              # But VPS providers like IONOS require a hostname for DHCP leases to work
+              connection.dhcp-send-hostname = config.preferences.hostName != "ionos_vps";
             };
 
             plugins = with pkgs; [
