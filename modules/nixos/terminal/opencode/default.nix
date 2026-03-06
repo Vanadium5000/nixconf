@@ -201,18 +201,55 @@
         };
       };
 
-      # Define project MCP templates
+      # Define project MCP templates with rich comments for JSONC output
+      # Each template includes:
+      # - Enabled MCPs (uncommented, enabled: true)
+      # - Available MCPs not in template (commented, enabled: true) - uncomment to add
+      # - Globally enabled MCPs (commented, enabled: false) - disable if not needed
       mcpTemplates =
         let
-          mkTemplate = enabled: {
-            mcp = lib.genAttrs enabled (name: {
-              inherit (mcpConfig.${name}) enabled;
-            });
-          };
+          # Get all MCP names
           allMcpNames = lib.attrNames mcpConfig;
+
+          # Generate JSONC with comments for a template
+          # This produces a string with comments showing:
+          # 1. Globally enabled MCPs not in template (commented, enabled: false)
+          # 2. Available MCPs not in template (commented, enabled: true)
+          # 3. Enabled MCPs in template (uncommented, enabled: true)
+          mkTemplateJsonC =
+            templateName: enabledMcpNames:
+            let
+              # MCPs globally enabled but NOT in this template (show as disabled)
+              globallyEnabledNotInTemplate = lib.filterAttrs (
+                name: cfg: (cfg.enabled or false) && !(builtins.elem name enabledMcpNames)
+              ) mcpConfig;
+
+              # MCPs disabled in this template (not in enabledMcpNames list)
+              # Exclude those that are globally enabled since they're handled above
+              availableNotInTemplate = lib.filterAttrs (
+                name: cfg: !(builtins.elem name enabledMcpNames) && !(cfg.enabled or false)
+              ) mcpConfig;
+            in
+            let
+              # Build the JSONC sections as lists of strings
+              globalSection = lib.mapAttrsToList (
+                name: cfg:
+                "    // ✨ Globally enabled by default - disable if not needed\n    // \"${name}\": { \"enabled\": false }"
+              ) globallyEnabledNotInTemplate;
+
+              availableSection = lib.mapAttrsToList (
+                name: cfg: "    // Available: uncomment to enable\n    // \"${name}\": { \"enabled\": true }"
+              ) availableNotInTemplate;
+
+              enabledSection = lib.map (name: "    \"${name}\": { \"enabled\": true }") enabledMcpNames;
+
+              allSections = globalSection ++ availableSection ++ enabledSection;
+            in
+            "{\n  \"mcp\": {\n${lib.concatStringsSep ",\n" allSections}\n  }\n}";
         in
         {
-          "Web Development" = mkTemplate [
+          # Use JSONC for interactive templates
+          "Web Development" = mkTemplateJsonC "Web Development" [
             "daisyui"
             "playwrite"
             "websearch"
@@ -220,25 +257,23 @@
             "gh_grep"
             "image_gen"
           ];
-          "NixOS Config" = mkTemplate [
+          "NixOS Config" = mkTemplateJsonC "NixOS Config" [
             "quickshell"
             "qmllint"
             "websearch"
             "gh_grep"
             "image_gen"
           ];
-          "PowerPoint/Office Work" = mkTemplate [
+          "PowerPoint/Office Work" = mkTemplateJsonC "PowerPoint/Office Work" [
             "powerpoint"
             "slide_preview"
             "websearch"
             "gh_grep"
             "image_gen"
           ];
-          "All MCPs" = mkTemplate allMcpNames;
-          "No MCPs" = {
-            mcp = { };
-          };
-          "Custom MCP File" = mkTemplate [
+          "All MCPs" = mkTemplateJsonC "All MCPs" allMcpNames;
+          "No MCPs" = mkTemplateJsonC "No MCPs" [ ];
+          "Custom MCP File" = mkTemplateJsonC "Custom MCP File" [
             "websearch"
             "context7"
             "gh_grep"
@@ -256,7 +291,7 @@
             in
             ''
               cat > "$out/templates/${safeName}.json" << 'EOF'
-              ${builtins.toJSON value}
+              ${value}
               EOF
             ''
           ) mcpTemplates

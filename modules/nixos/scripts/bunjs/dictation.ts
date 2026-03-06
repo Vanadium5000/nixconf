@@ -67,7 +67,7 @@ type SubtitleFormat = "srt" | "vtt" | "txt";
 async function log(
   level: "INFO" | "WARN" | "ERROR",
   msg: string,
-  data?: unknown
+  data?: unknown,
 ) {
   const ts = new Date().toISOString().slice(11, 23);
   const line = `[${ts}] ${level}: ${msg}${
@@ -229,7 +229,7 @@ async function handleRun() {
     modelPath,
     noType,
     device.sdlId,
-    device.name
+    device.name,
   );
 }
 
@@ -256,7 +256,7 @@ async function handleStatus() {
         uptime: state.startTime
           ? Math.floor((Date.now() - state.startTime) / 1000)
           : 0,
-      })
+      }),
     );
   } catch (e) {
     console.log(
@@ -265,7 +265,7 @@ async function handleStatus() {
         text: "",
         mode: "error",
         error: String(e),
-      })
+      }),
     );
   }
 }
@@ -275,7 +275,7 @@ async function handleSource() {
     const file = Bun.file(CONFIG.stateFile);
     if (!(await file.exists())) {
       console.log(
-        JSON.stringify({ text: "Ready", class: "stopped", alt: "stopped" })
+        JSON.stringify({ text: "Ready", class: "stopped", alt: "stopped" }),
       );
       return;
     }
@@ -283,7 +283,7 @@ async function handleSource() {
     const content = await file.text();
     if (!content.trim()) {
       console.log(
-        JSON.stringify({ text: "Ready", class: "stopped", alt: "stopped" })
+        JSON.stringify({ text: "Ready", class: "stopped", alt: "stopped" }),
       );
       return;
     }
@@ -299,15 +299,15 @@ async function handleSource() {
         class: state.isRecording
           ? "playing"
           : state.mode === "error"
-          ? "error"
-          : "stopped",
+            ? "error"
+            : "stopped",
         alt: state.isRecording ? "playing" : "stopped",
-      })
+      }),
     );
   } catch (e) {
     await log("ERROR", "handleSource failed", { error: String(e) });
     console.log(
-      JSON.stringify({ text: "...", class: "stopped", alt: "stopped" })
+      JSON.stringify({ text: "...", class: "stopped", alt: "stopped" }),
     );
   }
 }
@@ -368,7 +368,7 @@ async function getAudioDevices(): Promise<AudioDevice[]> {
 
 async function selectDeviceWithRofi(
   devices: AudioDevice[],
-  currentName?: string
+  currentName?: string,
 ): Promise<AudioDevice | null> {
   if (devices.length === 0) return null;
 
@@ -378,10 +378,9 @@ async function selectDeviceWithRofi(
   });
 
   try {
-    const result =
-      await $`printf '%s\n' ${lines} | qs-dmenu -p "Input Device"`
-        .nothrow()
-        .quiet();
+    const result = await $`printf '%s\n' ${lines} | qs-dmenu -p "Input Device"`
+      .nothrow()
+      .quiet();
     if (result.exitCode !== 0 || !result.text().trim()) return null;
 
     const selectedLine = result
@@ -456,17 +455,17 @@ async function handleTranscribe() {
     console.error(
       inputFile
         ? `File not found: ${inputFile}`
-        : "Usage: dictation transcribe <file>"
+        : "Usage: dictation transcribe <file>",
     );
     process.exit(1);
   }
 
   const ext = extname(inputFile).toLowerCase();
   const isVideo = CONFIG.supportedVideo.includes(
-    ext as (typeof CONFIG.supportedVideo)[number]
+    ext as (typeof CONFIG.supportedVideo)[number],
   );
   const isAudio = CONFIG.supportedAudio.includes(
-    ext as (typeof CONFIG.supportedAudio)[number]
+    ext as (typeof CONFIG.supportedAudio)[number],
   );
 
   if (!isVideo && !isAudio) {
@@ -526,8 +525,8 @@ async function handleTranscribe() {
       console.log("\nTranscript:");
       segments.forEach((s) =>
         console.log(
-          `[${formatTimestamp(s.start)} -> ${formatTimestamp(s.end)}] ${s.text}`
-        )
+          `[${formatTimestamp(s.start)} -> ${formatTimestamp(s.end)}] ${s.text}`,
+        ),
       );
     }
   } catch (e: unknown) {
@@ -597,7 +596,7 @@ async function runWhisperStream(
   modelPath: string,
   noType: boolean,
   deviceId: number,
-  deviceName?: string
+  deviceName?: string,
 ) {
   const modelName = basename(modelPath)
     .replace("ggml-", "")
@@ -646,18 +645,24 @@ async function runWhisperStream(
   const proc = Bun.spawn(
     [
       bin,
-      "-m", modelPath,
-      "-t", "4",
-      "--step", "500", // Fast updates
-      "--length", "5000", // Keep it relatively short to avoid rambling context errors
-      "-vth", "0.6", // Voice activity detection threshold to cut silence hallucinations
+      "-m",
+      modelPath,
+      "-t",
+      "4",
+      "--step",
+      "500", // Fast updates
+      "--length",
+      "5000", // Keep it relatively short to avoid rambling context errors
+      "-vth",
+      "0.6", // Voice activity detection threshold to cut silence hallucinations
       "-kc", // Keep context across chunks
-      "-c", "0", // Force default device, as PULSE_SOURCE handles selection
+      "-c",
+      "0", // Force default device, as PULSE_SOURCE handles selection
     ],
     {
       stdio: ["ignore", "pipe", "pipe"],
       env,
-    }
+    },
   );
 
   let lastText = "";
@@ -675,16 +680,53 @@ async function runWhisperStream(
       const inner = text.slice(1, -1).trim().toLowerCase();
       // Block timestamps [00:12]
       if (/^[\d:.]+$/.test(inner)) return false;
-      
+
+      // More comprehensive noise triggers - match if text CONTAINS any trigger
+      // since whisper often adds modifiers like "electronic beeping", "loud thud"
       const noiseTriggers = [
-        "music", "applause", "inaudible", "silence", "noise", "beeping",
-        "laughter", "sound", "foreign", "background", "chatter",
-        "end of recording", "video", "audio", "transcript", "subtitle",
-        "subtitles", "copyright", "caption", "notes", "no audio"
+        "music",
+        "applause",
+        "inaudible",
+        "silence",
+        "noise",
+        "beeping",
+        "laughter",
+        "sound",
+        "foreign",
+        "background",
+        "chatter",
+        "end of recording",
+        "video",
+        "audio",
+        "transcript",
+        "subtitle",
+        "subtitles",
+        "copyright",
+        "caption",
+        "notes",
+        "no audio",
+        "static",
+        "thud",
+        "buzzing",
+        "chirping",
+        "coughing",
+        "rustling",
+        "typing",
+        "door",
+        "footsteps",
+        "wind",
+        "phone",
+        "ringing",
+        "click",
+        "pop",
+        "hiss",
+        "rumble",
+        "whistle",
+        "breathing",
       ];
-      
-      // If the bracketed text starts with or equals a noise trigger, block it
-      if (noiseTriggers.some(t => inner === t || inner.startsWith(t + " "))) {
+
+      // Block if inner text contains any noise trigger
+      if (noiseTriggers.some((t) => inner.includes(t))) {
         return false;
       }
     }
@@ -836,25 +878,25 @@ async function runWhisperStream(
                 if (backspaces > 10 || commonLen < 3) {
                   // If it's a huge rewrite or we're starting fresh
                   if (typedText.length > 0 && commonLen < 3) {
-                     // Just start a new word rather than trying to delete everything
-                     const separator = typedText.length > 0 ? " " : "";
-                     await $`wtype -- ${separator}${text}`.quiet();
+                    // Just start a new word rather than trying to delete everything
+                    const separator = typedText.length > 0 ? " " : "";
+                    await $`wtype -- ${separator}${text}`.quiet();
                   } else {
-                     // For large corrections, wtype backspace loop is too slow
-                     // Use wl-copy to paste replacement
-                     const newText = text.slice(commonLen);
-                     
-                     // Send backspaces
-                     for (let i = 0; i < backspaces; i++) {
-                       await $`wtype -k BackSpace`.quiet();
-                     }
-                     
-                     if (newText) {
-                         // Paste instant
-                         await $`echo -n "${newText}" | wl-copy --type text/plain`.quiet();
-                         await Bun.sleep(50); // Small wait for clipboard to propagate
-                         await $`wtype -M ctrl -k v -m ctrl`.quiet();
-                     }
+                    // For large corrections, wtype backspace loop is too slow
+                    // Use wl-copy to paste replacement
+                    const newText = text.slice(commonLen);
+
+                    // Send backspaces
+                    for (let i = 0; i < backspaces; i++) {
+                      await $`wtype -k BackSpace`.quiet();
+                    }
+
+                    if (newText) {
+                      // Paste instant
+                      await $`echo -n "${newText}" | wl-copy --type text/plain`.quiet();
+                      await Bun.sleep(50); // Small wait for clipboard to propagate
+                      await $`wtype -M ctrl -k v -m ctrl`.quiet();
+                    }
                   }
                   typedText = text;
                 } else {
@@ -941,7 +983,7 @@ async function prepareAudioFile(inputFile: string): Promise<string> {
 
 async function transcribeFile(
   wavFile: string,
-  modelPath: string
+  modelPath: string,
 ): Promise<TranscriptSegment[]> {
   await log("INFO", "Transcribing file", { file: basename(wavFile) });
   await updateState({
@@ -958,7 +1000,7 @@ async function transcribeFile(
 
     for (const line of result.split("\n")) {
       const match = line.match(
-        /\[(\d{2}):(\d{2}):(\d{2})\.(\d{3})\s*-->\s*(\d{2}):(\d{2}):(\d{2})\.(\d{3})\]\s*(.*)/
+        /\[(\d{2}):(\d{2}):(\d{2})\.(\d{3})\s*-->\s*(\d{2}):(\d{2}):(\d{2})\.(\d{3})\]\s*(.*)/,
       );
       if (match) {
         const start =
@@ -993,7 +1035,7 @@ async function transcribeFile(
 
 function formatSubtitles(
   segments: TranscriptSegment[],
-  format: SubtitleFormat
+  format: SubtitleFormat,
 ): string {
   const fmt = (s: number, dot = false) => {
     const h = Math.floor(s / 3600);
@@ -1012,7 +1054,7 @@ function formatSubtitles(
       "WEBVTT\n\n" +
       segments
         .map(
-          (s) => `${fmt(s.start, true)} --> ${fmt(s.end, true)}\n${s.text}\n`
+          (s) => `${fmt(s.start, true)} --> ${fmt(s.end, true)}\n${s.text}\n`,
         )
         .join("\n")
     );
@@ -1027,7 +1069,7 @@ function formatSubtitles(
 
 async function embedSubtitles(
   videoFile: string,
-  subtitleFile: string
+  subtitleFile: string,
 ): Promise<void> {
   const ext = extname(videoFile);
   const output = videoFile.replace(ext, `.subtitled${ext}`);
@@ -1117,7 +1159,7 @@ async function ensureModelDownloaded(modelName: string): Promise<string> {
       "-c",
       `cd "${CONFIG.userModelDir}" && whisper-cpp-download-ggml-model "${modelName}" 2>&1`,
     ],
-    { stdio: ["ignore", "pipe", "pipe"] }
+    { stdio: ["ignore", "pipe", "pipe"] },
   );
 
   const reader = proc.stdout.getReader();
@@ -1177,7 +1219,7 @@ async function updateState(newState: Partial<State>) {
     }
     await Bun.write(
       CONFIG.stateFile,
-      JSON.stringify({ ...state, ...newState })
+      JSON.stringify({ ...state, ...newState }),
     );
   } catch {}
 }
@@ -1211,7 +1253,7 @@ function buildTooltip(state: State): string {
   if (state.startTime) {
     const s = Math.floor((Date.now() - state.startTime) / 1000);
     lines.push(
-      `Time: ${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`
+      `Time: ${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`,
     );
   }
   if (state.error) lines.push(`<span color='#ff6b6b'>${state.error}</span>`);
