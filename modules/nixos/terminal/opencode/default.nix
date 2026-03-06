@@ -111,7 +111,7 @@
             "${pkgs.writeShellScript "image-gen-mcp-wrapper" ''
               export CLIPROXYAPI_KEY="${self.secrets.CLIPROXYAPI_KEY}"
               export IMAGE_MODEL="${models."gemini-3.1-flash-image"}"
-              exec ${pkgs.bun}/bin/bun ${/home/matrix/nixconf/modules/nixos/scripts/bunjs/mcp/image-gen.ts}
+              exec ${pkgs.bun}/bin/bun ${../../../nixos/scripts/bunjs/mcp/image-gen.ts}
             ''}"
           ];
           enabled = true;
@@ -128,7 +128,7 @@
                   pkgs.poppler-utils
                 ]
               }:$PATH"
-              exec ${pkgs.bun}/bin/bun ${/home/matrix/nixconf/modules/nixos/scripts/bunjs/mcp/slide-preview.ts}
+              exec ${pkgs.bun}/bin/bun ${../../../nixos/scripts/bunjs/mcp/slide-preview.ts}
             ''}"
           ];
           enabled = false;

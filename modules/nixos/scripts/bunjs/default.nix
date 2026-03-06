@@ -194,7 +194,7 @@
       packages.markdown-lint-mcp = inputs.wrappers.lib.makeWrapper {
         inherit pkgs;
         package = pkgs.writeShellScriptBin "markdown-lint-mcp" ''
-          exec ${pkgs.bun}/bin/bun run /home/matrix/nixconf/modules/nixos/scripts/bunjs/mcp/markdown-lint.ts "$@"
+          exec ${pkgs.bun}/bin/bun run ${./mcp}/markdown-lint.ts "$@"
         '';
         runtimeInputs = [
           pkgs.bun
@@ -207,7 +207,7 @@
         inherit pkgs;
         package = pkgs.writeShellScriptBin "quickshell-docs-mcp" ''
           export QUICKSHELL_DOCS_PATH="${self'.packages.quickshell-docs-markdown}"
-          exec ${pkgs.bun}/bin/bun run /home/matrix/nixconf/modules/nixos/scripts/bunjs/mcp/quickshell-docs.ts "$@"
+          exec ${pkgs.bun}/bin/bun run ${./mcp}/quickshell-docs.ts "$@"
         '';
         runtimeInputs = [
           pkgs.bun
@@ -218,7 +218,7 @@
       packages.qmllint-mcp = inputs.wrappers.lib.makeWrapper {
         inherit pkgs;
         package = pkgs.writeShellScriptBin "qmllint-mcp" ''
-          exec ${pkgs.bun}/bin/bun run /home/matrix/nixconf/modules/nixos/scripts/bunjs/mcp/qmllint.ts "$@"
+          exec ${pkgs.bun}/bin/bun run ${./mcp}/qmllint.ts "$@"
         '';
         runtimeInputs = [
           pkgs.bun
