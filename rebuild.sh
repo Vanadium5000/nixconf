@@ -433,7 +433,7 @@ install_system() {
     write_secrets_nix
 
     # Install on target host using the using nixos-anywhere
-    local cmd="nix run $ARGS github:nix-community/nixos-anywhere -- --flake 'path:${FLAKE_DIR}#${HOST}' --target-host '${target_host}'"
+    local cmd="nix run $ARGS github:nix-community/nixos-anywhere -- --impure --flake 'path:${FLAKE_DIR}#${HOST}' --target-host '${target_host}'"
     log_command "$cmd"
     if ! eval "$cmd"; then
         error "System installment using nixos-anywhere failed for host '${HOST}' to target: ${target_host}"
