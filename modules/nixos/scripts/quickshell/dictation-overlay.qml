@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Controls
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
@@ -10,24 +11,21 @@ PanelWindow {
     
     color: "transparent"
     
-    // Position
+    // Position: Bottom of screen, centered
     anchors {
         bottom: true
-        left: true
-        right: true
+        horizontalCenter: true
     }
     
     margins {
         bottom: 80 // Above waybar
-        left: 20
-        right: 20
     }
     
-    width: Screen.desktopAvailableWidth - 40
-    height: container.implicitHeight + 32
+    width: 600
+    height: container.height + 40
     
     WlrLayershell.namespace: "dictation-overlay"
-    WlrLayershell.layer: WlrLayer.Top
+    WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
     
     // State parsing
@@ -53,7 +51,7 @@ PanelWindow {
                     root.dictationError = st.error || "";
                     root.dictationProgress = st.progress || "";
                 } catch(e) {
-                    // Ignore parsing errors (file might be mid-write)
+                    // Ignore parsing errors
                 }
             }
         }
@@ -67,66 +65,121 @@ PanelWindow {
             stateReader.running = true;
         }
     }
-    
+
+    // Logic for control actions
+    function sendCommand(cmd) {
+        commandRunner.command = ["dictation", "cmd", cmd];
+        commandRunner.running = true;
+    }
+
+    Process { id: commandRunner; running: false }
+    Process { id: copier; running: false }
+
     Item {
         id: container
         anchors.centerIn: parent
-        width: Math.min(contentLayout.implicitWidth + 64, root.width - 40)
-        height: contentLayout.implicitHeight + 32
-        
+        width: parent.width - 40
+        height: Math.min(contentArea.implicitHeight + 160, 400)
+
         Lib.GlassPanel {
             anchors.fill: parent
-            
-            // Allow clicking through the panel background
-            mask: Region {
-                item: contentLayout
-            }
-            
+            cornerRadius: 26
+        }
+
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: 16
+            spacing: 12
+
+            // --- Header: Status & Close ---
             RowLayout {
-                id: contentLayout
-                anchors.centerIn: parent
-                spacing: 16
-                
-                // Volume/Status Indicator
+                Layout.fillWidth: true
+                spacing: 12
+
                 Rectangle {
-                    Layout.alignment: Qt.AlignVCenter
-                    width: 12
-                    height: 12
-                    radius: 6
-                    
+                    width: 12; height: 12; radius: 6
                     color: {
-                        if (root.dictationMode === "error") return Lib.Theme.error;
-                        if (root.dictationMode === "live") return Lib.Theme.success;
-                        if (root.dictationMode === "transcribe") return Lib.Theme.accent;
-                        if (root.dictationMode === "downloading") return Lib.Theme.accentAlt;
-                        return Lib.Theme.foregroundAlt;
+                        if (root.dictationMode === "error") return "#fc5454"; // Lib.Theme.error
+                        if (root.dictationMode === "live") return "#54fc54"; // Lib.Theme.success
+                        if (root.dictationMode === "transcribe") return "#5454fc"; // Lib.Theme.accent
+                        if (root.dictationMode === "downloading") return "#54fcfc"; // Lib.Theme.accentAlt
+                        return "#d0d0d0"; // Lib.Theme.foregroundAlt
                     }
-                    
-                    // Pulse effect for live mode based on volume
                     opacity: root.dictationMode === "live" ? 0.4 + (root.dictationVolume * 0.6) : 1.0
+                    Behavior on opacity { NumberAnimation { duration: 100 } }
+                }
+
+                Text {
+                    text: root.dictationMode.toUpperCase()
+                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: 11
+                    color: "#d0d0d0"
+                    font.bold: true
+                }
+
+                Item { Layout.fillWidth: true }
+
+                Lib.GlassButton {
+                    Layout.preferredWidth: 32; Layout.preferredHeight: 32
+                    text: "×"
+                    cornerRadius: 16
+                    onClicked: root.sendCommand("hide")
+                }
+            }
+
+            // --- Content: The Transcript ---
+            ScrollView {
+                id: transcriptScroll
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                clip: true
+                
+                Text {
+                    id: contentArea
+                    width: transcriptScroll.width - 16
+                    text: root.dictationMode === "error" ? root.dictationError : root.dictationText
+                    color: root.dictationMode === "error" ? "#fc5454" : "#e0e0e0"
+                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: 15
+                    wrapMode: Text.Wrap
+                    padding: 8
                     
-                    Behavior on opacity {
-                        NumberAnimation { duration: 100; easing.type: Easing.OutQuad }
+                    // Auto-scroll to bottom
+                    onTextChanged: {
+                        Qt.callLater(() => {
+                            transcriptScroll.contentItem.contentY = Math.max(0, contentArea.height - transcriptScroll.height)
+                        })
                     }
                 }
-                
-                // Main Text
-                Text {
-                    Layout.alignment: Qt.AlignVCenter
-                    Layout.maximumWidth: root.width - 120 // Leave room for margins and indicator
-                    
-                    text: {
-                        if (root.dictationMode === "error") return root.dictationError || "Error";
-                        if (root.dictationMode === "downloading") return root.dictationText + " " + root.dictationProgress;
-                        if (root.dictationMode === "transcribe") return root.dictationText + " " + root.dictationProgress;
-                        return root.dictationText;
+            }
+
+            // --- Footer: Controls ---
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+
+                Lib.GlassButton {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 40
+                    text: "Copy"
+                    onClicked: {
+                        copier.command = ["wl-copy", "--type", "text/plain", root.dictationText];
+                        copier.running = true;
                     }
-                    
-                    color: root.dictationMode === "error" ? Lib.Theme.error : Lib.Theme.foreground
-                    font.family: Lib.Theme.fontName
-                    font.pixelSize: Lib.Theme.fontSizeLarge
-                    wrapMode: Text.Wrap
-                    horizontalAlignment: Text.AlignHCenter
+                }
+
+                Lib.GlassButton {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 40
+                    text: "Clear"
+                    onClicked: root.sendCommand("clear")
+                }
+
+                Lib.GlassButton {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 40
+                    text: root.dictationMode === "live" ? "Pause" : "Resume"
+                    onClicked: root.sendCommand("pause")
                 }
             }
         }

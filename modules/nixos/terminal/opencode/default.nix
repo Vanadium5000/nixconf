@@ -229,55 +229,74 @@
               availableNotInTemplate = lib.filterAttrs (
                 name: cfg: !(builtins.elem name enabledMcpNames) && !(cfg.enabled or false)
               ) mcpConfig;
+
+              globalNames = lib.attrNames globallyEnabledNotInTemplate;
+              availableNames = lib.attrNames availableNotInTemplate;
+
+              # All actual data items in order: global, then available, then enabled
+              # This helps us determine where to put the final trailing comma (or omit it)
+              allDataNames = globalNames ++ availableNames ++ enabledMcpNames;
+              lastIdx = lib.length allDataNames - 1;
+
+              # Helper to generate a line with a comma if it's not the absolute last item
+              mkLine =
+                i: text:
+                let
+                  comma = if i == lastIdx then "" else ",";
+                in
+                "    ${text}${comma}";
+
+              # Section construction
+              globalSection =
+                if globalNames == [ ] then
+                  [ ]
+                else
+                  [ "    // Globally enabled by default - disable if not needed" ]
+                  ++ (lib.imap0 (i: name: mkLine i "// \"${name}\": { \"enabled\": false }") globalNames);
+
+              availableSection =
+                if availableNames == [ ] then
+                  [ ]
+                else
+                  [ "    // Available: uncomment to enable" ]
+                  ++ (lib.imap0 (
+                    i: name: mkLine (i + lib.length globalNames) "// \"${name}\": { \"enabled\": true }"
+                  ) availableNames);
+
+              enabledSection = lib.imap0 (
+                i: name:
+                mkLine (i + lib.length globalNames + lib.length availableNames) "\"${name}\": { \"enabled\": true }"
+              ) enabledMcpNames;
+
+              # Combine sections with blank lines
+              result =
+                globalSection
+                ++ lib.optional (globalSection != [ ] && (availableSection != [ ] || enabledSection != [ ])) ""
+                ++ availableSection
+                ++ lib.optional (availableSection != [ ] && enabledSection != [ ]) ""
+                ++ enabledSection;
             in
-            let
-              # Build the JSONC sections as lists of strings
-              globalSection = lib.mapAttrsToList (
-                name: cfg:
-                "    // ✨ Globally enabled by default - disable if not needed\n    // \"${name}\": { \"enabled\": false }"
-              ) globallyEnabledNotInTemplate;
-
-              availableSection = lib.mapAttrsToList (
-                name: cfg: "    // Available: uncomment to enable\n    // \"${name}\": { \"enabled\": true }"
-              ) availableNotInTemplate;
-
-              enabledSection = lib.map (name: "    \"${name}\": { \"enabled\": true }") enabledMcpNames;
-
-              allSections = globalSection ++ availableSection ++ enabledSection;
-            in
-            "{\n  \"mcp\": {\n${lib.concatStringsSep ",\n" allSections}\n  }\n}";
+            "{\n  \"mcp\": {\n${lib.concatStringsSep "\n" result}\n  }\n}";
         in
         {
           # Use JSONC for interactive templates
+          # Globally enabled MCPs (websearch, context7, gh_grep, markdown_lint, image_gen)
+          # are omitted from the enabled list so they appear in the "Globally enabled" section.
           "Web Development" = mkTemplateJsonC "Web Development" [
             "daisyui"
             "playwrite"
-            "websearch"
-            "context7"
-            "gh_grep"
-            "image_gen"
           ];
           "NixOS Config" = mkTemplateJsonC "NixOS Config" [
             "quickshell"
             "qmllint"
-            "websearch"
-            "gh_grep"
-            "image_gen"
           ];
           "PowerPoint/Office Work" = mkTemplateJsonC "PowerPoint/Office Work" [
             "powerpoint"
             "slide_preview"
-            "websearch"
-            "gh_grep"
-            "image_gen"
           ];
           "All MCPs" = mkTemplateJsonC "All MCPs" allMcpNames;
           "No MCPs" = mkTemplateJsonC "No MCPs" [ ];
-          "Custom MCP File" = mkTemplateJsonC "Custom MCP File" [
-            "websearch"
-            "context7"
-            "gh_grep"
-          ];
+          "Custom MCP File" = mkTemplateJsonC "Custom MCP File" [ ];
         };
 
       # Store templates in the Nix store for rapid switching
@@ -413,7 +432,8 @@
 
           if [ ! -f "$template_file" ]; then echo "Error: Template not found."; return 1; fi
 
-          $JQ '.' "$template_file" > "$LOCAL_JSONC_FILE"
+          # Copy template directly (JSONC with comments, not valid JSON)
+          cat "$template_file" > "$LOCAL_JSONC_FILE"
           $GUM style --foreground 212 --border double --align center --padding "1 2" "✨ Project Initialized ✨" "Template: $choice" "Saved to: opencode.jsonc"
         }
 

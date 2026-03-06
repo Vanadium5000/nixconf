@@ -101,6 +101,9 @@ switch (command) {
   case "select-device":
     await handleSelectDevice();
     break;
+  case "cmd":
+    await handleCommand();
+    break;
   case "help":
   case "--help":
   case "-h":
@@ -449,6 +452,35 @@ async function ensureDeviceSelected(): Promise<AudioDevice | null> {
   return null;
 }
 
+async function handleCommand() {
+  const cmd = args[1];
+  switch (cmd) {
+    case "clear":
+      await updateState({ text: "" });
+      break;
+    case "pause":
+      const state = await loadState();
+      await updateState({ mode: state.mode === "live" ? "idle" : "live" });
+      break;
+    case "hide":
+      await $`toggle-dictation-overlay hide`.quiet().catch(() => {});
+      break;
+    default:
+      console.error(`Unknown internal command: ${cmd}`);
+      process.exit(1);
+  }
+}
+
+async function loadState(): Promise<State> {
+  try {
+    const file = Bun.file(CONFIG.stateFile);
+    if (await file.exists()) {
+      return await file.json();
+    }
+  } catch {}
+  return { text: "", isRecording: false, mode: "idle" };
+}
+
 async function handleTranscribe() {
   const inputFile = args[1];
   if (!inputFile || !existsSync(inputFile)) {
@@ -655,7 +687,10 @@ async function runWhisperStream(
       "5000", // Keep it relatively short to avoid rambling context errors
       "-vth",
       "0.6", // Voice activity detection threshold to cut silence hallucinations
-      "-kc", // Keep context across chunks
+      // NOTE: Removed "-kc" - keeping context across chunks causes repetition loops
+      "-bs",
+      "5", // Beam search with 5 beams (reduces repetition vs greedy)
+      "-nf", // No temperature fallback (prevents hallucination)
       "-c",
       "0", // Force default device, as PULSE_SOURCE handles selection
     ],
@@ -827,12 +862,15 @@ async function runWhisperStream(
           clearTimeout(watchdog);
           await log("INFO", "Streaming active");
         }
-        await updateState({
-          text: "🎤 Listening...",
-          isRecording: true,
-          mode: "live",
-          volume: 0.2,
-        });
+        const state = await loadState();
+        if (state.mode === "live") {
+          await updateState({
+            text: state.text || "🎤 Listening...",
+            isRecording: true,
+            mode: "live",
+            volume: 0.2,
+          });
+        }
       }
 
       if (text.includes("found 0 capture")) {
@@ -847,6 +885,9 @@ async function runWhisperStream(
         process.exit(1);
       }
 
+      const state = await loadState();
+      if (state.mode !== "live") continue;
+
       if (isValidTranscript(text) && text !== lastText) {
         lastText = text;
         const now = Date.now();
@@ -855,71 +896,15 @@ async function runWhisperStream(
           lastUpdateTime = now;
           await log("INFO", "Transcribed", { text: text.slice(0, 60) });
 
-          if (!noType) {
-            try {
-              if (text.startsWith(typedText)) {
-                const delta = text.slice(typedText.length);
-                if (delta) {
-                  await $`wtype -- ${delta}`.quiet();
-                  typedText = text;
-                }
-              } else {
-                let commonLen = 0;
-                const minLen = Math.min(typedText.length, text.length);
-                while (
-                  commonLen < minLen &&
-                  typedText[commonLen] === text[commonLen]
-                ) {
-                  commonLen++;
-                }
+          const newText =
+            state.text &&
+            state.text !== "🎤 Listening..." &&
+            state.text !== "Starting..."
+              ? state.text + " " + text
+              : text;
 
-                const backspaces = typedText.length - commonLen;
-
-                if (backspaces > 10 || commonLen < 3) {
-                  // If it's a huge rewrite or we're starting fresh
-                  if (typedText.length > 0 && commonLen < 3) {
-                    // Just start a new word rather than trying to delete everything
-                    const separator = typedText.length > 0 ? " " : "";
-                    await $`wtype -- ${separator}${text}`.quiet();
-                  } else {
-                    // For large corrections, wtype backspace loop is too slow
-                    // Use wl-copy to paste replacement
-                    const newText = text.slice(commonLen);
-
-                    // Send backspaces
-                    for (let i = 0; i < backspaces; i++) {
-                      await $`wtype -k BackSpace`.quiet();
-                    }
-
-                    if (newText) {
-                      // Paste instant
-                      await $`echo -n "${newText}" | wl-copy --type text/plain`.quiet();
-                      await Bun.sleep(50); // Small wait for clipboard to propagate
-                      await $`wtype -M ctrl -k v -m ctrl`.quiet();
-                    }
-                  }
-                  typedText = text;
-                } else {
-                  // Small correction - backspace and fix
-                  const newText = text.slice(commonLen);
-                  for (let i = 0; i < backspaces; i++) {
-                    await $`wtype -k BackSpace`.quiet();
-                  }
-                  if (newText) {
-                    await $`wtype -- ${newText}`.quiet();
-                  }
-                  typedText = text;
-                }
-              }
-            } catch (e) {
-              await log("WARN", "wtype failed", { error: String(e) });
-            }
-          }
-
-          const displayText =
-            text.length > 50 ? text.slice(0, 47) + "..." : text;
           await updateState({
-            text: displayText,
+            text: newText,
             isRecording: true,
             mode: "live",
             volume: 0.8,
