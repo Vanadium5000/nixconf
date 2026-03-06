@@ -28,6 +28,7 @@
             setopt HIST_FIND_NO_DUPS      # Don't show duplicates in search
             setopt HIST_REDUCE_BLANKS     # Remove superfluous blanks
             setopt EXTENDED_HISTORY       # Save timestamps (needed for correct history sharing)
+            setopt INC_APPEND_HISTORY     # Write to the history file immediately, not when the shell exits
             setopt SHARE_HISTORY          # Share history between all sessions
 
             zmodload zsh/parameter

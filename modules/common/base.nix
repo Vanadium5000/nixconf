@@ -94,6 +94,8 @@
         users.users.${cfg.user.username} = {
           isNormalUser = true;
 
+          packages = self.legacyPackages.${pkgs.stdenv.hostPlatform.system}.environmentPackages;
+
           extraGroups = [
             "wheel"
             "networkmanager"
@@ -120,6 +122,11 @@
         # Pesist Tealdeer (a TLDR alternative) cache data
         impermanence.home.cache.directories = [
           ".cache/tealdeer"
+        ];
+
+        # Persist ZSH history
+        impermanence.home.cache.files = [
+          ".zsh_history"
         ];
 
         # Locales
