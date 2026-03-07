@@ -38,6 +38,7 @@
             nixfmt-rfc-style # Nix formatter
             manix
             nix-inspect
+            nix-prefetch-github
           ]
           # General CLI tools
           ++ [

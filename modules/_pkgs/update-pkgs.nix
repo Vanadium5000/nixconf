@@ -326,9 +326,9 @@ pkgs.writeShellApplication {
           fi
           ;;
 
-        "dogecoin")
+        "dogecoin"|"openchamber")
           # Has versioned URL from GitHub releases
-          if update_versioned_url_package "$pkg" "dogecoin" "dogecoin"; then
+          if update_versioned_url_package "$pkg" "openchamber" "openchamber"; then
             UPDATED+=("$pkg")
           else
             SKIPPED+=("$pkg")

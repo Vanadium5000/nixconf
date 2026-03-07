@@ -9,10 +9,6 @@
     # === PLANNING ===
     "@plannotator/opencode@latest" # Visual plan annotation, approval workflow, hard enforcement
 
-    # === NOTIFICATIONS & OBSERVABILITY ===
-    "@mohak34/opencode-notifier@latest" # Desktop notifications
-    # "opencode-helicone-session@latest" # Removed: Not using Helicone for observability
-
     # === SAFETY ===
     # "cc-safety-net@latest" # Removed: Git checkpoints before destructive operations.
 
