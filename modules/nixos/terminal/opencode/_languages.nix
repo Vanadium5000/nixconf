@@ -1,37 +1,107 @@
 { pkgs, self }:
 let
   formatterBins = {
+    clang-format = "${pkgs.clang-tools}/bin/clang-format";
     nixfmt = "${pkgs.nixfmt-rfc-style}/bin/nixfmt";
     prettier = "${pkgs.nodePackages.prettier}/bin/prettier";
+    gofumpt = "${pkgs.gofumpt}/bin/gofumpt";
+    ruff = "${pkgs.ruff}/bin/ruff";
+    rustfmt = "${pkgs.rustfmt}/bin/rustfmt";
     shfmt = "${pkgs.shfmt}/bin/shfmt";
+    sqlfluff = "${pkgs.sqlfluff}/bin/sqlfluff";
+    stylua = "${pkgs.stylua}/bin/stylua";
+    taplo = "${pkgs.taplo}/bin/taplo";
+    terraform = "${pkgs.terraform}/bin/terraform";
+    typstyle = "${pkgs.typstyle}/bin/typstyle";
   };
 
   lspBins = {
+    bash = "${pkgs.bash-language-server}/bin/bash-language-server";
+    clangd = "${pkgs.clang-tools}/bin/clangd";
+    cmake = "${pkgs.cmake-language-server}/bin/cmake-language-server";
+    docker-compose = "${pkgs.docker-compose-language-service}/bin/docker-compose-langserver";
+    dockerfile = "${pkgs.dockerfile-language-server}/bin/docker-langserver";
     nil = "${pkgs.nil}/bin/nil";
+    basedpyright = "${pkgs.basedpyright}/bin/basedpyright-langserver";
+    gopls = "${pkgs.gopls}/bin/gopls";
+    marksman = "${pkgs.marksman}/bin/marksman";
+    lua = "${pkgs.lua-language-server}/bin/lua-language-server";
+    rust = "${pkgs.rust-analyzer}/bin/rust-analyzer";
+    sql = "${pkgs.sqls}/bin/sqls";
     tailwindcss = "${pkgs.tailwindcss-language-server}/bin/tailwindcss-language-server";
+    taplo = "${pkgs.taplo}/bin/taplo";
+    terraform = "${pkgs.terraform-ls}/bin/terraform-ls";
+    texlab = "${pkgs.texlab}/bin/texlab";
+    typst = "${pkgs.tinymist}/bin/tinymist";
     typescript = "${pkgs.typescript-language-server}/bin/typescript-language-server";
     html = "${pkgs.vscode-langservers-extracted}/bin/vscode-html-language-server";
     css = "${pkgs.vscode-langservers-extracted}/bin/vscode-css-language-server";
     json = "${pkgs.vscode-langservers-extracted}/bin/vscode-json-language-server";
     eslint = "${pkgs.vscode-langservers-extracted}/bin/vscode-eslint-language-server";
+    yaml = "${pkgs.yaml-language-server}/bin/yaml-language-server";
   };
 in
 {
   packages =
     (with pkgs; [
+      bash-language-server
+      basedpyright
+      clang-tools
+      cmake-language-server
+      docker-compose-language-service
+      dockerfile-language-server
+      gopls
+      gofumpt
+      lua-language-server
+      marksman
       nodePackages.markdownlint-cli
-      # nil
-      tailwindcss-language-server
       nixfmt-rfc-style
       nodePackages.prettier
+      ruff
+      rust-analyzer
+      rustfmt
       shfmt
+      sqlfluff
+      sqls
+      stylua
+      tailwindcss-language-server
+      taplo
+      terraform
+      terraform-ls
+      texlab
+      tinymist
       vscode-langservers-extracted
       typescript-language-server
+      typstyle
+      yaml-language-server
       eslint_d
     ])
     ++ (with self.packages.${pkgs.stdenv.hostPlatform.system}; [ daisyui-mcp ]);
 
   formatter = {
+    clang-format = {
+      command = [
+        formatterBins.clang-format
+        "-i"
+      ];
+      extensions = [
+        ".c"
+        ".cc"
+        ".cpp"
+        ".cxx"
+        ".h"
+        ".hh"
+        ".hpp"
+        ".hxx"
+      ];
+    };
+    gofumpt = {
+      command = [
+        formatterBins.gofumpt
+        "-w"
+      ];
+      extensions = [ ".go" ];
+    };
     shfmt = {
       command = [
         formatterBins.shfmt
@@ -41,6 +111,7 @@ in
       extensions = [
         ".sh"
         ".bash"
+        ".zsh"
       ];
     };
     prettier = {
@@ -89,6 +160,68 @@ in
       ];
       extensions = [ ".nix" ];
     };
+    ruff = {
+      command = [
+        formatterBins.ruff
+        "format"
+        "$FILE"
+      ];
+      extensions = [
+        ".py"
+        ".pyi"
+      ];
+    };
+    rustfmt = {
+      command = [
+        formatterBins.rustfmt
+        "$FILE"
+      ];
+      extensions = [ ".rs" ];
+    };
+    sqlfluff = {
+      command = [
+        formatterBins.sqlfluff
+        "fix"
+        "--force"
+        "$FILE"
+      ];
+      extensions = [ ".sql" ];
+    };
+    stylua = {
+      command = [
+        formatterBins.stylua
+        "$FILE"
+      ];
+      extensions = [ ".lua" ];
+    };
+    taplo = {
+      command = [
+        formatterBins.taplo
+        "format"
+        "$FILE"
+      ];
+      extensions = [ ".toml" ];
+    };
+    terraform = {
+      command = [
+        formatterBins.terraform
+        "fmt"
+        "$FILE"
+      ];
+      extensions = [
+        ".tf"
+        ".tfvars"
+        ".hcl"
+      ];
+    };
+    typstyle = {
+      command = [
+        formatterBins.typstyle
+        "--inplace"
+        "$FILE"
+      ];
+      extensions = [ ".typ" ];
+    };
   };
 
   lsp = {
@@ -97,6 +230,45 @@ in
     #   command = [ lspBins.nil ];
     #   extensions = [ ".nix" ];
     # };
+    bash = {
+      command = [
+        lspBins.bash
+        "start"
+      ];
+      extensions = [
+        ".sh"
+        ".bash"
+        ".zsh"
+      ];
+    };
+    clangd = {
+      command = [ lspBins.clangd ];
+      extensions = [
+        ".c"
+        ".cc"
+        ".cpp"
+        ".cxx"
+        ".h"
+        ".hh"
+        ".hpp"
+        ".hxx"
+      ];
+    };
+    cmake = {
+      command = [ lspBins.cmake ];
+      extensions = [ ".cmake" ];
+    };
+    python = {
+      command = [ lspBins.basedpyright ];
+      extensions = [
+        ".py"
+        ".pyi"
+      ];
+    };
+    go = {
+      command = [ lspBins.gopls ];
+      extensions = [ ".go" ];
+    };
     tailwindcss = {
       command = [
         lspBins.tailwindcss
@@ -107,6 +279,15 @@ in
         ".html"
         ".jsx"
         ".tsx"
+        ".vue"
+      ];
+    };
+    markdown = {
+      command = [ lspBins.marksman ];
+      extensions = [
+        ".md"
+        ".mdx"
+        ".markdown"
       ];
     };
     typescript = {
@@ -119,6 +300,10 @@ in
         ".tsx"
         ".js"
         ".jsx"
+        ".mjs"
+        ".cjs"
+        ".mts"
+        ".cts"
       ];
     };
     html = {
@@ -126,21 +311,49 @@ in
         lspBins.html
         "--stdio"
       ];
-      extensions = [ ".html" ];
+      extensions = [
+        ".html"
+        ".htm"
+      ];
     };
     css = {
       command = [
         lspBins.css
         "--stdio"
       ];
-      extensions = [ ".css" ];
+      extensions = [
+        ".css"
+        ".scss"
+        ".less"
+      ];
+    };
+    docker-compose = {
+      command = [
+        lspBins.docker-compose
+        "--stdio"
+      ];
+      extensions = [
+        ".compose.yaml"
+        ".compose.yml"
+      ];
+    };
+    dockerfile = {
+      command = [
+        lspBins.dockerfile
+        "--stdio"
+      ];
+      extensions = [ ".dockerfile" ];
     };
     json = {
       command = [
         lspBins.json
         "--stdio"
       ];
-      extensions = [ ".json" ];
+      extensions = [
+        ".json"
+        ".jsonc"
+        ".json5"
+      ];
     };
     eslint = {
       command = [
@@ -153,6 +366,58 @@ in
         ".ts"
         ".tsx"
         ".vue"
+      ];
+    };
+    lua = {
+      command = [ lspBins.lua ];
+      extensions = [ ".lua" ];
+    };
+    rust = {
+      command = [ lspBins.rust ];
+      extensions = [ ".rs" ];
+    };
+    sql = {
+      command = [ lspBins.sql ];
+      extensions = [ ".sql" ];
+    };
+    taplo = {
+      command = [
+        lspBins.taplo
+        "lsp"
+        "stdio"
+      ];
+      extensions = [ ".toml" ];
+    };
+    terraform = {
+      command = [
+        lspBins.terraform
+        "serve"
+      ];
+      extensions = [
+        ".tf"
+        ".tfvars"
+        ".hcl"
+      ];
+    };
+    texlab = {
+      command = [ lspBins.texlab ];
+      extensions = [
+        ".tex"
+        ".bib"
+      ];
+    };
+    typst = {
+      command = [ lspBins.typst ];
+      extensions = [ ".typ" ];
+    };
+    yaml = {
+      command = [
+        lspBins.yaml
+        "--stdio"
+      ];
+      extensions = [
+        ".yaml"
+        ".yml"
       ];
     };
   };
