@@ -18,11 +18,18 @@
 
       # Path to the persistent model selections
       stateFile = ./state.json;
-      state = if builtins.pathExists stateFile then builtins.fromJSON (builtins.readFile stateFile) else {
-        advanced = "cliproxyapi/gemini-3.1-pro-high";
-        medium = "cliproxyapi/gemini-3-flash";
-        fast = "cliproxyapi/gemini-3-flash";
-      };
+      state =
+        let
+          exists = builtins.pathExists stateFile;
+          content = if exists then builtins.readFile stateFile else "";
+          isValid = exists && content != "" && content != " " && content != "{}";
+          data = if isValid then builtins.fromJSON content else { };
+        in
+        {
+          advanced = data.advanced or "cliproxyapi/gemini-3.1-pro-high";
+          medium = data.medium or "cliproxyapi/gemini-3-flash";
+          fast = data.fast or "cliproxyapi/gemini-3-flash";
+        };
 
       # MCP server configuration shared between configs and project templates
       mcpConfig = {
@@ -375,6 +382,7 @@
           local full_id="$2"
           
           # Update state.json (for rebuilds)
+          if [ ! -f "$STATE_FILE" ] || [ ! -s "$STATE_FILE" ]; then echo "{}" > "$STATE_FILE"; fi
           local temp_state
           temp_state=$(mktemp)
           $JQ ".\"$tier\" = \"$full_id\"" "$STATE_FILE" > "$temp_state" && mv "$temp_state" "$STATE_FILE"
@@ -383,6 +391,14 @@
           if [ -f "$GLOBAL_CONFIG_FILE" ]; then
             local temp_config
             temp_config=$(mktemp)
+            
+            # Ensure agent structure exists in config.json
+            if ! $JQ 'has("agent")' "$GLOBAL_CONFIG_FILE" | grep -q "true"; then
+              local bootstrap_config
+              bootstrap_config=$(mktemp)
+              $JQ ".agent = {}" "$GLOBAL_CONFIG_FILE" > "$bootstrap_config" && mv "$bootstrap_config" "$GLOBAL_CONFIG_FILE"
+            fi
+
             case "$tier" in
               advanced)
                 $JQ ".agent.build.model = \"$full_id\"
@@ -390,17 +406,22 @@
                    | .agent[\"plan-reviewer\"].model = \"$full_id\"
                    | .agent.advisor.model = \"$full_id\"
                    | .agent.general.model = \"$full_id\"" \
-                  "$GLOBAL_CONFIG_FILE" > "$temp_config" && mv "$temp_config" "$GLOBAL_CONFIG_FILE" ;;
+                  "$GLOBAL_CONFIG_FILE" > "$temp_config" ;;
               medium)
                 $JQ ".agent.researcher.model = \"$full_id\"
                    | .agent.tester.model = \"$full_id\"
                    | .agent.explore.model = \"$full_id\"" \
-                  "$GLOBAL_CONFIG_FILE" > "$temp_config" && mv "$temp_config" "$GLOBAL_CONFIG_FILE" ;;
+                  "$GLOBAL_CONFIG_FILE" > "$temp_config" ;;
               fast)
                 $JQ ".agent.scout.model = \"$full_id\"
                    | .agent.verifier.model = \"$full_id\"" \
-                  "$GLOBAL_CONFIG_FILE" > "$temp_config" && mv "$temp_config" "$GLOBAL_CONFIG_FILE" ;;
+                  "$GLOBAL_CONFIG_FILE" > "$temp_config" ;;
             esac
+            
+            if [ -s "$temp_config" ]; then
+              mv "$temp_config" "$GLOBAL_CONFIG_FILE"
+              chmod 0600 "$GLOBAL_CONFIG_FILE"
+            fi
           fi
         }
 
@@ -459,13 +480,24 @@
           if [ -f "$LOCAL_JSONC_FILE" ]; then context_msg="Context: Local Project ($LOCAL_JSONC_FILE)"; fi
 
           local cur_adv cur_med cur_fast
-          cur_adv=$($JQ -r '.advanced' "$STATE_FILE")
-          cur_med=$($JQ -r '.medium' "$STATE_FILE")
-          cur_fast=$($JQ -r '.fast' "$STATE_FILE")
+          if [ -f "$STATE_FILE" ] && [ -s "$STATE_FILE" ]; then
+            cur_adv=$($JQ -r '.advanced // "N/A"' "$STATE_FILE" 2>/dev/null || echo "N/A")
+            cur_med=$($JQ -r '.medium // "N/A"' "$STATE_FILE" 2>/dev/null || echo "N/A")
+            cur_fast=$($JQ -r '.fast // "N/A"' "$STATE_FILE" 2>/dev/null || echo "N/A")
+          else
+            cur_adv="[Default]"
+            cur_med="[Default]"
+            cur_fast="[Default]"
+          fi
+
+          local sync_warning=""
+          if [ ! -f "$MODELS_FILE" ] || [ ! -s "$MODELS_FILE" ]; then
+            sync_warning=" (⚠️ Models list empty, please sync!)"
+          fi
 
           local action
           action=$($GUM choose \
-            "Sync Models from API" \
+            "Sync Models from API$sync_warning" \
             "Change Advanced Model (Builder, Planner, Advisor, General)" \
             "Change Medium Model (Researcher, Tester, Explore)" \
             "Change Fast Model (Scout, Verifier)" \
@@ -478,7 +510,7 @@
         Current Fast: $cur_fast" --cursor="▶ " --selected.foreground="212" --cursor.foreground="212")
 
           case "$action" in
-            "Sync Models from API") sync_models ;;
+            "Sync Models from API"*) sync_models ;;
             "Change Advanced Model (Builder, Planner, Advisor, General)") choose_model "advanced" "Select Advanced Model" ;;
             "Change Medium Model (Researcher, Tester, Explore)") choose_model "medium" "Select Medium Model" ;;
             "Change Fast Model (Scout, Verifier)") choose_model "fast" "Select Fast Model" ;;

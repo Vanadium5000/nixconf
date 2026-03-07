@@ -4,9 +4,16 @@ let
   # This file is updated by 'opencode-models sync' in the repo
   modelsFile = ./models.json;
 
-  # Load the dynamic models if the file exists, otherwise use empty providers
+  # Load the dynamic models if the file exists and is valid, otherwise use empty providers
   dynamicData =
-    if builtins.pathExists modelsFile then builtins.fromJSON (builtins.readFile modelsFile) else { };
+    let
+      exists = builtins.pathExists modelsFile;
+      content = if exists then builtins.readFile modelsFile else "";
+      # fromJSON fails on empty string, we need to ensure it's at least {}
+      isValid = exists && content != "" && content != " " && content != "{}";
+      data = if isValid then builtins.fromJSON content else { };
+    in
+    data;
 
   # Minimal static fallback for the unified provider
   unifiedProvider = {

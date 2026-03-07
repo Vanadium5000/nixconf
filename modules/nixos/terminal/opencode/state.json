@@ -1,5 +1,5 @@
 {
-  "advanced": "antigravity-gemini/gemini-3.1-pro-high",
-  "medium": "antigravity-gemini/gemini-3-flash",
-  "fast": "antigravity-gemini/gemini-3-flash"
+  "advanced": "cliproxyapi/gpt-5.4",
+  "medium": "cliproxyapi/gemini-3-flash",
+  "fast": "cliproxyapi/gemini-3-flash"
 }
