@@ -104,9 +104,9 @@
       # Add overlays
       nixpkgs.overlays = [
         (final: prev: {
-          customPackages = self.packages.${final.system};
+          customPackages = self.packages.${final.stdenv.hostPlatform.system};
           unstable = import inputs.nixpkgs-unstable {
-            system = final.system;
+            system = final.stdenv.hostPlatform.system;
             config = final.config; # Inherit nixpkgs config
           };
           nur = import inputs.nur {

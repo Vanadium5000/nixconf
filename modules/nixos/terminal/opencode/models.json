@@ -1,0 +1,338 @@
+{
+  "providers": {
+    "cliproxyapi": {
+      "npm": "@ai-sdk/anthropic",
+      "name": "CliProxyApi",
+      "baseUrl": "http://127.0.0.1:8317/v1",
+      "models": {
+        "gemini-3-pro-high": {
+          "name": "Gemini 3 Pro (High)",
+          "context": 1048576,
+          "output": 65535,
+          "modalities": {
+            "input": [
+              "text",
+              "image",
+              "video"
+            ],
+            "output": [
+              "text"
+            ]
+          }
+        },
+        "claude-sonnet-4-6": {
+          "name": "Claude Sonnet 4.6 (Thinking)",
+          "context": 200000,
+          "output": 64000,
+          "modalities": {
+            "input": [
+              "text",
+              "image"
+            ],
+            "output": [
+              "text"
+            ]
+          }
+        },
+        "gpt-5.3-codex": {
+          "name": "GPT 5.3 Codex",
+          "context": 128000,
+          "output": 32000,
+          "modalities": {
+            "input": [],
+            "output": []
+          }
+        },
+        "gemini-2.5-flash": {
+          "name": "Gemini 2.5 Flash",
+          "context": 1048576,
+          "output": 65535,
+          "modalities": {
+            "input": [
+              "text",
+              "image"
+            ],
+            "output": [
+              "text"
+            ]
+          }
+        },
+        "gpt-5": {
+          "name": "GPT 5",
+          "context": 128000,
+          "output": 32000,
+          "modalities": {
+            "input": [],
+            "output": []
+          }
+        },
+        "gemini-3-flash-preview": {
+          "name": "Gemini 3 Flash Preview",
+          "context": 1048576,
+          "output": 65536,
+          "modalities": {
+            "input": [],
+            "output": []
+          }
+        },
+        "minimax/minimax-m2.5:free": {
+          "name": "minimax/minimax-m2.5:free",
+          "context": 128000,
+          "output": 32000,
+          "modalities": {
+            "input": [],
+            "output": []
+          }
+        },
+        "moonshotai/kimi-k2.5": {
+          "name": "moonshotai/kimi-k2.5",
+          "context": 128000,
+          "output": 32000,
+          "modalities": {
+            "input": [],
+            "output": []
+          }
+        },
+        "gpt-5-codex-mini": {
+          "name": "GPT 5 Codex Mini",
+          "context": 128000,
+          "output": 32000,
+          "modalities": {
+            "input": [],
+            "output": []
+          }
+        },
+        "gemini-3-flash": {
+          "name": "Gemini 3 Flash",
+          "context": 1048576,
+          "output": 65536,
+          "modalities": {
+            "input": [
+              "text",
+              "image",
+              "video"
+            ],
+            "output": [
+              "text"
+            ]
+          }
+        },
+        "gpt-5-codex": {
+          "name": "GPT 5 Codex",
+          "context": 128000,
+          "output": 32000,
+          "modalities": {
+            "input": [],
+            "output": []
+          }
+        },
+        "gpt-oss-120b-medium": {
+          "name": "GPT-OSS 120B (Medium)",
+          "context": 114000,
+          "output": 32768,
+          "modalities": {
+            "input": [
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          }
+        },
+        "gpt-5.1-codex-mini": {
+          "name": "GPT 5.1 Codex Mini",
+          "context": 128000,
+          "output": 32000,
+          "modalities": {
+            "input": [],
+            "output": []
+          }
+        },
+        "gpt-5.3-codex-spark": {
+          "name": "GPT 5.3 Codex Spark",
+          "context": 128000,
+          "output": 32000,
+          "modalities": {
+            "input": [],
+            "output": []
+          }
+        },
+        "gemini-2.5-flash-lite": {
+          "name": "Gemini 2.5 Flash Lite",
+          "context": 1048576,
+          "output": 65535,
+          "modalities": {
+            "input": [
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          }
+        },
+        "gemini-2.5-pro": {
+          "name": "Gemini 2.5 Pro",
+          "context": 1048576,
+          "output": 65536,
+          "modalities": {
+            "input": [],
+            "output": []
+          }
+        },
+        "gemini-3-pro-preview": {
+          "name": "Gemini 3 Pro Preview",
+          "context": 1048576,
+          "output": 65536,
+          "modalities": {
+            "input": [],
+            "output": []
+          }
+        },
+        "arcee-ai/trinity-large-preview:free": {
+          "name": "arcee-ai/trinity-large-preview:free",
+          "context": 128000,
+          "output": 32000,
+          "modalities": {
+            "input": [],
+            "output": []
+          }
+        },
+        "gpt-5.2-codex": {
+          "name": "GPT 5.2 Codex",
+          "context": 128000,
+          "output": 32000,
+          "modalities": {
+            "input": [],
+            "output": []
+          }
+        },
+        "gemini-3.1-flash-image": {
+          "name": "Gemini 3.1 Flash Image",
+          "context": 128000,
+          "output": 32000,
+          "modalities": {
+            "input": [
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          }
+        },
+        "gemini-3.1-pro-low": {
+          "name": "Gemini 3.1 Pro (Low)",
+          "context": 1048576,
+          "output": 65535,
+          "modalities": {
+            "input": [
+              "text",
+              "image",
+              "video"
+            ],
+            "output": [
+              "text"
+            ]
+          }
+        },
+        "claude-opus-4-6-thinking": {
+          "name": "Claude Opus 4.6 (Thinking)",
+          "context": 200000,
+          "output": 64000,
+          "modalities": {
+            "input": [
+              "text",
+              "image"
+            ],
+            "output": [
+              "text"
+            ]
+          }
+        },
+        "gpt-5.2": {
+          "name": "GPT 5.2",
+          "context": 128000,
+          "output": 32000,
+          "modalities": {
+            "input": [],
+            "output": []
+          }
+        },
+        "gpt-5.4": {
+          "name": "GPT 5.4",
+          "context": 128000,
+          "output": 32000,
+          "modalities": {
+            "input": [],
+            "output": []
+          }
+        },
+        "gemini-3.1-flash-lite-preview": {
+          "name": "Gemini 3.1 Flash Lite Preview",
+          "context": 1048576,
+          "output": 65536,
+          "modalities": {
+            "input": [],
+            "output": []
+          }
+        },
+        "gpt-5.1": {
+          "name": "GPT 5",
+          "context": 128000,
+          "output": 32000,
+          "modalities": {
+            "input": [],
+            "output": []
+          }
+        },
+        "gpt-5.1-codex": {
+          "name": "GPT 5.1 Codex",
+          "context": 128000,
+          "output": 32000,
+          "modalities": {
+            "input": [],
+            "output": []
+          }
+        },
+        "gpt-5.1-codex-max": {
+          "name": "GPT 5.1 Codex Max",
+          "context": 128000,
+          "output": 32000,
+          "modalities": {
+            "input": [],
+            "output": []
+          }
+        },
+        "gemini-3-pro-low": {
+          "name": "Gemini 3 Pro (Low)",
+          "context": 1048576,
+          "output": 65535,
+          "modalities": {
+            "input": [
+              "text",
+              "image",
+              "video"
+            ],
+            "output": [
+              "text"
+            ]
+          }
+        },
+        "gemini-3.1-pro-high": {
+          "name": "Gemini 3.1 Pro (High)",
+          "context": 1048576,
+          "output": 65535,
+          "modalities": {
+            "input": [
+              "text",
+              "image",
+              "video"
+            ],
+            "output": [
+              "text"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

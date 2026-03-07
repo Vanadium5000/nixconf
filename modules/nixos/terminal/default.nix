@@ -82,7 +82,7 @@
         enableRootSlice = true; # Monitor root slice for comprehensive coverage
         enableSystemSlice = true; # System services including nix-daemon
         enableUserSlices = true; # User sessions and applications
-        extraConfig = {
+        settings.OOM = {
           SwapUsedLimit = "90%"; # Start killing at 90% swap usage
           DefaultMemoryPressureDurationSec = "20s"; # 20s sustained pressure before kill
         };

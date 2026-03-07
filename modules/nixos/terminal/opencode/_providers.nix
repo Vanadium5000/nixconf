@@ -1,307 +1,58 @@
 { self, ... }:
+let
+  # Path to the dynamic model cache
+  # This file is updated by 'opencode-models sync' in the repo
+  modelsFile = ./models.json;
 
-# Configure API providers and their respective models
-# Each provider defines its endpoint, authentication, and the models it exposes
-{
-  config = {
-    # Antigravity Gemini Provider
-    # Handles access to Gemini models via local proxy
-    antigravity-gemini = {
-      npm = "@ai-sdk/anthropic";
-      name = "Antigravity Gemini";
-      options = {
-        baseURL = "http://127.0.0.1:8317/v1";
-        apiKey = self.secrets.CLIPROXYAPI_KEY;
-      };
-      models = {
-        "gemini-3.1-pro-high" = {
-          name = "Gemini 3.1 Pro (High)";
-          limit = {
-            context = 1048576;
-            output = 65535;
-          };
-          modalities = {
-            input = [
-              "text"
-              "image"
-              "video"
-            ];
-            output = [ "text" ];
-          };
-        };
+  # Load the dynamic models if the file exists, otherwise use empty providers
+  dynamicData =
+    if builtins.pathExists modelsFile then builtins.fromJSON (builtins.readFile modelsFile) else { };
 
-        "gemini-3.1-pro-low" = {
-          name = "Gemini 3.1 Pro (Low)";
-          limit = {
-            context = 1048576;
-            output = 65535;
-          };
-          modalities = {
-            input = [
-              "text"
-              "image"
-              "video"
-            ];
-            output = [ "text" ];
-          };
-        };
-
-        "gemini-3.1-pro-preview" = {
-          name = "Gemini 3.1 Pro Preview";
-          limit = {
-            context = 1048576;
-            output = 65536;
-          };
-          modalities = {
-            input = [ "text" ];
-            output = [ "text" ];
-          };
-        };
-
-        "gemini-3-pro-high" = {
-          name = "Gemini 3 Pro (High)";
-          limit = {
-            context = 1048576;
-            output = 65535;
-          };
-          modalities = {
-            input = [
-              "text"
-              "image"
-              "video"
-            ];
-            output = [ "text" ];
-          };
-        };
-
-        "gemini-3-pro-low" = {
-          name = "Gemini 3 Pro (Low)";
-          limit = {
-            context = 1048576;
-            output = 65535;
-          };
-          modalities = {
-            input = [
-              "text"
-              "image"
-              "video"
-            ];
-            output = [ "text" ];
-          };
-        };
-
-        "gemini-3-pro-preview" = {
-          name = "Gemini 3 Pro Preview";
-          limit = {
-            context = 1048576;
-            output = 65536;
-          };
-          modalities = {
-            input = [ "text" ];
-            output = [ "text" ];
-          };
-        };
-
-        "gemini-3-flash" = {
-          name = "Gemini 3 Flash";
-          limit = {
-            context = 1048576;
-            output = 65536;
-          };
-          modalities = {
-            input = [
-              "text"
-              "image"
-              "video"
-            ];
-            output = [ "text" ];
-          };
-        };
-
-        "gemini-3-flash-preview" = {
-          name = "Gemini 3 Flash Preview";
-          limit = {
-            context = 1048576;
-            output = 65536;
-          };
-          modalities = {
-            input = [ "text" ];
-            output = [ "text" ];
-          };
-        };
-
-        "gemini-3.1-flash-image" = {
-          name = "Gemini 3.1 Flash Image";
-          limit = {
-            context = 1048576;
-            output = 65536;
-          };
-          modalities = {
-            input = [ "text" ];
-            output = [ "text" ];
-          };
-        };
-
-        "gemini-3.1-flash-lite-preview" = {
-          name = "Gemini 3.1 Flash Lite Preview";
-          limit = {
-            context = 1048576;
-            output = 65536;
-          };
-          modalities = {
-            input = [ "text" ];
-            output = [ "text" ];
-          };
-        };
-
-        "gemini-2.5-pro" = {
-          name = "Gemini 2.5 Pro";
-          limit = {
-            context = 1048576;
-            output = 65536;
-          };
-          modalities = {
-            input = [ "text" ];
-            output = [ "text" ];
-          };
-        };
-
-        "gemini-2.5-flash" = {
-          name = "Gemini 2.5 Flash";
-          limit = {
-            context = 1048576;
-            output = 65535;
-          };
-          modalities = {
-            input = [
-              "text"
-              "image"
-            ];
-            output = [ "text" ];
-          };
-        };
-
-        "gemini-2.5-flash-lite" = {
-          name = "Gemini 2.5 Flash Lite";
-          limit = {
-            context = 1048576;
-            output = 65535;
-          };
-          modalities = {
-            input = [ "text" ];
-            output = [ "text" ];
-          };
-        };
-
-        "gpt-oss-120b-medium" = {
-          name = "GPT-OSS 120B (Medium)";
-          limit = {
-            context = 114000;
-            output = 32768;
-          };
-          modalities = {
-            input = [ "text" ];
-            output = [ "text" ];
-          };
-        };
-      };
+  # Minimal static fallback for the unified provider
+  unifiedProvider = {
+    npm = "@ai-sdk/anthropic";
+    name = "CliProxyApi";
+    options = {
+      baseURL = "http://127.0.0.1:8317/v1";
+      apiKey = self.secrets.CLIPROXYAPI_KEY;
     };
-
-    # Antigravity Claude Provider
-    # Handles access to Claude models via local proxy
-    antigravity-claude = {
-      npm = "@ai-sdk/anthropic";
-      name = "Antigravity Claude";
-      options = {
-        baseURL = "http://127.0.0.1:8317/v1";
-        apiKey = self.secrets.CLIPROXYAPI_KEY;
-      };
-      models = {
-        "claude-sonnet-4-6" = {
-          name = "Claude Sonnet 4.6 (Thinking)";
-          limit = {
-            context = 200000;
-            output = 64000;
-          };
-          modalities = {
-            input = [
-              "text"
-              "image"
-            ];
-            output = [ "text" ];
-          };
+    # Merge all models from dynamic data into a single flat set
+    # Dynamic data might have separate provider buckets, we flatten them
+    models = (dynamicData.providers.cliproxyapi.models or { }) // {
+      "gemini-3-flash" = {
+        name = "Gemini 3 Flash";
+        limit = {
+          context = 1048576;
+          output = 65536;
         };
-
-        "claude-opus-4-6-thinking" = {
-          name = "Claude Opus 4.6 (Thinking)";
-          limit = {
-            context = 200000;
-            output = 64000;
-          };
-          modalities = {
-            input = [
-              "text"
-              "image"
-            ];
-            output = [ "text" ];
-          };
-        };
-      };
-    };
-
-    # CliProxyApi Other Provider
-    # Handles access to various free/community models via local proxy
-    cliproxyapi-other = {
-      npm = "@ai-sdk/anthropic";
-      name = "CliProxyApi Other";
-      options = {
-        baseURL = "http://127.0.0.1:8317/v1";
-        apiKey = self.secrets.CLIPROXYAPI_KEY;
-      };
-      models = {
-        "minimax/minimax-m2.5:free" = {
-          name = "MiniMax M2.5";
-          limit = {
-            context = 196608;
-            output = 65536;
-          };
-          modalities = {
-            input = [
-              "text"
-              "image"
-            ];
-            output = [ "text" ];
-          };
-        };
-
-        "moonshotai/kimi-k2.5" = {
-          name = "Kimi K2.5";
-          limit = {
-            context = 262144;
-            output = 33000;
-          };
-          modalities = {
-            input = [
-              "text"
-              "image"
-              "video"
-            ];
-            output = [ "text" ];
-          };
-        };
-
-        "arcee-ai/trinity-large-preview:free" = {
-          name = "Arcee Trinity Large Preview";
-          limit = {
-            context = 131072;
-            output = 32768;
-          };
-          modalities = {
-            input = [ "text" ];
-            output = [ "text" ];
-          };
+        modalities = {
+          input = [
+            "text"
+            "image"
+            "video"
+          ];
+          output = [ "text" ];
         };
       };
     };
   };
+
+  # Normalize the provider structure for OpenCode
+  config = {
+    cliproxyapi = {
+      inherit (unifiedProvider) npm name options;
+      models = builtins.mapAttrs (
+        modelId: model: {
+          inherit (model) name modalities;
+          limit = {
+            context = model.context or model.limit.context or 128000;
+            output = model.output or model.limit.output or 4096;
+          };
+        }
+      ) unifiedProvider.models;
+    };
+  };
+in
+{
+  inherit config;
 }

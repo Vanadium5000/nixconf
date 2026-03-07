@@ -118,5 +118,19 @@ in
           task = false;
         };
       };
+
+      # General: Universal assistant for miscellaneous tasks
+      general = {
+        mode = "primary";
+        model = advancedModel;
+        description = "General-purpose agent for researching complex questions and executing multi-step tasks";
+      };
+
+      # Explore: Rapid codebase discovery and search
+      explore = {
+        mode = "subagent";
+        model = mediumModel;
+        description = "Fast agent specialized for exploring codebases";
+      };
     };
 }
