@@ -249,18 +249,18 @@
       };
     };
 
-    # Kilo Code Provider
+    # CliProxyApi Other Provider
     # Handles access to various free/community models via local proxy
-    kilo-code = {
+    cliproxyapi-other = {
       npm = "@ai-sdk/anthropic";
-      name = "Kilo Code";
+      name = "CliProxyApi Other";
       options = {
         baseURL = "http://127.0.0.1:8317/v1";
         apiKey = self.secrets.CLIPROXYAPI_KEY;
       };
       models = {
         "minimax/minimax-m2.5:free" = {
-          name = "MiniMax M2.5 (Free)";
+          name = "MiniMax M2.5";
           limit = {
             context = 196608;
             output = 65536;
@@ -274,8 +274,8 @@
           };
         };
 
-        "moonshotai/kimi-k2.5:free" = {
-          name = "Kimi K2.5 (Free)";
+        "moonshotai/kimi-k2.5" = {
+          name = "Kimi K2.5";
           limit = {
             context = 262144;
             output = 33000;
@@ -291,7 +291,7 @@
         };
 
         "arcee-ai/trinity-large-preview:free" = {
-          name = "Arcee Trinity Large Preview (Free)";
+          name = "Arcee Trinity Large Preview";
           limit = {
             context = 131072;
             output = 32768;

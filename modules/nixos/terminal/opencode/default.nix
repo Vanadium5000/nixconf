@@ -582,16 +582,40 @@
 
       hjem.users.${user}.files = {
         # Deploy initial config structure
-        "${configFile}".text = builtins.toJSON initialConfig;
+        "${configFile}" = {
+          text = builtins.toJSON initialConfig;
+          type = "copy";
+        };
 
         # Source skills & commands using hjem as requested
-        ".config/opencode/skill".source = ./skill;
-        ".config/opencode/command".source = ./command;
-        ".config/opencode/plugin".source = ./plugin;
-        ".config/opencode/AGENTS.md".source = ./_AGENTS.md;
-        ".config/opencode/package.json".source = ./_package.json;
-        ".config/opencode/prompts".source = ./prompts;
-        ".config/opencode/opencode-mem.jsonc".text = builtins.toJSON opencodeMemConfig;
+        ".config/opencode/skill" = {
+          source = ./skill;
+          type = "copy";
+        };
+        ".config/opencode/command" = {
+          source = ./command;
+          type = "copy";
+        };
+        ".config/opencode/plugin" = {
+          source = ./plugin;
+          type = "copy";
+        };
+        ".config/opencode/AGENTS.md" = {
+          source = ./_AGENTS.md;
+          type = "copy";
+        };
+        ".config/opencode/package.json" = {
+          source = ./_package.json;
+          type = "copy";
+        };
+        ".config/opencode/prompts" = {
+          source = ./prompts;
+          type = "copy";
+        };
+        ".config/opencode/opencode-mem.jsonc" = {
+          text = builtins.toJSON opencodeMemConfig;
+          type = "copy";
+        };
       };
     };
 }
