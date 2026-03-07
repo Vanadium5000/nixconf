@@ -6,6 +6,8 @@
 # Then use: ralph "prompt" --max-iterations 10
 {
   plugins = [
+    "oh-my-opencode" # Upstream agent bundle; project config narrows its defaults for this repo
+
     # === PLANNING ===
     "@plannotator/opencode@latest" # Visual plan annotation, approval workflow, hard enforcement
 

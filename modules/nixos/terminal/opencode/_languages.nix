@@ -11,7 +11,6 @@ let
     sqlfluff = "${pkgs.sqlfluff}/bin/sqlfluff";
     stylua = "${pkgs.stylua}/bin/stylua";
     taplo = "${pkgs.taplo}/bin/taplo";
-    terraform = "${pkgs.terraform}/bin/terraform";
     typstyle = "${pkgs.typstyle}/bin/typstyle";
   };
 
@@ -30,7 +29,6 @@ let
     sql = "${pkgs.sqls}/bin/sqls";
     tailwindcss = "${pkgs.tailwindcss-language-server}/bin/tailwindcss-language-server";
     taplo = "${pkgs.taplo}/bin/taplo";
-    terraform = "${pkgs.terraform-ls}/bin/terraform-ls";
     texlab = "${pkgs.texlab}/bin/texlab";
     typst = "${pkgs.tinymist}/bin/tinymist";
     typescript = "${pkgs.typescript-language-server}/bin/typescript-language-server";
@@ -66,8 +64,6 @@ in
       stylua
       tailwindcss-language-server
       taplo
-      terraform
-      terraform-ls
       texlab
       tinymist
       vscode-langservers-extracted
@@ -201,18 +197,6 @@ in
         "$FILE"
       ];
       extensions = [ ".toml" ];
-    };
-    terraform = {
-      command = [
-        formatterBins.terraform
-        "fmt"
-        "$FILE"
-      ];
-      extensions = [
-        ".tf"
-        ".tfvars"
-        ".hcl"
-      ];
     };
     typstyle = {
       command = [
@@ -387,17 +371,6 @@ in
         "stdio"
       ];
       extensions = [ ".toml" ];
-    };
-    terraform = {
-      command = [
-        lspBins.terraform
-        "serve"
-      ];
-      extensions = [
-        ".tf"
-        ".tfvars"
-        ".hcl"
-      ];
     };
     texlab = {
       command = [ lspBins.texlab ];

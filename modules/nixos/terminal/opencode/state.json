@@ -1,5 +1,6 @@
 {
-  "advanced": "cliproxyapi/gpt-5.4",
-  "medium": "cliproxyapi/gemini-3-flash",
-  "fast": "cliproxyapi/gemini-3-flash"
+  "categories": {
+    "coding": "cliproxyapi/gpt-5.3-codex",
+    "orchestrator": "cliproxyapi/gpt-5.4"
+  }
 }

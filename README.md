@@ -427,7 +427,7 @@ for BunJS development details.
 | `ethereum-wallet`                          | Foundry cast with pass + VPN       |
 | `autoclicker-daemon`                       | Multi-point autoclicker            |
 | `run-flatpak-instance`                     | Isolated multi-instance Flatpak    |
-| `opencode-models`                          | Switch AI model configs            |
+| `opencode-models`                          | Switch OpenCode / OMA agent models |
 | `rebuild.sh`                               | NixOS rebuild wrapper with secrets |
 
 ---

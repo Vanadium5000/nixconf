@@ -12,24 +12,13 @@
       languages = import ./_languages.nix { inherit pkgs self; };
       providers = import ./_providers.nix { inherit self; };
       pluginsConfig = import ./_plugins.nix;
-      agentsConfig = import ./_agents.nix { };
+      categoriesConfig = import ./_categories.nix { inherit lib; };
 
       inherit (pkgs.unstable) opencode;
 
       # Path to the persistent model selections
       stateFile = ./state.json;
-      state =
-        let
-          exists = builtins.pathExists stateFile;
-          content = if exists then builtins.readFile stateFile else "";
-          isValid = exists && content != "" && content != " " && content != "{}";
-          data = if isValid then builtins.fromJSON content else { };
-        in
-        {
-          advanced = data.advanced or "cliproxyapi/gemini-3.1-pro-high";
-          medium = data.medium or "cliproxyapi/gemini-3-flash";
-          fast = data.fast or "cliproxyapi/gemini-3-flash";
-        };
+      state = categoriesConfig.mkState { inherit stateFile; };
 
       # MCP server configuration shared between configs and project templates
       mcpConfig = {
@@ -116,7 +105,7 @@
             "${pkgs.writeShellScript "image-gen-mcp-wrapper" ''
               export CLIPROXYAPI_KEY="${self.secrets.CLIPROXYAPI_KEY}"
               # Try to use a flash model for image generation if possible
-              export IMAGE_MODEL="${state.medium}"
+              export IMAGE_MODEL="${state.categories.multimodal}"
               exec ${pkgs.bun}/bin/bun ${../../../nixos/scripts/bunjs/mcp/image-gen.ts}
             ''}"
           ];
@@ -197,13 +186,24 @@
       };
 
       # Generate initial fallback config so opencode has *something* to launch with if modified
-      initialConfig = baseConfig // {
-        agent = agentsConfig.mkAgentConfig {
-          advancedModel = state.advanced;
-          mediumModel = state.medium;
-          fastModel = state.fast;
-        };
-      };
+      initialConfig = baseConfig;
+
+      ohMyOpencodeConfig = categoriesConfig.mkOhMyConfig { inherit state; };
+
+      opencodeModelsMetadata = categoriesConfig.mkMenuMetadata;
+
+      runtimeConfigDir = pkgs.runCommand "opencode-runtime-configs" { } ''
+        mkdir -p $out
+        cat > "$out/opencode-base.json" <<'EOF'
+        ${builtins.toJSON initialConfig}
+        EOF
+        cat > "$out/oh-my-opencode-base.json" <<'EOF'
+        ${builtins.toJSON ohMyOpencodeConfig}
+        EOF
+        cat > "$out/opencode-models-metadata.json" <<'EOF'
+        ${builtins.toJSON opencodeModelsMetadata}
+        EOF
+      '';
 
       # Define project MCP templates with rich comments for JSONC output
       mcpTemplates =
@@ -306,12 +306,72 @@
         MODELS_FILE="$REPO_DIR/models.json"
         STATE_FILE="$REPO_DIR/state.json"
         GLOBAL_CONFIG_FILE="$HOME/.config/opencode/config.json"
+        GLOBAL_OMA_FILE="$HOME/.config/opencode/oh-my-opencode.jsonc"
         LOCAL_JSONC_FILE="$PWD/opencode.jsonc"
         TEMPLATES_DIR="${configVariantsDir}/templates"
+        BASE_CONFIG_FILE="${runtimeConfigDir}/opencode-base.json"
+        BASE_OMA_FILE="${runtimeConfigDir}/oh-my-opencode-base.json"
+        METADATA_FILE="${runtimeConfigDir}/opencode-models-metadata.json"
         JQ="${pkgs.jq}/bin/jq"
         GUM="${pkgs.gum}/bin/gum"
         SYSTEMCTL="${pkgs.systemd}/bin/systemctl"
         CURL="${pkgs.curl}/bin/curl"
+
+        ensure_state_file() {
+          if [ ! -f "$STATE_FILE" ] || [ ! -s "$STATE_FILE" ]; then
+            printf '{"categories":{}}\n' > "$STATE_FILE"
+          fi
+        }
+
+        get_menu_text() {
+          local key="$1"
+          $JQ -r --arg key "$key" '.menu[$key]' "$METADATA_FILE"
+        }
+
+        get_group_model() {
+          local group_id="$1"
+          ensure_state_file
+          local configured_model
+          configured_model=$($JQ -r --arg category_id "$group_id" '.categories[$category_id] // empty' "$STATE_FILE")
+          if [ -n "$configured_model" ]; then
+            printf '%s\n' "$configured_model"
+          else
+            $JQ -r --arg category_id "$group_id" '.categories[$category_id].defaultModel' "$METADATA_FILE"
+          fi
+        }
+
+        rebuild_runtime_configs() {
+          ensure_state_file
+
+          local opencode_tmp
+          opencode_tmp=$(mktemp)
+          cp "$BASE_CONFIG_FILE" "$opencode_tmp"
+
+          mkdir -p "$(dirname "$GLOBAL_CONFIG_FILE")"
+          mv "$opencode_tmp" "$GLOBAL_CONFIG_FILE"
+          chmod 0600 "$GLOBAL_CONFIG_FILE"
+
+          local oma_tmp
+          oma_tmp=$(mktemp)
+          cp "$BASE_OMA_FILE" "$oma_tmp"
+
+          while IFS=$'\t' read -r category_id; do
+            local model
+            model=$(get_group_model "$category_id")
+            local next_tmp
+            next_tmp=$(mktemp)
+            $JQ --arg category_id "$category_id" --arg model "$model" '.categories[$category_id].model = $model' "$oma_tmp" > "$next_tmp"
+            mv "$next_tmp" "$oma_tmp"
+          done < <($JQ -r '.categories | keys[]' "$METADATA_FILE")
+
+          mkdir -p "$(dirname "$GLOBAL_OMA_FILE")"
+          mv "$oma_tmp" "$GLOBAL_OMA_FILE"
+          chmod 0600 "$GLOBAL_OMA_FILE"
+
+          if $SYSTEMCTL is-active --quiet opencode-server 2>/dev/null; then
+            $SYSTEMCTL restart opencode-server 2>/dev/null && $GUM style --foreground 99 "↻ Restarted opencode-server"
+          fi
+        }
 
         # Fetch models from CliProxyApi and update models.json
         sync_models() {
@@ -365,10 +425,7 @@
             mv "$temp_json" "$MODELS_FILE"
             $GUM style --foreground 212 "✅ Successfully synced models to $MODELS_FILE"
             $GUM style --foreground 212 "💡 Remember to git add the changes!"
-
-            if $SYSTEMCTL is-active --quiet opencode-server 2>/dev/null; then
-              $SYSTEMCTL restart opencode-server 2>/dev/null && $GUM style --foreground 99 "↻ Restarted opencode-server"
-            fi
+            rebuild_runtime_configs
           else
             $GUM style --foreground 196 "Error: Failed to process models. API response may be malformed."
             rm -f "$temp_json"
@@ -376,59 +433,22 @@
           fi
         }
 
-        # Update both persistent state.json and runtime config.json
-        update_state() {
-          local tier="$1"
+        update_group_state() {
+          local group_id="$1"
           local full_id="$2"
-          
-          # Update state.json (for rebuilds)
-          if [ ! -f "$STATE_FILE" ] || [ ! -s "$STATE_FILE" ]; then echo "{}" > "$STATE_FILE"; fi
+
+          ensure_state_file
           local temp_state
           temp_state=$(mktemp)
-          $JQ ".\"$tier\" = \"$full_id\"" "$STATE_FILE" > "$temp_state" && mv "$temp_state" "$STATE_FILE"
-          
-          # Update config.json (immediate)
-          if [ -f "$GLOBAL_CONFIG_FILE" ]; then
-            local temp_config
-            temp_config=$(mktemp)
-            
-            # Ensure agent structure exists in config.json
-            if ! $JQ 'has("agent")' "$GLOBAL_CONFIG_FILE" | grep -q "true"; then
-              local bootstrap_config
-              bootstrap_config=$(mktemp)
-              $JQ ".agent = {}" "$GLOBAL_CONFIG_FILE" > "$bootstrap_config" && mv "$bootstrap_config" "$GLOBAL_CONFIG_FILE"
-            fi
-
-            case "$tier" in
-              advanced)
-                $JQ ".agent.build.model = \"$full_id\"
-                   | .agent.plan.model = \"$full_id\"
-                   | .agent[\"plan-reviewer\"].model = \"$full_id\"
-                   | .agent.advisor.model = \"$full_id\"
-                   | .agent.general.model = \"$full_id\"" \
-                  "$GLOBAL_CONFIG_FILE" > "$temp_config" ;;
-              medium)
-                $JQ ".agent.researcher.model = \"$full_id\"
-                   | .agent.tester.model = \"$full_id\"
-                   | .agent.explore.model = \"$full_id\"" \
-                  "$GLOBAL_CONFIG_FILE" > "$temp_config" ;;
-              fast)
-                $JQ ".agent.scout.model = \"$full_id\"
-                   | .agent.verifier.model = \"$full_id\"" \
-                  "$GLOBAL_CONFIG_FILE" > "$temp_config" ;;
-            esac
-            
-            if [ -s "$temp_config" ]; then
-              mv "$temp_config" "$GLOBAL_CONFIG_FILE"
-              chmod 0600 "$GLOBAL_CONFIG_FILE"
-            fi
-          fi
+          $JQ --arg category_id "$group_id" --arg full_id "$full_id" '.categories[$category_id] = $full_id' "$STATE_FILE" > "$temp_state" && mv "$temp_state" "$STATE_FILE"
+          rebuild_runtime_configs
         }
 
         # Searchable model picker using gum filter
         choose_model() {
-          local tier="$1"
-          local header="$2"
+          local state_kind="$1"
+          local target_id="$2"
+          local header="$3"
           
           # Generate list of "Provider: Model (ID)"
           local choices
@@ -442,13 +462,37 @@
           # Extract the provider/id from the selection (e.g., "antigravity-gemini: Gemini 3 Flash (gemini-3-flash)")
           local p_id
           p_id=$(echo "$selection" | sed -E 's/^([^:]+):.* \((.*)\)$/\1\/\2/')
-          
-          update_state "$tier" "$p_id"
-          $GUM style --foreground 212 "✅ Set $tier tier to $p_id"
-          
-          if $SYSTEMCTL is-active --quiet opencode-server 2>/dev/null; then
-            $SYSTEMCTL restart opencode-server 2>/dev/null && $GUM style --foreground 99 "↻ Restarted opencode-server"
-          fi
+
+          update_group_state "$target_id" "$p_id"
+          $GUM style --foreground 212 "✅ Set category '$target_id' to $p_id"
+        }
+
+        choose_category() {
+          local selection
+          selection=$($JQ -r '.categories | to_entries[] | "\(.value.label)\t\(.key)\t\(.value.description)"' "$METADATA_FILE" \
+            | while IFS=$'\t' read -r label category_id description; do
+                printf '%s [%s] (%s) — %s\n' "$label" "$category_id" "$(get_group_model "$category_id")" "$description"
+              done \
+            | $GUM filter --placeholder "Search categories..." --header "$(get_menu_text categoryHeader)")
+
+          if [ -z "$selection" ]; then return 1; fi
+
+          local category_id
+          category_id=$(echo "$selection" | sed -E 's/^.*\[([^]]+)\].*$/\1/')
+          choose_model "category" "$category_id" "$(get_menu_text modelHeaderPrefix) $category_id"
+        }
+
+        render_state_summary() {
+          local categories_summary
+          categories_summary=$(
+            while IFS=$'\t' read -r label category_id; do
+              printf -- '- %s: %s\n' "$label" "$(get_group_model "$category_id")"
+            done < <($JQ -r '.categories | to_entries[] | "\(.value.label)\t\(.key)"' "$METADATA_FILE")
+          )
+
+          printf '%s\n%s' \
+            "$(get_menu_text categoryStatePrefix):" \
+            "$categories_summary"
         }
 
         init_project() {
@@ -479,16 +523,7 @@
           local context_msg="Context: Global"
           if [ -f "$LOCAL_JSONC_FILE" ]; then context_msg="Context: Local Project ($LOCAL_JSONC_FILE)"; fi
 
-          local cur_adv cur_med cur_fast
-          if [ -f "$STATE_FILE" ] && [ -s "$STATE_FILE" ]; then
-            cur_adv=$($JQ -r '.advanced // "N/A"' "$STATE_FILE" 2>/dev/null || echo "N/A")
-            cur_med=$($JQ -r '.medium // "N/A"' "$STATE_FILE" 2>/dev/null || echo "N/A")
-            cur_fast=$($JQ -r '.fast // "N/A"' "$STATE_FILE" 2>/dev/null || echo "N/A")
-          else
-            cur_adv="[Default]"
-            cur_med="[Default]"
-            cur_fast="[Default]"
-          fi
+          rebuild_runtime_configs >/dev/null 2>&1 || true
 
           local sync_warning=""
           if [ ! -f "$MODELS_FILE" ] || [ ! -s "$MODELS_FILE" ]; then
@@ -497,24 +532,19 @@
 
           local action
           action=$($GUM choose \
-            "Sync Models from API$sync_warning" \
-            "Change Advanced Model (Builder, Planner, Advisor, General)" \
-            "Change Medium Model (Researcher, Tester, Explore)" \
-            "Change Fast Model (Scout, Verifier)" \
-            "Init Project MCPs (Current Dir)" \
-            "Exit" \
-            --header "🤖 OpenCode Configuration Manager
+            "$(get_menu_text syncAction)$sync_warning" \
+            "$(get_menu_text changeCategoryAction)" \
+            "$(get_menu_text initAction)" \
+            "$(get_menu_text exitAction)" \
+            --header "$(get_menu_text title)
         $context_msg
-        Current Adv : $cur_adv
-        Current Med : $cur_med
-        Current Fast: $cur_fast" --cursor="▶ " --selected.foreground="212" --cursor.foreground="212")
+
+        $(render_state_summary)" --cursor="▶ " --selected.foreground="212" --cursor.foreground="212")
 
           case "$action" in
-            "Sync Models from API"*) sync_models ;;
-            "Change Advanced Model (Builder, Planner, Advisor, General)") choose_model "advanced" "Select Advanced Model" ;;
-            "Change Medium Model (Researcher, Tester, Explore)") choose_model "medium" "Select Medium Model" ;;
-            "Change Fast Model (Scout, Verifier)") choose_model "fast" "Select Fast Model" ;;
-            "Init Project MCPs (Current Dir)") init_project ;;
+            "$(get_menu_text syncAction)"*) sync_models ;;
+            "$(get_menu_text changeCategoryAction)") choose_category ;;
+            "$(get_menu_text initAction)") init_project ;;
             *) exit 0 ;;
           esac
         }
@@ -590,7 +620,7 @@
         storagePath = "/home/${user}/.opencode-mem/data";
         embeddingModel = "Xenova/nomic-embed-text-v1";
         memoryProvider = "openai-chat";
-        memoryModel = state.fast;
+        memoryModel = state.categories.research;
         memoryApiUrl = "http://127.0.0.1:8317/v1";
         memoryApiKey = self.secrets.CLIPROXYAPI_KEY;
         autoCaptureEnabled = true;
@@ -632,6 +662,12 @@
           permissions = "0600";
         };
 
+        ".config/opencode/oh-my-opencode.jsonc" = {
+          text = builtins.toJSON ohMyOpencodeConfig;
+          type = "copy";
+          permissions = "0600";
+        };
+
         ".config/opencode/skill" = {
           source = ./skill;
           type = "copy";
@@ -656,11 +692,6 @@
           source = ./_package.json;
           type = "copy";
           permissions = "0644";
-        };
-        ".config/opencode/prompts" = {
-          source = ./prompts;
-          type = "copy";
-          permissions = "0755";
         };
         ".config/opencode/opencode-mem.jsonc" = {
           text = builtins.toJSON opencodeMemConfig;
