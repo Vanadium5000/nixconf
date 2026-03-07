@@ -18,15 +18,13 @@
           name = "Gemini 3.1 Pro (High)";
           limit = {
             context = 1048576;
-            output = 65536;
+            output = 65535;
           };
           modalities = {
             input = [
               "text"
               "image"
-              "pdf"
               "video"
-              "audio"
             ];
             output = [ "text" ];
           };
@@ -36,16 +34,70 @@
           name = "Gemini 3.1 Pro (Low)";
           limit = {
             context = 1048576;
-            output = 65536;
+            output = 65535;
           };
           modalities = {
             input = [
               "text"
               "image"
-              "pdf"
               "video"
-              "audio"
             ];
+            output = [ "text" ];
+          };
+        };
+
+        "gemini-3.1-pro-preview" = {
+          name = "Gemini 3.1 Pro Preview";
+          limit = {
+            context = 1048576;
+            output = 65536;
+          };
+          modalities = {
+            input = [ "text" ];
+            output = [ "text" ];
+          };
+        };
+
+        "gemini-3-pro-high" = {
+          name = "Gemini 3 Pro (High)";
+          limit = {
+            context = 1048576;
+            output = 65535;
+          };
+          modalities = {
+            input = [
+              "text"
+              "image"
+              "video"
+            ];
+            output = [ "text" ];
+          };
+        };
+
+        "gemini-3-pro-low" = {
+          name = "Gemini 3 Pro (Low)";
+          limit = {
+            context = 1048576;
+            output = 65535;
+          };
+          modalities = {
+            input = [
+              "text"
+              "image"
+              "video"
+            ];
+            output = [ "text" ];
+          };
+        };
+
+        "gemini-3-pro-preview" = {
+          name = "Gemini 3 Pro Preview";
+          limit = {
+            context = 1048576;
+            output = 65536;
+          };
+          modalities = {
+            input = [ "text" ];
             output = [ "text" ];
           };
         };
@@ -60,10 +112,20 @@
             input = [
               "text"
               "image"
-              "pdf"
               "video"
-              "audio"
             ];
+            output = [ "text" ];
+          };
+        };
+
+        "gemini-3-flash-preview" = {
+          name = "Gemini 3 Flash Preview";
+          limit = {
+            context = 1048576;
+            output = 65536;
+          };
+          modalities = {
+            input = [ "text" ];
             output = [ "text" ];
           };
         };
@@ -75,17 +137,20 @@
             output = 65536;
           };
           modalities = {
-            input = [
-              "text"
-              "image"
-              "pdf"
-              "video"
-              "audio"
-            ];
-            output = [
-              "text"
-              "image"
-            ];
+            input = [ "text" ];
+            output = [ "text" ];
+          };
+        };
+
+        "gemini-3.1-flash-lite-preview" = {
+          name = "Gemini 3.1 Flash Lite Preview";
+          limit = {
+            context = 1048576;
+            output = 65536;
+          };
+          modalities = {
+            input = [ "text" ];
+            output = [ "text" ];
           };
         };
 
@@ -96,11 +161,7 @@
             output = 65536;
           };
           modalities = {
-            input = [
-              "text"
-              "image"
-              "pdf"
-            ];
+            input = [ "text" ];
             output = [ "text" ];
           };
         };
@@ -109,13 +170,12 @@
           name = "Gemini 2.5 Flash";
           limit = {
             context = 1048576;
-            output = 65536;
+            output = 65535;
           };
           modalities = {
             input = [
               "text"
               "image"
-              "pdf"
             ];
             output = [ "text" ];
           };
@@ -124,15 +184,11 @@
         "gemini-2.5-flash-lite" = {
           name = "Gemini 2.5 Flash Lite";
           limit = {
-            context = 128000;
-            output = 8192;
+            context = 1048576;
+            output = 65535;
           };
           modalities = {
-            input = [
-              "text"
-              "image"
-              "pdf"
-            ];
+            input = [ "text" ];
             output = [ "text" ];
           };
         };
@@ -140,15 +196,11 @@
         "gpt-oss-120b-medium" = {
           name = "GPT-OSS 120B (Medium)";
           limit = {
-            context = 131072;
-            output = 65536;
+            context = 114000;
+            output = 32768;
           };
           modalities = {
-            input = [
-              "text"
-              "image"
-              "pdf"
-            ];
+            input = [ "text" ];
             output = [ "text" ];
           };
         };
@@ -175,9 +227,6 @@
             input = [
               "text"
               "image"
-              "pdf"
-              "video"
-              "audio"
             ];
             output = [ "text" ];
           };
@@ -186,16 +235,13 @@
         "claude-opus-4-6-thinking" = {
           name = "Claude Opus 4.6 (Thinking)";
           limit = {
-            context = 1000000;
-            output = 128000;
+            context = 200000;
+            output = 64000;
           };
           modalities = {
             input = [
               "text"
               "image"
-              "pdf"
-              "video"
-              "audio"
             ];
             output = [ "text" ];
           };
