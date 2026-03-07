@@ -11,37 +11,40 @@ PanelWindow {
     
     color: "transparent"
     
-    // Position: Bottom of screen, centered
+    // Keep the overlay window itself narrow and centered so only the visible
+    // controls can intercept input; a full-width layer surface blocks clicks.
     anchors {
         bottom: true
         left: true
-        right: true
     }
     
-    margins {
-        bottom: 80 // Above waybar
-        left: (Screen.desktopAvailableWidth - 600) / 2
-        right: (Screen.desktopAvailableWidth - 600) / 2
-    }
+    margins.bottom: 80 // Above waybar
+    margins.left: Math.round((Screen.width - implicitWidth) / 2)
     
-    width: 600
-    height: container.height + 40
+    implicitWidth: 600
+    implicitHeight: container.height + 40
     
     WlrLayershell.namespace: "dictation-overlay"
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+    exclusiveZone: -1
+    exclusionMode: ExclusionMode.Ignore
     
     // State parsing
-    property string dictationStateFile: "/tmp/dictation-state.json"
     property string dictationText: "..."
     property string dictationMode: "idle"
     property real dictationVolume: 0.0
     property string dictationError: ""
     property string dictationProgress: ""
+    property bool isLiveMode: dictationMode === "live"
+    property bool isPausedMode: dictationMode === "paused"
+    property bool canPauseOrResume: isLiveMode || isPausedMode
+    property bool isBusyMode: dictationMode === "transcribe" || dictationMode === "downloading"
+    property string pauseButtonText: isLiveMode ? "Pause" : "Resume"
     
     Process {
         id: stateReader
-        command: ["cat", root.dictationStateFile]
+        command: ["dictation", "status"]
         running: false
         
         stdout: StdioCollector {
@@ -71,6 +74,10 @@ PanelWindow {
 
     // Logic for control actions
     function sendCommand(cmd) {
+        if (commandRunner.running) {
+            return;
+        }
+
         commandRunner.command = ["dictation", "cmd", cmd];
         commandRunner.running = true;
     }
@@ -101,7 +108,9 @@ PanelWindow {
                 spacing: 12
 
                 Rectangle {
-                    width: 12; height: 12; radius: 6
+                    Layout.preferredWidth: 12
+                    Layout.preferredHeight: 12
+                    radius: 6
                     color: {
                         if (root.dictationMode === "error") return "#fc5454"; // Lib.Theme.error
                         if (root.dictationMode === "live") return "#54fc54"; // Lib.Theme.success
@@ -134,7 +143,7 @@ PanelWindow {
                     Layout.preferredWidth: 32; Layout.preferredHeight: 32
                     text: "×"
                     cornerRadius: 16
-                    onClicked: root.sendCommand("hide")
+                    onClicked: root.sendCommand("stop")
                 }
             }
 
@@ -159,9 +168,12 @@ PanelWindow {
                     
                     // Auto-scroll to bottom only if we're near the bottom
                     onTextChanged: {
-                        if (transcriptScroll.contentItem.contentY >= contentHeight - transcriptScroll.height - 100) {
+                        const flickable = transcriptScroll.contentItem;
+                        if (flickable && flickable.contentY !== undefined && flickable.contentY >= contentHeight - transcriptScroll.height - 100) {
                             Qt.callLater(() => {
-                                transcriptScroll.contentItem.contentY = Math.max(0, contentHeight - transcriptScroll.height)
+                                if (flickable && flickable.contentY !== undefined) {
+                                    flickable.contentY = Math.max(0, contentHeight - transcriptScroll.height)
+                                }
                             })
                         }
                     }
@@ -187,14 +199,16 @@ PanelWindow {
                     Layout.fillWidth: true
                     Layout.preferredHeight: 40
                     text: "Clear"
+                    enabled: !root.isBusyMode
                     onClicked: root.sendCommand("clear")
                 }
 
                 Lib.GlassButton {
                     Layout.fillWidth: true
                     Layout.preferredHeight: 40
-                    text: root.dictationMode === "live" ? "Pause" : "Resume"
-                    onClicked: root.sendCommand("pause")
+                    visible: root.canPauseOrResume
+                    text: root.pauseButtonText
+                    onClicked: root.sendCommand(root.isLiveMode ? "pause" : "resume")
                 }
             }
         }

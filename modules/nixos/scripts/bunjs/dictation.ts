@@ -25,6 +25,7 @@ let smoothedVolume = 0;
 const CONFIG = {
   pidFile: join(tmpdir(), "dictation.pid"),
   stateFile: join(tmpdir(), "dictation-state.json"),
+  controlFile: join(tmpdir(), "dictation-control.json"),
   logFile: join(tmpdir(), "dictation.log"),
   outLog: join(tmpdir(), "dictation.out.log"),
   errLog: join(tmpdir(), "dictation.err.log"),
@@ -48,18 +49,32 @@ interface AudioDevice {
 interface State {
   text: string;
   isRecording: boolean;
-  mode: "idle" | "live" | "transcribe" | "downloading" | "error";
+  mode:
+    | "idle"
+    | "starting"
+    | "live"
+    | "paused"
+    | "transcribe"
+    | "downloading"
+    | "error";
   error?: string;
   progress?: string;
   file?: string;
   startTime?: number;
   volume?: number;
+  committedText?: string;
+  activeText?: string;
 }
 
 interface TranscriptSegment {
   start: number;
   end: number;
   text: string;
+}
+
+interface ControlCommand {
+  id: number;
+  command: "clear" | "pause" | "resume" | "toggle-pause" | "stop" | "hide";
 }
 
 type SubtitleFormat = "srt" | "vtt" | "txt";
@@ -108,6 +123,99 @@ async function updateState(newState: Partial<State>) {
     })
     .catch(() => {});
   return statePromise;
+}
+
+function normalizeWhitespace(text: string): string {
+  return text.replace(/\s+/g, " ").trim();
+}
+
+function joinTranscriptParts(...parts: Array<string | undefined>): string {
+  return normalizeWhitespace(parts.filter(Boolean).join(" "));
+}
+
+async function writeControlCommand(command: ControlCommand["command"]) {
+  const payload: ControlCommand = { id: Date.now(), command };
+  await Bun.write(CONFIG.controlFile, JSON.stringify(payload));
+}
+
+async function readControlCommand(
+  lastProcessedId: number,
+): Promise<ControlCommand | null> {
+  try {
+    const file = Bun.file(CONFIG.controlFile);
+    if (!(await file.exists())) return null;
+    const payload = (await file.json()) as ControlCommand;
+    if (!payload?.id || payload.id <= lastProcessedId) return null;
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
+async function clearControlCommand(id: number) {
+  try {
+    const file = Bun.file(CONFIG.controlFile);
+    if (!(await file.exists())) return;
+    const payload = (await file.json()) as Partial<ControlCommand>;
+    if (payload.id === id && existsSync(CONFIG.controlFile)) {
+      await unlink(CONFIG.controlFile);
+    }
+  } catch {}
+}
+
+function getRenderedTranscript(
+  committedText?: string,
+  activeText?: string,
+): string {
+  return joinTranscriptParts(committedText, activeText);
+}
+
+function splitIntoWords(text: string): string[] {
+  return normalizeWhitespace(text).split(" ").filter(Boolean);
+}
+
+function stripCommittedPrefix(
+  committedText: string,
+  incomingText: string,
+): string {
+  const committed = normalizeWhitespace(committedText);
+  const incoming = normalizeWhitespace(incomingText);
+  if (!committed) return incoming;
+  if (incoming.startsWith(committed)) {
+    return normalizeWhitespace(incoming.slice(committed.length));
+  }
+
+  const committedWords = splitIntoWords(committed);
+  const incomingWords = splitIntoWords(incoming);
+  const maxOverlap = Math.min(committedWords.length, incomingWords.length);
+
+  for (let size = maxOverlap; size > 0; size--) {
+    const committedTail = committedWords.slice(-size).join(" ");
+    const incomingHead = incomingWords.slice(0, size).join(" ");
+    if (committedTail === incomingHead) {
+      return incomingWords.slice(size).join(" ");
+    }
+  }
+
+  return incoming;
+}
+
+async function setTranscriptState(
+  updates: Partial<State> & {
+    committedText?: string;
+    activeText?: string;
+  },
+) {
+  const current = await loadState();
+  const committedText = updates.committedText ?? current.committedText ?? "";
+  const activeText = updates.activeText ?? current.activeText ?? "";
+
+  await updateState({
+    ...updates,
+    committedText,
+    activeText,
+    text: updates.text ?? getRenderedTranscript(committedText, activeText),
+  });
 }
 
 switch (command) {
@@ -184,11 +292,17 @@ async function handleRun() {
   });
 
   await Bun.write(CONFIG.pidFile, pid.toString());
-  await updateState({
-    text: "Starting...",
+  if (existsSync(CONFIG.controlFile)) {
+    await unlink(CONFIG.controlFile).catch(() => {});
+  }
+  await setTranscriptState({
+    committedText: "",
+    activeText: "Starting...",
     isRecording: true,
-    mode: "live",
+    mode: "starting",
     startTime: Date.now(),
+    error: undefined,
+    progress: undefined,
   });
 
   const exitHandler = async () => {
@@ -254,21 +368,119 @@ async function handleRun() {
 
   if (!noOverlay) await startOverlay();
 
-  await runWhisperStream(whisperBin, modelPath, device.sdlId, device.name);
+  let shouldExit = false;
+  let finalOutcome: "paused" | "stopped" | "error" | null = null;
+  let lastProcessedCommandId = 0;
+  while (!shouldExit) {
+    const pending = await readControlCommand(lastProcessedCommandId);
+    if (pending) {
+      lastProcessedCommandId = pending.id;
+      const state = await loadState();
+
+      switch (pending.command) {
+        case "clear":
+          await setTranscriptState({
+            committedText: "",
+            activeText: "",
+            mode: state.mode,
+            isRecording: state.isRecording,
+          });
+          break;
+        case "pause":
+        case "toggle-pause":
+          if (state.mode === "paused") {
+            await setTranscriptState({
+              activeText: "Resuming...",
+              mode: "starting",
+              isRecording: false,
+              volume: 0,
+            });
+          }
+          break;
+        case "resume":
+          if (state.mode === "paused") {
+            await setTranscriptState({
+              activeText: "Resuming...",
+              mode: "starting",
+              isRecording: false,
+              volume: 0,
+            });
+          }
+          break;
+        case "stop":
+        case "hide":
+          await setTranscriptState({
+            activeText: "Stopped",
+            mode: "idle",
+            isRecording: false,
+            volume: 0,
+          });
+          finalOutcome = "stopped";
+          shouldExit = true;
+          break;
+      }
+
+      await clearControlCommand(pending.id);
+      if (shouldExit) break;
+    }
+
+    const state = await loadState();
+    if (state.mode === "paused") {
+      await Bun.sleep(150);
+      continue;
+    }
+
+    const outcome = await runWhisperStream(
+      whisperBin,
+      modelPath,
+      device.sdlId,
+      device.name,
+    );
+
+    switch (outcome) {
+      case "paused":
+        continue;
+      case "stopped":
+        finalOutcome = "stopped";
+        shouldExit = true;
+        break;
+      case "error":
+        finalOutcome = "error";
+        shouldExit = true;
+        break;
+    }
+  }
+
+  if (finalOutcome === "stopped") {
+    await cleanup();
+    return;
+  }
+
+  if (existsSync(CONFIG.pidFile)) {
+    await unlink(CONFIG.pidFile).catch(() => {});
+  }
+  if (existsSync(CONFIG.controlFile)) {
+    await unlink(CONFIG.controlFile).catch(() => {});
+  }
 }
 
 async function handleCommand() {
   const cmd = args[1];
   switch (cmd) {
     case "clear":
-      await updateState({ text: "" });
+      await writeControlCommand("clear");
       break;
     case "pause":
-      const state = await loadState();
-      await updateState({ mode: state.mode === "live" ? "idle" : "live" });
+      await writeControlCommand("toggle-pause");
+      break;
+    case "resume":
+      await writeControlCommand("resume");
+      break;
+    case "stop":
+      await writeControlCommand("stop");
       break;
     case "hide":
-      await $`toggle-dictation-overlay hide`.quiet().catch(() => {});
+      await writeControlCommand("stop");
       break;
     default:
       console.error(`Unknown internal command: ${cmd}`);
@@ -334,17 +546,21 @@ async function handleSource() {
     const state = JSON.parse(content) as State;
     const volBar =
       state.volume !== undefined ? getVolumeIndicator(state.volume) : "";
+    const sourceClass =
+      state.mode === "error"
+        ? "error"
+        : state.mode === "paused"
+          ? "paused"
+          : state.isRecording
+            ? "playing"
+            : "stopped";
 
     console.log(
       JSON.stringify({
         text: state.text ? `${volBar} ${state.text}`.trim() : volBar || "...",
         tooltip: buildTooltip(state),
-        class: state.isRecording
-          ? "playing"
-          : state.mode === "error"
-            ? "error"
-            : "stopped",
-        alt: state.isRecording ? "playing" : "stopped",
+        class: sourceClass,
+        alt: sourceClass,
       }),
     );
   } catch (e) {
@@ -639,7 +855,7 @@ async function runWhisperStream(
   modelPath: string,
   deviceId: number,
   deviceName?: string,
-) {
+): Promise<"paused" | "stopped" | "error"> {
   const modelName = basename(modelPath)
     .replace("ggml-", "")
     .replace(".bin", "");
@@ -662,25 +878,19 @@ async function runWhisperStream(
     }
   }
 
-  await updateState({
-    text: `Loading ${modelName}...`,
+  await setTranscriptState({
+    activeText: `Loading ${modelName}...`,
     isRecording: true,
-    mode: "live",
+    mode: "starting",
+    volume: 0,
+    error: undefined,
   });
 
   let initialized = false;
-  const watchdog = setTimeout(async () => {
-    if (!initialized) {
-      await log("ERROR", "Init timeout - no audio device response in 60s");
-      await updateState({
-        text: "❌ Timeout",
-        isRecording: false,
-        mode: "error",
-        error: "Init timeout",
-      });
-      process.exit(1);
-    }
-  }, 60000);
+  let expectedExit: "paused" | "stopped" | null = null;
+  let lastProcessedCommandId = 0;
+  let activePartial = "";
+  let lastPartialChange = Date.now();
 
   const proc = Bun.spawn(
     [
@@ -707,30 +917,159 @@ async function runWhisperStream(
     },
   );
 
+  const watchdog = setTimeout(async () => {
+    if (!initialized) {
+      await log("ERROR", "Init timeout - no audio device response in 60s");
+      await setTranscriptState({
+        activeText: "❌ Timeout",
+        isRecording: false,
+        mode: "error",
+        error: "Init timeout",
+        volume: 0,
+      });
+      try {
+        proc.kill();
+      } catch {}
+    }
+  }, 60000);
+
   let lastText = "";
   let lastUpdateTime = Date.now();
 
   const stripAnsi = (s: string) => s.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, "");
 
-  const mergeText = (current: string, incoming: string): string => {
-    if (!current || current === "🎤 Listening..." || current === "Starting...")
-      return incoming;
-    if (!incoming) return current;
+  const commitActivePartial = async () => {
+    if (!activePartial) return;
+    const state = await loadState();
+    const nextCommitted = joinTranscriptParts(
+      state.committedText,
+      activePartial,
+    );
+    activePartial = "";
+    await setTranscriptState({
+      committedText: nextCommitted,
+      activeText: "",
+      isRecording: state.mode === "live",
+      mode: state.mode,
+    });
+  };
 
-    const currentWords = current.split(" ");
-    const incomingWords = incoming.split(" ");
+  const syncPartialTranscript = async (
+    incomingText: string,
+    volume: number,
+  ) => {
+    const state = await loadState();
+    const trimmedIncoming = normalizeWhitespace(incomingText);
+    const baseCommitted = state.committedText ?? "";
+    if (!trimmedIncoming) return;
 
-    for (let i = 0; i < Math.min(currentWords.length, 10); i++) {
-      const currentSuffix = currentWords
-        .slice(currentWords.length - 1 - i)
-        .join(" ");
-      if (incoming.startsWith(currentSuffix)) {
-        return current + incoming.slice(currentSuffix.length);
-      }
+    const nextPartial = stripCommittedPrefix(baseCommitted, trimmedIncoming);
+    const now = Date.now();
+    const isRevision =
+      activePartial && nextPartial && activePartial !== nextPartial;
+    const previousWordCount = splitIntoWords(activePartial).length;
+    const nextWordCount = splitIntoWords(nextPartial).length;
+    const shouldCommitPrevious =
+      !!activePartial &&
+      (/[.!?]$/.test(activePartial) ||
+        (now - lastPartialChange > 1400 && !isRevision) ||
+        (previousWordCount > 0 && nextWordCount > previousWordCount + 3));
+
+    if (shouldCommitPrevious) {
+      const nextCommitted = joinTranscriptParts(baseCommitted, activePartial);
+      activePartial = nextPartial;
+      lastPartialChange = now;
+      await setTranscriptState({
+        committedText: nextCommitted,
+        activeText: nextPartial,
+        isRecording: true,
+        mode: "live",
+        volume,
+      });
+      return;
     }
 
-    return current + " " + incoming;
+    activePartial = nextPartial;
+    lastPartialChange = now;
+    await setTranscriptState({
+      activeText: nextPartial || state.activeText || "",
+      isRecording: true,
+      mode: "live",
+      volume,
+    });
   };
+
+  const handleControlCommands = async () => {
+    const pending = await readControlCommand(lastProcessedCommandId);
+    if (!pending) return;
+
+    lastProcessedCommandId = pending.id;
+    const state = await loadState();
+    switch (pending.command) {
+      case "clear":
+        activePartial = "";
+        await setTranscriptState({
+          committedText: "",
+          activeText: "",
+          mode: state.mode,
+          isRecording: state.isRecording,
+        });
+        break;
+      case "pause":
+      case "toggle-pause":
+        if (state.mode === "paused") {
+          await setTranscriptState({
+            activeText: activePartial || "Resuming...",
+            isRecording: false,
+            mode: "starting",
+            volume: 0,
+          });
+        } else {
+          await commitActivePartial();
+          expectedExit = "paused";
+          await setTranscriptState({
+            activeText: "Paused",
+            isRecording: false,
+            mode: "paused",
+            volume: 0,
+          });
+          try {
+            proc.kill();
+          } catch {}
+        }
+        break;
+      case "resume":
+        if (state.mode === "paused") {
+          await setTranscriptState({
+            activeText: "Resuming...",
+            isRecording: false,
+            mode: "starting",
+            volume: 0,
+          });
+        }
+        break;
+      case "stop":
+      case "hide":
+        await commitActivePartial();
+        expectedExit = "stopped";
+        await setTranscriptState({
+          activeText: "Stopped",
+          isRecording: false,
+          mode: "idle",
+          volume: 0,
+        });
+        try {
+          proc.kill();
+        } catch {}
+        break;
+    }
+
+    await clearControlCommand(pending.id);
+  };
+
+  const controlPoll = setInterval(() => {
+    void handleControlCommands();
+  }, 120);
 
   const isValidTranscript = (text: string): boolean => {
     if (!text || text.length < 2) return false;
@@ -815,10 +1154,11 @@ async function runWhisperStream(
 
       if (text.includes("attempt to open default capture")) {
         await log("INFO", "Opening mic");
-        await updateState({
-          text: "Opening mic...",
+        await setTranscriptState({
+          activeText: "Opening mic...",
           isRecording: true,
-          mode: "live",
+          mode: "starting",
+          volume: 0,
         });
       }
 
@@ -833,14 +1173,9 @@ async function runWhisperStream(
           await log("INFO", "Streaming active");
         }
         const state = await loadState();
-        if (state.mode === "live") {
-          await updateState({
-            text:
-              state.text &&
-              state.text !== "Opening mic..." &&
-              state.text !== "Loading medium.en..."
-                ? state.text
-                : "🎤 Listening...",
+        if (state.mode === "starting" || state.mode === "live") {
+          await setTranscriptState({
+            activeText: activePartial || "🎤 Listening...",
             isRecording: true,
             mode: "live",
             volume: 0.2,
@@ -857,13 +1192,7 @@ async function runWhisperStream(
         if (now - lastUpdateTime > 100) {
           lastUpdateTime = now;
           await log("INFO", "Transcribed", { text: text.slice(0, 60) });
-          const newText = mergeText(state.text, text);
-          await updateState({
-            text: newText,
-            isRecording: true,
-            mode: "live",
-            volume: 0.8,
-          });
+          await syncPartialTranscript(text, 0.8);
         }
       }
     }
@@ -895,10 +1224,40 @@ async function runWhisperStream(
     proc.exited,
   ]);
 
+  clearInterval(controlPoll);
   clearTimeout(watchdog);
   const exitCode = await proc.exited;
   await log("INFO", "whisper-stream exited", { exitCode });
-  await updateState({ text: "Stopped", isRecording: false, mode: "idle" });
+
+  if (expectedExit === "paused") {
+    await setTranscriptState({
+      activeText: "Paused",
+      isRecording: false,
+      mode: "paused",
+      volume: 0,
+    });
+    return "paused";
+  }
+
+  if (expectedExit === "stopped") {
+    await setTranscriptState({
+      activeText: "Stopped",
+      isRecording: false,
+      mode: "idle",
+      volume: 0,
+    });
+    return "stopped";
+  }
+
+  await commitActivePartial();
+  await setTranscriptState({
+    activeText: "❌ Dictation stopped unexpectedly",
+    isRecording: false,
+    mode: "error",
+    error: `whisper-stream exited with code ${exitCode}`,
+    volume: 0,
+  });
+  return "error";
 }
 
 async function prepareAudioFile(inputFile: string): Promise<string> {
@@ -1002,10 +1361,10 @@ async function embedSubtitles(
 }
 
 async function startOverlay() {
-  await updateState({
-    text: "Starting overlay...",
+  await setTranscriptState({
+    activeText: "Starting overlay...",
     isRecording: true,
-    mode: "live",
+    mode: "starting",
   });
   try {
     Bun.spawn(["toggle-dictation-overlay", "show"], {
@@ -1097,6 +1456,7 @@ async function cleanup() {
     await $`toggle-dictation-overlay hide`.quiet().catch(() => {});
     if (existsSync(CONFIG.pidFile)) await unlink(CONFIG.pidFile);
     if (existsSync(CONFIG.stateFile)) await unlink(CONFIG.stateFile);
+    if (existsSync(CONFIG.controlFile)) await unlink(CONFIG.controlFile);
   } catch {}
 }
 
@@ -1107,12 +1467,14 @@ function getArg(flag: string): string | null {
 
 function buildTooltip(state: State): string {
   const lines: string[] = [];
-  const modeLabels = {
+  const modeLabels: Record<State["mode"], string> = {
+    starting: "⏳ Starting",
     live: "🎙️ Live",
+    paused: "⏸️ Paused",
     transcribe: "📝 Transcribe",
     downloading: "⬇️ Downloading",
     error: "❌ Error",
-    idle: "⏸️ Idle",
+    idle: "⏹️ Stopped",
   };
   lines.push(`<b>${modeLabels[state.mode] || state.mode}</b>`);
   if (state.file) lines.push(`File: ${basename(state.file)}`);
