@@ -79,7 +79,7 @@ PanelWindow {
         id: container
         anchors.centerIn: parent
         width: parent.width - 40
-        height: Math.min(contentArea.implicitHeight + 160, 400)
+        height: Math.min(contentLayout.implicitHeight + 160, 400)
 
         Lib.GlassPanel {
             anchors.fill: parent
@@ -87,6 +87,7 @@ PanelWindow {
         }
 
         ColumnLayout {
+            id: contentLayout
             anchors.fill: parent
             anchors.margins: 16
             spacing: 12
@@ -105,8 +106,15 @@ PanelWindow {
                         if (root.dictationMode === "downloading") return "#54fcfc"; // Lib.Theme.accentAlt
                         return "#d0d0d0"; // Lib.Theme.foregroundAlt
                     }
-                    opacity: root.dictationMode === "live" ? 0.4 + (root.dictationVolume * 0.6) : 1.0
-                    Behavior on opacity { NumberAnimation { duration: 100 } }
+                    
+                    // Pulse animation
+                    opacity: 1.0
+                    SequentialAnimation on opacity {
+                        running: root.dictationMode === "live"
+                        loops: Animation.Infinite
+                        NumberAnimation { from: 1.0; to: 0.4; duration: 800; easing.type: Easing.InOutQuad }
+                        NumberAnimation { from: 0.4; to: 1.0; duration: 800; easing.type: Easing.InOutQuad }
+                    }
                 }
 
                 Text {
@@ -127,28 +135,32 @@ PanelWindow {
                 }
             }
 
-            // --- Content: The Transcript ---
+            // --- Content: The Transcript Notepad ---
             ScrollView {
                 id: transcriptScroll
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 clip: true
                 
-                Text {
-                    id: contentArea
+                TextArea {
+                    id: notepad
                     width: transcriptScroll.width - 16
                     text: root.dictationMode === "error" ? root.dictationError : root.dictationText
                     color: root.dictationMode === "error" ? "#fc5454" : "#e0e0e0"
                     font.family: "JetBrainsMono Nerd Font"
                     font.pixelSize: 15
                     wrapMode: Text.Wrap
+                    background: null
                     padding: 8
+                    selectByMouse: true
                     
-                    // Auto-scroll to bottom
+                    // Auto-scroll to bottom only if we're near the bottom
                     onTextChanged: {
-                        Qt.callLater(() => {
-                            transcriptScroll.contentItem.contentY = Math.max(0, contentArea.height - transcriptScroll.height)
-                        })
+                        if (transcriptScroll.contentItem.contentY >= contentHeight - transcriptScroll.height - 100) {
+                            Qt.callLater(() => {
+                                transcriptScroll.contentItem.contentY = Math.max(0, contentHeight - transcriptScroll.height)
+                            })
+                        }
                     }
                 }
             }
@@ -163,7 +175,7 @@ PanelWindow {
                     Layout.preferredHeight: 40
                     text: "Copy"
                     onClicked: {
-                        copier.command = ["wl-copy", "--type", "text/plain", root.dictationText];
+                        copier.command = ["wl-copy", "--type", "text/plain", notepad.text];
                         copier.running = true;
                     }
                 }

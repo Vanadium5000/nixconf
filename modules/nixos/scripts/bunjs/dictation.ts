@@ -82,6 +82,34 @@ async function log(
 const args = Bun.argv.slice(2);
 const command = args[0] || "help";
 
+// Global promise queue for atomic state updates
+let statePromise: Promise<void> = Promise.resolve();
+
+async function loadState(): Promise<State> {
+  try {
+    const file = Bun.file(CONFIG.stateFile);
+    if (await file.exists()) {
+      return await file.json();
+    }
+  } catch {}
+  return { text: "", isRecording: false, mode: "idle" };
+}
+
+async function updateState(newState: Partial<State>) {
+  statePromise = statePromise
+    .then(async () => {
+      try {
+        const state = await loadState();
+        await Bun.write(
+          CONFIG.stateFile,
+          JSON.stringify({ ...state, ...newState }),
+        );
+      } catch {}
+    })
+    .catch(() => {});
+  return statePromise;
+}
+
 switch (command) {
   case "toggle":
     await handleToggle();
@@ -173,7 +201,6 @@ async function handleRun() {
 
   const modelArg = getArg("--model");
   const noOverlay = args.includes("--no-overlay");
-  const noType = args.includes("--no-type");
 
   const whisperBin = await findWhisperBinary();
   if (!whisperBin) {
@@ -227,13 +254,26 @@ async function handleRun() {
 
   if (!noOverlay) await startOverlay();
 
-  await runWhisperStream(
-    whisperBin,
-    modelPath,
-    noType,
-    device.sdlId,
-    device.name,
-  );
+  await runWhisperStream(whisperBin, modelPath, device.sdlId, device.name);
+}
+
+async function handleCommand() {
+  const cmd = args[1];
+  switch (cmd) {
+    case "clear":
+      await updateState({ text: "" });
+      break;
+    case "pause":
+      const state = await loadState();
+      await updateState({ mode: state.mode === "live" ? "idle" : "live" });
+      break;
+    case "hide":
+      await $`toggle-dictation-overlay hide`.quiet().catch(() => {});
+      break;
+    default:
+      console.error(`Unknown internal command: ${cmd}`);
+      process.exit(1);
+  }
 }
 
 async function handleStatus() {
@@ -452,35 +492,6 @@ async function ensureDeviceSelected(): Promise<AudioDevice | null> {
   return null;
 }
 
-async function handleCommand() {
-  const cmd = args[1];
-  switch (cmd) {
-    case "clear":
-      await updateState({ text: "" });
-      break;
-    case "pause":
-      const state = await loadState();
-      await updateState({ mode: state.mode === "live" ? "idle" : "live" });
-      break;
-    case "hide":
-      await $`toggle-dictation-overlay hide`.quiet().catch(() => {});
-      break;
-    default:
-      console.error(`Unknown internal command: ${cmd}`);
-      process.exit(1);
-  }
-}
-
-async function loadState(): Promise<State> {
-  try {
-    const file = Bun.file(CONFIG.stateFile);
-    if (await file.exists()) {
-      return await file.json();
-    }
-  } catch {}
-  return { text: "", isRecording: false, mode: "idle" };
-}
-
 async function handleTranscribe() {
   const inputFile = args[1];
   if (!inputFile || !existsSync(inputFile)) {
@@ -626,7 +637,6 @@ async function getPulseSource(deviceName: string): Promise<string | null> {
 async function runWhisperStream(
   bin: string,
   modelPath: string,
-  noType: boolean,
   deviceId: number,
   deviceName?: string,
 ) {
@@ -644,7 +654,6 @@ async function runWhisperStream(
     const pulseSource = await getPulseSource(deviceName);
     if (pulseSource) {
       await log("INFO", "Forcing PulseAudio source", { source: pulseSource });
-      // PULSE_SOURCE forces the 'default' device in the PA client to match this source
       env = { ...env, PULSE_SOURCE: pulseSource };
     } else {
       await log("WARN", "Could not resolve PulseAudio source name", {
@@ -673,7 +682,6 @@ async function runWhisperStream(
     }
   }, 60000);
 
-  // Use appropriate flags for hallucination reduction depending on available options
   const proc = Bun.spawn(
     [
       bin,
@@ -682,17 +690,16 @@ async function runWhisperStream(
       "-t",
       "4",
       "--step",
-      "500", // Fast updates
+      "500",
       "--length",
-      "5000", // Keep it relatively short to avoid rambling context errors
+      "5000",
       "-vth",
-      "0.6", // Voice activity detection threshold to cut silence hallucinations
-      // NOTE: Removed "-kc" - keeping context across chunks causes repetition loops
+      "0.6",
       "-bs",
-      "5", // Beam search with 5 beams (reduces repetition vs greedy)
-      "-nf", // No temperature fallback (prevents hallucination)
+      "5",
+      "-nf",
       "-c",
-      "0", // Force default device, as PULSE_SOURCE handles selection
+      "0",
     ],
     {
       stdio: ["ignore", "pipe", "pipe"],
@@ -701,23 +708,35 @@ async function runWhisperStream(
   );
 
   let lastText = "";
-  let typedText = ""; // Track what we've actually typed for incremental updates
   let lastUpdateTime = Date.now();
 
   const stripAnsi = (s: string) => s.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, "");
 
+  const mergeText = (current: string, incoming: string): string => {
+    if (!current || current === "🎤 Listening..." || current === "Starting...")
+      return incoming;
+    if (!incoming) return current;
+
+    const currentWords = current.split(" ");
+    const incomingWords = incoming.split(" ");
+
+    for (let i = 0; i < Math.min(currentWords.length, 10); i++) {
+      const currentSuffix = currentWords
+        .slice(currentWords.length - 1 - i)
+        .join(" ");
+      if (incoming.startsWith(currentSuffix)) {
+        return current + incoming.slice(currentSuffix.length);
+      }
+    }
+
+    return current + " " + incoming;
+  };
+
   const isValidTranscript = (text: string): boolean => {
     if (!text || text.length < 2) return false;
-
-    // Filter parenthetical noise: (music), (beeping), [inaudible], etc.
-    // We allow brackets generally, but block common hallucination patterns
     if (/^[\[\(].*[\]\)]$/.test(text)) {
       const inner = text.slice(1, -1).trim().toLowerCase();
-      // Block timestamps [00:12]
       if (/^[\d:.]+$/.test(inner)) return false;
-
-      // More comprehensive noise triggers - match if text CONTAINS any trigger
-      // since whisper often adds modifiers like "electronic beeping", "loud thud"
       const noiseTriggers = [
         "music",
         "applause",
@@ -759,28 +778,15 @@ async function runWhisperStream(
         "whistle",
         "breathing",
       ];
-
-      // Block if inner text contains any noise trigger
-      if (noiseTriggers.some((t) => inner.includes(t))) {
-        return false;
-      }
+      if (noiseTriggers.some((t) => inner.includes(t))) return false;
     }
-
     if (/^\*.*\*$/.test(text)) return false;
-
-    // Common Hallucinations
     if (/^Amps\s*=\s*0/i.test(text)) return false;
     if (/^Subtitles? by/i.test(text)) return false;
-    if (/^[0-9]+$/.test(text)) return false; // Just numbers
-
-    // URL Hallucinations
-    if (/\.com|\.org|\.net|\.io/i.test(text) && !text.includes(" "))
-      return false;
-
+    if (/^[0-9]+$/.test(text)) return false;
     const dominated = [
       "init:",
       "whisper_",
-      "load_backend",
       "ggml_",
       "main:",
       "system_info",
@@ -788,44 +794,9 @@ async function runWhisperStream(
       "sample rate",
       "format:",
       "channels:",
-      "samples per frame",
-      "processing",
-      "n_new_line",
-      "timings",
-      "fallbacks",
-      "mel time",
-      "encode time",
-      "decode time",
-      "batchd time",
-      "prompt time",
-      "total time",
-      "compute buffer",
-      "kv ",
-      "model size",
-      "adding",
-      "n_vocab",
-      "n_audio",
-      "n_text",
-      "n_mels",
-      "ftype",
-      "qntvr",
-      "type",
-      "n_langs",
-      "CUDA",
-      "backends",
-      "gpu",
-      "flash attn",
-      "dtw",
-      "devices",
-      "loading model",
-      "capture device",
-      "attempt to open",
-      "obtained spec",
       "[Start speaking]",
     ];
-    for (const d of dominated) {
-      if (text.includes(d)) return false;
-    }
+    for (const d of dominated) if (text.includes(d)) return false;
     return true;
   };
 
@@ -834,7 +805,6 @@ async function runWhisperStream(
     const parts = cleaned.split(/[\r\n]+/);
 
     for (const part of parts) {
-      // Ensure no newlines (safeguard) and trim
       const text = part.replace(/[\r\n]+/g, " ").trim();
       if (!text) continue;
 
@@ -865,24 +835,17 @@ async function runWhisperStream(
         const state = await loadState();
         if (state.mode === "live") {
           await updateState({
-            text: state.text || "🎤 Listening...",
+            text:
+              state.text &&
+              state.text !== "Opening mic..." &&
+              state.text !== "Loading medium.en..."
+                ? state.text
+                : "🎤 Listening...",
             isRecording: true,
             mode: "live",
             volume: 0.2,
           });
         }
-      }
-
-      if (text.includes("found 0 capture")) {
-        await log("ERROR", "No mic found");
-        await updateState({
-          text: "❌ No mic",
-          isRecording: false,
-          mode: "error",
-          error: "No mic",
-        });
-        proc.kill();
-        process.exit(1);
       }
 
       const state = await loadState();
@@ -891,18 +854,10 @@ async function runWhisperStream(
       if (isValidTranscript(text) && text !== lastText) {
         lastText = text;
         const now = Date.now();
-
         if (now - lastUpdateTime > 100) {
           lastUpdateTime = now;
           await log("INFO", "Transcribed", { text: text.slice(0, 60) });
-
-          const newText =
-            state.text &&
-            state.text !== "🎤 Listening..." &&
-            state.text !== "Starting..."
-              ? state.text + " " + text
-              : text;
-
+          const newText = mergeText(state.text, text);
           await updateState({
             text: newText,
             isRecording: true,
@@ -918,12 +873,10 @@ async function runWhisperStream(
     const reader = stream.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
-
     try {
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-
         buffer += decoder.decode(value, { stream: true });
         await processChunk(buffer);
         buffer = "";
@@ -957,7 +910,6 @@ async function prepareAudioFile(inputFile: string): Promise<string> {
     mode: "transcribe",
     progress: "5%",
   });
-
   try {
     await $`ffmpeg -y -i ${inputFile} -ar 16000 -ac 1 -c:a pcm_s16le ${outputWav}`.quiet();
     return outputWav;
@@ -977,12 +929,10 @@ async function transcribeFile(
     mode: "transcribe",
     progress: "20%",
   });
-
   try {
     const result =
       await $`whisper-cli -m ${modelPath} -f ${wavFile} -pp`.text();
     const segments: TranscriptSegment[] = [];
-
     for (const line of result.split("\n")) {
       const match = line.match(
         /\[(\d{2}):(\d{2}):(\d{2})\.(\d{3})\s*-->\s*(\d{2}):(\d{2}):(\d{2})\.(\d{3})\]\s*(.*)/,
@@ -999,19 +949,10 @@ async function transcribeFile(
           parseInt(match[7]!) +
           parseInt(match[8]!) / 1000;
         const text = match[9]!.trim();
-        if (text && !text.startsWith("[") && !text.startsWith("(")) {
+        if (text && !text.startsWith("[") && !text.startsWith("("))
           segments.push({ start, end, text });
-        }
       }
     }
-
-    await log("INFO", "Parsed segments", { count: segments.length });
-    await updateState({
-      text: "Processing...",
-      isRecording: true,
-      mode: "transcribe",
-      progress: "90%",
-    });
     return segments;
   } catch (e) {
     throw new Error(`Transcription failed: ${e}`);
@@ -1027,14 +968,9 @@ function formatSubtitles(
     const m = Math.floor((s % 3600) / 60);
     const sec = Math.floor(s % 60);
     const ms = Math.floor((s % 1) * 1000);
-    return `${h.toString().padStart(2, "0")}:${m
-      .toString()
-      .padStart(2, "0")}:${sec.toString().padStart(2, "0")}${
-      dot ? "." : ","
-    }${ms.toString().padStart(3, "0")}`;
+    return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${sec.toString().padStart(2, "0")}${dot ? "." : ","}${ms.toString().padStart(3, "0")}`;
   };
-
-  if (format === "vtt") {
+  if (format === "vtt")
     return (
       "WEBVTT\n\n" +
       segments
@@ -1043,10 +979,7 @@ function formatSubtitles(
         )
         .join("\n")
     );
-  }
-  if (format === "txt") {
-    return segments.map((s) => s.text).join("\n");
-  }
+  if (format === "txt") return segments.map((s) => s.text).join("\n");
   return segments
     .map((s, i) => `${i + 1}\n${fmt(s.start)} --> ${fmt(s.end)}\n${s.text}\n`)
     .join("\n");
@@ -1058,20 +991,11 @@ async function embedSubtitles(
 ): Promise<void> {
   const ext = extname(videoFile);
   const output = videoFile.replace(ext, `.subtitled${ext}`);
-  await log("INFO", "Embedding subtitles", { output: basename(output) });
-  await updateState({
-    text: "Embedding...",
-    isRecording: true,
-    mode: "transcribe",
-    progress: "95%",
-  });
-
   try {
-    if (ext === ".mkv") {
+    if (ext === ".mkv")
       await $`ffmpeg -y -i ${videoFile} -i ${subtitleFile} -c copy -c:s srt ${output}`.quiet();
-    } else {
+    else
       await $`ffmpeg -y -i ${videoFile} -vf subtitles=${subtitleFile} -c:a copy ${output}`.quiet();
-    }
   } catch (e) {
     throw new Error(`Embedding failed: ${e}`);
   }
@@ -1083,7 +1007,6 @@ async function startOverlay() {
     isRecording: true,
     mode: "live",
   });
-
   try {
     Bun.spawn(["toggle-dictation-overlay", "show"], {
       stdio: ["ignore", "ignore", "ignore"],
@@ -1116,67 +1039,43 @@ async function resolveModel(input: string | null): Promise<string> {
 async function ensureModelDownloaded(modelName: string): Promise<string> {
   const filename = `ggml-${modelName}.bin`;
   const path = join(CONFIG.userModelDir, filename);
-
-  if (existsSync(path)) {
-    await log("INFO", "Using cached model", { model: modelName });
-    return path;
-  }
-
-  await log("INFO", "Downloading model", { model: modelName });
+  if (existsSync(path)) return path;
   await updateState({
     text: `⬇️ Downloading ${modelName}...`,
     isRecording: true,
     mode: "downloading",
     progress: "0%",
   });
-
   try {
-    await $`which whisper-cpp-download-ggml-model`.quiet();
-  } catch {
-    throw new Error("whisper-cpp-download-ggml-model not found");
-  }
-
-  await mkdir(CONFIG.userModelDir, { recursive: true });
-
-  const proc = Bun.spawn(
-    [
-      "sh",
-      "-c",
-      `cd "${CONFIG.userModelDir}" && whisper-cpp-download-ggml-model "${modelName}" 2>&1`,
-    ],
-    { stdio: ["ignore", "pipe", "pipe"] },
-  );
-
-  const reader = proc.stdout.getReader();
-  const decoder = new TextDecoder();
-  let lastProgress = "";
-
-  try {
+    await mkdir(CONFIG.userModelDir, { recursive: true });
+    const proc = Bun.spawn(
+      [
+        "sh",
+        "-c",
+        `cd "${CONFIG.userModelDir}" && whisper-cpp-download-ggml-model "${modelName}" 2>&1`,
+      ],
+      { stdio: ["ignore", "pipe", "pipe"] },
+    );
+    const reader = proc.stdout.getReader();
+    const decoder = new TextDecoder();
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-
       const text = decoder.decode(value);
       const match = text.match(/(\d+)%/);
-      if (match && match[1] !== lastProgress) {
-        lastProgress = match[1]!;
+      if (match)
         await updateState({
-          text: `⬇️ ${modelName} ${lastProgress}%`,
+          text: `⬇️ ${modelName} ${match[1]}%`,
           isRecording: true,
           mode: "downloading",
-          progress: `${lastProgress}%`,
+          progress: `${match[1]}%`,
         });
-      }
     }
-  } catch {}
-
-  await proc.exited;
-
-  if (existsSync(path)) {
-    await log("INFO", "Model download complete", { model: modelName });
+    await proc.exited;
     return path;
+  } catch {
+    throw new Error(`Download failed for ${modelName}`);
   }
-  throw new Error(`Download failed for ${modelName}`);
 }
 
 async function getRunningPid(): Promise<number | null> {
@@ -1191,22 +1090,6 @@ async function getRunningPid(): Promise<number | null> {
     }
   }
   return null;
-}
-
-async function updateState(newState: Partial<State>) {
-  try {
-    let state: State = { text: "", isRecording: false, mode: "idle" };
-    const file = Bun.file(CONFIG.stateFile);
-    if (await file.exists()) {
-      try {
-        state = await file.json();
-      } catch {}
-    }
-    await Bun.write(
-      CONFIG.stateFile,
-      JSON.stringify({ ...state, ...newState }),
-    );
-  } catch {}
 }
 
 async function cleanup() {
@@ -1232,7 +1115,6 @@ function buildTooltip(state: State): string {
     idle: "⏸️ Idle",
   };
   lines.push(`<b>${modeLabels[state.mode] || state.mode}</b>`);
-
   if (state.file) lines.push(`File: ${basename(state.file)}`);
   if (state.progress) lines.push(`Progress: ${state.progress}`);
   if (state.startTime) {
@@ -1241,7 +1123,7 @@ function buildTooltip(state: State): string {
       `Time: ${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`,
     );
   }
-  if (state.error) lines.push(`<span color='#ff6b6b'>${state.error}</span>`);
+  if (state.error) lines.push(`<span color='#fc5454'>${state.error}</span>`);
   lines.push("", `<b>► ${state.text}</b>`);
   return lines.join("\n");
 }
@@ -1264,7 +1146,6 @@ COMMANDS:
 LIVE OPTIONS:
   --model <name>      Model: tiny, base, small, medium, large (default: ${CONFIG.defaultModelName})
   --no-overlay        Disable overlay
-  --no-type           Don't type recognized text
   --position <pos>    Overlay: top, bottom, center
   --font-size <n>     Font size (default: 32)
 

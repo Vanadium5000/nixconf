@@ -550,7 +550,7 @@
         ".config/opencode/skill".source = ./skill;
         ".config/opencode/command".source = ./command;
         ".config/opencode/plugin".source = ./plugin;
-        ".config/opencode/AGENTS.md".source = ./AGENTS.md;
+        ".config/opencode/AGENTS.md".source = ./_AGENTS.md;
         ".config/opencode/prompts".source = ./prompts;
       };
     };
