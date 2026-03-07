@@ -506,8 +506,6 @@
           --set OPENCODE_LIBC ${pkgs.glibc}/lib/libc.so.6
       '';
 
-      configFile = ".config/opencode/config.json";
-
       # Persistence configuration using bind mount for reliability
       toolsPersistence = self.lib.persistence.mkPersistent {
         method = "bind";
@@ -525,6 +523,41 @@
         targetFile = "/home/${user}/.local/share/opencode";
         isDirectory = true;
       };
+
+      opencodeMemConfig = {
+        storagePath = "~/.opencode-mem/data";
+        embeddingModel = "Xenova/nomic-embed-text-v1";
+        memoryProvider = "openai-chat";
+        memoryModel = models."minimax-2.5";
+        memoryApiUrl = "http://127.0.0.1:8317/v1";
+        memoryApiKey = self.secrets.CLIPROXYAPI_KEY;
+        autoCaptureEnabled = true;
+        webServerEnabled = true;
+        webServerPort = 4747;
+        chatMessage = {
+          enabled = true;
+          maxMemories = 3;
+          injectOn = "first";
+        };
+      };
+
+      # Default configuration directory to bootstrap from
+      # These files will be copied to ~/.config/opencode on first activation
+      defaultConfigDir = pkgs.runCommand "opencode-default-config" { } ''
+        mkdir -p $out
+        cat > $out/config.json << 'EOF'
+        ${builtins.toJSON initialConfig}
+        EOF
+        cat > $out/opencode-mem.jsonc << 'EOF'
+        ${builtins.toJSON opencodeMemConfig}
+        EOF
+        cp -r ${./skill} $out/skill
+        cp -r ${./command} $out/command
+        cp -r ${./plugin} $out/plugin
+        cp ${./_AGENTS.md} $out/AGENTS.md
+        cp ${./_package.json} $out/package.json
+        cp -r ${./prompts} $out/prompts
+      '';
     in
     {
       environment.systemPackages = [
@@ -535,24 +568,47 @@
 
       # Setup script to ensure files exist before mount
       system.activationScripts.opencode-persistence = {
-        text = toolsPersistence.activationScript + opencodePersistence.activationScript;
+        text =
+          toolsPersistence.activationScript
+          + opencodePersistence.activationScript
+          + ''
+            # Bootstrap OpenCode configuration (mutable)
+            CONFIG_DIR="/home/${user}/.config/opencode"
+            mkdir -p "$CONFIG_DIR"
+
+            # Function to bootstrap a file or folder if it doesn't exist
+            bootstrap_item() {
+              local item="$1"
+              local src="${defaultConfigDir}/$item"
+              local dest="$CONFIG_DIR/$item"
+              
+              if [ -L "$dest" ]; then
+                # Remove read-only symlinks from previous declarative config
+                rm "$dest"
+              fi
+              
+              if [ ! -e "$dest" ]; then
+                echo "Bootstrapping opencode item: $item"
+                cp -r "$src" "$dest"
+                chmod -R u+rw "$dest"
+              fi
+            }
+
+            bootstrap_item "config.json"
+            bootstrap_item "opencode-mem.jsonc"
+            bootstrap_item "skill"
+            bootstrap_item "command"
+            bootstrap_item "plugin"
+            bootstrap_item "AGENTS.md"
+            bootstrap_item "package.json"
+            bootstrap_item "prompts"
+
+            chown -R ${user}:users "$CONFIG_DIR"
+          '';
         deps = [ "users" ];
       };
 
       # Bind mount for reliable persistence (apps can't overwrite)
       fileSystems = toolsPersistence.fileSystems // opencodePersistence.fileSystems;
-
-      hjem.users.${user}.files = {
-        # Deploy initial config structure
-        "${configFile}".text = builtins.toJSON initialConfig;
-
-        # Source skills & commands using hjem as requested
-        ".config/opencode/skill".source = ./skill;
-        ".config/opencode/command".source = ./command;
-        ".config/opencode/plugin".source = ./plugin;
-        ".config/opencode/AGENTS.md".source = ./_AGENTS.md;
-        ".config/opencode/package.json".source = ./_package.json;
-        ".config/opencode/prompts".source = ./prompts;
-      };
     };
 }

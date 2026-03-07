@@ -16,5 +16,6 @@
     "@tarquinen/opencode-dcp@1.2.7" # Dynamic Context Pruning - essential for long sessions
     "@franlol/opencode-md-table-formatter" # Format markdown tables
     "opencode-ralph-loop" # Ralph loop
+    "opencode-mem" # Persistent memory using local vector database
   ];
 }

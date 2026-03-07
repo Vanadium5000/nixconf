@@ -14,11 +14,14 @@ PanelWindow {
     // Position: Bottom of screen, centered
     anchors {
         bottom: true
-        horizontalCenter: true
+        left: true
+        right: true
     }
     
     margins {
         bottom: 80 // Above waybar
+        left: (Screen.desktopAvailableWidth - 600) / 2
+        right: (Screen.desktopAvailableWidth - 600) / 2
     }
     
     width: 600
