@@ -551,6 +551,7 @@
         ".config/opencode/command".source = ./command;
         ".config/opencode/plugin".source = ./plugin;
         ".config/opencode/AGENTS.md".source = ./_AGENTS.md;
+        ".config/opencode/package.json".source = ./_package.json;
         ".config/opencode/prompts".source = ./prompts;
       };
     };
