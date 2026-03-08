@@ -2,7 +2,7 @@
 
 let
   pname = "dogecoin";
-  version = "1.8.5";
+  version = "1.14.9";
 in
 pkgs.stdenv.mkDerivation {
   inherit pname version;
