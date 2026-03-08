@@ -50,11 +50,7 @@ let
       inherit (unifiedProvider) npm name options;
       models = builtins.mapAttrs (
         modelId: model:
-        {
-          inherit (model) name;
-        }
-        // (if model ? modalities then { inherit (model) modalities; } else { })
-        // {
+        let
           limit =
             (lib.optionalAttrs (model ? context || (model ? limit && model.limit ? context)) {
               context = model.context or model.limit.context;
@@ -62,7 +58,12 @@ let
             // (lib.optionalAttrs (model ? output || (model ? limit && model.limit ? output)) {
               output = model.output or model.limit.output;
             });
+        in
+        {
+          inherit (model) name;
         }
+        // (if model ? modalities then { inherit (model) modalities; } else { })
+        // (lib.optionalAttrs (limit != { }) { inherit limit; })
       ) unifiedProvider.models;
     };
   };
