@@ -10,7 +10,9 @@
     let
       user = config.preferences.user.username;
       languages = import ./_languages.nix { inherit pkgs self; };
-      providers = import ./_providers.nix { inherit self; };
+      providers = import ./_providers.nix {
+        inherit self lib;
+      };
       pluginsConfig = import ./_plugins.nix;
       categoriesConfig = import ./_categories.nix { inherit lib; };
       opencode = inputs.opencode.packages.${pkgs.stdenv.hostPlatform.system}.default;
@@ -344,270 +346,283 @@
 
       # TUI for model/profile and template switching
       opencodeModelSwitch = pkgs.writeShellScriptBin "opencode-models" ''
-                REPO_DIR="/home/matrix/nixconf/modules/nixos/terminal/opencode"
-                MODELS_FILE="$REPO_DIR/models.json"
-                STATE_FILE="$REPO_DIR/state.json"
-                GLOBAL_CONFIG_FILE="$HOME/.config/opencode/config.json"
-                GLOBAL_OMA_FILE="$HOME/.config/opencode/oh-my-opencode.jsonc"
-                LOCAL_JSONC_FILE="$PWD/opencode.jsonc"
-                TEMPLATES_DIR="${configVariantsDir}/templates"
-                SHADCN_PROJECT_SKILL_FILE="${projectTemplateAssetsDir}/shadcn-ui/SKILL.md"
-                BASE_CONFIG_FILE="${runtimeConfigDir}/opencode-base.json"
-                BASE_OMA_FILE="${runtimeConfigDir}/oh-my-opencode-base.json"
-                METADATA_FILE="${runtimeConfigDir}/opencode-models-metadata.json"
-                JQ="${pkgs.jq}/bin/jq"
-                GUM="${pkgs.gum}/bin/gum"
-                SYSTEMCTL="${pkgs.systemd}/bin/systemctl"
-                CURL="${pkgs.curl}/bin/curl"
+        REPO_DIR="/home/matrix/nixconf/modules/nixos/terminal/opencode"
+        MODELS_FILE="$REPO_DIR/models.json"
+        STATE_FILE="$REPO_DIR/state.json"
+        GLOBAL_CONFIG_FILE="$HOME/.config/opencode/config.json"
+        GLOBAL_OMA_FILE="$HOME/.config/opencode/oh-my-opencode.jsonc"
+        LOCAL_JSONC_FILE="$PWD/opencode.jsonc"
+        TEMPLATES_DIR="${configVariantsDir}/templates"
+        SHADCN_PROJECT_SKILL_FILE="${projectTemplateAssetsDir}/shadcn-ui/SKILL.md"
+        BASE_CONFIG_FILE="${runtimeConfigDir}/opencode-base.json"
+        BASE_OMA_FILE="${runtimeConfigDir}/oh-my-opencode-base.json"
+        METADATA_FILE="${runtimeConfigDir}/opencode-models-metadata.json"
+        JQ="${pkgs.jq}/bin/jq"
+        GUM="${pkgs.gum}/bin/gum"
+        SYSTEMCTL="${pkgs.systemd}/bin/systemctl"
+        CURL="${pkgs.curl}/bin/curl"
 
-                ensure_state_file() {
-                  if [ ! -f "$STATE_FILE" ] || [ ! -s "$STATE_FILE" ]; then
-                    printf '{"categories":{}}\n' > "$STATE_FILE"
-                  fi
-                }
+        ensure_state_file() {
+          if [ ! -f "$STATE_FILE" ] || [ ! -s "$STATE_FILE" ]; then
+            printf '{"categories":{}}\n' > "$STATE_FILE"
+          fi
+        }
 
-                get_menu_text() {
-                  local key="$1"
-                  $JQ -r --arg key "$key" '.menu[$key]' "$METADATA_FILE"
-                }
+        get_menu_text() {
+          local key="$1"
+          $JQ -r --arg key "$key" '.menu[$key]' "$METADATA_FILE"
+        }
 
-                get_group_model() {
-                  local group_id="$1"
-                  ensure_state_file
-                  local configured_model
-                  configured_model=$($JQ -r --arg category_id "$group_id" '.categories[$category_id] // empty' "$STATE_FILE")
-                  if [ -n "$configured_model" ]; then
-                    printf '%s\n' "$configured_model"
-                  else
-                    $JQ -r --arg category_id "$group_id" '.categories[$category_id].defaultModel' "$METADATA_FILE"
-                  fi
-                }
+        get_group_model() {
+          local group_id="$1"
+          ensure_state_file
+          local configured_model
+          configured_model=$($JQ -r --arg category_id "$group_id" '.categories[$category_id] // empty' "$STATE_FILE")
+          if [ -n "$configured_model" ]; then
+            printf '%s\n' "$configured_model"
+          else
+            $JQ -r --arg category_id "$group_id" '.categories[$category_id].defaultModel' "$METADATA_FILE"
+          fi
+        }
 
-                rebuild_runtime_configs() {
-                  ensure_state_file
+        rebuild_runtime_configs() {
+          ensure_state_file
 
-                  local opencode_tmp
-                  opencode_tmp=$(mktemp)
-                  cp "$BASE_CONFIG_FILE" "$opencode_tmp"
+          local opencode_tmp
+          opencode_tmp=$(mktemp)
+          cp "$BASE_CONFIG_FILE" "$opencode_tmp"
 
-                  mkdir -p "$(dirname "$GLOBAL_CONFIG_FILE")"
-                  mv "$opencode_tmp" "$GLOBAL_CONFIG_FILE"
-                  chmod 0600 "$GLOBAL_CONFIG_FILE"
+          mkdir -p "$(dirname "$GLOBAL_CONFIG_FILE")"
+          mv "$opencode_tmp" "$GLOBAL_CONFIG_FILE"
+          chmod 0600 "$GLOBAL_CONFIG_FILE"
 
-                  local oma_tmp
-                  oma_tmp=$(mktemp)
-                  cp "$BASE_OMA_FILE" "$oma_tmp"
+          local oma_tmp
+          oma_tmp=$(mktemp)
+          cp "$BASE_OMA_FILE" "$oma_tmp"
 
-                  while IFS=$'\t' read -r category_id; do
-                    local model
-                    model=$(get_group_model "$category_id")
-                    local next_tmp
-                    next_tmp=$(mktemp)
-                    $JQ --arg category_id "$category_id" --arg model "$model" '.categories[$category_id].model = $model' "$oma_tmp" > "$next_tmp"
-                    mv "$next_tmp" "$oma_tmp"
-                  done < <($JQ -r '.categories | keys[]' "$METADATA_FILE")
+          while IFS=$'\t' read -r category_id; do
+            local model
+            model=$(get_group_model "$category_id")
+            local next_tmp
+            next_tmp=$(mktemp)
+            $JQ --arg category_id "$category_id" --arg model "$model" '.categories[$category_id].model = $model' "$oma_tmp" > "$next_tmp"
+            mv "$next_tmp" "$oma_tmp"
+          done < <($JQ -r '.categories | keys[]' "$METADATA_FILE")
 
-                  mkdir -p "$(dirname "$GLOBAL_OMA_FILE")"
-                  mv "$oma_tmp" "$GLOBAL_OMA_FILE"
-                  chmod 0600 "$GLOBAL_OMA_FILE"
+          mkdir -p "$(dirname "$GLOBAL_OMA_FILE")"
+          mv "$oma_tmp" "$GLOBAL_OMA_FILE"
+          chmod 0600 "$GLOBAL_OMA_FILE"
 
-                  if $SYSTEMCTL is-active --quiet opencode-server 2>/dev/null; then
-                    $SYSTEMCTL restart opencode-server 2>/dev/null && $GUM style --foreground 99 "↻ Restarted opencode-server"
-                  fi
-                }
+          if $SYSTEMCTL is-active --quiet opencode-server 2>/dev/null; then
+            $SYSTEMCTL restart opencode-server 2>/dev/null && $GUM style --foreground 99 "↻ Restarted opencode-server"
+          fi
+        }
 
-                # Fetch models from CliProxyApi and update models.json
-                sync_models() {
-                  local api_key="${self.secrets.CLIPROXYAPI_KEY}"
-                  local url="http://localhost:8317/v1beta/models"
-                  
-                  echo "Fetching models from $url..."
-                  local response
-                  response=$($CURL -s -H "Authorization: Bearer $api_key" "$url")
-                  
-                  if [ -z "$response" ] || [ "$(echo "$response" | $JQ '.models')" = "null" ]; then
-                    $GUM style --foreground 196 "Error: Failed to fetch models from API. Is the proxy running?"
-                    return 1
-                  fi
+        # Fetch models from CliProxyApi and update models.json
+        sync_models() {
+          local api_key="${self.secrets.CLIPROXYAPI_KEY}"
+          local url="http://localhost:8317/v1beta/models"
+          
+          echo "Fetching models from $url..."
+          local response
+          response=$($CURL -s -H "Authorization: Bearer $api_key" "$url")
+          
+          if [ -z "$response" ] || [ "$(echo "$response" | $JQ '.models')" = "null" ]; then
+            $GUM style --foreground 196 "Error: Failed to fetch models from API. Is the proxy running?"
+            return 1
+          fi
 
-                  # Transform CliProxyApi response to our models.json format
-                  # Group all models under a single unified provider
-                  local temp_json
-                  temp_json=$(mktemp)
-                  echo "$response" | $JQ '
-                    # Helper: get short ID (everything after the first /)
-                    def get_id: .name | split("/") | if length > 1 then .[1:] | join("/") else .[0] end;
-                    
-                    # Map a model object to our internal format
-                    def to_opencode(ctx; out): {
-                      key: get_id,
-                      value: {
-                        name: .displayName,
-                        context: (.inputTokenLimit // ctx),
-                        output: (.outputTokenLimit // out),
-                        modalities: {
-                          input: ((.supportedInputModalities // []) | map(ascii_downcase) // ["text"]),
-                          output: ((.supportedOutputModalities // []) | map(ascii_downcase) // ["text"])
-                        }
-                      }
-                    };
-
-                    # Filter and transform models into a single provider
+          # Transform CliProxyApi response to our models.json format
+          # Group all models under a single unified provider
+          local temp_json
+          temp_json=$(mktemp)
+          echo "$response" | $JQ '
+            # Helper: get short ID (everything after the first /)
+            def get_id: .name | split("/") | if length > 1 then .[1:] | join("/") else .[0] end;
+            
+            # Map a model object to our internal format.
+            # Preserve incomplete upstream metadata by omitting empty or
+            # missing optional fields rather than inventing defaults.
+            def to_opencode:
+              (.supportedInputModalities // [] | map(ascii_downcase)) as $input_modalities
+              | (.supportedOutputModalities // [] | map(ascii_downcase)) as $output_modalities
+              | {
+                  key: get_id,
+                  value: (
                     {
-                      providers: {
-                        "cliproxyapi": {
-                          npm: "@ai-sdk/anthropic",
-                          name: "CliProxyApi",
-                          baseUrl: "http://127.0.0.1:8317/v1",
-                          models: ([.models[] | to_opencode(128000; 32000)] | from_entries)
+                      name: .displayName
+                    }
+                    + (if .inputTokenLimit != null then { context: .inputTokenLimit } else {} end)
+                    + (if .outputTokenLimit != null then { output: .outputTokenLimit } else {} end)
+                    +
+                      (if (($input_modalities | length) > 0) or (($output_modalities | length) > 0) then
+                        {
+                          modalities:
+                            ((if ($input_modalities | length) > 0 then { input: $input_modalities } else {} end)
+                            + (if ($output_modalities | length) > 0 then { output: $output_modalities } else {} end))
                         }
-                      }
-                    }' > "$temp_json"
-                  
-                  if [ -s "$temp_json" ]; then
-                    mv "$temp_json" "$MODELS_FILE"
-                    $GUM style --foreground 212 "✅ Successfully synced models to $MODELS_FILE"
-                    $GUM style --foreground 212 "💡 Remember to git add the changes!"
-                    rebuild_runtime_configs
-                  else
-                    $GUM style --foreground 196 "Error: Failed to process models. API response may be malformed."
-                    rm -f "$temp_json"
-                    return 1
-                  fi
-                }
-
-                update_group_state() {
-                  local group_id="$1"
-                  local full_id="$2"
-
-                  ensure_state_file
-                  local temp_state
-                  temp_state=$(mktemp)
-                  $JQ --arg category_id "$group_id" --arg full_id "$full_id" '.categories[$category_id] = $full_id' "$STATE_FILE" > "$temp_state" && mv "$temp_state" "$STATE_FILE"
-                  rebuild_runtime_configs
-                }
-
-                # Searchable model picker using gum filter
-                choose_model() {
-                  local state_kind="$1"
-                  local target_id="$2"
-                  local header="$3"
-                  
-                  # Generate list of "Provider: Model (ID)"
-                  local choices
-                  choices=$($JQ -r '.providers | to_entries | .[] | .key as $p | .value.models | to_entries | .[] | "\($p): \(.value.name) (\(.key))"' "$MODELS_FILE")
-                  
-                  local selection
-                  selection=$(echo "$choices" | $GUM filter --placeholder "Search models..." --header "$header")
-                  
-                  if [ -z "$selection" ]; then return 1; fi
-                  
-                  # Extract the provider/id from the selection (e.g., "antigravity-gemini: Gemini 3 Flash (gemini-3-flash)")
-                  local p_id
-                  p_id=$(echo "$selection" | sed -E 's/^([^:]+):.* \((.*)\)$/\1\/\2/')
-
-                  update_group_state "$target_id" "$p_id"
-                  $GUM style --foreground 212 "✅ Set category '$target_id' to $p_id"
-                }
-
-                choose_category() {
-                  local selection
-                  selection=$($JQ -r '.categories | to_entries[] | "\(.value.label)\t\(.key)\t\(.value.description)"' "$METADATA_FILE" \
-                    | while IFS=$'\t' read -r label category_id description; do
-                        printf '%s [%s] (%s) — %s\n' "$label" "$category_id" "$(get_group_model "$category_id")" "$description"
-                      done \
-                    | $GUM filter --placeholder "Search categories..." --header "$(get_menu_text categoryHeader)")
-
-                  if [ -z "$selection" ]; then return 1; fi
-
-                  local category_id
-                  category_id=$(echo "$selection" | sed -E 's/^.*\[([^]]+)\].*$/\1/')
-                  choose_model "category" "$category_id" "$(get_menu_text modelHeaderPrefix) $category_id"
-                }
-
-                render_state_summary() {
-                  local categories_summary
-                  categories_summary=$(
-                    while IFS=$'\t' read -r label category_id; do
-                      printf -- '- %s: %s\n' "$label" "$(get_group_model "$category_id")"
-                    done < <($JQ -r '.categories | to_entries[] | "\(.value.label)\t\(.key)"' "$METADATA_FILE")
+                      else
+                        {}
+                      end)
                   )
+                };
 
-                  printf '%s\n%s' \
-                    "$(get_menu_text categoryStatePrefix):" \
-                    "$categories_summary"
+            # Filter and transform models into a single provider
+            {
+              providers: {
+                "cliproxyapi": {
+                  npm: "@ai-sdk/anthropic",
+                  name: "CliProxyApi",
+                  baseUrl: "http://127.0.0.1:8317/v1",
+                  models: ([.models[] | to_opencode] | sort_by(.key) | from_entries)
                 }
+              }
+            }' > "$temp_json"
+          
+          if [ -s "$temp_json" ]; then
+            mv "$temp_json" "$MODELS_FILE"
+            $GUM style --foreground 212 "✅ Successfully synced models to $MODELS_FILE"
+            $GUM style --foreground 212 "💡 Remember to git add the changes!"
+            rebuild_runtime_configs
+          else
+            $GUM style --foreground 196 "Error: Failed to process models. API response may be malformed."
+            rm -f "$temp_json"
+            return 1
+          fi
+        }
 
-                init_project() {
-                  local choice
-                  choice=$($GUM choose ${
-                    lib.concatStringsSep " " (map (n: ''"${n}"'') (lib.attrNames mcpTemplates))
-                  } --header "📦 Select Project Template (initializes in $PWD)" --cursor="▶ " --selected.foreground="212" --cursor.foreground="212")
+        update_group_state() {
+          local group_id="$1"
+          local full_id="$2"
 
-                  if [ -z "$choice" ]; then echo "Operation cancelled."; return 1; fi
+          ensure_state_file
+          local temp_state
+          temp_state=$(mktemp)
+          $JQ --arg category_id "$group_id" --arg full_id "$full_id" '.categories[$category_id] = $full_id' "$STATE_FILE" > "$temp_state" && mv "$temp_state" "$STATE_FILE"
+          rebuild_runtime_configs
+        }
 
-                  if [ -f "$LOCAL_JSONC_FILE" ] || [ -f "$PWD/.opencode/config.json" ]; then
-                    if ! $GUM confirm "This will overwrite your existing opencode.jsonc. Continue?"; then
-                      echo "Operation cancelled."; return 1
-                    fi
-                  fi
+        # Searchable model picker using gum filter
+        choose_model() {
+          local state_kind="$1"
+          local target_id="$2"
+          local header="$3"
+          
+          # Generate list of "Provider: Model (ID)"
+          local choices
+          choices=$($JQ -r '.providers | to_entries | .[] | .key as $p | .value.models | to_entries | .[] | "\($p): \(.value.name) (\(.key))"' "$MODELS_FILE")
+          
+          local selection
+          selection=$(echo "$choices" | $GUM filter --placeholder "Search models..." --header "$header")
+          
+          if [ -z "$selection" ]; then return 1; fi
+          
+          # Extract the provider/id from the selection (e.g., "antigravity-gemini: Gemini 3 Flash (gemini-3-flash)")
+          local p_id
+          p_id=$(echo "$selection" | sed -E 's/^([^:]+):.* \((.*)\)$/\1\/\2/')
 
-                  local template_name
-                  template_name=$(echo "$choice" | tr ' /' '__')
-                  local template_file="$TEMPLATES_DIR/$template_name.json"
+          update_group_state "$target_id" "$p_id"
+          $GUM style --foreground 212 "✅ Set category '$target_id' to $p_id"
+        }
 
-                  if [ ! -f "$template_file" ]; then echo "Error: Template not found."; return 1; fi
+        choose_category() {
+          local selection
+          selection=$($JQ -r '.categories | to_entries[] | "\(.value.label)\t\(.key)\t\(.value.description)"' "$METADATA_FILE" \
+            | while IFS=$'\t' read -r label category_id description; do
+                printf '%s [%s] (%s) — %s\n' "$label" "$category_id" "$(get_group_model "$category_id")" "$description"
+              done \
+            | $GUM filter --placeholder "Search categories..." --header "$(get_menu_text categoryHeader)")
 
-                  cat "$template_file" > "$LOCAL_JSONC_FILE"
+          if [ -z "$selection" ]; then return 1; fi
 
-                  if [ "$choice" = "Web Dev - shadcn" ]; then
-                    local project_skill_dir="$PWD/.opencode/skills/shadcn-ui"
-                    local project_skill_file="$project_skill_dir/SKILL.md"
+          local category_id
+          category_id=$(echo "$selection" | sed -E 's/^.*\[([^]]+)\].*$/\1/')
+          choose_model "category" "$category_id" "$(get_menu_text modelHeaderPrefix) $category_id"
+        }
 
-                    mkdir -p "$project_skill_dir"
-                    cp "$SHADCN_PROJECT_SKILL_FILE" "$project_skill_file"
-                  fi
+        render_state_summary() {
+          local categories_summary
+          categories_summary=$(
+            while IFS=$'\t' read -r label category_id; do
+              printf -- '- %s: %s\n' "$label" "$(get_group_model "$category_id")"
+            done < <($JQ -r '.categories | to_entries[] | "\(.value.label)\t\(.key)"' "$METADATA_FILE")
+          )
 
-                  $GUM style --foreground 212 --border double --align center --padding "1 2" "✨ Project Initialized ✨" "Template: $choice" "Saved to: opencode.jsonc"
-                }
+          printf '%s\n%s' \
+            "$(get_menu_text categoryStatePrefix):" \
+            "$categories_summary"
+        }
 
-                tui_menu() {
-                  local context_msg="Context: Global"
-                  if [ -f "$LOCAL_JSONC_FILE" ]; then context_msg="Context: Local Project ($LOCAL_JSONC_FILE)"; fi
+        init_project() {
+          local choice
+          choice=$($GUM choose ${
+            lib.concatStringsSep " " (map (n: ''"${n}"'') (lib.attrNames mcpTemplates))
+          } --header "📦 Select Project Template (initializes in $PWD)" --cursor="▶ " --selected.foreground="212" --cursor.foreground="212")
 
-                  rebuild_runtime_configs >/dev/null 2>&1 || true
+          if [ -z "$choice" ]; then echo "Operation cancelled."; return 1; fi
 
-                  local sync_warning=""
-                  if [ ! -f "$MODELS_FILE" ] || [ ! -s "$MODELS_FILE" ]; then
-                    sync_warning=" (⚠️ Models list empty, please sync!)"
-                  fi
+          if [ -f "$LOCAL_JSONC_FILE" ] || [ -f "$PWD/.opencode/config.json" ]; then
+            if ! $GUM confirm "This will overwrite your existing opencode.jsonc. Continue?"; then
+              echo "Operation cancelled."; return 1
+            fi
+          fi
 
-                  local action
-                  action=$($GUM choose \
-                    "$(get_menu_text syncAction)$sync_warning" \
-                    "$(get_menu_text changeCategoryAction)" \
-                    "$(get_menu_text initAction)" \
-                    "$(get_menu_text exitAction)" \
-                    --header "$(get_menu_text title)
-                $context_msg
+          local template_name
+          template_name=$(echo "$choice" | tr ' /' '__')
+          local template_file="$TEMPLATES_DIR/$template_name.json"
 
-                $(render_state_summary)" --cursor="▶ " --selected.foreground="212" --cursor.foreground="212")
+          if [ ! -f "$template_file" ]; then echo "Error: Template not found."; return 1; fi
 
-                  case "$action" in
-                    "$(get_menu_text syncAction)"*) sync_models ;;
-                    "$(get_menu_text changeCategoryAction)") choose_category ;;
-                    "$(get_menu_text initAction)") init_project ;;
-                    *) exit 0 ;;
-                  esac
-                }
+          cat "$template_file" > "$LOCAL_JSONC_FILE"
 
-                if [ $# -eq 0 ]; then tui_menu; exit 0; fi
+          if [ "$choice" = "Web Dev - shadcn" ]; then
+            local project_skill_dir="$PWD/.opencode/skills/shadcn-ui"
+            local project_skill_file="$project_skill_dir/SKILL.md"
 
-                case "''${1:-}" in
-                  sync) sync_models ;;
-                  init) init_project ;;
-                  *) echo "Usage: opencode-models [sync|init]"; exit 1 ;;
-                esac
+            mkdir -p "$project_skill_dir"
+            cp "$SHADCN_PROJECT_SKILL_FILE" "$project_skill_file"
+          fi
+
+          $GUM style --foreground 212 --border double --align center --padding "1 2" "✨ Project Initialized ✨" "Template: $choice" "Saved to: opencode.jsonc"
+        }
+
+        tui_menu() {
+          local context_msg="Context: Global"
+          if [ -f "$LOCAL_JSONC_FILE" ]; then context_msg="Context: Local Project ($LOCAL_JSONC_FILE)"; fi
+
+          rebuild_runtime_configs >/dev/null 2>&1 || true
+
+          local sync_warning=""
+          if [ ! -f "$MODELS_FILE" ] || [ ! -s "$MODELS_FILE" ]; then
+            sync_warning=" (⚠️ Models list empty, please sync!)"
+          fi
+
+          local action
+          action=$($GUM choose \
+            "$(get_menu_text syncAction)$sync_warning" \
+            "$(get_menu_text changeCategoryAction)" \
+            "$(get_menu_text initAction)" \
+            "$(get_menu_text exitAction)" \
+            --header "$(get_menu_text title)
+        $context_msg
+
+        $(render_state_summary)" --cursor="▶ " --selected.foreground="212" --cursor.foreground="212")
+
+          case "$action" in
+            "$(get_menu_text syncAction)"*) sync_models ;;
+            "$(get_menu_text changeCategoryAction)") choose_category ;;
+            "$(get_menu_text initAction)") init_project ;;
+            *) exit 0 ;;
+          esac
+        }
+
+        if [ $# -eq 0 ]; then tui_menu; exit 0; fi
+
+        case "''${1:-}" in
+          sync) sync_models ;;
+          init) init_project ;;
+          *) echo "Usage: opencode-models [sync|init]"; exit 1 ;;
+        esac
       '';
 
       opencodeEnv = pkgs.buildEnv {

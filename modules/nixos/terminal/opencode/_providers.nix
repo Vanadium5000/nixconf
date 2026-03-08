@@ -1,4 +1,4 @@
-{ self, ... }:
+{ self, lib, ... }:
 let
   # Path to the dynamic model cache
   # This file is updated by 'opencode-models sync' in the repo
@@ -49,12 +49,19 @@ let
     cliproxyapi = {
       inherit (unifiedProvider) npm name options;
       models = builtins.mapAttrs (
-        modelId: model: {
-          inherit (model) name modalities;
-          limit = {
-            context = model.context or model.limit.context or 128000;
-            output = model.output or model.limit.output or 4096;
-          };
+        modelId: model:
+        {
+          inherit (model) name;
+        }
+        // (if model ? modalities then { inherit (model) modalities; } else { })
+        // {
+          limit =
+            (lib.optionalAttrs (model ? context || (model ? limit && model.limit ? context)) {
+              context = model.context or model.limit.context;
+            })
+            // (lib.optionalAttrs (model ? output || (model ? limit && model.limit ? output)) {
+              output = model.output or model.limit.output;
+            });
         }
       ) unifiedProvider.models;
     };
