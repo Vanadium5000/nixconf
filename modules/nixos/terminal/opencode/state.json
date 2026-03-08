@@ -1,9 +1,12 @@
 {
   "categories": {
-    "coding": "cliproxyapi/gpt-5.3-codex",
-    "orchestrator": "cliproxyapi/gpt-5.4",
-    "multimodal": "cliproxyapi/gemini-3-flash",
-    "research": "cliproxyapi/gemini-3-flash",
+    "artistry": "cliproxyapi/gemini-3-flash",
+    "deep": "cliproxyapi/gpt-5.3-codex",
+    "quick": "cliproxyapi/gemini-3-flash",
+    "ultrabrain": "cliproxyapi/gpt-5.4",
+    "unspecified-high": "cliproxyapi/gpt-5.4",
+    "unspecified-low": "cliproxyapi/gemini-3-flash",
+    "visual-engineering": "cliproxyapi/gemini-3-flash",
     "writing": "cliproxyapi/gemini-3-flash"
   }
 }
