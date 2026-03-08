@@ -13,8 +13,7 @@
       providers = import ./_providers.nix { inherit self; };
       pluginsConfig = import ./_plugins.nix;
       categoriesConfig = import ./_categories.nix { inherit lib; };
-
-      inherit (pkgs.unstable) opencode;
+      opencode = inputs.opencode.packages.${pkgs.stdenv.hostPlatform.system}.default;
 
       # Path to the persistent model selections
       stateFile = ./state.json;

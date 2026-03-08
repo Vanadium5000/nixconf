@@ -1,4 +1,4 @@
-{ self, ... }:
+{ self, inputs, ... }:
 {
   # Extends flake.nixosModules.opencode via import-tree merge
   flake.nixosModules.opencode =
@@ -36,7 +36,7 @@
 
         package = mkOption {
           type = types.package;
-          default = pkgs.unstable.opencode;
+          default = inputs.opencode.packages.${pkgs.stdenv.hostPlatform.system}.default;
           description = "OpenCode package to use";
         };
       };
