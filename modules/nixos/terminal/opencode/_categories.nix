@@ -99,6 +99,7 @@ let
       ) categories;
       agents = {
         sisyphus.category = "orchestrator";
+        "sisyphus-junior".category = "coding";
         hephaestus.category = "coding";
         prometheus.category = "coding";
         atlas.category = "coding";
@@ -108,6 +109,7 @@ let
         metis.category = "research";
         momus.category = "writing";
         "multimodal-looker".category = "multimodal";
+        general.category = "research";
       };
       disabled_mcps = [
         "websearch"

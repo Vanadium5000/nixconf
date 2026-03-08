@@ -7,17 +7,7 @@
 {
   plugins = [
     "oh-my-opencode" # Upstream agent bundle; project config narrows its defaults for this repo
-
-    # === PLANNING ===
     "@plannotator/opencode@latest" # Visual plan annotation, approval workflow, hard enforcement
-
-    # === SAFETY ===
-    # "cc-safety-net@latest" # Removed: Git checkpoints before destructive operations.
-
-    # === ORCHESTRATION & BUNDLE ===
-    "@tarquinen/opencode-dcp@1.2.7" # Dynamic Context Pruning - essential for long sessions
-    "@franlol/opencode-md-table-formatter" # Format markdown tables
-    "opencode-ralph-loop" # Ralph loop
-    "opencode-mem" # Persistent memory using local vector database
+    # "opencode-mem" # Persistent memory using local vector database
   ];
 }
