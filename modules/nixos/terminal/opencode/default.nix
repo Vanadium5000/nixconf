@@ -502,24 +502,75 @@
           rebuild_runtime_configs
         }
 
+        update_multiple_groups_state() {
+          local full_id="$1"
+          shift
+
+          if [ $# -eq 0 ]; then
+            return 1
+          fi
+
+          ensure_state_file
+          local ids_json
+          ids_json=$(printf '%s\n' "$@" | $JQ -Rsc 'split("\n") | map(select(length > 0))')
+
+          local temp_state
+          temp_state=$(mktemp)
+          $JQ --arg full_id "$full_id" --argjson category_ids "$ids_json" '
+            .categories = (.categories // {})
+            | reduce $category_ids[] as $category_id (.;
+                .categories[$category_id] = $full_id
+              )
+          ' "$STATE_FILE" > "$temp_state" && mv "$temp_state" "$STATE_FILE"
+
+          rebuild_runtime_configs
+        }
+
+        get_model_name() {
+          local full_id="$1"
+          local provider="''${full_id%%/*}"
+          local model_id="''${full_id#*/}"
+          local name
+          name=$($JQ -r --arg provider "$provider" --arg model_id "$model_id" '.providers[$provider].models[$model_id].name // empty' "$MODELS_FILE")
+          if [ -n "$name" ]; then
+            printf '%s\n' "$name"
+          else
+            printf '%s\n' "$model_id"
+          fi
+        }
+
+        model_picker_lines() {
+          $JQ -r '
+            .providers
+            | to_entries
+            | .[]
+            | .key as $provider
+            | .value.models
+            | to_entries
+            | .[]
+            | "\($provider)/\(.key)\t\($provider): \(.value.name) (\(.key))"
+          ' "$MODELS_FILE"
+        }
+
+        pick_model_id() {
+          local header="$1"
+          local selection
+          selection=$(model_picker_lines | $GUM filter --placeholder "Search models..." --header "$header")
+
+          if [ -z "$selection" ]; then
+            return 1
+          fi
+
+          printf '%s\n' "$selection" | cut -f1
+        }
+
         # Searchable model picker using gum filter
         choose_model() {
           local state_kind="$1"
           local target_id="$2"
           local header="$3"
-          
-          # Generate list of "Provider: Model (ID)"
-          local choices
-          choices=$($JQ -r '.providers | to_entries | .[] | .key as $p | .value.models | to_entries | .[] | "\($p): \(.value.name) (\(.key))"' "$MODELS_FILE")
-          
-          local selection
-          selection=$(echo "$choices" | $GUM filter --placeholder "Search models..." --header "$header")
-          
-          if [ -z "$selection" ]; then return 1; fi
-          
-          # Extract the provider/id from the selection (e.g., "antigravity-gemini: Gemini 3 Flash (gemini-3-flash)")
           local p_id
-          p_id=$(echo "$selection" | sed -E 's/^([^:]+):.* \((.*)\)$/\1\/\2/')
+          p_id=$(pick_model_id "$header") || return 1
 
           update_group_state "$target_id" "$p_id"
           $GUM style --foreground 212 "✅ Set category '$target_id' to $p_id"
@@ -538,6 +589,87 @@
           local category_id
           category_id=$(echo "$selection" | sed -E 's/^.*\[([^]]+)\].*$/\1/')
           choose_model "category" "$category_id" "$(get_menu_text modelHeaderPrefix) $category_id"
+        }
+
+        choose_multiple_categories() {
+          local selected
+          selected=$($JQ -r '.categories | to_entries[] | "\(.key)\t\(.value.label) [\(.key)] (\(.value.description))"' "$METADATA_FILE" \
+            | $GUM choose --no-limit --header "$(get_menu_text categoryMultiHeader)" --cursor="▶ " --selected.foreground="212" --cursor.foreground="212")
+
+          if [ -z "$selected" ]; then
+            return 1
+          fi
+
+          local new_model
+          new_model=$(pick_model_id "$(get_menu_text modelHeaderMultiple)") || return 1
+
+          local category_ids=()
+          while IFS=$'\t' read -r category_id _; do
+            [ -n "$category_id" ] && category_ids+=("$category_id")
+          done <<< "$selected"
+
+          if [ "''${#category_ids[@]}" -eq 0 ]; then
+            return 1
+          fi
+
+          update_multiple_groups_state "$new_model" "''${category_ids[@]}"
+          $GUM style --foreground 212 "✅ Updated ''${#category_ids[@]} categories to $new_model"
+        }
+
+        replace_model_across_categories() {
+          local category_lines
+          category_lines=$(
+            while IFS=$'\t' read -r category_id _; do
+              local model_id
+              model_id=$(get_group_model "$category_id")
+              local model_name
+              model_name=$(get_model_name "$model_id")
+              printf '%s\t%s [%s]\n' "$model_id" "$model_name" "$model_id"
+            done < <($JQ -r '.categories | to_entries[] | "\(.key)\t\(.value.label)"' "$METADATA_FILE")
+          )
+
+          local source_options
+          source_options=$(printf '%s\n' "$category_lines" | $JQ -Rrs '
+            split("\n")
+            | map(select(length > 0) | split("\t"))
+            | unique_by(.[0])
+            | map(join("\t"))
+            | .[]
+          ')
+          if [ -z "$source_options" ]; then
+            $GUM style --foreground 214 "No models are currently assigned to categories"
+            return 0
+          fi
+
+          local source_selection
+          source_selection=$(printf '%s\n' "$source_options" | $GUM filter --header "$(get_menu_text replaceSourceHeader)" --placeholder "Search current category models...")
+          if [ -z "$source_selection" ]; then
+            return 1
+          fi
+
+          local source_model
+          source_model=$(printf '%s\n' "$source_selection" | cut -f1)
+
+          local target_model
+          target_model=$(pick_model_id "$(get_menu_text replaceTargetHeader)") || return 1
+
+          if [ "$source_model" = "$target_model" ]; then
+            $GUM style --foreground 214 "No changes: source and target model are the same"
+            return 0
+          fi
+
+          local matched_categories=()
+          while IFS=$'\t' read -r category_id _; do
+            [ "$(get_group_model "$category_id")" = "$source_model" ] && matched_categories+=("$category_id")
+          done < <($JQ -r '.categories | to_entries[] | "\(.key)\t\(.value.label)"' "$METADATA_FILE")
+
+          if [ "''${#matched_categories[@]}" -eq 0 ]; then
+            $GUM style --foreground 214 "No categories currently use $source_model"
+            return 0
+          fi
+
+          update_multiple_groups_state "$target_model" "''${matched_categories[@]}"
+          $GUM style --foreground 212 "✅ Replaced $source_model with $target_model in ''${#matched_categories[@]} categories"
         }
 
         render_state_summary() {
@@ -601,6 +733,8 @@
           action=$($GUM choose \
             "$(get_menu_text syncAction)$sync_warning" \
             "$(get_menu_text changeCategoryAction)" \
+            "$(get_menu_text changeMultipleCategoriesAction)" \
+            "$(get_menu_text replaceModelAction)" \
             "$(get_menu_text initAction)" \
             "$(get_menu_text exitAction)" \
             --header "$(get_menu_text title)
@@ -611,6 +745,8 @@
           case "$action" in
             "$(get_menu_text syncAction)"*) sync_models ;;
             "$(get_menu_text changeCategoryAction)") choose_category ;;
+            "$(get_menu_text changeMultipleCategoriesAction)") choose_multiple_categories ;;
+            "$(get_menu_text replaceModelAction)") replace_model_across_categories ;;
             "$(get_menu_text initAction)") init_project ;;
             *) exit 0 ;;
           esac

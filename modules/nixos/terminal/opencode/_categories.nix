@@ -90,10 +90,16 @@ let
       title = "🤖 OpenCode Configuration Manager";
       syncAction = "Sync Models from API";
       changeCategoryAction = "Change Category Model";
+      changeMultipleCategoriesAction = "Change Multiple Category Models";
+      replaceModelAction = "Replace Model Across Categories";
       initAction = "Init Project MCPs (Current Dir)";
       exitAction = "Exit";
       categoryHeader = "Select category to update";
+      categoryMultiHeader = "Select one or more categories to update";
       modelHeaderPrefix = "Select model for";
+      modelHeaderMultiple = "Select model for selected categories";
+      replaceSourceHeader = "Select current model to replace";
+      replaceTargetHeader = "Select replacement model";
       categoryStatePrefix = "Category presets";
     };
     categories = mapAttrs (

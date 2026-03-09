@@ -50,6 +50,19 @@
         targetFile = "/home/${user}/.librewolf/${user}.default/permissions.sqlite";
       };
 
+      # Container Proxy stores settings via WebExtension storage.local (not storage.sync),
+      # so Firefox Sync does not propagate it by default.
+      # Ref: MDN storage.local vs storage.sync behavior:
+      # https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/storage/local
+      # https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/storage/sync
+      containerProxySettingsPersistence = self.lib.persistence.mkPersistent {
+        method = "bind";
+        inherit user;
+        fileName = "librewolf-container-proxy-storage.js";
+        # Upstream extension ID is "contaner-proxy@bekh-ivanov.me" (manifest gecko.id).
+        targetFile = "/home/${user}/.librewolf/${user}.default/browser-extension-data/contaner-proxy@bekh-ivanov.me/storage.js";
+      };
+
       # Profile submodule
       profileModule = types.submodule (
         { config, name, ... }:
@@ -248,8 +261,13 @@
           deps = [ "users" ];
         };
 
+        system.activationScripts.firefox-container-proxy = {
+          text = containerProxySettingsPersistence.activationScript;
+          deps = [ "users" ];
+        };
+
         # Bind mount for reliable persistence (apps can't overwrite)
-        fileSystems = permissionsPersistence.fileSystems;
+        fileSystems = permissionsPersistence.fileSystems // containerProxySettingsPersistence.fileSystems;
 
         # Default Configuration
         programs.librewolf.policies = {
@@ -314,6 +332,10 @@
             # Firefox Sync
             "identity.fxaccounts.enabled" = true; # Enable Firefox Sync for Bookmarks & Account Containers (requires syncing addons)
             "services.sync.declinedEngines" = "prefs,passwords,tabs,addresses,creditcards,forms,history"; # Don't sync these
+
+            # Needed for browser-extension-data/<addon-id>/storage.js persistence; otherwise Firefox
+            # uses ExtensionStorageIDB and settings stay under storage/default with generated origins.
+            "extensions.webextensions.ExtensionStorageIDB.enabled" = false;
 
             # Don't suggest stuff in the urlbar
             "browser.urlbar.suggest.history" = false;
