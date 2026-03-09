@@ -63,6 +63,25 @@
         targetFile = "/home/${user}/.librewolf/${user}.default/browser-extension-data/contaner-proxy@bekh-ivanov.me/storage.js";
       };
 
+      # Container Proxy relations map to Multi-Account Containers internal IDs
+      # (firefox-container-*), so proxy mapping consistency also depends on the
+      # MAC extension state being the same across devices.
+      multiAccountContainersSettingsPersistence = self.lib.persistence.mkPersistent {
+        method = "bind";
+        inherit user;
+        fileName = "librewolf-multi-account-containers-storage.js";
+        targetFile = "/home/${user}/.librewolf/${user}.default/browser-extension-data/@testpilot-containers/storage.js";
+      };
+
+      # Keep container identity metadata aligned across hosts so the same
+      # firefox-container-* IDs resolve to the same logical containers.
+      containersJsonPersistence = self.lib.persistence.mkPersistent {
+        method = "bind";
+        inherit user;
+        fileName = "librewolf-containers.json";
+        targetFile = "/home/${user}/.librewolf/${user}.default/containers.json";
+      };
+
       # Profile submodule
       profileModule = types.submodule (
         { config, name, ... }:
@@ -262,12 +281,19 @@
         };
 
         system.activationScripts.firefox-container-proxy = {
-          text = containerProxySettingsPersistence.activationScript;
+          text =
+            containerProxySettingsPersistence.activationScript
+            + multiAccountContainersSettingsPersistence.activationScript
+            + containersJsonPersistence.activationScript;
           deps = [ "users" ];
         };
 
         # Bind mount for reliable persistence (apps can't overwrite)
-        fileSystems = permissionsPersistence.fileSystems // containerProxySettingsPersistence.fileSystems;
+        fileSystems =
+          permissionsPersistence.fileSystems
+          // containerProxySettingsPersistence.fileSystems
+          // multiAccountContainersSettingsPersistence.fileSystems
+          // containersJsonPersistence.fileSystems;
 
         # Default Configuration
         programs.librewolf.policies = {
