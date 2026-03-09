@@ -58,9 +58,12 @@
       containerProxySettingsPersistence = self.lib.persistence.mkPersistent {
         method = "bind";
         inherit user;
-        fileName = "librewolf-container-proxy-storage.js";
+        fileName = "librewolf-container-proxy-extension-data";
         # Upstream extension ID is "contaner-proxy@bekh-ivanov.me" (manifest gecko.id).
-        targetFile = "/home/${user}/.librewolf/${user}.default/browser-extension-data/contaner-proxy@bekh-ivanov.me/storage.js";
+        # Persist the whole directory (not only storage.js) so atomic writes using
+        # temporary files (e.g., storage.js.tmp) stay consistent across devices.
+        targetFile = "/home/${user}/.librewolf/${user}.default/browser-extension-data/contaner-proxy@bekh-ivanov.me";
+        isDirectory = true;
       };
 
       # Container Proxy relations map to Multi-Account Containers internal IDs
@@ -69,8 +72,10 @@
       multiAccountContainersSettingsPersistence = self.lib.persistence.mkPersistent {
         method = "bind";
         inherit user;
-        fileName = "librewolf-multi-account-containers-storage.js";
-        targetFile = "/home/${user}/.librewolf/${user}.default/browser-extension-data/@testpilot-containers/storage.js";
+        fileName = "librewolf-multi-account-containers-extension-data";
+        # Keep full extension directory for the same atomic-write reason.
+        targetFile = "/home/${user}/.librewolf/${user}.default/browser-extension-data/@testpilot-containers";
+        isDirectory = true;
       };
 
       # Keep container identity metadata aligned across hosts so the same
