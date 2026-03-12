@@ -7,7 +7,7 @@
 
 unstable.buildGo126Module rec {
   pname = "cliproxyapi";
-  version = "6.8.48";
+  version = "6.8.50";
 
   src = fetchFromGitHub {
     owner = "router-for-me";
