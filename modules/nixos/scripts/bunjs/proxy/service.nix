@@ -35,6 +35,12 @@
           description = "HTTP CONNECT proxy port";
         };
 
+        webUiPort = mkOption {
+          type = types.port;
+          default = 10802;
+          description = "Web management UI and API server port";
+        };
+
         vpnDir = mkOption {
           type = types.str;
           default = "/home/${username}/Shared/VPNs";
@@ -44,7 +50,7 @@
         idleTimeout = mkOption {
           type = types.int;
           default = 300;
-          description = "Seconds before idle VPN namespace cleanup";
+          description = "Seconds before idle VPN namespace cleanup (base value; dynamic tiers override this)";
         };
 
         randomRotation = mkOption {
@@ -60,7 +66,7 @@
             Address to bind proxy servers to.
             - "0.0.0.0" (default): all interfaces, allows LAN devices to use the proxy
             - "127.0.0.1": localhost only, most secure
-            
+
             NOTE: To allow LAN access, also open ports 10800/10801 in
             networking.firewall.allowedTCPPorts.
           '';
@@ -68,10 +74,22 @@
       };
 
       config = mkIf cfg.enable {
+        # Persist settings and test results across reboots (root is ephemeral)
+        impermanence.nixos.directories = [
+          {
+            directory = "/var/lib/vpn-proxy";
+            user = "root";
+            group = "root";
+            mode = "0700";
+          }
+        ];
+
         # Ensure required directories exist before services start
         systemd.tmpfiles.rules = [
           "d /run/netns 0755 root root -"
           "d /etc/netns 0755 root root -"
+          # Persistent state dir for settings.json and test-results.json
+          "d /var/lib/vpn-proxy 0700 root root -"
         ];
 
         # Common environment variables for all proxy services
@@ -121,6 +139,8 @@
                 "/run/netns"
                 "/var/run/netns"
                 "/etc/netns"
+                # Settings and test results persistence
+                "/var/lib/vpn-proxy"
                 # Allow access to user's XDG_RUNTIME_DIR for Quickshell IPC
                 "/run/user/1000"
               ];
@@ -184,6 +204,33 @@
                 }/bin/vpn-proxy-cleanup";
                 Restart = "on-failure";
                 RestartSec = 10;
+              };
+            };
+
+            # Web Management UI — ElysiaJS backend + React SPA
+            vpn-proxy-web = {
+              description = "VPN Proxy Web Management UI";
+              wantedBy = [ "multi-user.target" ];
+              after = [
+                "network.target"
+                "vpn-proxy.service"
+              ];
+              wants = [ "vpn-proxy.service" ];
+
+              path = commonPath ++ [
+                pkgs.curl # proxy health testing uses curl through SOCKS5
+              ];
+              environment = commonEnv // {
+                VPN_PROXY_WEB_PORT = toString cfg.webUiPort;
+                # API key injected from password-store via secrets.nix
+                VPN_PROXY_API_KEY = self.secrets.VPN_PROXY_API_KEY or "";
+              };
+
+              serviceConfig = commonServiceConfig // {
+                Type = "simple";
+                ExecStart = "${self.packages.${pkgs.stdenv.hostPlatform.system}.vpn-proxy-web}/bin/vpn-proxy-web";
+                Restart = "on-failure";
+                RestartSec = 5;
               };
             };
           };

@@ -1,0 +1,117 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans:
+    "JetBrainsMono Nerd Font", "JetBrains Mono", "Fira Code", monospace;
+  --font-mono:
+    "JetBrainsMono Nerd Font", "JetBrains Mono", "Fira Code", monospace;
+
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+}
+
+@layer base {
+  :root {
+    --background: #000000;
+    --foreground: #a8a8a8;
+    --card: rgba(8, 8, 12, 0.75);
+    --card-foreground: #ffffff;
+    --popover: #000000;
+    --popover-foreground: #a8a8a8;
+    --primary: #5454fc;
+    --primary-foreground: #ffffff;
+    --secondary: #141420;
+    --secondary-foreground: #a8a8a8;
+    --muted: #141420;
+    --muted-foreground: #545454;
+    --accent: #54fcfc;
+    --accent-foreground: #000000;
+    --destructive: #fc5454;
+    --destructive-foreground: #ffffff;
+    --border: rgba(84, 84, 252, 0.2);
+    --input: rgba(84, 84, 252, 0.2);
+    --ring: #5454fc;
+    --chart-1: #5454fc;
+    --chart-2: #54fcfc;
+    --chart-3: #fc5454;
+    --chart-4: #54fc54;
+    --chart-5: #fc9c54;
+    --radius: 0.75rem;
+  }
+
+  .light {
+    --background: #f5f5f5;
+    --foreground: #333333;
+    --card: rgba(255, 255, 255, 0.85);
+    --card-foreground: #000000;
+    --popover: #ffffff;
+    --popover-foreground: #333333;
+    --primary: #5454fc;
+    --primary-foreground: #ffffff;
+    --secondary: #ffffff;
+    --secondary-foreground: #333333;
+    --muted: #f5f5f5;
+    --muted-foreground: #999999;
+    --accent: #54fcfc;
+    --accent-foreground: #000000;
+    --destructive: #fc5454;
+    --destructive-foreground: #ffffff;
+    --border: rgba(84, 84, 252, 0.15);
+    --input: rgba(84, 84, 252, 0.15);
+    --ring: #5454fc;
+    --chart-1: #5454fc;
+    --chart-2: #54fcfc;
+    --chart-3: #fc5454;
+    --chart-4: #54fc54;
+    --chart-5: #fc9c54;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-sans);
+  }
+}
+
+.glass {
+  backdrop-filter: blur(8px);
+}

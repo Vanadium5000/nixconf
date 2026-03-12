@@ -49,6 +49,7 @@ import {
   forceRotateRandom,
   cleanupIdleProxies,
   rotateRandom,
+  recordTransfer,
   type NamespaceInfo,
 } from "./shared";
 
@@ -95,7 +96,11 @@ function forwardToNamespaceSocks(
   clientSocket: Socket,
   nsInfo: NamespaceInfo,
   socks5Request: Buffer,
+  slug: string,
 ): void {
+  let bytesIn = 0;
+  let bytesOut = 0;
+
   const upstreamSocket = createConnection(
     { host: nsInfo.nsIp, port: nsInfo.socksPort },
     () => {
@@ -125,9 +130,14 @@ function forwardToNamespaceSocks(
         return;
       }
 
-      // Bidirectional pipe for data transfer
-      clientSocket.pipe(upstreamSocket);
-      upstreamSocket.pipe(clientSocket);
+      clientSocket.on("data", (chunk: Buffer) => {
+        bytesOut += chunk.length;
+        upstreamSocket.write(chunk);
+      });
+      upstreamSocket.on("data", (chunk: Buffer) => {
+        bytesIn += chunk.length;
+        clientSocket.write(chunk);
+      });
     });
   });
 
@@ -140,7 +150,12 @@ function forwardToNamespaceSocks(
     upstreamSocket.destroy();
   });
 
+  const onClose = () => {
+    recordTransfer(slug, bytesIn, bytesOut).catch(() => {});
+  };
+
   clientSocket.on("close", () => {
+    onClose();
     upstreamSocket.destroy();
   });
 
@@ -256,7 +271,7 @@ async function handleSocks5Request(
       const nsInfo = await getOrCreateNamespace(slug, state);
 
       // Forward to namespace's SOCKS5 proxy
-      forwardToNamespaceSocks(clientSocket, nsInfo, data);
+      forwardToNamespaceSocks(clientSocket, nsInfo, data, slug);
     } catch (error) {
       log("ERROR", `Request error: ${error}`, "socks5");
       // General SOCKS5 failure reply

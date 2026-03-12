@@ -29,8 +29,11 @@ import {
   resolveVpn,
   getRandomVpn,
   isValidSlug,
+  resolveVpnByPattern,
   type VpnConfig,
 } from "./vpn-resolver";
+import { loadSettings, getDynamicIdleTimeout } from "./settings";
+import { getFailedSlugs } from "./proxy-tester";
 
 // ============================================================================
 // Constants
@@ -81,6 +84,12 @@ export interface NamespaceInfo {
   lastUsed: number;
   openvpnPid: number;
   status: "starting" | "connected" | "failed";
+  /** Cumulative bytes received through this namespace */
+  bytesIn: number;
+  /** Cumulative bytes sent through this namespace */
+  bytesOut: number;
+  /** Total number of connections handled */
+  connections: number;
 }
 
 export interface ProxyState {
@@ -488,6 +497,9 @@ export async function createNamespace(
       lastUsed: Date.now(),
       openvpnPid,
       status: "connected",
+      bytesIn: 0,
+      bytesOut: 0,
+      connections: 0,
     };
 
     state.namespaces[vpn.slug] = info;
@@ -542,6 +554,9 @@ export async function createDirectNamespace(
     lastUsed: Date.now(),
     openvpnPid: -1, // Sentinel: no OpenVPN process (avoids process.kill(0,0) footgun)
     status: "connected",
+    bytesIn: 0,
+    bytesOut: 0,
+    connections: 0,
   };
 
   state.namespaces["none"] = info;
@@ -687,10 +702,12 @@ export async function getOrCreateNamespace(
 /**
  * Resolve username/auth to VPN slug
  *
- * - Empty or "random" → rotating random VPN
- * - "none" → direct connection (no VPN, bypasses device VPN)
- * - Valid VPN name → that specific VPN
- * - Invalid name → notify user, fall back to random
+ * Resolution order:
+ * 1. "none" → direct connection (no VPN, bypasses device VPN)
+ * 2. Empty or "random" → rotating random VPN
+ * 3. Exact VPN slug match → that specific VPN
+ * 4. Pattern match (country/city/server) → random from matches
+ * 5. No match → notify user, fall back to random
  */
 export async function resolveSlugFromUsername(
   username: string,
@@ -707,7 +724,9 @@ export async function resolveSlugFromUsername(
       return state.random.currentSlug;
     }
 
-    const vpn = await getRandomVpn();
+    // Exclude VPNs that failed their last connectivity test
+    const failedSlugs = await getFailedSlugs();
+    const vpn = await getRandomVpn(failedSlugs);
     if (!vpn) throw new Error("No VPNs available");
 
     state.random = {
@@ -720,18 +739,39 @@ export async function resolveSlugFromUsername(
   }
 
   const isValid = await isValidSlug(username);
-  if (!isValid) {
-    log("WARN", `Invalid slug "${username}", falling back to random`);
-    // Fire-and-forget notification - don't await to avoid blocking on failure
-    notify(
-      "VPN Proxy",
-      `Invalid VPN name "${username}", using random VPN`,
-      "normal",
-    ).catch(() => {}); // Silently ignore notification failures
-    return resolveSlugFromUsername("random", state);
+  if (isValid) {
+    // isValidSlug now accepts both exact slugs and pattern matches.
+    // For pattern matches, resolveVpn handles the resolution internally.
+    return username;
   }
 
-  return username;
+  log("WARN", `Invalid slug "${username}", falling back to random`);
+  notify(
+    "VPN Proxy",
+    `Invalid VPN name "${username}", using random VPN`,
+    "normal",
+  ).catch(() => {}); // Silently ignore notification failures
+  return resolveSlugFromUsername("random", state);
+}
+
+/**
+ * Record a new connection and update transfer stats for a namespace.
+ * Called when a proxy connection completes to persist cumulative metrics.
+ */
+export async function recordTransfer(
+  slug: string,
+  bytesIn: number,
+  bytesOut: number,
+): Promise<void> {
+  const state = await loadState();
+  const ns = state.namespaces[slug];
+  if (!ns) return;
+
+  ns.bytesIn = (ns.bytesIn || 0) + bytesIn;
+  ns.bytesOut = (ns.bytesOut || 0) + bytesOut;
+  ns.connections = (ns.connections || 0) + 1;
+  ns.lastUsed = Date.now();
+  await saveState(state);
 }
 
 // ============================================================================
@@ -739,18 +779,28 @@ export async function resolveSlugFromUsername(
 // ============================================================================
 
 /**
- * Clean up namespaces that have been idle beyond the timeout
- * Returns the number of namespaces cleaned
+ * Clean up namespaces that have been idle beyond the dynamic timeout.
+ * Timeout scales with the number of active proxies — more proxies means
+ * more aggressive cleanup to conserve system resources.
  */
 export async function cleanupIdleProxies(): Promise<number> {
   const state = await loadState();
+  const settings = await loadSettings();
   const now = Date.now();
-  const threshold = now - CONFIG.IDLE_TIMEOUT * 1000;
+  const activeCount = Object.keys(state.namespaces).length;
+  const timeoutSeconds = getDynamicIdleTimeout(
+    activeCount,
+    settings.idleTimeoutTiers,
+  );
+  const threshold = now - timeoutSeconds * 1000;
   let cleaned = 0;
 
   for (const [slug, info] of Object.entries(state.namespaces)) {
     if (info.lastUsed < threshold) {
-      log("INFO", `Cleaning idle: ${slug}`);
+      log(
+        "INFO",
+        `Cleaning idle: ${slug} (timeout: ${timeoutSeconds}s, active: ${activeCount})`,
+      );
       await destroyNamespace(slug, state);
       cleaned++;
     }
@@ -770,7 +820,8 @@ export async function rotateRandom(): Promise<string | null> {
   const now = Date.now();
   if (state.random.expiresAt <= now) {
     const oldSlug = state.random.currentSlug;
-    const vpn = await getRandomVpn();
+    const failedSlugs = await getFailedSlugs();
+    const vpn = await getRandomVpn(failedSlugs);
     if (vpn && vpn.slug !== oldSlug) {
       state.random = {
         currentSlug: vpn.slug,
@@ -801,7 +852,8 @@ export async function forceRotateRandom(): Promise<string | null> {
   const now = Date.now();
 
   const oldSlug = state.random?.currentSlug;
-  const vpn = await getRandomVpn();
+  const failedSlugs = await getFailedSlugs();
+  const vpn = await getRandomVpn(failedSlugs);
   if (!vpn) {
     log("ERROR", "No VPNs available for rotation");
     return null;
@@ -832,7 +884,13 @@ export async function forceRotateRandom(): Promise<string | null> {
  */
 export async function getStatus(): Promise<string> {
   const state = await loadState();
+  const settings = await loadSettings();
   const now = Date.now();
+  const activeCount = Object.keys(state.namespaces).length;
+  const currentTimeout = getDynamicIdleTimeout(
+    activeCount,
+    settings.idleTimeoutTiers,
+  );
 
   let output = `VPN Proxy Status\n${"=".repeat(50)}\n`;
   output += `SOCKS5: localhost:${CONFIG.SOCKS5_PORT}\n`;
@@ -848,7 +906,9 @@ export async function getStatus(): Promise<string> {
       const idleMin = Math.floor(idleSecs / 60);
       const idleSec = idleSecs % 60;
       const isRandom = state.random?.currentSlug === ns.slug ? " (random)" : "";
-      output += `  ${ns.vpnDisplayName}  idle: ${idleMin}m ${idleSec}s  status: ${ns.status}${isRandom}\n`;
+      const bytesInKb = ((ns.bytesIn || 0) / 1024).toFixed(1);
+      const bytesOutKb = ((ns.bytesOut || 0) / 1024).toFixed(1);
+      output += `  ${ns.vpnDisplayName}  idle: ${idleMin}m ${idleSec}s  status: ${ns.status}${isRandom}  ↓${bytesInKb}KB ↑${bytesOutKb}KB  conns: ${ns.connections || 0}\n`;
     }
   }
 
@@ -863,7 +923,7 @@ export async function getStatus(): Promise<string> {
   }
 
   output += `\nState: ${STATE_DIR}/\n`;
-  output += `Idle timeout: ${CONFIG.IDLE_TIMEOUT}s\n`;
+  output += `Active: ${activeCount}  Idle timeout: ${currentTimeout}s (dynamic)\n`;
 
   return output;
 }

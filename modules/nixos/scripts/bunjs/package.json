@@ -1,6 +1,9 @@
 {
   "name": "scripts",
   "private": true,
+  "scripts": {
+    "build:web-ui": "vite build --config proxy/web-ui/vite.config.ts"
+  },
   "devDependencies": {
     "@types/bun": "latest"
   },
@@ -8,8 +11,28 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
+    "@elysiajs/cors": "^1.4.1",
+    "@elysiajs/swagger": "^1.3.1",
     "@faker-js/faker": "^10.2.0",
     "@modelcontextprotocol/sdk": "^1.25.3",
+    "@radix-ui/react-label": "^2.1.8",
+    "@radix-ui/react-progress": "^1.1.8",
+    "@radix-ui/react-slot": "^1.2.4",
+    "@radix-ui/react-switch": "^1.2.6",
+    "@radix-ui/react-tabs": "^1.1.13",
+    "@tailwindcss/vite": "^4.2.1",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^4.5.2",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "elysia": "^1.4.27",
+    "lucide-react": "^0.577.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "tailwind-merge": "^3.5.0",
+    "tailwindcss": "^4.2.1",
+    "vite": "^6.3.5",
     "zod": "^4.3.6"
   }
 }

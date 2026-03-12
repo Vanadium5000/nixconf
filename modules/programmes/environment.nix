@@ -79,6 +79,9 @@
             termshark # TUI packet analyzer (uses tshark backend)
             usbutils # Tools for working with USB devices, such as lsusb
             iw # Configuration utility for wireless devices
+
+            # BTRFS
+            btdu # Disk usage
           ]
           ++ [
             self'.packages.snitch # TUI for inspecting network connections (netstat for humans)

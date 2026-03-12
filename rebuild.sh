@@ -113,6 +113,7 @@ declare -A SECRETS_MAP=(
     ["OPENCODE_SERVER_PASSWORD"]="system/opencode-server-password"
     ["MITMPROXY_CA_KEY"]="system/mitmproxy-ca-key"
     ["MITMPROXY_CA_CERT"]="system/mitmproxy-ca-cert"
+    ["VPN_PROXY_API_KEY"]="system/vpn-proxy-api-key"
 )
 
 # Load a single secret from password-store

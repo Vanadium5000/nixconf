@@ -259,6 +259,9 @@
             cp ${./proxy/http-proxy.ts} $out/http-proxy.ts
             cp ${./proxy/cleanup.ts} $out/cleanup.ts
             cp ${./proxy/netns.sh} $out/netns.sh
+            cp ${./proxy/settings.ts} $out/settings.ts
+            cp ${./proxy/proxy-tester.ts} $out/proxy-tester.ts
+            cp ${./proxy/cli-tools.ts} $out/cli-tools.ts
           '';
         in
         inputs.wrappers.lib.makeWrapper {
@@ -282,6 +285,9 @@
             cp ${./proxy/http-proxy.ts} $out/http-proxy.ts
             cp ${./proxy/cleanup.ts} $out/cleanup.ts
             cp ${./proxy/netns.sh} $out/netns.sh
+            cp ${./proxy/settings.ts} $out/settings.ts
+            cp ${./proxy/proxy-tester.ts} $out/proxy-tester.ts
+            cp ${./proxy/cli-tools.ts} $out/cli-tools.ts
           '';
         in
         inputs.wrappers.lib.makeWrapper {
@@ -313,6 +319,9 @@
             cp ${./proxy/http-proxy.ts} $out/http-proxy.ts
             cp ${./proxy/cleanup.ts} $out/cleanup.ts
             cp ${./proxy/netns.sh} $out/netns.sh
+            cp ${./proxy/settings.ts} $out/settings.ts
+            cp ${./proxy/proxy-tester.ts} $out/proxy-tester.ts
+            cp ${./proxy/cli-tools.ts} $out/cli-tools.ts
           '';
         in
         inputs.wrappers.lib.makeWrapper {
@@ -348,6 +357,9 @@
             cp ${./proxy/http-proxy.ts} $out/http-proxy.ts
             cp ${./proxy/cleanup.ts} $out/cleanup.ts
             cp ${./proxy/netns.sh} $out/netns.sh
+            cp ${./proxy/settings.ts} $out/settings.ts
+            cp ${./proxy/proxy-tester.ts} $out/proxy-tester.ts
+            cp ${./proxy/cli-tools.ts} $out/cli-tools.ts
           '';
         in
         inputs.wrappers.lib.makeWrapper {
@@ -360,6 +372,39 @@
             pkgs.iproute2
             pkgs.iptables
             pkgs.nftables
+            pkgs.coreutils
+          ];
+        };
+
+      # Web management UI — ElysiaJS backend serving the React SPA.
+      # Copies node_modules for elysia runtime deps. Server runs unbundled via bun.
+      packages.vpn-proxy-web =
+        let
+          proxyWebEnv = pkgs.runCommandLocal "proxy-web-env" { } ''
+            mkdir -p $out/web-ui/dist
+            cp ${./proxy/vpn-resolver.ts} $out/vpn-resolver.ts
+            cp ${./proxy/shared.ts} $out/shared.ts
+            cp ${./proxy/socks5-proxy.ts} $out/socks5-proxy.ts
+            cp ${./proxy/http-proxy.ts} $out/http-proxy.ts
+            cp ${./proxy/cleanup.ts} $out/cleanup.ts
+            cp ${./proxy/netns.sh} $out/netns.sh
+            cp ${./proxy/settings.ts} $out/settings.ts
+            cp ${./proxy/proxy-tester.ts} $out/proxy-tester.ts
+            cp ${./proxy/cli-tools.ts} $out/cli-tools.ts
+            cp ${./proxy/web-server.ts} $out/web-server.ts
+            cp -r ${./proxy/web-ui/dist}/* $out/web-ui/dist/
+            # ElysiaJS and plugins need node_modules at runtime
+            cp -rL ${./node_modules} $out/node_modules
+          '';
+        in
+        inputs.wrappers.lib.makeWrapper {
+          inherit pkgs;
+          package = pkgs.writeShellScriptBin "vpn-proxy-web" ''
+            exec ${pkgs.bun}/bin/bun run ${proxyWebEnv}/web-server.ts "$@"
+          '';
+          runtimeInputs = [
+            pkgs.bun
+            pkgs.curl # health testing uses curl through SOCKS5
             pkgs.coreutils
           ];
         };

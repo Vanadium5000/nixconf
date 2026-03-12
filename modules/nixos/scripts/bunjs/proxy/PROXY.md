@@ -10,23 +10,24 @@ mode for direct connections that bypass device-level VPNs.
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                              Client Applications                            │
 │                    (curl, browsers, any SOCKS5/HTTP client)                 │
-└─────────────────────────────┬───────────────────────────┬───────────────────┘
-                              │                           │
-                              ▼                           ▼
-                    ┌─────────────────┐         ┌─────────────────┐
-                    │  SOCKS5 Proxy   │         │ HTTP CONNECT    │
-                    │  localhost:10800│         │ localhost:10801 │
-                    └────────┬────────┘         └────────┬────────┘
-                             │                           │
-                             └─────────────┬─────────────┘
-                                           │
-                              ┌────────────┴────────────┐
-                              │    Username = VPN Slug  │
-                              │ "random"/empty/"none"   │
-                              └────────────┬────────────┘
-                                           │
-          ┌────────────────────────────────┼──────────────────┐
-          ▼                                ▼                  ▼
+└─────────────────────────────┬───────────┬───────────┬───────────────────────┘
+                              │           │           │
+                              ▼           ▼           ▼
+                    ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
+                    │  SOCKS5 Proxy   │ │ HTTP CONNECT    │ │ Web Mgmt UI     │
+                    │  localhost:10800│ │ localhost:10801 │ │ localhost:10802 │
+                    └────────┬────────┘ └────────┬────────┘ └────────┬────────┘
+                             │                   │                   │
+                             └──────────┬────────┴───────────────────┘
+                                        │
+                           ┌────────────┴────────────┐
+                           │    Username = VPN Slug  │
+                           │ "random"/empty/"none"   │
+                           │ Pattern (e.g. "GB")     │
+                           └────────────┬────────────┘
+                                        │
+           ┌────────────────────────────┼──────────────────┐
+           ▼                            ▼                  ▼
 ┌─────────────────┐              ┌─────────────────┐  ┌─────────────────┐
 │  vpn-proxy-0    │              │  vpn-proxy-1    │  │  vpn-proxy-N    │
 │  ┌───────────┐  │              │  ┌───────────┐  │  │  ┌───────────┐  │
@@ -152,6 +153,7 @@ Both proxies use authentication to select which VPN to route through:
 | Username = "random"         | Random VPN (rotates every 5 min)                |
 | Username = "none"           | Direct connection (no VPN, bypasses device VPN) |
 | Username = VPN display name | Specific VPN                                    |
+| Pattern (e.g. "GB")         | Random VPN matching the pattern                 |
 | Invalid username            | Notification + fallback to random               |
 
 **VPN Slugs:**
@@ -162,6 +164,26 @@ VPN slugs are derived from `.ovpn` filenames with spaces removed for easier usag
 - `mullvad-us-nyc.ovpn` → slug: `mullvadusnyc`, display: `mullvad us nyc`
 
 Spaces in input are ignored, so `AirVPN AT Vienna` and `AirVPNATVienna` both work.
+
+### Pattern-Based VPN Matching
+
+The system supports matching VPNs by partial names or attributes like country codes and city names. This allows using simple usernames like `GB` to get a random UK VPN, or `Manchester` for a specific city.
+
+**How it works:**
+
+1. **Field Extraction**: Each VPN's display name is parsed using regex patterns to extract fields (default: country, city, server).
+2. **Matching**: When a username is provided, the system checks if it matches any extracted field of any available VPN.
+3. **Random Selection**: If multiple VPNs match a pattern (e.g., `GB` matching many servers), one is picked at random.
+
+**Default Patterns (AirVPN convention):**
+
+- **Country**: Matches 2-letter uppercase codes (e.g., `GB`, `AT`).
+- **City**: Matches words after the country code (e.g., `Manchester`, `Vienna`).
+- **Server**: Matches the specific server name (e.g., `Ceibo`, `Alderamin`).
+
+Matching is case-insensitive. You can customize patterns and exclude common tokens (like "UDP" or "Entry3") in the settings to prevent over-broad matches.
+
+Use `vpn-proxy tool match <pattern>` to test matching logic.
 
 Use `vpn-resolver list` to see all available VPN slugs.
 
@@ -198,6 +220,78 @@ curl --proxy "socks5h://none@127.0.0.1:10800" https://api.ipify.org
 # HTTP CONNECT
 curl --proxy "http://127.0.0.1:10801" --proxy-user "none:" https://api.ipify.org
 ```
+
+## Dynamic Idle Timeouts
+
+The system uses a tiered idle timeout mechanism that automatically adjusts how long a namespace stays active based on the total number of active proxies. This ensures aggressive resource reclamation when the system is under load.
+
+| Active Proxies | Idle Timeout | Rationale                     |
+| -------------- | ------------ | ----------------------------- |
+| 0-3            | 5 minutes    | Standard usage, low pressure  |
+| >3             | 3 minutes    | Free resources faster         |
+| >4             | 2 minutes    | Moderate resource pressure    |
+| >6             | 1 minute     | High resource pressure        |
+| >8             | 30 seconds   | Near system capacity          |
+| 9-10           | 20 seconds   | Aggressive cleanup to survive |
+
+These tiers are configurable via `vpn-proxy tool settings set idleTimeoutTiers`. The cleanup daemon evaluates these tiers every 60 seconds.
+
+## Proxy Health Testing
+
+To ensure reliability, the system includes a built-in health tester that verifies connectivity through each VPN.
+
+- **Automated Testing**: Runs every 24 hours (configurable).
+- **Manual Testing**: Test a single proxy or mass-test all via CLI or Web UI.
+- **Random Selection Filtering**: VPNs that failed their last test are excluded from random selection.
+- **Persistence**: Results are stored in `/var/lib/vpn-proxy/test-results.json` and survive reboots.
+
+Use `vpn-proxy tool test all` to trigger a full test run.
+
+## Web Management UI
+
+A real-time dashboard for managing the proxy system, accessible at **port 10802** by default.
+
+- **Architecture**: ElysiaJS backend with a React (shadcn/ui) SPA frontend.
+- **Dashboard**: Real-time view of active namespaces, transfer speeds, and idle times.
+- **VPN Management**: Table of all VPNs with flags, locations, and latest test results.
+- **Tools**: Trigger mass tests, rotate random VPNs, and update settings.
+- **Security**: Authenticated via API key (`VPN_PROXY_API_KEY` environment variable).
+- **API Documentation**: Interactive Swagger UI at `/api/docs`.
+
+## Settings System
+
+Persistent configuration is stored in `/var/lib/vpn-proxy/settings.json`. Unlike the ephemeral state in `/dev/shm`, these settings survive reboots.
+
+**Configurable options include:**
+
+- Dynamic timeout tiers
+- Pattern matching regex and exclusions
+- Automated testing intervals
+- Web UI port
+
+**CLI Commands:**
+
+- `vpn-proxy tool settings show`: View current configuration.
+- `vpn-proxy tool settings set <key> <value>`: Update a setting (uses dot notation).
+- `vpn-proxy tool settings reset`: Restore default values.
+
+## Data Transfer Tracking
+
+The system tracks cumulative data transfer for each active namespace:
+
+- **Bytes In / Out**: Total traffic passed through the namespace.
+- **Connections**: Total number of TCP connections handled.
+- **Persistence**: Stats are visible in `vpn-proxy status` and the Web UI.
+
+## Exporting Proxy Lists
+
+Generate comma-separated lists of proxies for use in other applications:
+
+- **Usernames**: `vpn-proxy tool export usernames`
+- **SOCKS5 URLs**: `vpn-proxy tool export socks5`
+- **HTTP URLs**: `vpn-proxy tool export http`
+
+Add the `--working` flag to only include proxies that passed their most recent health test.
 
 ## Network Namespace Architecture
 
@@ -262,7 +356,7 @@ This prevents DNS queries from leaking through the host's resolver.
 
 ## State Management
 
-All runtime state is stored in tmpfs at `/dev/shm/vpn-proxy-$UID/`:
+All runtime state is stored in tmpfs at `/dev/shm/vpn-proxy-0/`:
 
 | File                         | Purpose                                |
 | ---------------------------- | -------------------------------------- |
@@ -270,8 +364,16 @@ All runtime state is stored in tmpfs at `/dev/shm/vpn-proxy-$UID/`:
 | `resolver-cache.json`        | VPN config cache with mtime validation |
 | `openvpn-vpn-proxy-N.pid`    | OpenVPN daemon PID                     |
 | `openvpn-vpn-proxy-N.log`    | OpenVPN logs                           |
-| `ns-vpn-proxy-N.json`        | Namespace metadata                     |
 | `microsocks-vpn-proxy-N.pid` | microsocks PID                         |
+
+### Persistent State
+
+Configuration and test history are stored at `/var/lib/vpn-proxy/` (persisted via NixOS impermanence):
+
+| File                | Purpose                                             |
+| ------------------- | --------------------------------------------------- |
+| `settings.json`     | Persistent configuration (timeouts, patterns, etc.) |
+| `test-results.json` | Health test history and latency data                |
 
 **State is ephemeral:** Reboots clear `/dev/shm`, and the proxy cleans up stale
 state on startup anyway.
@@ -285,8 +387,19 @@ vpn-proxy serve         # Start SOCKS5 server (default)
 vpn-proxy status        # Show active VPNs and idle times
 vpn-proxy stop-all      # Destroy all namespaces
 vpn-proxy rotate-random # Force random VPN rotation
+vpn-proxy tool          # Launch interactive TUI for management
 vpn-proxy --help        # Show help
 ```
+
+### vpn-proxy tool (Management & Debugging)
+
+New subcommands for managing advanced features:
+
+- **Settings**: `vpn-proxy tool settings show|set|reset|timeout`
+- **Testing**: `vpn-proxy tool test single|all|results|failed|due`
+- **Export**: `vpn-proxy tool export usernames|socks5|http [--working]`
+- **Pattern**: `vpn-proxy tool match <pattern>` (test matching logic)
+- **Status**: `vpn-proxy tool status-json` (raw state for scripts)
 
 ### http-proxy (HTTP CONNECT)
 
@@ -331,6 +444,8 @@ vpn-proxy-netns cleanup-all
 | `VPN_PROXY_BIND_ADDRESS`     | `0.0.0.0`       | Bind address (`127.0.0.1` for localhost only) |
 | `VPN_PROXY_IDLE_TIMEOUT`     | `300`           | Seconds before idle namespace cleanup         |
 | `VPN_PROXY_RANDOM_ROTATION`  | `300`           | Seconds between random VPN rotation           |
+| `VPN_PROXY_WEB_PORT`         | `10802`         | Port for the Web UI and API server            |
+| `VPN_PROXY_API_KEY`          | (pass)          | Authentication key for the Web UI             |
 | `VPN_PROXY_NOTIFY_ROTATION`  | `0`             | Show notification on rotation (0/1)           |
 | `VPN_PROXY_CLEANUP_INTERVAL` | `60`            | Cleanup daemon check interval                 |
 | `VPN_PROXY_NETNS_SCRIPT`     | (auto)          | Path to netns.sh script                       |
@@ -342,6 +457,7 @@ services.vpn-proxy = {
   enable = true;              # Enable the proxy services
   port = 10800;               # SOCKS5 port
   httpPort = 10801;           # HTTP CONNECT port
+  webUiPort = 10802;          # Web UI port
   bindAddress = "0.0.0.0";    # Default; use "127.0.0.1" for localhost only
   vpnDir = "/path/to/vpns";   # .ovpn file directory
   idleTimeout = 300;          # Namespace idle timeout
@@ -363,6 +479,7 @@ When enabled via NixOS, three services are created:
 | --------------------------- | ------------------------- |
 | `vpn-proxy.service`         | SOCKS5 proxy server       |
 | `http-proxy.service`        | HTTP CONNECT proxy server |
+| `vpn-proxy-web.service`     | Web Management UI and API |
 | `vpn-proxy-cleanup.service` | Idle cleanup daemon       |
 
 ```bash
@@ -484,7 +601,7 @@ await fetch("https://api.ipify.org", {
     url: "http://127.0.0.1:10801",
     headers: {
       "Proxy-Authorization": `Basic ${Buffer.from(`${vpnName}:`).toString(
-        "base64"
+        "base64",
       )}`,
     },
   },
@@ -505,7 +622,7 @@ import { HttpsProxyAgent } from "https-proxy-agent";
 
 const vpnName = "AirVPN AT Vienna Alderamin UDP 80 Entry3";
 const agent = new HttpsProxyAgent(
-  `http://${encodeURIComponent(vpnName)}:@127.0.0.1:10801`
+  `http://${encodeURIComponent(vpnName)}:@127.0.0.1:10801`,
 );
 
 const response = await fetch("https://api.ipify.org", { agent });
@@ -597,9 +714,13 @@ cat /dev/shm/vpn-proxy-$(id -u)/state.json | jq .
 modules/nixos/scripts/bunjs/proxy/
 ├── PROXY.md           # This documentation
 ├── shared.ts          # Common utilities (state, logging, namespace mgmt)
-├── vpn-resolver.ts    # VPN config parsing and caching
+├── settings.ts        # Persistent settings management
+├── vpn-resolver.ts    # VPN config parsing and pattern matching
+├── proxy-tester.ts    # Connectivity health testing
 ├── socks5-proxy.ts    # SOCKS5 proxy server
 ├── http-proxy.ts      # HTTP CONNECT proxy server
+├── web-server.ts      # ElysiaJS API and Web UI server
+├── cli-tools.ts       # CLI management subcommands
 ├── cleanup.ts         # Idle cleanup daemon
 ├── netns.sh           # Network namespace setup script
 └── service.nix        # NixOS systemd service definitions
@@ -612,8 +733,9 @@ modules/nixos/scripts/bunjs/proxy/
 3. **No credential storage**: VPN configs are read-only from disk
 4. **tmpfs state**: Sensitive data never persists to disk
 5. **Namespace isolation**: VPNs cannot interfere with each other
-6. **localhost-only**: Proxies only listen on `127.0.0.1`
-7. **"none" mode has no kill-switch**: Direct namespaces intentionally skip
+6. **localhost-only**: Proxies only listen on `127.0.0.1` by default
+7. **Web UI Auth**: Access to the management dashboard requires an API key
+8. **"none" mode has no kill-switch**: Direct namespaces intentionally skip
    the kill-switch since there is no VPN to protect
 
 ## Performance Notes

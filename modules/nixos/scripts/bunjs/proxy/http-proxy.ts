@@ -43,6 +43,7 @@ import {
   getStatus,
   stopAllProxies,
   forceRotateRandom,
+  recordTransfer,
 } from "./shared";
 
 // ============================================================================
@@ -265,6 +266,7 @@ async function handleConnection(clientSocket: Socket): Promise<void> {
           nsInfo,
           target.host,
           target.port,
+          slug,
         );
       } catch (error) {
         log("ERROR", `Connection failed: ${error}`, "http");
@@ -296,8 +298,12 @@ async function tunnelViaNamespace(
   nsInfo: { nsIp: string; socksPort: number; vpnDisplayName: string },
   targetHost: string,
   targetPort: number,
+  slug: string,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
+    let bytesIn = 0;
+    let bytesOut = 0;
+
     // Connect to microsocks inside the namespace
     const proxySocket = createConnection(
       { host: nsInfo.nsIp, port: nsInfo.socksPort },
@@ -353,9 +359,14 @@ async function tunnelViaNamespace(
             "\r\n",
         );
 
-        // Bidirectional pipe
-        clientSocket.pipe(proxySocket);
-        proxySocket.pipe(clientSocket);
+        clientSocket.on("data", (chunk: Buffer) => {
+          bytesOut += chunk.length;
+          proxySocket.write(chunk);
+        });
+        proxySocket.on("data", (chunk: Buffer) => {
+          bytesIn += chunk.length;
+          clientSocket.write(chunk);
+        });
 
         resolve();
       });
@@ -371,7 +382,12 @@ async function tunnelViaNamespace(
       proxySocket.destroy();
     });
 
+    const onClose = () => {
+      recordTransfer(slug, bytesIn, bytesOut).catch(() => {});
+    };
+
     clientSocket.on("close", () => {
+      onClose();
       proxySocket.destroy();
     });
 

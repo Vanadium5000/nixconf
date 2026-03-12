@@ -7,6 +7,7 @@
 import { readdir, stat, readFile, mkdir, writeFile } from "fs/promises";
 import { join, basename } from "path";
 import { homedir } from "os";
+import { loadSettings, type FieldPattern } from "./settings";
 
 // ============================================================================
 // Types
@@ -20,6 +21,12 @@ export interface VpnConfig {
   ovpnPath: string;
   serverIp: string;
   serverPort: number;
+  /**
+   * Fields extracted from the display name via pattern parsing.
+   * Keys are field names (e.g., "country", "city", "server"),
+   * values are the extracted strings. Populated lazily by parseVpnFields().
+   */
+  parsedFields?: Record<string, string>;
 }
 
 interface CacheData {
@@ -446,6 +453,114 @@ async function buildCache(): Promise<CacheData> {
 }
 
 // ============================================================================
+// Pattern-Based VPN Matching
+// ============================================================================
+
+/**
+ * Extract named fields from a VPN display name using the configured patterns.
+ * For "AirVPN GB Manchester Ceibo UDP 443 Entry3" with default patterns:
+ *   → { country: "GB", city: "Manchester", server: "Ceibo" }
+ */
+export function parseVpnFields(
+  displayName: string,
+  fieldPatterns: FieldPattern[],
+): Record<string, string> {
+  const fields: Record<string, string> = {};
+
+  for (const pattern of fieldPatterns) {
+    try {
+      const match = displayName.match(new RegExp(pattern.regex));
+      if (match && match[pattern.position]) {
+        fields[pattern.name] = match[pattern.position]!;
+      }
+    } catch {
+      log(
+        "WARN",
+        `Invalid regex in field pattern "${pattern.name}": ${pattern.regex}`,
+      );
+    }
+  }
+
+  return fields;
+}
+
+/**
+ * Ensure all VPNs have their parsedFields populated.
+ * Called lazily on first pattern match attempt.
+ */
+async function ensureParsedFields(vpns: VpnConfig[]): Promise<void> {
+  const settings = await loadSettings();
+  if (!settings.patternParsing.enabled) return;
+
+  for (const vpn of vpns) {
+    if (!vpn.parsedFields) {
+      vpn.parsedFields = parseVpnFields(
+        vpn.displayName,
+        settings.patternParsing.fieldPatterns,
+      );
+    }
+  }
+}
+
+/**
+ * Check if a search term should be excluded from pattern matching.
+ * Prevents matching against provider names, protocols, ports, etc.
+ */
+function isExcludedPattern(term: string, excludePatterns: string[]): boolean {
+  return excludePatterns.some((pattern) => {
+    try {
+      return new RegExp(`^${pattern}$`, "i").test(term);
+    } catch {
+      return false;
+    }
+  });
+}
+
+/**
+ * Resolve a pattern/partial name to matching VPN configs.
+ * Matches the input against all parsed fields of all VPNs.
+ * Case-insensitive. Returns all matches (caller picks or errors).
+ *
+ * @example resolveVpnByPattern("GB") → all UK VPNs
+ * @example resolveVpnByPattern("Manchester") → VPNs in Manchester
+ * @example resolveVpnByPattern("Ceibo") → the specific Ceibo server
+ */
+export async function resolveVpnByPattern(
+  pattern: string,
+): Promise<VpnConfig[]> {
+  const settings = await loadSettings();
+  if (!settings.patternParsing.enabled) return [];
+
+  if (isExcludedPattern(pattern, settings.patternParsing.excludePatterns)) {
+    log("DEBUG", `Pattern "${pattern}" is excluded from matching`);
+    return [];
+  }
+
+  const vpns = await listVpns();
+  await ensureParsedFields(vpns);
+
+  const normalizedPattern = pattern.toLowerCase();
+  const matches: VpnConfig[] = [];
+
+  for (const vpn of vpns) {
+    if (!vpn.parsedFields) continue;
+
+    for (const value of Object.values(vpn.parsedFields)) {
+      if (value.toLowerCase() === normalizedPattern) {
+        matches.push(vpn);
+        break; // One match per VPN is enough
+      }
+    }
+  }
+
+  if (matches.length > 0) {
+    log("INFO", `Pattern "${pattern}" matched ${matches.length} VPN(s)`);
+  }
+
+  return matches;
+}
+
+// ============================================================================
 // Public API
 // ============================================================================
 
@@ -474,19 +589,29 @@ export async function listVpns(): Promise<VpnConfig[]> {
 }
 
 /**
- * Resolve a slug to a VPN config (normalized match - spaces ignored)
- * Returns null if not found
+ * Resolve a slug to a VPN config.
+ * Tries exact match first, then pattern-based matching (picks random from matches).
  */
 export async function resolveVpn(slug: string): Promise<VpnConfig | null> {
   const vpns = await listVpns();
   const normalizedInput = normalizeSlug(slug);
 
-  // Match against normalized slug (spaces stripped from both sides)
   const vpn = vpns.find((v) => v.slug === normalizedInput);
-
   if (vpn) {
     log("INFO", `Resolved "${slug}" to ${vpn.displayName}`);
     return vpn;
+  }
+
+  // Pattern matching: "GB" → random UK VPN, "Ceibo" → specific server
+  const patternMatches = await resolveVpnByPattern(slug);
+  if (patternMatches.length > 0) {
+    const picked =
+      patternMatches[Math.floor(Math.random() * patternMatches.length)]!;
+    log(
+      "INFO",
+      `Pattern "${slug}" matched ${patternMatches.length} VPN(s), picked ${picked.displayName}`,
+    );
+    return picked;
   }
 
   log("WARN", `No VPN found for slug: "${slug}"`);
@@ -494,18 +619,31 @@ export async function resolveVpn(slug: string): Promise<VpnConfig | null> {
 }
 
 /**
- * Get a random VPN config
+ * Get a random VPN config.
+ * @param excludeSlugs Slugs to exclude (e.g., failed test results)
  */
-export async function getRandomVpn(): Promise<VpnConfig | null> {
+export async function getRandomVpn(
+  excludeSlugs?: Set<string>,
+): Promise<VpnConfig | null> {
   const vpns = await listVpns();
 
-  if (vpns.length === 0) {
+  const candidates = excludeSlugs
+    ? vpns.filter((v) => !excludeSlugs.has(v.slug))
+    : vpns;
+
+  if (candidates.length === 0) {
+    // Fall back to full list if all are excluded
+    if (excludeSlugs && vpns.length > 0) {
+      log("WARN", "All VPNs excluded by filter, using unfiltered list");
+      const index = Math.floor(Math.random() * vpns.length);
+      return vpns[index]!;
+    }
     log("ERROR", "No VPNs available for random selection");
     return null;
   }
 
-  const index = Math.floor(Math.random() * vpns.length);
-  const vpn = vpns[index]!;
+  const index = Math.floor(Math.random() * candidates.length);
+  const vpn = candidates[index]!;
   log("INFO", `Selected random VPN: ${vpn.displayName}`);
   return vpn;
 }
@@ -529,13 +667,18 @@ export function invalidateCache(): void {
 }
 
 /**
- * Check if a slug is a valid VPN name (without resolving)
+ * Check if a slug is a valid VPN name or pattern match.
+ * Accepts exact slug matches AND pattern-based matches (e.g., "GB", "Manchester").
  */
 export async function isValidSlug(slug: string): Promise<boolean> {
   if (!slug || slug === "random" || slug === "none") return true;
   const vpns = await listVpns();
   const normalizedInput = normalizeSlug(slug);
-  return vpns.some((v) => v.slug === normalizedInput);
+
+  if (vpns.some((v) => v.slug === normalizedInput)) return true;
+
+  const patternMatches = await resolveVpnByPattern(slug);
+  return patternMatches.length > 0;
 }
 
 // ============================================================================
@@ -588,6 +731,21 @@ async function main(): Promise<void> {
       break;
     }
 
+    case "match": {
+      const pattern = args.slice(1).join(" ");
+      if (!pattern) {
+        console.error("Usage: vpn-resolver match <pattern>");
+        process.exit(1);
+      }
+      const matches = await resolveVpnByPattern(pattern);
+      if (matches.length === 0) {
+        console.error(`No VPNs match pattern: ${pattern}`);
+        process.exit(1);
+      }
+      console.log(JSON.stringify(matches, null, 2));
+      break;
+    }
+
     case "server-ip": {
       const ovpnPath = args[1];
       if (!ovpnPath) {
@@ -606,6 +764,7 @@ Usage:
   vpn-resolver list              List all VPNs (human readable)
   vpn-resolver list-json         List all VPNs (JSON)
   vpn-resolver resolve <slug>    Resolve slug to VPN config
+  vpn-resolver match <pattern>   Find VPNs matching a pattern (country/city/server)
   vpn-resolver random            Get a random VPN config
   vpn-resolver server-ip <path>  Get server IP from .ovpn file
 

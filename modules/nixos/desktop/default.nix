@@ -88,9 +88,6 @@
         shared-mime-info
         desktop-file-utils
 
-        # BTRFS
-        btdu # Disk usage
-
         # GTK icon themes
         # morewaita-icon-theme - Removed
         # adwaita-icon-theme - Removed
