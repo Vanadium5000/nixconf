@@ -1,12 +1,36 @@
 {
   "categories": {
-    "artistry": "cliproxyapi/gemini-3-flash",
-    "deep": "cliproxyapi/gemini-3-flash",
-    "quick": "cliproxyapi/gemini-3-flash",
-    "ultrabrain": "cliproxyapi/gemini-3-flash",
-    "unspecified-high": "cliproxyapi/gemini-3-flash",
-    "unspecified-low": "cliproxyapi/gemini-3-flash",
-    "visual-engineering": "cliproxyapi/gemini-3-flash",
-    "writing": "cliproxyapi/gemini-3-flash"
+    "artistry": {
+      "model": "cliproxyapi/moonshotai/kimi-k2.5",
+      "reasoningEffort": "high"
+    },
+    "deep": {
+      "model": "cliproxyapi/moonshotai/kimi-k2.5",
+      "reasoningEffort": "high"
+    },
+    "quick": {
+      "model": "cliproxyapi/moonshotai/kimi-k2.5",
+      "reasoningEffort": "high"
+    },
+    "ultrabrain": {
+      "model": "cliproxyapi/moonshotai/kimi-k2.5",
+      "reasoningEffort": "high"
+    },
+    "unspecified-high": {
+      "model": "cliproxyapi/moonshotai/kimi-k2.5",
+      "reasoningEffort": "high"
+    },
+    "unspecified-low": {
+      "model": "cliproxyapi/moonshotai/kimi-k2.5",
+      "reasoningEffort": "high"
+    },
+    "visual-engineering": {
+      "model": "cliproxyapi/moonshotai/kimi-k2.5",
+      "reasoningEffort": "high"
+    },
+    "writing": {
+      "model": "cliproxyapi/moonshotai/kimi-k2.5",
+      "reasoningEffort": "high"
+    }
   }
 }

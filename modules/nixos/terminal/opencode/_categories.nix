@@ -62,6 +62,17 @@ let
       content = if exists then builtins.readFile stateFile else "";
       isValid = exists && content != "" && content != " " && content != "{}";
       data = if isValid then builtins.fromJSON content else { };
+
+      # Helper to extract model from either string or object format
+      # Handles: "cliproxyapi/model" or { model = "cliproxyapi/model"; reasoningEffort = "high" }
+      extractModel = raw:
+        if builtins.isString raw then
+          raw
+        else if builtins.isAttrs raw && raw ? model then
+          raw.model
+        else
+          null;
+
       legacyAdvanced = data.advanced or categories.ultrabrain.defaultModel;
       legacyMedium = data.medium or categories.deep.defaultModel;
       legacyFast = data.fast or categories.quick.defaultModel;
@@ -71,17 +82,36 @@ let
       legacyResearch = data.categories.research or legacyMedium;
       legacyWriting = data.categories.writing or legacyMedium;
       legacyMultimodal = data.categories.multimodal or legacyFast;
+
+      # Extract model strings from state, falling back to legacy defaults
+      rawVisualEngineering = data.categories."visual-engineering" or null;
+      rawUltrabrain = data.categories.ultrabrain or null;
+      rawDeep = data.categories.deep or null;
+      rawArtistry = data.categories.artistry or null;
+      rawQuick = data.categories.quick or null;
+      rawWriting = data.categories.writing or null;
+      rawUnspecifiedLow = data.categories."unspecified-low" or null;
+      rawUnspecifiedHigh = data.categories."unspecified-high" or null;
+
+      catVisualEngineering = if rawVisualEngineering == null then legacyMultimodal else extractModel rawVisualEngineering;
+      catUltrabrain = if rawUltrabrain == null then legacyOrchestrator else extractModel rawUltrabrain;
+      catDeep = if rawDeep == null then (if data.categories ? coding then legacyCoding else legacyResearch) else extractModel rawDeep;
+      catArtistry = if rawArtistry == null then legacyMultimodal else extractModel rawArtistry;
+      catQuick = if rawQuick == null then legacyFast else extractModel rawQuick;
+      catWriting = if rawWriting == null then legacyWriting else extractModel rawWriting;
+      catUnspecifiedLow = if rawUnspecifiedLow == null then legacyMedium else extractModel rawUnspecifiedLow;
+      catUnspecifiedHigh = if rawUnspecifiedHigh == null then legacyAdvanced else extractModel rawUnspecifiedHigh;
     in
     {
       categories = {
-        "visual-engineering" = data.categories."visual-engineering" or legacyMultimodal;
-        ultrabrain = data.categories.ultrabrain or legacyOrchestrator;
-        deep = data.categories.deep or (if data.categories ? coding then legacyCoding else legacyResearch);
-        artistry = data.categories.artistry or legacyMultimodal;
-        quick = data.categories.quick or legacyFast;
-        writing = data.categories.writing or legacyWriting;
-        "unspecified-low" = data.categories."unspecified-low" or legacyMedium;
-        "unspecified-high" = data.categories."unspecified-high" or legacyAdvanced;
+        "visual-engineering" = catVisualEngineering;
+        ultrabrain = catUltrabrain;
+        deep = catDeep;
+        artistry = catArtistry;
+        quick = catQuick;
+        writing = catWriting;
+        "unspecified-low" = catUnspecifiedLow;
+        "unspecified-high" = catUnspecifiedHigh;
       };
     };
 
@@ -113,10 +143,21 @@ let
 
   mkOhMyConfig =
     { state }:
+    let
+      # Extract category config, handling both legacy string format and new object format
+      extractCategory = categoryId:
+        let
+          raw = state.categories.${categoryId};
+        in
+        if builtins.isString raw then
+          { model = raw; }
+        else
+          raw;
+    in
     {
       "$schema" =
         "https://raw.githubusercontent.com/code-yeongyu/oh-my-opencode/dev/assets/oh-my-opencode.schema.json";
-      categories = mapAttrs (categoryId: _: { model = state.categories.${categoryId}; }) categories;
+      categories = mapAttrs (categoryId: _: extractCategory categoryId) categories;
       agents = {
         # Main orchestrator — Claude Opus (communicator type, 1100-line prompt)
         sisyphus.category = "unspecified-high";

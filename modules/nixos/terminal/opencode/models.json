@@ -13,13 +13,8 @@
           "context": 200000,
           "output": 64000,
           "modalities": {
-            "input": [
-              "text",
-              "image"
-            ],
-            "output": [
-              "text"
-            ]
+            "input": ["text", "image"],
+            "output": ["text"]
           }
         },
         "claude-sonnet-4-6": {
@@ -27,13 +22,8 @@
           "context": 200000,
           "output": 64000,
           "modalities": {
-            "input": [
-              "text",
-              "image"
-            ],
-            "output": [
-              "text"
-            ]
+            "input": ["text", "image"],
+            "output": ["text"]
           }
         },
         "gemini-2.5-flash": {
@@ -41,13 +31,8 @@
           "context": 1048576,
           "output": 65535,
           "modalities": {
-            "input": [
-              "text",
-              "image"
-            ],
-            "output": [
-              "text"
-            ]
+            "input": ["text", "image"],
+            "output": ["text"]
           }
         },
         "gemini-2.5-flash-lite": {
@@ -55,12 +40,8 @@
           "context": 1048576,
           "output": 65535,
           "modalities": {
-            "input": [
-              "text"
-            ],
-            "output": [
-              "text"
-            ]
+            "input": ["text"],
+            "output": ["text"]
           }
         },
         "gemini-2.5-pro": {
@@ -73,14 +54,8 @@
           "context": 1048576,
           "output": 65536,
           "modalities": {
-            "input": [
-              "text",
-              "image",
-              "video"
-            ],
-            "output": [
-              "text"
-            ]
+            "input": ["text", "image", "video"],
+            "output": ["text"]
           }
         },
         "gemini-3-flash-preview": {
@@ -93,14 +68,8 @@
           "context": 1048576,
           "output": 65535,
           "modalities": {
-            "input": [
-              "text",
-              "image",
-              "video"
-            ],
-            "output": [
-              "text"
-            ]
+            "input": ["text", "image", "video"],
+            "output": ["text"]
           }
         },
         "gemini-3-pro-low": {
@@ -108,14 +77,8 @@
           "context": 1048576,
           "output": 65535,
           "modalities": {
-            "input": [
-              "text",
-              "image",
-              "video"
-            ],
-            "output": [
-              "text"
-            ]
+            "input": ["text", "image", "video"],
+            "output": ["text"]
           }
         },
         "gemini-3-pro-preview": {
@@ -126,12 +89,8 @@
         "gemini-3.1-flash-image": {
           "name": "Gemini 3.1 Flash Image",
           "modalities": {
-            "input": [
-              "text"
-            ],
-            "output": [
-              "text"
-            ]
+            "input": ["text"],
+            "output": ["text"]
           }
         },
         "gemini-3.1-flash-lite-preview": {
@@ -144,14 +103,8 @@
           "context": 1048576,
           "output": 65535,
           "modalities": {
-            "input": [
-              "text",
-              "image",
-              "video"
-            ],
-            "output": [
-              "text"
-            ]
+            "input": ["text", "image", "video"],
+            "output": ["text"]
           }
         },
         "gemini-3.1-pro-low": {
@@ -159,14 +112,8 @@
           "context": 1048576,
           "output": 65535,
           "modalities": {
-            "input": [
-              "text",
-              "image",
-              "video"
-            ],
-            "output": [
-              "text"
-            ]
+            "input": ["text", "image", "video"],
+            "output": ["text"]
           }
         },
         "gemini-3.1-pro-preview": {
@@ -215,19 +162,16 @@
           "context": 114000,
           "output": 32768,
           "modalities": {
-            "input": [
-              "text"
-            ],
-            "output": [
-              "text"
-            ]
+            "input": ["text"],
+            "output": ["text"]
           }
         },
         "minimax/minimax-m2.5:free": {
           "name": "minimax/minimax-m2.5:free"
         },
         "moonshotai/kimi-k2.5": {
-          "name": "moonshotai/kimi-k2.5"
+          "name": "moonshotai/kimi-k2.5",
+          "reasoning_effort": ["low", "medium", "high"]
         }
       }
     }

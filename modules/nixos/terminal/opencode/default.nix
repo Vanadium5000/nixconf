@@ -225,7 +225,11 @@
 
       ohMyOpencodeConfig = categoriesConfig.mkOhMyConfig { inherit state; };
 
-      opencodeModelsMetadata = categoriesConfig.mkMenuMetadata;
+      opencodeModelsMetadata = categoriesConfig.mkMenuMetadata // {
+        menu = categoriesConfig.mkMenuMetadata.menu // {
+          reasoningEffortHeader = "Select reasoning effort for this model";
+        };
+      };
 
       runtimeConfigDir = pkgs.runCommand "opencode-runtime-configs" { } ''
         mkdir -p $out
@@ -376,12 +380,27 @@
         get_group_model() {
           local group_id="$1"
           ensure_state_file
-          local configured_model
-          configured_model=$($JQ -r --arg category_id "$group_id" '.categories[$category_id] // empty' "$STATE_FILE")
-          if [ -n "$configured_model" ]; then
-            printf '%s\n' "$configured_model"
+          local data
+          data=$($JQ -r --arg category_id "$group_id" '.categories[$category_id] // empty' "$STATE_FILE")
+          if [ -n "$data" ]; then
+            # If it is a JSON object, extract the model field
+            if echo "$data" | grep -q "^{"; then
+              echo "$data" | $JQ -r '.model'
+            else
+              printf '%s\n' "$data"
+            fi
           else
             $JQ -r --arg category_id "$group_id" '.categories[$category_id].defaultModel' "$METADATA_FILE"
+          fi
+        }
+
+        get_group_reasoning_effort() {
+          local group_id="$1"
+          ensure_state_file
+          local data
+          data=$($JQ -r --arg category_id "$group_id" '.categories[$category_id] // empty' "$STATE_FILE")
+          if [ -n "$data" ] && echo "$data" | grep -q "^{"; then
+            echo "$data" | $JQ -r '.reasoningEffort // empty'
           fi
         }
 
@@ -403,9 +422,20 @@
           while IFS=$'\t' read -r category_id; do
             local model
             model=$(get_group_model "$category_id")
+            local effort
+            effort=$(get_group_reasoning_effort "$category_id")
+
             local next_tmp
             next_tmp=$(mktemp)
-            $JQ --arg category_id "$category_id" --arg model "$model" '.categories[$category_id].model = $model' "$oma_tmp" > "$next_tmp"
+            if [ -n "$effort" ]; then
+              $JQ --arg category_id "$category_id" --arg model "$model" --arg effort "$effort" \
+                '.categories[$category_id].model = $model | .categories[$category_id].reasoningEffort = $effort' \
+                "$oma_tmp" > "$next_tmp"
+            else
+              $JQ --arg category_id "$category_id" --arg model "$model" \
+                '.categories[$category_id].model = $model' \
+                "$oma_tmp" > "$next_tmp"
+            fi
             mv "$next_tmp" "$oma_tmp"
           done < <($JQ -r '.categories | keys[]' "$METADATA_FILE")
 
@@ -444,16 +474,23 @@
             # Preserve incomplete upstream metadata by omitting empty or
             # missing optional fields rather than inventing defaults.
             def to_opencode:
-              (.supportedInputModalities // [] | map(ascii_downcase)) as $input_modalities
+              get_id as $id
+              | (.supportedInputModalities // [] | map(ascii_downcase)) as $input_modalities
               | (.supportedOutputModalities // [] | map(ascii_downcase)) as $output_modalities
+              # Models that require explicit reasoning_effort levels (no "auto" support)
               | {
-                  key: get_id,
+                  "kimi-k2.5": ["low", "medium", "high"]
+                } as $reasoning_map
+              | ($reasoning_map | to_entries | map(select($id | test(.key))) | .[0].value // null) as $reasoning_efforts
+              | {
+                  key: $id,
                   value: (
                     {
                       name: .displayName
                     }
                     + (if .inputTokenLimit != null then { context: .inputTokenLimit } else {} end)
                     + (if .outputTokenLimit != null then { output: .outputTokenLimit } else {} end)
+                    + (if $reasoning_efforts != null then { reasoning_effort: $reasoning_efforts } else {} end)
                     +
                       (if (($input_modalities | length) > 0) or (($output_modalities | length) > 0) then
                         {
@@ -494,17 +531,28 @@
         update_group_state() {
           local group_id="$1"
           local full_id="$2"
+          local effort="$3"
 
           ensure_state_file
           local temp_state
           temp_state=$(mktemp)
-          $JQ --arg category_id "$group_id" --arg full_id "$full_id" '.categories[$category_id] = $full_id' "$STATE_FILE" > "$temp_state" && mv "$temp_state" "$STATE_FILE"
+          
+          if [ -n "$effort" ]; then
+            $JQ --arg category_id "$group_id" --arg full_id "$full_id" --arg effort "$effort" \
+              '.categories[$category_id] = {model: $full_id, reasoningEffort: $effort}' "$STATE_FILE" > "$temp_state"
+          else
+            $JQ --arg category_id "$group_id" --arg full_id "$full_id" \
+              '.categories[$category_id] = $full_id' "$STATE_FILE" > "$temp_state"
+          fi
+          
+          mv "$temp_state" "$STATE_FILE"
           rebuild_runtime_configs
         }
 
         update_multiple_groups_state() {
           local full_id="$1"
-          shift
+          local effort="$2"
+          shift 2
 
           if [ $# -eq 0 ]; then
             return 1
@@ -516,13 +564,24 @@
 
           local temp_state
           temp_state=$(mktemp)
-          $JQ --arg full_id "$full_id" --argjson category_ids "$ids_json" '
-            .categories = (.categories // {})
-            | reduce $category_ids[] as $category_id (.;
-                .categories[$category_id] = $full_id
-              )
-          ' "$STATE_FILE" > "$temp_state" && mv "$temp_state" "$STATE_FILE"
+          
+          if [ -n "$effort" ]; then
+            $JQ --arg full_id "$full_id" --arg effort "$effort" --argjson category_ids "$ids_json" '
+              .categories = (.categories // {})
+              | reduce $category_ids[] as $category_id (.;
+                  .categories[$category_id] = {model: $full_id, reasoningEffort: $effort}
+                )
+            ' "$STATE_FILE" > "$temp_state"
+          else
+            $JQ --arg full_id "$full_id" --argjson category_ids "$ids_json" '
+              .categories = (.categories // {})
+              | reduce $category_ids[] as $category_id (.;
+                  .categories[$category_id] = $full_id
+                )
+            ' "$STATE_FILE" > "$temp_state"
+          fi
 
+          mv "$temp_state" "$STATE_FILE"
           rebuild_runtime_configs
         }
 
@@ -572,8 +631,25 @@
           local p_id
           p_id=$(pick_model_id "$header") || return 1
 
-          update_group_state "$target_id" "$p_id"
-          $GUM style --foreground 212 "✅ Set category '$target_id' to $p_id"
+          # Check if the selected model has supported reasoning_effort
+          local provider="''${p_id%%/*}"
+          local model_id="''${p_id#*/}"
+          local efforts
+          efforts=$($JQ -r --arg provider "$provider" --arg model_id "$model_id" '.providers[$provider].models[$model_id].reasoning_effort // empty' "$MODELS_FILE")
+
+          local selected_effort=""
+          if [ -n "$efforts" ]; then
+            # Format efforts for gum choose (from JSON array to lines)
+            local effort_options
+            effort_options=$(echo "$efforts" | $JQ -r '.[]')
+            selected_effort=$(echo "$effort_options" | $GUM choose --header "$(get_menu_text reasoningEffortHeader)")
+            if [ -z "$selected_effort" ]; then
+              return 1
+            fi
+          fi
+
+          update_group_state "$target_id" "$p_id" "$selected_effort"
+          $GUM style --foreground 212 "✅ Set category '$target_id' to $p_id (effort: ''${selected_effort:-auto})"
         }
 
         choose_category() {
@@ -603,6 +679,22 @@
           local new_model
           new_model=$(pick_model_id "$(get_menu_text modelHeaderMultiple)") || return 1
 
+          # Check for reasoning effort
+          local provider="''${new_model%%/*}"
+          local model_id="''${new_model#*/}"
+          local efforts
+          efforts=$($JQ -r --arg provider "$provider" --arg model_id "$model_id" '.providers[$provider].models[$model_id].reasoning_effort // empty' "$MODELS_FILE")
+
+          local selected_effort=""
+          if [ -n "$efforts" ]; then
+            local effort_options
+            effort_options=$(echo "$efforts" | $JQ -r '.[]')
+            selected_effort=$(echo "$effort_options" | $GUM choose --header "$(get_menu_text reasoningEffortHeader)")
+            if [ -z "$selected_effort" ]; then
+              return 1
+            fi
+          fi
+
           local category_ids=()
           while IFS=$'\t' read -r category_id _; do
             [ -n "$category_id" ] && category_ids+=("$category_id")
@@ -612,8 +704,8 @@
             return 1
           fi
 
-          update_multiple_groups_state "$new_model" "''${category_ids[@]}"
-          $GUM style --foreground 212 "✅ Updated ''${#category_ids[@]} categories to $new_model"
+          update_multiple_groups_state "$new_model" "$selected_effort" "''${category_ids[@]}"
+          $GUM style --foreground 212 "✅ Updated ''${#category_ids[@]} categories to $new_model (effort: ''${selected_effort:-auto})"
         }
 
         replace_model_across_categories() {
@@ -653,23 +745,48 @@
           local target_model
           target_model=$(pick_model_id "$(get_menu_text replaceTargetHeader)") || return 1
 
-          if [ "$source_model" = "$target_model" ]; then
-            $GUM style --foreground 214 "No changes: source and target model are the same"
-            return 0
+          # Check for reasoning effort
+          local provider="''${target_model%%/*}"
+          local model_id="''${target_model#*/}"
+          local efforts
+          efforts=$($JQ -r --arg provider "$provider" --arg model_id "$model_id" '.providers[$provider].models[$model_id].reasoning_effort // empty' "$MODELS_FILE")
+
+          local selected_effort=""
+          if [ -n "$efforts" ]; then
+            local effort_options
+            effort_options=$(echo "$efforts" | $JQ -r '.[]')
+            selected_effort=$(echo "$effort_options" | $GUM choose --header "$(get_menu_text reasoningEffortHeader)")
+            if [ -z "$selected_effort" ]; then
+              return 1
+            fi
           fi
 
           local matched_categories=()
+          local total_matched=0
           while IFS=$'\t' read -r category_id _; do
-            [ "$(get_group_model "$category_id")" = "$source_model" ] && matched_categories+=("$category_id")
+            local current_model
+            current_model=$(get_group_model "$category_id")
+            local current_effort
+            current_effort=$(get_group_reasoning_effort "$category_id")
+
+            if [ "$current_model" = "$source_model" ]; then
+               # If both model AND effort are same, we don't need to update THIS category
+               # but we might update others.
+               if [ "$current_model" = "$target_model" ] && [ "$current_effort" = "$selected_effort" ]; then
+                 continue
+               fi
+               matched_categories+=("$category_id")
+               total_matched=$((total_matched + 1))
+            fi
           done < <($JQ -r '.categories | to_entries[] | "\(.key)\t\(.value.label)"' "$METADATA_FILE")
 
           if [ "''${#matched_categories[@]}" -eq 0 ]; then
-            $GUM style --foreground 214 "No categories currently use $source_model"
+            $GUM style --foreground 214 "No changes needed: categories already match target model and effort"
             return 0
           fi
 
-          update_multiple_groups_state "$target_model" "''${matched_categories[@]}"
-          $GUM style --foreground 212 "✅ Replaced $source_model with $target_model in ''${#matched_categories[@]} categories"
+          update_multiple_groups_state "$target_model" "$selected_effort" "''${matched_categories[@]}"
+          $GUM style --foreground 212 "✅ Updated ''${#matched_categories[@]} categories to $target_model (effort: ''${selected_effort:-auto})"
         }
 
         render_state_summary() {

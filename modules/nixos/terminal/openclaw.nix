@@ -2,6 +2,7 @@
 {
   flake.nixosModules.openclaw =
     {
+      pkgs,
       config,
       lib,
       ...
@@ -22,6 +23,7 @@
       config = mkIf cfg.enable {
         services.openclaw-gateway = {
           enable = true;
+          package = inputs.nix-openclaw.packages.${pkgs.stdenv.hostPlatform.system}.openclaw-gateway;
           # Port 3100 was zeroclaw's, we keep it for now but bind to localhost
           port = 3100;
           # Upstream module creates user/group/stateDir/configPath by default
