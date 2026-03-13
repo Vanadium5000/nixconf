@@ -12,7 +12,9 @@
 
 import { cleanupIdleProxies, rotateRandom } from "./socks5-proxy";
 
-const CLEANUP_INTERVAL = parseInt(process.env.VPN_PROXY_CLEANUP_INTERVAL || "60", 10) * 1000;
+// 2s default ensures idle proxies violating tight tier thresholds are killed promptly
+const CLEANUP_INTERVAL =
+  parseInt(process.env.VPN_PROXY_CLEANUP_INTERVAL || "2", 10) * 1000;
 
 function log(level: string, message: string): void {
   const timestamp = new Date().toISOString();
@@ -33,10 +35,10 @@ async function runCleanupCycle(): Promise<void> {
 
 async function main(): Promise<void> {
   log("INFO", `Cleanup daemon started (interval: ${CLEANUP_INTERVAL / 1000}s)`);
-  
+
   await runCleanupCycle();
   setInterval(runCleanupCycle, CLEANUP_INTERVAL);
-  
+
   process.on("SIGTERM", () => process.exit(0));
   process.on("SIGINT", () => process.exit(0));
 }

@@ -170,14 +170,22 @@ export async function testAllProxies(
     total: number,
     result: ProxyTestResult,
   ) => void,
+  signal?: AbortSignal,
 ): Promise<TestResultsState> {
   const vpns = await listVpns();
   const state = await loadTestResults();
   const startTime = Date.now();
+  const settings = await loadSettings();
+  const gapMs = (settings.testing.testGapSeconds ?? 30) * 1000;
 
   log("INFO", `Starting full proxy test: ${vpns.length} VPNs`);
 
   for (let i = 0; i < vpns.length; i++) {
+    if (signal?.aborted) {
+      log("INFO", `Test cancelled at ${i}/${vpns.length}`);
+      break;
+    }
+
     const vpn = vpns[i]!;
     log("INFO", `Testing ${i + 1}/${vpns.length}: ${vpn.displayName}`);
 
@@ -193,6 +201,28 @@ export async function testAllProxies(
 
     // Save incrementally so partial results survive crashes
     await saveTestResults(state);
+
+    // Wait between tests to avoid overwhelming VPN connections
+    if (i < vpns.length - 1 && gapMs > 0 && !signal?.aborted) {
+      try {
+        await Promise.race([
+          Bun.sleep(gapMs),
+          new Promise<never>((_, reject) => {
+            if (signal?.aborted) reject(new Error("Aborted"));
+            signal?.addEventListener(
+              "abort",
+              () => reject(new Error("Aborted")),
+              { once: true },
+            );
+          }),
+        ]);
+      } catch {
+        if (signal?.aborted) {
+          log("INFO", `Test cancelled during gap at ${i + 1}/${vpns.length}`);
+          break;
+        }
+      }
+    }
   }
 
   state.lastFullTestAt = Date.now();

@@ -82,6 +82,8 @@ export interface TestingSettings {
   enabled: boolean;
   /** Hours between automated full test runs */
   intervalHours: number;
+  /** Seconds to wait between testing individual VPNs during a mass test */
+  testGapSeconds: number;
   /** Filter out VPNs that failed their last test from random selection */
   excludeFailedFromRandom: boolean;
   /** Timestamp of last completed full test (null if never run) */
@@ -162,18 +164,12 @@ const DEFAULT_EXCLUDE_PATTERNS: string[] = [
 export function getDefaultSettings(): ProxySettings {
   return {
     idleTimeoutTiers: [
-      // Default: 5 minutes (standard single-proxy usage)
-      { minActive: 0, timeoutSeconds: 300 },
-      // >3 active: reduce to 3 minutes to free resources faster
-      { minActive: 3, timeoutSeconds: 180 },
-      // >4 active: 2 minutes — moderate pressure
-      { minActive: 4, timeoutSeconds: 120 },
-      // >6 active: 1 minute — high pressure
-      { minActive: 6, timeoutSeconds: 60 },
-      // >8 active: 30 seconds — near capacity
-      { minActive: 8, timeoutSeconds: 30 },
-      // 9-10 active: 20 seconds — aggressive cleanup
-      { minActive: 9, timeoutSeconds: 20 },
+      // Default: 2 minutes idle allowed
+      { minActive: 0, timeoutSeconds: 120 },
+      // 4+ active: 10 seconds — pressure increases near the 5-connection VPN limit
+      { minActive: 4, timeoutSeconds: 10 },
+      // At capacity (5): 2 seconds — instant cleanup to free a slot
+      { minActive: 5, timeoutSeconds: 2 },
     ],
     patternParsing: {
       enabled: true,
@@ -183,6 +179,7 @@ export function getDefaultSettings(): ProxySettings {
     testing: {
       enabled: true,
       intervalHours: 24,
+      testGapSeconds: 30,
       excludeFailedFromRandom: true,
       lastFullTestAt: null,
     },

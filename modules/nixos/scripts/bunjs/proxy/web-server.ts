@@ -62,6 +62,8 @@ import {
 
 const API_KEY = process.env.VPN_PROXY_API_KEY || "";
 
+let currentTestController: AbortController | null = null;
+
 if (!API_KEY) {
   console.error(
     "[web-server] WARNING: VPN_PROXY_API_KEY not set. API is unauthenticated!",
@@ -97,6 +99,8 @@ async function broadcastStatus() {
       activeCount,
       settings.idleTimeoutTiers,
     ),
+    socks5Port: CONFIG.SOCKS5_PORT,
+    httpPort: CONFIG.HTTP_PORT,
     timestamp: Date.now(),
   });
   const event = `data: ${data}\n\n`;
@@ -245,6 +249,8 @@ const app = new Elysia()
                 activeCount,
                 settings.idleTimeoutTiers,
               ),
+              socks5Port: CONFIG.SOCKS5_PORT,
+              httpPort: CONFIG.HTTP_PORT,
               timestamp: Date.now(),
             });
             try {
@@ -349,6 +355,7 @@ const app = new Elysia()
             t.Object({
               enabled: t.Boolean(),
               intervalHours: t.Number(),
+              testGapSeconds: t.Number(),
               excludeFailedFromRandom: t.Boolean(),
             }),
           ),
@@ -410,6 +417,8 @@ const app = new Elysia()
       // SSE stream for test progress
       const stream = new ReadableStream<string>({
         async start(controller) {
+          const abortController = new AbortController();
+          currentTestController = abortController;
           try {
             await testAllProxies((completed, total, result) => {
               const event = JSON.stringify({ completed, total, result });
@@ -418,7 +427,7 @@ const app = new Elysia()
               } catch {
                 // Client disconnected
               }
-            });
+            }, abortController.signal);
             controller.enqueue(`data: ${JSON.stringify({ done: true })}\n\n`);
             controller.close();
           } catch (error) {
@@ -426,6 +435,8 @@ const app = new Elysia()
               `data: ${JSON.stringify({ error: String(error) })}\n\n`,
             );
             controller.close();
+          } finally {
+            currentTestController = null;
           }
         },
       });
@@ -437,6 +448,19 @@ const app = new Elysia()
           Connection: "keep-alive",
         },
       });
+    },
+    { detail: { tags: ["Testing"] } },
+  )
+
+  .post(
+    "/api/test-all/stop",
+    async () => {
+      if (currentTestController) {
+        currentTestController.abort();
+        currentTestController = null;
+        return { stopped: true };
+      }
+      return { stopped: false };
     },
     { detail: { tags: ["Testing"] } },
   )

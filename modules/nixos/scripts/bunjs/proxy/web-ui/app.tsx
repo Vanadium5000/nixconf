@@ -10,6 +10,9 @@ import {
   Copy,
   CheckCircle2,
   XCircle,
+  Square,
+  Plus,
+  Trash2,
 } from "lucide-react";
 
 // @ts-nocheck — Browser-only TSX; tsconfig targets node, not DOM.
@@ -101,6 +104,7 @@ interface Settings {
   testing: {
     enabled: boolean;
     intervalHours: number;
+    testGapSeconds: number;
     excludeFailedFromRandom: boolean;
     lastFullTestAt: number | null;
   };
@@ -618,26 +622,41 @@ function TestingTab() {
         </div>
 
         <div className="space-y-4">
-          <Button
-            variant="default"
-            onClick={handleTestAll}
-            disabled={testing}
-            className="w-full md:w-auto min-w-[200px]"
-          >
-            {testing
-              ? `Testing ${progress.completed}/${progress.total}...`
-              : "Test All Proxies"}
-          </Button>
+          <div className="flex gap-3">
+            <Button
+              variant="default"
+              onClick={handleTestAll}
+              disabled={testing}
+              className="min-w-[200px]"
+            >
+              {testing
+                ? `Testing ${progress.completed}/${progress.total}...`
+                : "Test All Proxies"}
+            </Button>
+          </div>
 
           {testing && (
             <div className="space-y-2">
-              <Progress
-                value={
-                  progress.total
-                    ? (progress.completed / progress.total) * 100
-                    : 0
-                }
-              />
+              <div className="flex items-center gap-3">
+                <Progress
+                  value={
+                    progress.total
+                      ? (progress.completed / progress.total) * 100
+                      : 0
+                  }
+                  className="flex-1"
+                />
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={async () => {
+                    await api("/test-all/stop", { method: "POST" });
+                  }}
+                  className="shrink-0"
+                >
+                  Stop
+                </Button>
+              </div>
               <div className="text-right text-[10px] text-muted-foreground tabular-nums">
                 {Math.round(
                   progress.total
@@ -660,12 +679,25 @@ function TestingTab() {
 
 function SettingsTab() {
   const [settings, setSettings] = useState<Settings | null>(null);
+  const [tiers, setTiers] = useState<
+    { minActive: number; timeoutSeconds: number }[]
+  >([]);
 
   useEffect(() => {
     api("/settings")
       .then((r) => r.json())
-      .then(setSettings);
+      .then((s) => {
+        setSettings(s);
+        setTiers(s.idleTimeoutTiers);
+      });
   }, []);
+
+  // Sync tiers with settings when settings change externally
+  useEffect(() => {
+    if (settings) {
+      setTiers(settings.idleTimeoutTiers);
+    }
+  }, [settings?.idleTimeoutTiers]);
 
   const update = async (partial: any) => {
     const res = await api("/settings", {
@@ -675,10 +707,78 @@ function SettingsTab() {
     if (res.ok) setSettings(await res.json());
   };
 
+  const saveTiers = (newTiers: typeof tiers) => {
+    setTiers(newTiers);
+    update({ idleTimeoutTiers: newTiers });
+  };
+
+  const updateTier = (
+    index: number,
+    field: "minActive" | "timeoutSeconds",
+    value: number,
+  ) => {
+    const newTiers = [...tiers];
+    newTiers[index] = { ...newTiers[index], [field]: value };
+    saveTiers(newTiers);
+  };
+
+  const removeTier = (index: number) => {
+    saveTiers(tiers.filter((_, i) => i !== index));
+  };
+
+  const addTier = () => {
+    saveTiers([...tiers, { minActive: tiers.length, timeoutSeconds: 60 }]);
+  };
+
   const handleReset = async () => {
     const res = await api("/settings/reset", { method: "POST" });
-    if (res.ok) setSettings(await res.json());
+    if (res.ok) {
+      const s = await res.json();
+      setSettings(s);
+      setTiers(s.idleTimeoutTiers);
+    }
   };
+
+  function NextTestCountdown({ settings }: { settings: Settings }) {
+    const [now, setNow] = useState(Date.now());
+    useEffect(() => {
+      const interval = setInterval(() => setNow(Date.now()), 1000);
+      return () => clearInterval(interval);
+    }, []);
+
+    if (!settings.testing.enabled || !settings.testing.lastFullTestAt) {
+      return (
+        <span className="text-muted-foreground text-[11px]">
+          No test run yet
+        </span>
+      );
+    }
+
+    const nextAt =
+      settings.testing.lastFullTestAt +
+      settings.testing.intervalHours * 3600 * 1000;
+    const diff = nextAt - now;
+
+    if (diff <= 0) {
+      return (
+        <span className="text-yellow-500 text-[11px] font-medium">Overdue</span>
+      );
+    }
+
+    const hours = Math.floor(diff / 3600000);
+    const mins = Math.floor((diff % 3600000) / 60000);
+    const secs = Math.floor((diff % 60000) / 1000);
+    const parts = [];
+    if (hours > 0) parts.push(`${hours}h`);
+    if (mins > 0) parts.push(`${mins}m`);
+    parts.push(`${secs}s`);
+
+    return (
+      <span className="text-muted-foreground text-[11px] tabular-nums">
+        {parts.join(" ")}
+      </span>
+    );
+  }
 
   if (!settings)
     return (
@@ -691,7 +791,9 @@ function SettingsTab() {
     <div className="space-y-6">
       <Card className="border-primary/20">
         <CardHeader className="pb-3">
-          <CardTitle className="text-lg">Testing Settings</CardTitle>
+          <CardTitle className="text-lg flex items-center justify-between">
+            <span>Testing Settings</span>
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between py-2 border-b border-border/40">
@@ -709,6 +811,18 @@ function SettingsTab() {
             />
           </div>
 
+          {settings.testing.enabled && (
+            <div className="flex items-center justify-between py-2 border-b border-border/40">
+              <div className="space-y-1">
+                <Label className="text-sm">Next auto-test</Label>
+                <p className="text-[10px] text-muted-foreground">
+                  Time until next scheduled test run
+                </p>
+              </div>
+              <NextTestCountdown settings={settings} />
+            </div>
+          )}
+
           <div className="flex items-center justify-between py-2 border-b border-border/40">
             <div className="space-y-1">
               <Label className="text-sm">Test interval (hours)</Label>
@@ -721,6 +835,23 @@ function SettingsTab() {
               value={settings.testing.intervalHours}
               onChange={(e) =>
                 update({ testing: { intervalHours: Number(e.target.value) } })
+              }
+              className="w-24 text-right"
+            />
+          </div>
+
+          <div className="flex items-center justify-between py-2 border-b border-border/40">
+            <div className="space-y-1">
+              <Label className="text-sm">Test gap (seconds)</Label>
+              <p className="text-[10px] text-muted-foreground">
+                Wait time between testing individual VPNs
+              </p>
+            </div>
+            <Input
+              type="number"
+              value={settings.testing.testGapSeconds}
+              onChange={(e) =>
+                update({ testing: { testGapSeconds: Number(e.target.value) } })
               }
               className="w-24 text-right"
             />
@@ -767,7 +898,17 @@ function SettingsTab() {
 
       <Card className="border-primary/20">
         <CardHeader className="pb-3">
-          <CardTitle className="text-lg">Idle Timeout Tiers</CardTitle>
+          <CardTitle className="text-lg flex items-center justify-between">
+            <span>Idle Timeout Tiers</span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={addTier}
+              className="h-7 gap-1 text-[10px]"
+            >
+              <Plus className="w-3 h-3" /> Add Tier
+            </Button>
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
@@ -776,25 +917,51 @@ function SettingsTab() {
                 <TableHead>Min Active</TableHead>
                 <TableHead>Timeout (s)</TableHead>
                 <TableHead>Human Readable</TableHead>
+                <TableHead className="w-[50px]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {settings.idleTimeoutTiers
-                .sort((a, b) => a.minActive - b.minActive)
-                .map((tier, i) => (
-                  <TableRow key={i}>
-                    <TableCell className="font-medium">
-                      {tier.minActive}+ proxies
-                    </TableCell>
-                    <TableCell className="text-muted-foreground tabular-nums">
-                      {tier.timeoutSeconds}s
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {Math.floor(tier.timeoutSeconds / 60)}m{" "}
-                      {tier.timeoutSeconds % 60}s
-                    </TableCell>
-                  </TableRow>
-                ))}
+              {tiers.map((tier, i) => (
+                <TableRow key={i}>
+                  <TableCell>
+                    <Input
+                      type="number"
+                      value={tier.minActive}
+                      onChange={(e) =>
+                        updateTier(i, "minActive", Number(e.target.value))
+                      }
+                      className="w-20 h-8 text-sm text-right"
+                      min={0}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Input
+                      type="number"
+                      value={tier.timeoutSeconds}
+                      onChange={(e) =>
+                        updateTier(i, "timeoutSeconds", Number(e.target.value))
+                      }
+                      className="w-24 h-8 text-sm text-right"
+                      min={1}
+                    />
+                  </TableCell>
+                  <TableCell className="text-muted-foreground text-sm">
+                    {tier.timeoutSeconds >= 60
+                      ? `${Math.floor(tier.timeoutSeconds / 60)}m ${tier.timeoutSeconds % 60}s`
+                      : `${tier.timeoutSeconds}s`}
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeTier(i)}
+                      className="h-7 w-7 p-0 text-destructive hover:text-destructive text-lg"
+                    >
+                      ×
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
             </TableBody>
           </Table>
 
@@ -863,7 +1030,8 @@ function App() {
             if (line.startsWith("data: ")) {
               try {
                 const data = JSON.parse(line.slice(6));
-                if (data.namespaces) setStatus(data);
+                if (data.namespaces)
+                  setStatus((prev) => (prev ? { ...prev, ...data } : data));
               } catch {}
             }
           }

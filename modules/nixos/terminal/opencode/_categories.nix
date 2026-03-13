@@ -118,17 +118,28 @@ let
         "https://raw.githubusercontent.com/code-yeongyu/oh-my-opencode/dev/assets/oh-my-opencode.schema.json";
       categories = mapAttrs (categoryId: _: { model = state.categories.${categoryId}; }) categories;
       agents = {
+        # Main orchestrator — Claude Opus (communicator type, 1100-line prompt)
         sisyphus.category = "unspecified-high";
-        "sisyphus-junior".category = "deep";
+        # Task executor — category overridden dynamically per-task by orchestrator
+        "sisyphus-junior".category = "unspecified-low";
+        # Autonomous deep worker — requires GPT-5.3 Codex (no fallback)
         hephaestus.category = "deep";
-        prometheus.category = "deep";
-        atlas.category = "deep";
+        # Strategic planner — Claude-optimized dual-prompt agent
+        prometheus.category = "unspecified-high";
+        # Todo orchestrator/conductor — Sonnet-class sufficient
+        atlas.category = "unspecified-low";
+        # Architecture consultant — GPT-5.4 for deep reasoning (read-only)
         oracle.category = "ultrabrain";
-        librarian.category = "deep";
-        explore.category = "deep";
-        metis.category = "ultrabrain";
-        momus.category = "writing";
-        "multimodal-looker".category = "visual-engineering";
+        # Docs/code search — utility runner, speed over intelligence
+        librarian.category = "quick";
+        # Fast codebase grep — utility runner, fire many in parallel
+        explore.category = "quick";
+        # Gap analyzer — Claude-optimized communicator type
+        metis.category = "unspecified-high";
+        # Ruthless plan reviewer — GPT-5.4 for deep verification
+        momus.category = "ultrabrain";
+        # Vision/screenshots — GPT-5.3 Codex preferred (multimodal)
+        "multimodal-looker".category = "deep";
       };
       disabled_mcps = [
         "websearch"

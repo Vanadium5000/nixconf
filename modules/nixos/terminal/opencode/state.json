@@ -1,10 +1,10 @@
 {
   "categories": {
     "artistry": "cliproxyapi/gemini-3-flash",
-    "deep": "cliproxyapi/claude-opus-4-6-thinking",
+    "deep": "cliproxyapi/gemini-3-flash",
     "quick": "cliproxyapi/gemini-3-flash",
-    "ultrabrain": "cliproxyapi/claude-opus-4-6-thinking",
-    "unspecified-high": "cliproxyapi/claude-opus-4-6-thinking",
+    "ultrabrain": "cliproxyapi/gemini-3-flash",
+    "unspecified-high": "cliproxyapi/gemini-3-flash",
     "unspecified-low": "cliproxyapi/gemini-3-flash",
     "visual-engineering": "cliproxyapi/gemini-3-flash",
     "writing": "cliproxyapi/gemini-3-flash"
