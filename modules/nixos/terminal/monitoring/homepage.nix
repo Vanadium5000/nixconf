@@ -33,8 +33,8 @@
           default = 8082;
           description = ''
             Port for the Homepage dashboard.
-            Avoids conflicts: 3000=my-website, 3100=zeroclaw, 4096=opencode-server,
-            8081=mongo-express, 8317=cliproxyapi.
+            Avoids conflicts: 41273=my-website, 3100=openclaw, 4096=opencode-server,
+            41275=mongo-express, 8317=cliproxyapi.
           '';
         };
 
@@ -97,12 +97,19 @@
                 {
                   "Netdata — VPS" = {
                     icon = "netdata";
-                    href = "http://ionos-vps:19999";
+                    href = "https://netdata.my-website.space";
                     description = "Real-time system metrics (ionos_vps)";
                     widget = {
                       type = "netdata";
                       url = "http://127.0.0.1:19999";
                     };
+                  };
+                }
+                {
+                  "Mitmproxy — HTTPS Analyzer" = {
+                    icon = "mdi-security";
+                    href = "https://mitmproxy.my-website.space";
+                    description = "HTTPS traffic analysis and debugging";
                   };
                 }
                 {
@@ -112,43 +119,50 @@
                     description = "Real-time system metrics (legion5i laptop)";
                   };
                 }
-                {
-                  "Netdata — Macbook" = {
-                    icon = "netdata";
-                    href = "http://macbook:19999";
-                    description = "Real-time system metrics (macbook)";
-                  };
-                }
               ];
             }
             {
               "Services" = [
                 {
-                  "ZeroClaw" = {
+                  "OpenClaw" = {
                     icon = "mdi-robot";
-                    href = "http://ionos-vps:3100";
-                    description = "Autonomous AI agent daemon";
+                    href = "https://openclaw.my-website.space";
+                    description = "AI assistant gateway (formerly ZeroClaw)";
                   };
                 }
                 {
                   "CLIProxyAPI" = {
                     icon = "mdi-api";
-                    href = "http://ionos-vps:8317";
+                    href = "https://cliproxyapi.my-website.space";
                     description = "OpenAI-compatible API wrapping AI CLIs";
                   };
                 }
                 {
                   "OpenCode Server" = {
                     icon = "mdi-code-braces";
-                    href = "http://ionos-vps:4096";
+                    href = "https://opencode.my-website.space";
                     description = "Headless OpenCode API for remote attach";
+                  };
+                }
+                {
+                  "VPN Proxy" = {
+                    icon = "mdi-vpn";
+                    href = "https://vpn.my-website.space";
+                    description = "SOCKS5/HTTP VPN proxy management";
                   };
                 }
                 {
                   "My Website" = {
                     icon = "mdi-web";
-                    href = "http://ionos-vps:3000";
+                    href = "https://my-website.space";
                     description = "Personal website";
+                  };
+                }
+                {
+                  "MongoDB Admin" = {
+                    icon = "mdi-database";
+                    href = "https://mongo.my-website.space";
+                    description = "Mongo Express database management";
                   };
                 }
               ];

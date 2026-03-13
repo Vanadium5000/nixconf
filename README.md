@@ -43,6 +43,7 @@ Glass design language.
 | Editor          | **Neovim** (NVF)                   | Primary `$EDITOR`, custom NVF config          |
 | IDE             | **VSCodium** / **Antigravity**     | Declarative extensions, custom theme          |
 | AI Coding       | **OpenCode**                       | Terminal AI assistant with MCP servers        |
+| AI Assistant    | **OpenClaw**                       | AI gateway (formerly ZeroClaw)                |
 | Browser         | **Librewolf**                      | uBlock Origin, Vimium, custom user.js         |
 | File Manager    | **Dolphin** (KDE)                  | kio-extras, kio-admin                         |
 | Display Manager | **tuigreet** (greetd)              | TUI greeter                                   |
@@ -262,6 +263,7 @@ Secrets flow through `pass` (password-store) → `secrets.nix` → `self.secrets
 | Tool                       | Purpose                      | Acceleration    |
 | -------------------------- | ---------------------------- | --------------- |
 | **Ollama**                 | Local LLM inference          | CUDA (legion5i) |
+| **OpenClaw**               | AI assistant gateway         | —               |
 | **PersonaLive**            | Real-time portrait animation | CUDA            |
 | **whisper-cpp**            | Speech-to-text dictation     | CPU/CUDA        |
 | **OpenCode**               | AI coding assistant          | —               |
@@ -352,11 +354,11 @@ Access the Web UI at `http://127.0.0.1:8083` (password: `nixos`).
 
 ## 🏠 Hosts
 
-| Host          | Type            | Hardware               | User     | Key Features                                       |
-| ------------- | --------------- | ---------------------- | -------- | -------------------------------------------------- |
-| **legion5i**  | Desktop Laptop  | Intel + Nvidia (PRIME) | `matrix` | CUDA, fine-grained GPU power mgmt, primary machine |
-| **macbook**   | Desktop Laptop  | MacBook Air (T2)       | `matrix` | T2 firmware, suspend workarounds, fn/ctrl swap     |
-| **ionos_vps** | Headless Server | IONOS VPS              | `main`   | Personal website, MongoDB, Nginx reverse proxy     |
+| Host          | Type            | Hardware               | User     | Key Features                                            |
+| ------------- | --------------- | ---------------------- | -------- | ------------------------------------------------------- |
+| **legion5i**  | Desktop Laptop  | Intel + Nvidia (PRIME) | `matrix` | CUDA, fine-grained GPU power mgmt, primary machine      |
+| **macbook**   | Desktop Laptop  | MacBook Air (T2)       | `matrix` | T2 firmware, suspend workarounds, fn/ctrl swap          |
+| **ionos_vps** | Headless Server | IONOS VPS              | `main`   | Personal website, AI gateway, reverse proxy, monitoring |
 
 ---
 
@@ -599,4 +601,4 @@ HOST=legion5i ./rebuild.sh generations
 
 ## 📝 License
 
-<!-- TODO: Add license -->
+This project is licensed under the GNU General Public License v3.0 (GPL-3.0). See the [LICENCE](LICENCE) file for details.

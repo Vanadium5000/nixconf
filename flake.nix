@@ -74,6 +74,12 @@
       inputs.nixpkgs.follows = "nixpkgs-unstable";
     };
 
+    # OpenClaw upstream flake
+    nix-openclaw = {
+      url = "github:openclaw/nix-openclaw";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     # Wallpaper collections
     nixos-artwork = {
       url = "github:nixos/nixos-artwork";

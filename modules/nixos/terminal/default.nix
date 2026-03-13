@@ -57,7 +57,7 @@
         self.nixosModules.vpn-proxy-service
 
         # Server services (disabled by default, enable per-host)
-        self.nixosModules.zeroclaw
+        self.nixosModules.openclaw
         self.nixosModules.cliproxyapi
       ];
 

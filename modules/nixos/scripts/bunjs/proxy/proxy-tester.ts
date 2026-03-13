@@ -176,6 +176,12 @@ export async function testAllProxies(
   const state = await loadTestResults();
   const startTime = Date.now();
   const settings = await loadSettings();
+
+  // Record start time immediately so the auto-test interval counts from start,
+  // not from completion.
+  state.lastFullTestAt = startTime;
+  await saveTestResults(state);
+
   const gapMs = (settings.testing.testGapSeconds ?? 30) * 1000;
 
   log("INFO", `Starting full proxy test: ${vpns.length} VPNs`);
@@ -225,7 +231,6 @@ export async function testAllProxies(
     }
   }
 
-  state.lastFullTestAt = Date.now();
   state.lastFullTestDurationMs = Date.now() - startTime;
   await saveTestResults(state);
 

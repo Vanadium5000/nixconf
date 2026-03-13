@@ -18,11 +18,41 @@
         "MY_WEBSITE_ENV"
         "MONGODB_PASSWORD"
         "MONGO_EXPRESS_PASSWORD"
+        "SERVICES_AUTH_PASSWORD"
       ]) self.secrets;
       envText = secrets'.MY_WEBSITE_ENV;
       # mongodbPassword = secrets'.MONGODB_PASSWORD;
       mongoExpressPassword = secrets'.MONGO_EXPRESS_PASSWORD;
+      servicesAuthPassword = secrets'.SERVICES_AUTH_PASSWORD;
       # mongoExpressPasswordFile = pkgs.writeText "mongo-express-password" mongoExpressPassword;
+
+      # Helper for authenticated subdomains
+      mkAuthenticatedSubdomain =
+        {
+          port,
+          description,
+          extraConfig ? "",
+        }:
+        {
+          forceSSL = true;
+          enableACME = true;
+          locations."/" = {
+            proxyPass = "http://127.0.0.1:${toString port}/";
+            proxyWebsockets = true;
+            extraConfig =
+              let
+                htpasswdFile = pkgs.runCommand "htpasswd-services" { } ''
+                  ${pkgs.apacheHttpd}/bin/htpasswd -cbB -C 12 \
+                    $out admin "${servicesAuthPassword}"
+                '';
+              in
+              ''
+                auth_basic "${description}";
+                auth_basic_user_file ${htpasswdFile};
+              ''
+              + extraConfig;
+          };
+        };
     in
     {
       imports = [
@@ -32,6 +62,7 @@
       # Enable backend service
       services.my-website-backend = {
         enable = true;
+        port = 41273; # Changed from 3000 to avoid conflicts & randomise
         envFile = pkgs.writeText ".env" envText;
       };
 
@@ -39,7 +70,7 @@
       virtualisation.oci-containers.containers.mongo-express = {
         autoStart = true;
         image = "mongo-express:latest";
-        ports = [ "127.0.0.1:8081:8081" ]; # Only localhost
+        ports = [ "127.0.0.1:41275:8081" ]; # Changed from 8081:8081
         environment = {
           # These are used AFTER the initial health-check
           ME_CONFIG_MONGODB_SERVER = "127.0.0.1";
@@ -59,7 +90,7 @@
             ME_CONFIG_BASICAUTH_PASSWORD=${mongoExpressPassword}
           '')
         ];
-        extraOptions = [ "--network=host" ]; # Allows localhost access; use "pasta" + host.containers.internal if isolation needed
+        # Removed --network=host to properly use port mapping and isolate
       };
 
       # Nginx setup
@@ -80,22 +111,23 @@
 
           # Proxy backend for drfrost-solver (adjust path if needed)
           locations."/backend/drfrost-solver/" = {
-            proxyPass = "http://127.0.0.1:3020/";
+            proxyPass = "http://127.0.0.1:41274/";
             proxyWebsockets = true; # If needed for WS
           };
 
           # Proxy backend (adjust path if needed)
           locations."/backend/" = {
-            proxyPass = "http://127.0.0.1:3000/";
+            proxyPass = "http://127.0.0.1:41273/";
             proxyWebsockets = true; # If needed for WS
           };
 
           # New auth proxy (preserves /auth/api/ path)
           locations."/auth/api/" = {
-            proxyPass = "http://127.0.0.1:3000"; # No trailing / to preserve path
+            proxyPass = "http://127.0.0.1:41273"; # No trailing / to preserve path
             proxyWebsockets = true;
-            # Add other proxy settings like proxy_set_header Host $host; etc.
+            # NOTE: Update pass entry my_website/env_file APP_URL to use port 41273
           };
+
 
           # Optional: SPA fallback for frontend routes
           locations."/" = {
@@ -103,11 +135,46 @@
           };
         };
 
+        virtualHosts."dashboard.my-website.space" = mkAuthenticatedSubdomain {
+          port = 8082;
+          description = "Fleet Dashboard";
+        };
+
+        virtualHosts."netdata.my-website.space" = mkAuthenticatedSubdomain {
+          port = 19999;
+          description = "System Monitoring";
+        };
+
+        virtualHosts."mitmproxy.my-website.space" = mkAuthenticatedSubdomain {
+          port = 8083;
+          description = "HTTPS Traffic Analyzer";
+        };
+
+        virtualHosts."vpn.my-website.space" = mkAuthenticatedSubdomain {
+          port = 10802;
+          description = "VPN Proxy Management";
+        };
+
+        virtualHosts."cliproxyapi.my-website.space" = mkAuthenticatedSubdomain {
+          port = 8317;
+          description = "CLI Proxy API";
+        };
+
+        virtualHosts."openclaw.my-website.space" = mkAuthenticatedSubdomain {
+          port = 3100;
+          description = "OpenClaw Gateway";
+        };
+
+        virtualHosts."opencode.my-website.space" = mkAuthenticatedSubdomain {
+          port = 4096;
+          description = "OpenCode Server";
+        };
+
         virtualHosts."mongo.my-website.space" = {
           forceSSL = true; # Redirect HTTP to HTTPS
           enableACME = true; # Auto Let's Encrypt
           locations."/" = {
-            proxyPass = "http://127.0.0.1:8081/";
+            proxyPass = "http://127.0.0.1:41275/";
             extraConfig =
               let
                 htpasswdFile = pkgs.runCommand "htpasswd" { } ''

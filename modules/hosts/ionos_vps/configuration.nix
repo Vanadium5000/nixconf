@@ -34,9 +34,23 @@
       services.git-sync.enable = lib.mkForce false;
 
       # Server services — only enabled on this VPS host
-      services.zeroclaw.enable = true;
-      services.opencode-server.enable = true;
-      services.cliproxyapi.enable = true;
+      services.openclaw.enable = true;
+
+      services.opencode-server = {
+        enable = true;
+        hostname = "127.0.0.1"; # Secure: bind localhost only, nginx proxies publicly
+      };
+
+      services.cliproxyapi = {
+        enable = true;
+        host = "127.0.0.1"; # Secure: bind localhost only
+        openFirewall = false; # Secure: close public port
+      };
+
+      services.vpn-proxy = {
+        enable = true;
+        bindAddress = "127.0.0.1"; # Secure: bind localhost only
+      };
 
       # System monitoring — real-time metrics with persistent history
       services.netdata-monitor.enable = true;
