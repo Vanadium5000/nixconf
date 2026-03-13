@@ -17,7 +17,7 @@ let
 
   # Minimal static fallback for the unified provider
   unifiedProvider = {
-    npm = "@ai-sdk/anthropic";
+    npm = "@ai-sdk/openai-compatible";
     name = "CliProxyApi";
     options = {
       baseURL = "http://127.0.0.1:8317/v1";

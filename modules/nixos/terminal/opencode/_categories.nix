@@ -63,15 +63,16 @@ let
       isValid = exists && content != "" && content != " " && content != "{}";
       data = if isValid then builtins.fromJSON content else { };
 
-      # Helper to extract model from either string or object format
+      # Helper to extract full category config from either string or object format
       # Handles: "cliproxyapi/model" or { model = "cliproxyapi/model"; reasoningEffort = "high" }
+      # Returns full object to preserve reasoningEffort, not just the model string
       extractModel = raw:
         if builtins.isString raw then
-          raw
+          { model = raw; }
         else if builtins.isAttrs raw && raw ? model then
-          raw.model
+          raw
         else
-          null;
+          { model = null; };
 
       legacyAdvanced = data.advanced or categories.ultrabrain.defaultModel;
       legacyMedium = data.medium or categories.deep.defaultModel;
@@ -153,6 +154,13 @@ let
           { model = raw; }
         else
           raw;
+
+      # Get reasoning effort from category config
+      getReasoningEffort = categoryId:
+        let
+          cat = extractCategory categoryId;
+        in
+        cat.reasoningEffort or null;
     in
     {
       "$schema" =
@@ -160,27 +168,71 @@ let
       categories = mapAttrs (categoryId: _: extractCategory categoryId) categories;
       agents = {
         # Main orchestrator — Claude Opus (communicator type, 1100-line prompt)
-        sisyphus.category = "unspecified-high";
+        sisyphus = {
+          category = "unspecified-high";
+        } // (lib.optionalAttrs (getReasoningEffort "unspecified-high" != null) {
+          variant = getReasoningEffort "unspecified-high";
+        });
         # Task executor — category overridden dynamically per-task by orchestrator
-        "sisyphus-junior".category = "unspecified-low";
+        "sisyphus-junior" = {
+          category = "unspecified-low";
+        } // (lib.optionalAttrs (getReasoningEffort "unspecified-low" != null) {
+          variant = getReasoningEffort "unspecified-low";
+        });
         # Autonomous deep worker — requires GPT-5.3 Codex (no fallback)
-        hephaestus.category = "deep";
+        hephaestus = {
+          category = "deep";
+        } // (lib.optionalAttrs (getReasoningEffort "deep" != null) {
+          variant = getReasoningEffort "deep";
+        });
         # Strategic planner — Claude-optimized dual-prompt agent
-        prometheus.category = "unspecified-high";
+        prometheus = {
+          category = "unspecified-high";
+        } // (lib.optionalAttrs (getReasoningEffort "unspecified-high" != null) {
+          variant = getReasoningEffort "unspecified-high";
+        });
         # Todo orchestrator/conductor — Sonnet-class sufficient
-        atlas.category = "unspecified-low";
+        atlas = {
+          category = "unspecified-low";
+        } // (lib.optionalAttrs (getReasoningEffort "unspecified-low" != null) {
+          variant = getReasoningEffort "unspecified-low";
+        });
         # Architecture consultant — GPT-5.4 for deep reasoning (read-only)
-        oracle.category = "ultrabrain";
+        oracle = {
+          category = "ultrabrain";
+        } // (lib.optionalAttrs (getReasoningEffort "ultrabrain" != null) {
+          variant = getReasoningEffort "ultrabrain";
+        });
         # Docs/code search — utility runner, speed over intelligence
-        librarian.category = "quick";
+        librarian = {
+          category = "quick";
+        } // (lib.optionalAttrs (getReasoningEffort "quick" != null) {
+          variant = getReasoningEffort "quick";
+        });
         # Fast codebase grep — utility runner, fire many in parallel
-        explore.category = "quick";
+        explore = {
+          category = "quick";
+        } // (lib.optionalAttrs (getReasoningEffort "quick" != null) {
+          variant = getReasoningEffort "quick";
+        });
         # Gap analyzer — Claude-optimized communicator type
-        metis.category = "unspecified-high";
+        metis = {
+          category = "unspecified-high";
+        } // (lib.optionalAttrs (getReasoningEffort "unspecified-high" != null) {
+          variant = getReasoningEffort "unspecified-high";
+        });
         # Ruthless plan reviewer — GPT-5.4 for deep verification
-        momus.category = "ultrabrain";
+        momus = {
+          category = "ultrabrain";
+        } // (lib.optionalAttrs (getReasoningEffort "ultrabrain" != null) {
+          variant = getReasoningEffort "ultrabrain";
+        });
         # Vision/screenshots — GPT-5.3 Codex preferred (multimodal)
-        "multimodal-looker".category = "deep";
+        "multimodal-looker" = {
+          category = "deep";
+        } // (lib.optionalAttrs (getReasoningEffort "deep" != null) {
+          variant = getReasoningEffort "deep";
+        });
       };
       disabled_mcps = [
         "websearch"
