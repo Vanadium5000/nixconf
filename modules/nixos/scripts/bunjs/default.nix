@@ -408,5 +408,32 @@
             pkgs.coreutils
           ];
         };
+
+      packages.playwright-browser =
+        let
+          # Extract the chromium directory name from the browsers package
+          chromiumDir = builtins.head (builtins.filter (x: builtins.match "chromium-.*" x != null)
+            (builtins.attrNames (builtins.readDir pkgs.playwright-driver.browsers)));
+          chromiumBin = "${pkgs.playwright-driver.browsers}/${chromiumDir}/chrome-linux/chrome";
+        in
+        inputs.wrappers.lib.makeWrapper {
+          inherit pkgs;
+          package = pkgs.writeShellScriptBin "playwright-browser" ''
+            export PLAYWRIGHT_BROWSERS_PATH=${pkgs.playwright-driver.browsers}
+            export PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS=true
+            export PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+            export PLAYWRIGHT_NODEJS_PATH=${pkgs.nodejs}/bin/node
+            export PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH="${chromiumBin}"
+
+            exec ${pkgs.bun}/bin/bun run ${./playwright-browser.ts} "$@"
+          '';
+
+          runtimeInputs = [
+            pkgs.bun
+            pkgs.nodejs
+            pkgs.playwright-driver.browsers
+            pkgs.coreutils
+          ];
+        };
     };
 }

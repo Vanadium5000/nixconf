@@ -24,14 +24,14 @@
       # MCP server configuration shared between configs and project templates
       mcpConfig = {
         # Remote tool: Fast AST-based regex search over public GitHub repositories
-        gh_grep = {
+        gh_grep_mcp = {
           type = "remote";
           url = "https://mcp.grep.app/";
           enabled = true;
           timeout = 20000;
         };
         # Remote tool: Advanced documentation index, useful for looking up up-to-date APIs
-        context7 = {
+        context7_mcp = {
           type = "remote";
           url = "https://mcp.context7.com/mcp";
           enabled = true;
@@ -58,7 +58,7 @@
           timeout = 30000;
         };
         # Local tool: Headless browser automation and end-to-end testing
-        playwright = {
+        playwright_mcp = {
           enabled = false;
           type = "local";
           command = [
@@ -97,7 +97,7 @@
           timeout = 20000;
         };
         # Remote tool: High-quality parallel web search with deep research capabilities
-        websearch = {
+        websearch_mcp = {
           type = "remote";
           url = "https://mcp.exa.ai/mcp?exaApiKey=${self.secrets.EXA_API_KEY}&tools=web_search_exa,deep_search_exa,get_code_context_exa,crawling_exa,deep_researcher_start,deep_researcher_check";
           enabled = true;
@@ -113,7 +113,7 @@
           timeout = 30000;
         };
         # Local tool: Generates images via the primary image-capable model
-        image_gen = {
+        image_gen_mcp = {
           type = "local";
           command = [
             (pkgs.writeShellScript "image-gen-mcp-wrapper" ''
