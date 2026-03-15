@@ -110,6 +110,7 @@
               pkgs.gawk
               pkgs.findutils
               pkgs.dante
+              pkgs.sing-box
               # Notification tools for IPC-based notifications
               self.packages.${pkgs.stdenv.hostPlatform.system}.qs-notify
               self.packages.${pkgs.stdenv.hostPlatform.system}.qs-notifications
@@ -119,15 +120,15 @@
             # UID 1000 is standard for first user; XDG_RUNTIME_DIR for Quickshell IPC
             commonEnv = {
               VPN_DIR = cfg.vpnDir;
-              VPN_PROXY_PORT = toString cfg.port;
-              VPN_HTTP_PROXY_PORT = toString cfg.httpPort;
+              VPN_PROXY_PORT = toString (cfg.port + 10);
+              VPN_HTTP_PROXY_PORT = toString (cfg.httpPort + 10);
+              VPN_PROXY_PUBLIC_PORT = toString cfg.port;
+              VPN_HTTP_PROXY_PUBLIC_PORT = toString cfg.httpPort;
               VPN_PROXY_BIND_ADDRESS = cfg.bindAddress;
               VPN_PROXY_IDLE_TIMEOUT = toString cfg.idleTimeout;
               VPN_PROXY_RANDOM_ROTATION = toString cfg.randomRotation;
               # Quickshell IPC requires XDG_RUNTIME_DIR to find the socket
               XDG_RUNTIME_DIR = "/run/user/1000";
-              # HOME needed for qs-notifications to find QML file paths
-              HOME = "/home/${username}";
             };
 
             commonServiceConfig = {
@@ -155,7 +156,9 @@
               after = [ "network.target" ];
 
               path = commonPath;
-              environment = commonEnv;
+              environment = commonEnv // {
+                VPN_PROXY_SINGBOX_CONFIG = "/var/lib/vpn-proxy/sing-box.json";
+              };
 
               serviceConfig = commonServiceConfig // {
                 Type = "simple";
@@ -165,9 +168,8 @@
               };
             };
 
-            # HTTP CONNECT Proxy Server
-            http-proxy = {
-              description = "VPN HTTP CONNECT Proxy Server";
+            vpn-proxy-singbox = {
+              description = "VPN Proxy (sing-box HTTP/SOCKS)";
               wantedBy = [ "multi-user.target" ];
               after = [
                 "network.target"
@@ -179,7 +181,8 @@
 
               serviceConfig = commonServiceConfig // {
                 Type = "simple";
-                ExecStart = "${self.packages.${pkgs.stdenv.hostPlatform.system}.http-proxy}/bin/http-proxy serve";
+                ExecStartPre = "${self.packages.${pkgs.stdenv.hostPlatform.system}.vpn-proxy-singbox-config}/bin/vpn-proxy-singbox-config";
+                ExecStart = "${pkgs.sing-box}/bin/sing-box run -c /var/lib/vpn-proxy/sing-box.json";
                 Restart = "on-failure";
                 RestartSec = 5;
               };
@@ -214,8 +217,9 @@
               after = [
                 "network.target"
                 "vpn-proxy.service"
+                "vpn-proxy-singbox.service"
               ];
-              wants = [ "vpn-proxy.service" ];
+              wants = [ "vpn-proxy.service" "vpn-proxy-singbox.service" ];
 
               path = commonPath ++ [
                 pkgs.curl # proxy health testing uses curl through SOCKS5

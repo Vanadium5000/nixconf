@@ -409,6 +409,24 @@
           ];
         };
 
+      packages.vpn-proxy-singbox-config =
+        let
+          proxyEnv = pkgs.runCommandLocal "proxy-env" { } ''
+            mkdir -p $out
+            cp ${./proxy/singbox-config.ts} $out/singbox-config.ts
+          '';
+        in
+        inputs.wrappers.lib.makeWrapper {
+          inherit pkgs;
+          package = pkgs.writeShellScriptBin "vpn-proxy-singbox-config" ''
+            exec ${pkgs.bun}/bin/bun run ${proxyEnv}/singbox-config.ts "$@"
+          '';
+          runtimeInputs = [
+            pkgs.bun
+            pkgs.coreutils
+          ];
+        };
+
       packages.playwright-browser =
         let
           # Extract the chromium directory name from the browsers package

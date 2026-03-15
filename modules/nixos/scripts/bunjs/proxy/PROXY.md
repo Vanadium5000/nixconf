@@ -13,9 +13,9 @@ mode for direct connections that bypass device-level VPNs.
 └─────────────────────────────┬───────────┬───────────┬───────────────────────┘
                               │           │           │
                               ▼           ▼           ▼
-                    ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
+                     ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
 │  SOCKS5 Proxy   │ │ HTTP Proxy      │ │ Web Mgmt UI     │
-                    │  localhost:10800│ │ localhost:10801 │ │ localhost:10802 │
+                     │  localhost:10800│ │ localhost:10801 │ │ localhost:10802 │
                     └────────┬────────┘ └────────┬────────┘ └────────┬────────┘
                              │                   │                   │
                              └──────────┬────────┴───────────────────┘
@@ -106,7 +106,8 @@ curl https://api.ipify.org
 ### HTTP Proxy (Port 10801)
 
 Implements RFC 7231 §4.3.6 (HTTP CONNECT method) for HTTPS tunneling and
-forwards plain HTTP requests.
+forwards plain HTTP requests. This is provided by sing-box for full protocol
+compatibility.
 
 **Supported Features:**
 
@@ -402,14 +403,10 @@ New subcommands for managing advanced features:
 - **Pattern**: `vpn-proxy tool match <pattern>` (test matching logic)
 - **Status**: `vpn-proxy tool status-json` (raw state for scripts)
 
-### http-proxy (HTTP)
+### vpn-proxy-singbox (HTTP/SOCKS)
 
 ```bash
-http-proxy serve         # Start HTTP proxy server (default)
-http-proxy status        # Show active VPNs (same as vpn-proxy)
-http-proxy stop-all      # Destroy all namespaces
-http-proxy rotate-random # Force random VPN rotation
-http-proxy --help        # Show help
+vpn-proxy-singbox        # sing-box proxy (HTTP/SOCKS)
 ```
 
 ### vpn-resolver
@@ -476,12 +473,12 @@ Configure LAN clients to use `<your-server-ip>:10800` (SOCKS5) or
 
 When enabled via NixOS, three services are created:
 
-| Service                     | Description               |
-| --------------------------- | ------------------------- |
-| `vpn-proxy.service`         | SOCKS5 proxy server       |
-| `http-proxy.service`        | HTTP proxy server         |
-| `vpn-proxy-web.service`     | Web Management UI and API |
-| `vpn-proxy-cleanup.service` | Idle cleanup daemon       |
+| Service                     | Description                 |
+| --------------------------- | --------------------------- |
+| `vpn-proxy.service`         | SOCKS5 proxy server         |
+| `vpn-proxy-singbox.service` | HTTP/SOCKS proxy (sing-box) |
+| `vpn-proxy-web.service`     | Web Management UI and API   |
+| `vpn-proxy-cleanup.service` | Idle cleanup daemon         |
 
 ```bash
 # Check status
@@ -719,7 +716,8 @@ modules/nixos/scripts/bunjs/proxy/
 ├── vpn-resolver.ts    # VPN config parsing and pattern matching
 ├── proxy-tester.ts    # Connectivity health testing
 ├── socks5-proxy.ts    # SOCKS5 proxy server
-├── http-proxy.ts      # HTTP proxy server
+├── http-proxy.ts      # Legacy HTTP proxy (replaced by sing-box)
+├── singbox-config.ts  # sing-box config generator
 ├── web-server.ts      # ElysiaJS API and Web UI server
 ├── cli-tools.ts       # CLI management subcommands
 ├── cleanup.ts         # Idle cleanup daemon

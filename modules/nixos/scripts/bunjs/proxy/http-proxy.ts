@@ -521,7 +521,7 @@ async function main(): Promise<void> {
   const command = args[0];
 
   if (args.includes("--help") || args.includes("-h") || !command) {
-    console.log(`VPN HTTP Proxy - Routes HTTP/HTTPS traffic through VPNs
+    console.log(`Legacy HTTP Proxy - Deprecated (use sing-box)
 
 Usage:
   http-proxy [command]
