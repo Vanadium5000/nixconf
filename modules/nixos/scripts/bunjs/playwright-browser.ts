@@ -1,20 +1,27 @@
 #!/usr/bin/env bun
-import { chromium } from "playwright";
+import { chromium, type Page } from "playwright";
 
 const DEFAULT_URL = "https://duckduckgo.com";
 
 const STEALTH_USER_AGENTS = [
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36",
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36",
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:134.0) Gecko/20100101 Firefox/134.0",
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.2 Safari/605.1.15",
-  "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Mobile Safari/537.36",
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
 ] as const;
 
-function getStealthUserAgent(): string {
+function getStealthUserAgent(): { ua: string; desc: string } {
   const index =
     Math.floor(Date.now() / (1000 * 60 * 60)) % STEALTH_USER_AGENTS.length;
-  return STEALTH_USER_AGENTS[index]!;
+  const ua = STEALTH_USER_AGENTS[index]!;
+
+  let desc = "Unknown";
+  if (ua.includes("Windows")) desc = "Chrome / Windows";
+  else if (ua.includes("Macintosh")) desc = "Chrome / macOS";
+  else if (ua.includes("Android")) desc = "Chrome / Android";
+
+  return { ua, desc };
 }
 
 function parseProxy(
@@ -43,16 +50,57 @@ function parseProxy(
   }
 }
 
+/**
+ * Navigates to a URL with retries for transient network errors.
+ * Specifically handles ERR_NETWORK_CHANGED which often occurs during proxy initialization.
+ */
+async function gotoWithRetry(
+  page: Page,
+  url: string,
+  options: { timeout?: number; maxRetries?: number } = {},
+): Promise<void> {
+  const { timeout = 60000, maxRetries = 5 } = options;
+  let attempt = 0;
+
+  while (attempt < maxRetries) {
+    try {
+      // Use domcontentloaded to handle slow proxies that might take a while to finish loading all assets
+      await page.goto(url, { timeout, waitUntil: "domcontentloaded" });
+      return;
+    } catch (error: any) {
+      attempt++;
+      const errorMessage = error.message || "";
+      const isNetworkChanged = errorMessage.includes(
+        "net::ERR_NETWORK_CHANGED",
+      );
+      const isTimeout = errorMessage.includes("Timeout");
+
+      if (isNetworkChanged || isTimeout) {
+        console.warn(
+          `\n⚠️ Navigation attempt ${attempt} failed: ${errorMessage.split("\n")[0]}`,
+        );
+        if (attempt < maxRetries) {
+          const delay = Math.min(1000 * Math.pow(2, attempt), 10000);
+          console.log(`   Retrying in ${delay / 1000}s...`);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          continue;
+        }
+      }
+      throw error;
+    }
+  }
+}
+
 async function main(): Promise<void> {
   const proxyArg = Bun.argv[2];
 
   console.log("🎭 Playwright Stealth Browser Launcher");
   console.log("========================================\n");
 
-  const userAgent = getStealthUserAgent();
+  const { ua: userAgent, desc: uaDesc } = getStealthUserAgent();
   const proxy = proxyArg ? parseProxy(proxyArg) : undefined;
 
-  console.log(`User Agent: ${userAgent}`);
+  console.log(`User Agent: ${userAgent} (${uaDesc})`);
   console.log(`Proxy:      ${proxy?.server ?? "(none)"}`);
 
   console.log("\nLaunching Chromium...");
@@ -71,12 +119,38 @@ async function main(): Promise<void> {
     ],
   });
 
+  // Bun-specific reliability: Use a promise to track browser closure
+  // as process.exit() inside an event listener can sometimes be unreliable
+  // if the event loop is heavily loaded or idle.
+  let resolveBrowserClosed: () => void;
+  const browserClosed = new Promise<void>((resolve) => {
+    resolveBrowserClosed = resolve;
+  });
+
+  browser.on("disconnected", () => {
+    console.log("\n👋 Browser closed, exiting...");
+    resolveBrowserClosed();
+  });
+
+  // Watchdog interval to ensure we exit even if 'disconnected' event is lost
+  // (Common issue in Bun/Playwright integration as of 2026)
+  const watchdog = setInterval(() => {
+    if (!browser.isConnected()) {
+      resolveBrowserClosed();
+    }
+  }, 1000);
+
   const context = await browser.newContext({
     userAgent,
     viewport: null,
     locale: "en-US",
     timezoneId: "America/New_York",
   });
+
+  // Set long timeouts to account for slow proxy connections
+  // Source: https://playwright.dev/docs/api/class-browsercontext#browser-context-set-default-timeout
+  context.setDefaultTimeout(60000); // 60s
+  context.setDefaultNavigationTimeout(60000); // 60s
 
   await context.addInitScript(`
     Object.defineProperty(navigator, "webdriver", {
@@ -92,17 +166,26 @@ async function main(): Promise<void> {
 
   const page = await context.newPage();
 
+  page.on("close", () => {
+    console.log("\n👋 Page closed, shutting down browser...");
+    browser.close().catch(() => {});
+  });
+
   console.log("\n✅ Browser launched successfully!");
   console.log("\n   Closing the browser window will exit the script.\n");
 
-  browser.on("disconnected", () => {
-    console.log("\n👋 Browser closed, exiting...");
-    process.exit(0);
-  });
+  try {
+    await gotoWithRetry(page, DEFAULT_URL, { timeout: 60000 });
+  } catch (error) {
+    console.error("\n❌ Initial navigation failed after retries:", error);
+    await browser.close().catch(() => {});
+    process.exit(1);
+  }
 
-  await page.goto(DEFAULT_URL);
-
-  await new Promise(() => {});
+  // Wait for the browser to be disconnected before finishing main()
+  await browserClosed;
+  clearInterval(watchdog);
+  process.exit(0);
 }
 
 process.on("SIGINT", () => {

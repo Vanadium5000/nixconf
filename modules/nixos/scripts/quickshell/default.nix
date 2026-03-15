@@ -729,7 +729,7 @@
             fi
 
             # Show menu with keybind support
-            SELECTION=$(echo -e "$MENU_ENTRIES" | qs-dmenu -p "VPN" -mesg "Alt+K: SOCKS5 proxy | Alt+Shift+K: HTTP proxy" -keybinds '{"alt+k":"copy-socks5","alt+shift+k":"copy-http"}')
+            SELECTION=$(echo -e "$MENU_ENTRIES" | qs-dmenu -p "VPN" -mesg "Alt+K: SOCKS5 | Alt+Shift+K: HTTP | Alt+U: User | Alt+P: Browser" -keybinds '{"alt+k":"copy-socks5","alt+shift+k":"copy-http","alt+u":"copy-username","alt+p":"launch-playwright"}')
 
             [ -z "$SELECTION" ] && exit 0
 
@@ -751,6 +751,14 @@
                   PROXY_LINK="http://$SLUG_NAME:@127.0.0.1:10801"
                   printf '%s' "$PROXY_LINK" | wl-copy --type text/plain
                   notify-send "VPN Proxy" "Copied HTTP: $PROXY_LINK\n\nVPN activates automatically on first use"
+                  ;;
+                copy-username)
+                  printf '%s' "$SLUG_NAME" | wl-copy --type text/plain
+                  notify-send "VPN Proxy" "Copied Username: $SLUG_NAME"
+                  ;;
+                launch-playwright)
+                  notify-send "VPN Proxy" "Launching Playwright with $SLUG_NAME proxy..."
+                  playwright-browser "http://$SLUG_NAME:@127.0.0.1:10801" &
                   ;;
               esac
               exit 0
