@@ -491,7 +491,7 @@ export async function createNamespace(
       nsName,
       nsIndex,
       nsIp,
-      socksPort: 10900 + (nsIndex % 50000), // microsocks port inside namespace
+      socksPort: 10900 + (nsIndex % 50000), // SOCKS5 port inside namespace for danted
       slug: vpn.slug,
       vpnDisplayName: vpn.displayName,
       lastUsed: Date.now(),
@@ -523,7 +523,7 @@ export async function createNamespace(
  * interface via NAT masquerading — no OpenVPN, no nftables kill-switch.
  *
  * Steps:
- * 1. Call netns.sh create-direct to set up namespace with veth/NAT/DNS/microsocks
+ * 1. Call netns.sh create-direct to set up namespace with veth/NAT/DNS/danted
  * 2. Update state with new namespace info (no OpenVPN PID)
  */
 export async function createDirectNamespace(
@@ -548,7 +548,7 @@ export async function createDirectNamespace(
     nsName,
     nsIndex,
     nsIp,
-    socksPort: 10900 + nsIndex, // microsocks port inside namespace
+    socksPort: 10900 + nsIndex, // SOCKS5 port inside namespace for danted
     slug: "none",
     vpnDisplayName: "Direct (no VPN)",
     lastUsed: Date.now(),

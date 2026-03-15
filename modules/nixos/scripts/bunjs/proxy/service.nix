@@ -109,7 +109,7 @@
               pkgs.gnugrep
               pkgs.gawk
               pkgs.findutils
-              pkgs.microsocks
+              pkgs.dante
               # Notification tools for IPC-based notifications
               self.packages.${pkgs.stdenv.hostPlatform.system}.qs-notify
               self.packages.${pkgs.stdenv.hostPlatform.system}.qs-notifications

@@ -90,7 +90,7 @@ function parseSocks5Auth(
 
 /**
  * Forward traffic to the SOCKS5 proxy running inside the namespace
- * The namespace runs microsocks bound to its veth IP
+ * The namespace runs danted bound to its veth IP
  */
 function forwardToNamespaceSocks(
   clientSocket: Socket,
@@ -222,9 +222,13 @@ async function handleSocks5Request(
     try {
       const state = await loadState();
 
-      // Validate SOCKS5 CONNECT request
-      if (data[0] !== 0x05 || data[1] !== 0x01) {
-        // Not a CONNECT command - reply with "Command not supported"
+      if (data[0] !== 0x05) {
+        clientSocket.end();
+        return;
+      }
+
+      const command = data[1];
+      if (command !== 0x01 && command !== 0x02 && command !== 0x03) {
         clientSocket.write(
           Buffer.from([0x05, 0x07, 0x00, 0x01, 0, 0, 0, 0, 0, 0]),
         );
@@ -260,9 +264,11 @@ async function handleSocks5Request(
 
       const targetPort = (data[addrEnd]! << 8) | data[addrEnd + 1]!;
 
+      const commandLabel =
+        command === 0x01 ? "CONNECT" : command === 0x02 ? "BIND" : "UDP";
       log(
         "DEBUG",
-        `SOCKS5 request: ${username || "random"}@${targetHost}:${targetPort}`,
+        `SOCKS5 ${commandLabel} request: ${username || "random"}@${targetHost}:${targetPort}`,
         "socks5",
       );
 

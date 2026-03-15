@@ -1,36 +1,4 @@
 #!/usr/bin/env bun
-/**
- * VPN HTTP CONNECT Proxy Server
- *
- * Architecture:
- * ┌─────────────┐     ┌──────────────────┐     ┌─────────────────┐
- * │ Client App  │────▶│ HTTP CONNECT     │────▶│ Network Namespace│
- * │ (curl, etc) │     │ Proxy (:10801)   │     │ (vpn-proxy-N)   │
- * └─────────────┘     └──────────────────┘     └────────┬────────┘
- *                                                       │
- *                     Proxy-Authorization:              ▼
- *                     Basic <base64(vpn:pass)>     ┌─────────┐
- *                     OR no auth = random          │ OpenVPN │
- *                                                  │ Tunnel  │
- *                                                  └────┬────┘
- *                                                       ▼
- *                                                  Internet
- *
- * This implements HTTP CONNECT tunneling (RFC 7231 §4.3.6) which is used
- * for HTTPS proxying. The proxy establishes a TCP tunnel to the target
- * and then becomes a transparent pipe.
- *
- * Authentication:
- * - Proxy-Authorization: Basic <base64(username:password)>
- *   - username = VPN slug (e.g., "AirVPN AT Vienna")
- *   - password = ignored (can be empty)
- * - No auth header = random VPN selection
- *
- * Security Model:
- * - Same as SOCKS5: isolated network namespaces with kill-switch
- * - Only CONNECT method is supported (no plain HTTP proxying)
- * - Tunnel is transparent after establishment
- */
 
 import { createServer, createConnection, type Socket } from "net";
 import {
@@ -46,14 +14,6 @@ import {
   recordTransfer,
 } from "./shared";
 
-// ============================================================================
-// HTTP Parsing Helpers
-// ============================================================================
-
-/**
- * Parse the first line of an HTTP request
- * Returns: { method, target, version } or null if invalid
- */
 function parseRequestLine(
   line: string,
 ): { method: string; target: string; version: string } | null {
@@ -66,10 +26,6 @@ function parseRequestLine(
   };
 }
 
-/**
- * Parse HTTP headers from request data
- * Returns a Map of header names (lowercase) to values
- */
 function parseHeaders(lines: string[]): Map<string, string> {
   const headers = new Map<string, string>();
   for (const line of lines) {
@@ -83,14 +39,9 @@ function parseHeaders(lines: string[]): Map<string, string> {
   return headers;
 }
 
-/**
- * Parse Basic authentication header
- * Returns username or null if not present/invalid
- */
 function parseProxyAuth(authHeader: string | undefined): string | null {
   if (!authHeader) return null;
 
-  // Format: "Basic <base64(username:password)>"
   const parts = authHeader.split(" ");
   if (parts.length !== 2 || parts[0]?.toLowerCase() !== "basic") {
     return null;
@@ -100,26 +51,19 @@ function parseProxyAuth(authHeader: string | undefined): string | null {
     const decoded = Buffer.from(parts[1]!, "base64").toString("utf-8");
     const colonIdx = decoded.indexOf(":");
     if (colonIdx === -1) {
-      // No colon - treat entire string as username
       return decoded;
     }
-    // Username is everything before the first colon
     return decoded.substring(0, colonIdx);
   } catch {
     return null;
   }
 }
 
-/**
- * Parse host:port from CONNECT target
- * Returns { host, port } or null if invalid
- */
 function parseConnectTarget(
   target: string,
 ): { host: string; port: number } | null {
   const lastColon = target.lastIndexOf(":");
   if (lastColon === -1) {
-    // No port specified - default to 443 for HTTPS
     return { host: target, port: 443 };
   }
 
@@ -131,7 +75,6 @@ function parseConnectTarget(
     return null;
   }
 
-  // Handle IPv6 addresses in brackets: [::1]:443
   if (host.startsWith("[") && host.endsWith("]")) {
     return { host: host.slice(1, -1), port };
   }
@@ -139,25 +82,7 @@ function parseConnectTarget(
   return { host, port };
 }
 
-// ============================================================================
-// Connection Handling
-// ============================================================================
-
-/**
- * Handle incoming HTTP CONNECT request
- *
- * Auth flow (RFC 7235):
- * 1. Client sends CONNECT without Proxy-Authorization
- * 2. Server responds 407 with Proxy-Authenticate challenge (keep-alive)
- * 3. Client retries on SAME connection with Proxy-Authorization header
- * 4. Server establishes tunnel
- *
- * This two-step handshake is required by browsers (Firefox, Chrome) which
- * only send credentials after receiving a 407 challenge. CLI tools like
- * curl also follow this flow when using -x "http://USER@host:port".
- */
 async function handleConnection(clientSocket: Socket): Promise<void> {
-  // Track whether we've already sent a 407 challenge on this connection
   let challengeSent = false;
 
   const processRequest = async () => {
@@ -166,12 +91,9 @@ async function handleConnection(clientSocket: Socket): Promise<void> {
     const onData = async (chunk: Buffer) => {
       buffer = Buffer.concat([buffer, chunk]);
 
-      // Look for end of HTTP headers (double CRLF)
       const headerEnd = buffer.indexOf("\r\n\r\n");
       if (headerEnd === -1) {
-        // Headers not complete yet - wait for more data
         if (buffer.length > 8192) {
-          // Headers too large - reject
           clientSocket.write(
             "HTTP/1.1 431 Request Header Fields Too Large\r\n\r\n",
           );
@@ -180,7 +102,6 @@ async function handleConnection(clientSocket: Socket): Promise<void> {
         return;
       }
 
-      // Remove data listener - we have complete headers
       clientSocket.off("data", onData);
 
       const headerData = buffer.subarray(0, headerEnd).toString("utf-8");
@@ -192,7 +113,6 @@ async function handleConnection(clientSocket: Socket): Promise<void> {
         return;
       }
 
-      // Parse request line
       const requestLine = parseRequestLine(lines[0]!);
       if (!requestLine) {
         clientSocket.write("HTTP/1.1 400 Bad Request\r\n\r\n");
@@ -200,39 +120,13 @@ async function handleConnection(clientSocket: Socket): Promise<void> {
         return;
       }
 
-      // Only support CONNECT method
-      if (requestLine.method !== "CONNECT") {
-        log("WARN", `Unsupported method: ${requestLine.method}`, "http");
-        clientSocket.write(
-          "HTTP/1.1 405 Method Not Allowed\r\n" +
-            "Allow: CONNECT\r\n" +
-            "Content-Type: text/plain\r\n" +
-            "\r\n" +
-            "Only CONNECT method is supported. Use this proxy for HTTPS tunneling.\n",
-        );
-        clientSocket.end();
-        return;
-      }
-
-      // Parse headers
       const headers = parseHeaders(lines.slice(1));
 
-      // Parse target host:port
-      const target = parseConnectTarget(requestLine.target);
-      if (!target) {
-        clientSocket.write("HTTP/1.1 400 Bad Request\r\n\r\n");
-        clientSocket.end();
-        return;
-      }
-
-      // Extract username from Proxy-Authorization header
       const authHeader = headers.get("proxy-authorization");
+      const needsChallenge =
+        requestLine.method === "CONNECT" && !authHeader && !challengeSent;
 
-      if (!authHeader && !challengeSent) {
-        // First request without auth: send 407 challenge and keep connection
-        // alive so the client can retry with credentials on the same socket.
-        // This is required by browsers (Firefox, Chrome) which only send
-        // Proxy-Authorization after receiving a 407 challenge.
+      if (needsChallenge) {
         challengeSent = true;
         clientSocket.write(
           "HTTP/1.1 407 Proxy Authentication Required\r\n" +
@@ -240,33 +134,120 @@ async function handleConnection(clientSocket: Socket): Promise<void> {
             "Content-Length: 0\r\n" +
             "\r\n",
         );
-        // Re-enter the request processing loop for the retry
         processRequest();
         return;
       }
 
-      // Either we have auth credentials, or this is a no-auth retry (random VPN)
       const username = parseProxyAuth(authHeader) || "";
+
+      if (requestLine.method === "CONNECT") {
+        const target = parseConnectTarget(requestLine.target);
+        if (!target) {
+          clientSocket.write("HTTP/1.1 400 Bad Request\r\n\r\n");
+          clientSocket.end();
+          return;
+        }
+
+        log(
+          "DEBUG",
+          `CONNECT request: ${username || "random"}@${target.host}:${target.port}`,
+          "http",
+        );
+
+        try {
+          const state = await loadState();
+          const slug = await resolveSlugFromUsername(username, state);
+          const nsInfo = await getOrCreateNamespace(slug, state);
+
+          await tunnelViaNamespace(
+            clientSocket,
+            nsInfo,
+            target.host,
+            target.port,
+            slug,
+          );
+        } catch (error) {
+          log("ERROR", `Connection failed: ${error}`, "http");
+          clientSocket.write(
+            "HTTP/1.1 502 Bad Gateway\r\n" +
+              "Content-Type: text/plain\r\n" +
+              "\r\n" +
+              `VPN connection failed: ${error}\n`,
+          );
+          clientSocket.end();
+        }
+        return;
+      }
+
+      let targetHost = "";
+      let targetPort = 80;
+      let path = "";
+
+      if (requestLine.target.startsWith("http://")) {
+        let targetUrl: URL;
+        try {
+          targetUrl = new URL(requestLine.target);
+        } catch {
+          clientSocket.write("HTTP/1.1 400 Bad Request\r\n\r\n");
+          clientSocket.end();
+          return;
+        }
+
+        if (targetUrl.protocol !== "http:") {
+          clientSocket.write("HTTP/1.1 400 Bad Request\r\n\r\n");
+          clientSocket.end();
+          return;
+        }
+
+        targetHost = targetUrl.hostname;
+        targetPort = targetUrl.port ? parseInt(targetUrl.port, 10) : 80;
+        if (!targetHost || isNaN(targetPort)) {
+          clientSocket.write("HTTP/1.1 400 Bad Request\r\n\r\n");
+          clientSocket.end();
+          return;
+        }
+
+        path = `${targetUrl.pathname || "/"}${targetUrl.search || ""}`;
+      } else {
+        const hostHeader = headers.get("host") || "";
+        const hostParts = hostHeader.split(":");
+        targetHost = hostParts[0] || "";
+        targetPort = hostParts[1] ? parseInt(hostParts[1], 10) : 80;
+        if (!targetHost || isNaN(targetPort)) {
+          clientSocket.write("HTTP/1.1 400 Bad Request\r\n\r\n");
+          clientSocket.end();
+          return;
+        }
+
+        path = requestLine.target || "/";
+      }
+      const requestLineOut = `${requestLine.method} ${path} ${requestLine.version}`;
+      headers.delete("proxy-authorization");
+      headers.set(
+        "host",
+        targetPort !== 80 ? `${targetHost}:${targetPort}` : targetHost,
+      );
 
       log(
         "DEBUG",
-        `CONNECT request: ${username || "random"}@${target.host}:${target.port}`,
+        `HTTP request: ${username || "random"}@${targetHost}:${targetPort}`,
         "http",
       );
 
       try {
-        // Resolve VPN and get/create namespace
         const state = await loadState();
         const slug = await resolveSlugFromUsername(username, state);
         const nsInfo = await getOrCreateNamespace(slug, state);
 
-        // Connect to target via namespace's SOCKS5 proxy
-        await tunnelViaNamespace(
+        await forwardHttpViaNamespace(
           clientSocket,
           nsInfo,
-          target.host,
-          target.port,
+          targetHost,
+          targetPort,
           slug,
+          requestLineOut,
+          headers,
+          buffer.subarray(headerEnd + 4),
         );
       } catch (error) {
         log("ERROR", `Connection failed: ${error}`, "http");
@@ -281,6 +262,12 @@ async function handleConnection(clientSocket: Socket): Promise<void> {
     };
 
     clientSocket.on("data", onData);
+    const onEnd = () => {
+      if (buffer.length > 0 && buffer.indexOf("\r\n\r\n") === -1) {
+        clientSocket.end("HTTP/1.1 400 Bad Request\r\n\r\n");
+      }
+    };
+    clientSocket.once("end", onEnd);
   };
 
   processRequest();
@@ -290,9 +277,6 @@ async function handleConnection(clientSocket: Socket): Promise<void> {
   });
 }
 
-/**
- * Establish tunnel to target host via namespace's SOCKS5 proxy
- */
 async function tunnelViaNamespace(
   clientSocket: Socket,
   nsInfo: { nsIp: string; socksPort: number; vpnDisplayName: string },
@@ -304,11 +288,9 @@ async function tunnelViaNamespace(
     let bytesIn = 0;
     let bytesOut = 0;
 
-    // Connect to microsocks inside the namespace
     const proxySocket = createConnection(
       { host: nsInfo.nsIp, port: nsInfo.socksPort },
       () => {
-        // Send SOCKS5 handshake (no auth)
         proxySocket.write(Buffer.from([0x05, 0x01, 0x00]));
       },
     );
@@ -320,13 +302,12 @@ async function tunnelViaNamespace(
         return;
       }
 
-      // Send SOCKS5 CONNECT request
       const hostBytes = Buffer.from(targetHost, "utf-8");
       const request = Buffer.alloc(4 + 1 + hostBytes.length + 2);
-      request[0] = 0x05; // Version
-      request[1] = 0x01; // CONNECT
-      request[2] = 0x00; // Reserved
-      request[3] = 0x03; // Domain name
+      request[0] = 0x05;
+      request[1] = 0x01;
+      request[2] = 0x00;
+      request[3] = 0x03;
       request[4] = hostBytes.length;
       hostBytes.copy(request, 5);
       request.writeUInt16BE(targetPort, 5 + hostBytes.length);
@@ -335,7 +316,6 @@ async function tunnelViaNamespace(
 
       proxySocket.once("data", (connectReply: Buffer) => {
         if (connectReply[1] !== 0x00) {
-          // SOCKS5 connection failed
           const errorCodes: Record<number, string> = {
             0x01: "General SOCKS server failure",
             0x02: "Connection not allowed by ruleset",
@@ -352,7 +332,6 @@ async function tunnelViaNamespace(
           return;
         }
 
-        // Connection established - send success to client
         clientSocket.write(
           "HTTP/1.1 200 Connection Established\r\n" +
             `Proxy-Agent: VPN-HTTP-Proxy (${nsInfo.vpnDisplayName})\r\n` +
@@ -397,14 +376,115 @@ async function tunnelViaNamespace(
   });
 }
 
-// ============================================================================
-// Server Lifecycle
-// ============================================================================
+async function forwardHttpViaNamespace(
+  clientSocket: Socket,
+  nsInfo: { nsIp: string; socksPort: number; vpnDisplayName: string },
+  targetHost: string,
+  targetPort: number,
+  slug: string,
+  requestLine: string,
+  headers: Map<string, string>,
+  initialBody: Buffer,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    let bytesIn = 0;
+    let bytesOut = 0;
+
+    const proxySocket = createConnection(
+      { host: nsInfo.nsIp, port: nsInfo.socksPort },
+      () => {
+        proxySocket.write(Buffer.from([0x05, 0x01, 0x00]));
+      },
+    );
+
+    proxySocket.once("data", (handshakeReply: Buffer) => {
+      if (handshakeReply[0] !== 0x05 || handshakeReply[1] !== 0x00) {
+        reject(new Error("SOCKS5 handshake failed"));
+        proxySocket.destroy();
+        return;
+      }
+
+      const hostBytes = Buffer.from(targetHost, "utf-8");
+      const request = Buffer.alloc(4 + 1 + hostBytes.length + 2);
+      request[0] = 0x05;
+      request[1] = 0x01;
+      request[2] = 0x00;
+      request[3] = 0x03;
+      request[4] = hostBytes.length;
+      hostBytes.copy(request, 5);
+      request.writeUInt16BE(targetPort, 5 + hostBytes.length);
+
+      proxySocket.write(request);
+
+      proxySocket.once("data", (connectReply: Buffer) => {
+        if (connectReply[1] !== 0x00) {
+          const errorCodes: Record<number, string> = {
+            0x01: "General SOCKS server failure",
+            0x02: "Connection not allowed by ruleset",
+            0x03: "Network unreachable",
+            0x04: "Host unreachable",
+            0x05: "Connection refused",
+            0x06: "TTL expired",
+            0x07: "Command not supported",
+            0x08: "Address type not supported",
+          };
+          const errorMsg = errorCodes[connectReply[1]!] || "Unknown error";
+          reject(new Error(`SOCKS5: ${errorMsg}`));
+          proxySocket.destroy();
+          return;
+        }
+
+        headers.delete("proxy-connection");
+        const headerLines = [requestLine];
+        for (const [name, value] of headers) {
+          headerLines.push(`${name}: ${value}`);
+        }
+        const headerPayload = `${headerLines.join("\r\n")}\r\n\r\n`;
+        proxySocket.write(headerPayload);
+        if (initialBody.length > 0) {
+          proxySocket.write(initialBody);
+        }
+
+        clientSocket.on("data", (chunk: Buffer) => {
+          bytesOut += chunk.length;
+          proxySocket.write(chunk);
+        });
+        proxySocket.on("data", (chunk: Buffer) => {
+          bytesIn += chunk.length;
+          clientSocket.write(chunk);
+        });
+
+        resolve();
+      });
+    });
+
+    proxySocket.on("error", (err) => {
+      log("ERROR", `Proxy socket error: ${err.message}`, "http");
+      clientSocket.destroy();
+      reject(err);
+    });
+
+    clientSocket.on("error", () => {
+      proxySocket.destroy();
+    });
+
+    const onClose = () => {
+      recordTransfer(slug, bytesIn, bytesOut).catch(() => {});
+    };
+
+    clientSocket.on("close", () => {
+      onClose();
+      proxySocket.destroy();
+    });
+
+    proxySocket.on("close", () => {
+      clientSocket.destroy();
+    });
+  });
+}
 
 async function startServer(): Promise<void> {
   await ensureStateDir();
-  // Note: Don't cleanup stale state here - let socks5-proxy do it
-  // Both proxies share the same state
 
   const server = createServer((socket) => {
     handleConnection(socket);
@@ -413,7 +493,7 @@ async function startServer(): Promise<void> {
   server.listen(CONFIG.HTTP_PORT, CONFIG.BIND_ADDRESS, () => {
     log(
       "INFO",
-      `HTTP CONNECT proxy listening on ${CONFIG.BIND_ADDRESS}:${CONFIG.HTTP_PORT}`,
+      `HTTP proxy listening on ${CONFIG.BIND_ADDRESS}:${CONFIG.HTTP_PORT}`,
       "http",
     );
   });
@@ -436,22 +516,18 @@ async function startServer(): Promise<void> {
   });
 }
 
-// ============================================================================
-// CLI Interface
-// ============================================================================
-
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const command = args[0];
 
   if (args.includes("--help") || args.includes("-h") || !command) {
-    console.log(`VPN HTTP CONNECT Proxy - Routes HTTPS traffic through VPNs
+    console.log(`VPN HTTP Proxy - Routes HTTP/HTTPS traffic through VPNs
 
 Usage:
   http-proxy [command]
 
 Commands:
-  serve         Start the HTTP CONNECT proxy server
+  serve         Start the HTTP proxy server
   status        Show active VPN proxies and their idle times
   stop-all      Stop all VPN proxies and clean up namespaces
   rotate-random Force rotate the random VPN immediately
@@ -462,7 +538,7 @@ Options:
 
 Environment:
   VPN_DIR                    VPN configs directory (default: ~/Shared/VPNs)
-  VPN_HTTP_PROXY_PORT        HTTP CONNECT listening port (default: 10801)
+  VPN_HTTP_PROXY_PORT        HTTP proxy listening port (default: 10801)
   VPN_PROXY_BIND_ADDRESS     Bind address: 127.0.0.1 (default) or 0.0.0.0 for LAN
   VPN_PROXY_IDLE_TIMEOUT     Idle cleanup timeout in seconds (default: 300)
   VPN_PROXY_RANDOM_ROTATION  Random VPN rotation interval (default: 300)

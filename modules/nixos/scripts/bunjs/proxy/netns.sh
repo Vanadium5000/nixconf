@@ -48,8 +48,6 @@ die() {
     exit 1
 }
 
-# Common namespace setup: veth pair, NAT, DNS, microsocks
-# Used by both create_namespace (VPN) and create_direct_namespace (no VPN)
 setup_namespace_base() {
     local ns="$1"
     local idx="$2"
@@ -112,17 +110,36 @@ setup_namespace_base() {
     
     mkdir -p "$STATE_DIR"
     
-    # Start microsocks SOCKS5 proxy inside namespace, bound to veth IP for host access
-    local microsocks_pid_file="$STATE_DIR/microsocks-$ns.pid"
-    run ip netns exec "$ns" microsocks -i "$ns_ip" -p "$socks_port" &
-    sleep 0.2
-    local microsocks_pid
-    microsocks_pid=$(run ip netns pids "$ns" 2>/dev/null | grep -v "^$" | head -1 || echo "")
-    if [[ -n "$microsocks_pid" ]]; then
-        echo "$microsocks_pid" > "$microsocks_pid_file"
-        log "Started microsocks on $ns_ip:$socks_port (PID $microsocks_pid)"
+    local dante_pid_file="$STATE_DIR/dante-$ns.pid"
+    local dante_conf="$STATE_DIR/danted-$ns.conf"
+    cat > "$dante_conf" <<EOF
+logoutput: stderr
+internal: $ns_ip port = $socks_port
+external: $veth_ns
+socksmethod: none
+clientmethod: none
+user.privileged: root
+user.unprivileged: root
+client pass {
+  from: 0.0.0.0/0 to: 0.0.0.0/0
+  log: connect disconnect error
+}
+socks pass {
+  from: 0.0.0.0/0 to: 0.0.0.0/0
+  command: connect bind udpassociate
+  log: connect disconnect error
+}
+EOF
+
+    run ip netns exec "$ns" danted -f "$dante_conf" &
+    sleep 0.3
+    local dante_pid
+    dante_pid=$(run ip netns pids "$ns" 2>/dev/null | grep -v "^$" | head -1 || echo "")
+    if [[ -n "$dante_pid" ]]; then
+        echo "$dante_pid" > "$dante_pid_file"
+        log "Started danted on $ns_ip:$socks_port (PID $dante_pid)"
     else
-        log "WARNING: Could not determine microsocks PID"
+        log "WARNING: Could not determine danted PID"
     fi
 }
 
@@ -260,13 +277,16 @@ destroy_namespace() {
         rm -f "$info_file"
     fi
     
-    local microsocks_pid_file="$STATE_DIR/microsocks-$ns.pid"
-    if [[ -f "$microsocks_pid_file" ]]; then
-        local mpid
-        mpid=$(cat "$microsocks_pid_file")
-        run kill -9 "$mpid" 2>/dev/null || true
-        rm -f "$microsocks_pid_file"
+    local dante_pid_file="$STATE_DIR/dante-$ns.pid"
+    if [[ -f "$dante_pid_file" ]]; then
+        local dpid
+        dpid=$(cat "$dante_pid_file")
+        run kill -9 "$dpid" 2>/dev/null || true
+        rm -f "$dante_pid_file"
     fi
+
+    local dante_conf_file="$STATE_DIR/danted-$ns.conf"
+    rm -f "$dante_conf_file" 2>/dev/null || true
     
     local pids
     pids=$(run ip netns pids "$ns" 2>/dev/null || true)

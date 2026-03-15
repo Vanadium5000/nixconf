@@ -14,7 +14,7 @@ mode for direct connections that bypass device-level VPNs.
                               │           │           │
                               ▼           ▼           ▼
                     ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
-                    │  SOCKS5 Proxy   │ │ HTTP CONNECT    │ │ Web Mgmt UI     │
+│  SOCKS5 Proxy   │ │ HTTP Proxy      │ │ Web Mgmt UI     │
                     │  localhost:10800│ │ localhost:10801 │ │ localhost:10802 │
                     └────────┬────────┘ └────────┬────────┘ └────────┬────────┘
                              │                   │                   │
@@ -35,7 +35,7 @@ mode for direct connections that bypass device-level VPNs.
 │  │ + tun0    │  │              │  │  direct   │  │  │  │ + tun0    │  │
 │  └───────────┘  │              │  └───────────┘  │  │  └───────────┘  │
 │  ┌───────────┐  │              │  ┌───────────┐  │  │  ┌───────────┐  │
-│  │microsocks │  │              │  │microsocks │  │  │  │microsocks │  │
+│  │danted     │  │              │  │danted     │  │  │  │danted     │  │
 │  │ :10900    │  │              │  │ :10901    │  │  │  │ :1090N    │  │
 │  └───────────┘  │              │  └───────────┘  │  │  └───────────┘  │
 │  ┌───────────┐  │              │                 │  │  ┌───────────┐  │
@@ -67,8 +67,8 @@ Authentication).
 | Feature              | Status | Notes                        |
 | -------------------- | ------ | ---------------------------- |
 | CONNECT (0x01)       | ✅     | TCP connection tunneling     |
-| BIND (0x02)          | ❌     | Not implemented              |
-| UDP ASSOCIATE (0x03) | ❌     | Not implemented              |
+| BIND (0x02)          | ✅     | Handled by namespace proxy   |
+| UDP ASSOCIATE (0x03) | ✅     | Handled by namespace proxy   |
 | IPv4 addresses       | ✅     | Full support                 |
 | Domain names         | ✅     | Resolved inside namespace    |
 | IPv6 addresses       | ❌     | Would need IPv6 in namespace |
@@ -103,18 +103,19 @@ curl https://api.ipify.org
 > plain `socks5://`, DNS is resolved locally which may leak your real IP via
 > DNS queries.
 
-### HTTP CONNECT Proxy (Port 10801)
+### HTTP Proxy (Port 10801)
 
-Implements RFC 7231 §4.3.6 (HTTP CONNECT method) for HTTPS tunneling.
+Implements RFC 7231 §4.3.6 (HTTP CONNECT method) for HTTPS tunneling and
+forwards plain HTTP requests.
 
 **Supported Features:**
 
-| Feature              | Status | Notes                  |
-| -------------------- | ------ | ---------------------- |
-| CONNECT method       | ✅     | HTTPS tunneling        |
-| Plain HTTP proxy     | ❌     | Only CONNECT supported |
-| Basic authentication | ✅     | Username = VPN slug    |
-| No authentication    | ✅     | Uses random VPN        |
+| Feature              | Status | Notes                       |
+| -------------------- | ------ | --------------------------- |
+| CONNECT method       | ✅     | HTTPS tunneling             |
+| Plain HTTP proxy     | ✅     | Forwarded through namespace |
+| Basic authentication | ✅     | Username = VPN slug         |
+| No authentication    | ✅     | Uses random VPN             |
 
 **Usage Examples:**
 
@@ -140,8 +141,8 @@ export https_proxy="http://127.0.0.1:10801"
 curl https://api.ipify.org
 ```
 
-> **Note:** The HTTP proxy only supports the CONNECT method for HTTPS
-> tunneling. Plain HTTP requests will receive a 405 Method Not Allowed error.
+> **Note:** HTTP CONNECT is required for HTTPS tunneling. Plain HTTP requests
+> are forwarded directly through the namespace.
 
 ## Authentication
 
@@ -208,7 +209,7 @@ interface, not through the VPN tunnel.
 
 1. A new namespace is created with a veth pair and NAT (same as VPN namespaces)
 2. No OpenVPN is started — no tunnel, no kill-switch
-3. microsocks runs inside the namespace for SOCKS5 proxying
+3. danted runs inside the namespace for SOCKS5 proxying
 4. Traffic routes: app → proxy → namespace → host NAT → real internet
 
 **The namespace is idle-cleaned** like VPN namespaces (default 5 minutes).
@@ -217,7 +218,7 @@ interface, not through the VPN tunnel.
 # SOCKS5
 curl --proxy "socks5h://none@127.0.0.1:10800" https://api.ipify.org
 
-# HTTP CONNECT
+# HTTP
 curl --proxy "http://127.0.0.1:10801" --proxy-user "none:" https://api.ipify.org
 ```
 
@@ -358,13 +359,13 @@ This prevents DNS queries from leaking through the host's resolver.
 
 All runtime state is stored in tmpfs at `/dev/shm/vpn-proxy-0/`:
 
-| File                         | Purpose                                |
-| ---------------------------- | -------------------------------------- |
-| `state.json`                 | Namespace tracking, random VPN state   |
-| `resolver-cache.json`        | VPN config cache with mtime validation |
-| `openvpn-vpn-proxy-N.pid`    | OpenVPN daemon PID                     |
-| `openvpn-vpn-proxy-N.log`    | OpenVPN logs                           |
-| `microsocks-vpn-proxy-N.pid` | microsocks PID                         |
+| File                      | Purpose                                |
+| ------------------------- | -------------------------------------- |
+| `state.json`              | Namespace tracking, random VPN state   |
+| `resolver-cache.json`     | VPN config cache with mtime validation |
+| `openvpn-vpn-proxy-N.pid` | OpenVPN daemon PID                     |
+| `openvpn-vpn-proxy-N.log` | OpenVPN logs                           |
+| `dante-vpn-proxy-N.pid`   | danted PID                             |
 
 ### Persistent State
 
@@ -401,10 +402,10 @@ New subcommands for managing advanced features:
 - **Pattern**: `vpn-proxy tool match <pattern>` (test matching logic)
 - **Status**: `vpn-proxy tool status-json` (raw state for scripts)
 
-### http-proxy (HTTP CONNECT)
+### http-proxy (HTTP)
 
 ```bash
-http-proxy serve         # Start HTTP CONNECT server (default)
+http-proxy serve         # Start HTTP proxy server (default)
 http-proxy status        # Show active VPNs (same as vpn-proxy)
 http-proxy stop-all      # Destroy all namespaces
 http-proxy rotate-random # Force random VPN rotation
@@ -440,7 +441,7 @@ vpn-proxy-netns cleanup-all
 | ---------------------------- | --------------- | --------------------------------------------- |
 | `VPN_DIR`                    | `~/Shared/VPNs` | Directory containing `.ovpn` files            |
 | `VPN_PROXY_PORT`             | `10800`         | SOCKS5 proxy port                             |
-| `VPN_HTTP_PROXY_PORT`        | `10801`         | HTTP CONNECT proxy port                       |
+| `VPN_HTTP_PROXY_PORT`        | `10801`         | HTTP proxy port                               |
 | `VPN_PROXY_BIND_ADDRESS`     | `0.0.0.0`       | Bind address (`127.0.0.1` for localhost only) |
 | `VPN_PROXY_IDLE_TIMEOUT`     | `300`           | Seconds before idle namespace cleanup         |
 | `VPN_PROXY_RANDOM_ROTATION`  | `300`           | Seconds between random VPN rotation           |
@@ -456,7 +457,7 @@ vpn-proxy-netns cleanup-all
 services.vpn-proxy = {
   enable = true;              # Enable the proxy services
   port = 10800;               # SOCKS5 port
-  httpPort = 10801;           # HTTP CONNECT port
+  httpPort = 10801;           # HTTP port
   webUiPort = 10802;          # Web UI port
   bindAddress = "0.0.0.0";    # Default; use "127.0.0.1" for localhost only
   vpnDir = "/path/to/vpns";   # .ovpn file directory
@@ -478,7 +479,7 @@ When enabled via NixOS, three services are created:
 | Service                     | Description               |
 | --------------------------- | ------------------------- |
 | `vpn-proxy.service`         | SOCKS5 proxy server       |
-| `http-proxy.service`        | HTTP CONNECT proxy server |
+| `http-proxy.service`        | HTTP proxy server         |
 | `vpn-proxy-web.service`     | Web Management UI and API |
 | `vpn-proxy-cleanup.service` | Idle cleanup daemon       |
 
@@ -718,7 +719,7 @@ modules/nixos/scripts/bunjs/proxy/
 ├── vpn-resolver.ts    # VPN config parsing and pattern matching
 ├── proxy-tester.ts    # Connectivity health testing
 ├── socks5-proxy.ts    # SOCKS5 proxy server
-├── http-proxy.ts      # HTTP CONNECT proxy server
+├── http-proxy.ts      # HTTP proxy server
 ├── web-server.ts      # ElysiaJS API and Web UI server
 ├── cli-tools.ts       # CLI management subcommands
 ├── cleanup.ts         # Idle cleanup daemon
@@ -746,4 +747,4 @@ modules/nixos/scripts/bunjs/proxy/
 - **Subsequent requests**: Fast (reuses existing namespace)
 - **Idle cleanup**: 5 minutes default (configurable)
 - **Random rotation**: 5 minutes default (configurable)
-- **Memory per namespace**: ~10-20MB (OpenVPN + microsocks)
+- **Memory per namespace**: ~10-20MB (OpenVPN + danted)
