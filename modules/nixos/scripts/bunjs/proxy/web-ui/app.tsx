@@ -68,6 +68,7 @@ interface NamespaceInfo {
   bytesIn: number;
   bytesOut: number;
   connections: number;
+  pinned?: boolean;
 }
 
 interface ProxyStatus {
@@ -205,6 +206,10 @@ function DashboardTab({ status }: { status: ProxyStatus | null }) {
     await api(`/proxy/${slug}`, { method: "DELETE" });
   };
 
+  const handlePin = async (slug: string, pinned?: boolean) => {
+    await api(`/proxy/${slug}/${pinned ? "unpin" : "pin"}`, { method: "POST" });
+  };
+
   return (
     <div className="space-y-6">
       <Card className="border-primary/20">
@@ -337,7 +342,15 @@ function DashboardTab({ status }: { status: ProxyStatus | null }) {
                     <TableCell className="text-muted-foreground tabular-nums">
                       {ns.connections || 0}
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right space-x-2">
+                      <Button
+                        variant={ns.pinned ? "secondary" : "outline"}
+                        size="sm"
+                        className="h-7 text-[10px]"
+                        onClick={() => handlePin(ns.slug, ns.pinned)}
+                      >
+                        {ns.pinned ? "Pinned" : "Pin"}
+                      </Button>
                       <Button
                         variant="destructive"
                         size="sm"

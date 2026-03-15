@@ -120,10 +120,8 @@
             # UID 1000 is standard for first user; XDG_RUNTIME_DIR for Quickshell IPC
             commonEnv = {
               VPN_DIR = cfg.vpnDir;
-              VPN_PROXY_PORT = toString (cfg.port + 10);
-              VPN_HTTP_PROXY_PORT = toString (cfg.httpPort + 10);
-              VPN_PROXY_PUBLIC_PORT = toString cfg.port;
-              VPN_HTTP_PROXY_PUBLIC_PORT = toString cfg.httpPort;
+              VPN_PROXY_PORT = toString cfg.port;
+              VPN_HTTP_PROXY_PORT = toString cfg.httpPort;
               VPN_PROXY_BIND_ADDRESS = cfg.bindAddress;
               VPN_PROXY_IDLE_TIMEOUT = toString cfg.idleTimeout;
               VPN_PROXY_RANDOM_ROTATION = toString cfg.randomRotation;

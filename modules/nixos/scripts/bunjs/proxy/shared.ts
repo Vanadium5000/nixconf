@@ -29,7 +29,6 @@ import {
   resolveVpn,
   getRandomVpn,
   isValidSlug,
-  resolveVpnByPattern,
   type VpnConfig,
 } from "./vpn-resolver";
 import { loadSettings, getDynamicIdleTimeout } from "./settings";
@@ -84,6 +83,7 @@ export interface NamespaceInfo {
   lastUsed: number;
   openvpnPid: number;
   status: "starting" | "connected" | "failed";
+  pinned?: boolean;
   /** Cumulative bytes received through this namespace */
   bytesIn: number;
   /** Cumulative bytes sent through this namespace */
@@ -818,6 +818,7 @@ export async function cleanupIdleProxies(): Promise<number> {
   let cleaned = 0;
 
   for (const [slug, info] of Object.entries(state.namespaces)) {
+    if (info.pinned) continue;
     if (info.lastUsed < threshold) {
       log(
         "INFO",
@@ -829,6 +830,19 @@ export async function cleanupIdleProxies(): Promise<number> {
   }
 
   return cleaned;
+}
+
+export async function setNamespacePinned(
+  slug: string,
+  pinned: boolean,
+): Promise<void> {
+  const state = await loadState();
+  const info = state.namespaces[slug];
+  if (!info) {
+    throw new Error(`Namespace not found: ${slug}`);
+  }
+  info.pinned = pinned;
+  await saveState(state);
 }
 
 /**

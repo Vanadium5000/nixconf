@@ -107,7 +107,8 @@ curl https://api.ipify.org
 
 Implements RFC 7231 §4.3.6 (HTTP CONNECT method) for HTTPS tunneling and
 forwards plain HTTP requests. This is provided by sing-box for full protocol
-compatibility.
+compatibility. SOCKS5 remains served by the vpn-proxy service for per-VPN
+selection and UDP relay.
 
 **Supported Features:**
 
@@ -402,11 +403,22 @@ New subcommands for managing advanced features:
 - **Export**: `vpn-proxy tool export usernames|socks5|http [--working]`
 - **Pattern**: `vpn-proxy tool match <pattern>` (test matching logic)
 - **Status**: `vpn-proxy tool status-json` (raw state for scripts)
+- **Pinning**: `vpn-proxy tool pin <slug>` / `vpn-proxy tool unpin <slug>`
 
-### vpn-proxy-singbox (HTTP/SOCKS)
+### vpn-proxy-singbox (HTTP)
 
 ```bash
-vpn-proxy-singbox        # sing-box proxy (HTTP/SOCKS)
+vpn-proxy-singbox        # sing-box proxy (HTTP)
+```
+
+## Pinned Namespaces
+
+Pinned namespaces are kept open across idle cleanup cycles. This is useful
+when binding an app to a specific interface (e.g., qBittorrent).
+
+```bash
+vpn-proxy tool pin <slug>
+vpn-proxy tool unpin <slug>
 ```
 
 ### vpn-resolver
@@ -473,12 +485,12 @@ Configure LAN clients to use `<your-server-ip>:10800` (SOCKS5) or
 
 When enabled via NixOS, three services are created:
 
-| Service                     | Description                 |
-| --------------------------- | --------------------------- |
-| `vpn-proxy.service`         | SOCKS5 proxy server         |
-| `vpn-proxy-singbox.service` | HTTP/SOCKS proxy (sing-box) |
-| `vpn-proxy-web.service`     | Web Management UI and API   |
-| `vpn-proxy-cleanup.service` | Idle cleanup daemon         |
+| Service                     | Description               |
+| --------------------------- | ------------------------- |
+| `vpn-proxy.service`         | SOCKS5 proxy server       |
+| `vpn-proxy-singbox.service` | HTTP proxy (sing-box)     |
+| `vpn-proxy-web.service`     | Web Management UI and API |
+| `vpn-proxy-cleanup.service` | Idle cleanup daemon       |
 
 ```bash
 # Check status

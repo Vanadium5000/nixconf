@@ -1,5 +1,5 @@
 import { listVpns, getRandomVpn, resolveVpnByPattern } from "./vpn-resolver";
-import { CONFIG, loadState } from "./shared";
+import { CONFIG, loadState, setNamespacePinned } from "./shared";
 import {
   loadSettings,
   saveSettings,
@@ -66,6 +66,26 @@ export async function runTools(args: string[]) {
         process.exit(1);
       }
       await runHealthCheck(target);
+      break;
+    }
+    case "pin": {
+      const slug = args[1];
+      if (!slug) {
+        console.error("Usage: vpn-proxy tool pin <slug>");
+        process.exit(1);
+      }
+      await setNamespacePinned(slug, true);
+      console.log(`Pinned ${slug}`);
+      break;
+    }
+    case "unpin": {
+      const slug = args[1];
+      if (!slug) {
+        console.error("Usage: vpn-proxy tool unpin <slug>");
+        process.exit(1);
+      }
+      await setNamespacePinned(slug, false);
+      console.log(`Unpinned ${slug}`);
       break;
     }
 

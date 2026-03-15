@@ -98,10 +98,22 @@ async function main(): Promise<void> {
   console.log("========================================\n");
 
   const { ua: userAgent, desc: uaDesc } = getStealthUserAgent();
-  const proxy = proxyArg ? parseProxy(proxyArg) : undefined;
+  let proxy = proxyArg ? parseProxy(proxyArg) : undefined;
+  const proxyMode = process.env.PLAYWRIGHT_PROXY_MODE || "http";
+
+  if (proxy && proxyMode === "http") {
+    if (proxy.server.startsWith("socks5")) {
+      proxy = {
+        server: `http://127.0.0.1:${process.env.VPN_HTTP_PROXY_PORT || "10801"}`,
+      };
+    }
+  }
 
   console.log(`User Agent: ${userAgent} (${uaDesc})`);
   console.log(`Proxy:      ${proxy?.server ?? "(none)"}`);
+  if (proxyMode !== "http") {
+    console.log(`Proxy mode: ${proxyMode}`);
+  }
 
   console.log("\nLaunching Chromium...");
 

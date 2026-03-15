@@ -32,6 +32,7 @@ import {
   stopAllProxies,
   forceRotateRandom,
   destroyNamespace,
+  setNamespacePinned,
   CONFIG,
 } from "./shared";
 import {
@@ -42,18 +43,12 @@ import {
   getDynamicIdleTimeout,
   type ProxySettings,
 } from "./settings";
-import {
-  listVpns,
-  resolveVpnByPattern,
-  invalidateCache,
-  parseVpnFields,
-} from "./vpn-resolver";
+import { listVpns, resolveVpnByPattern, invalidateCache } from "./vpn-resolver";
 import {
   testSingleProxy,
   testAllProxies,
   loadTestResults,
   getFailedSlugs,
-  type ProxyTestResult,
 } from "./proxy-tester";
 
 // ============================================================================
@@ -218,6 +213,30 @@ const app = new Elysia()
         return { error: "Namespace not found" };
       }
       await destroyNamespace(slug, state);
+      return { success: true };
+    },
+    {
+      params: t.Object({ slug: t.String() }),
+      detail: { tags: ["Status"] },
+    },
+  )
+
+  .post(
+    "/api/proxy/:slug/pin",
+    async ({ params: { slug } }) => {
+      await setNamespacePinned(slug, true);
+      return { success: true };
+    },
+    {
+      params: t.Object({ slug: t.String() }),
+      detail: { tags: ["Status"] },
+    },
+  )
+
+  .post(
+    "/api/proxy/:slug/unpin",
+    async ({ params: { slug } }) => {
+      await setNamespacePinned(slug, false);
       return { success: true };
     },
     {

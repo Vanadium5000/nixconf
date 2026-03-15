@@ -9,23 +9,13 @@ type SingBoxConfig = {
 
 async function writeConfig(): Promise<void> {
   const bindAddress = process.env.VPN_PROXY_BIND_ADDRESS || "0.0.0.0";
-  const socksPort = parseInt(process.env.VPN_PROXY_PUBLIC_PORT || "10800", 10);
-  const httpPort = parseInt(
-    process.env.VPN_HTTP_PROXY_PUBLIC_PORT || "10801",
-    10,
-  );
+  const httpPort = parseInt(process.env.VPN_HTTP_PROXY_PORT || "10801", 10);
 
-  const upstreamSocksPort = parseInt(process.env.VPN_PROXY_PORT || "10810", 10);
+  const upstreamSocksPort = parseInt(process.env.VPN_PROXY_PORT || "10800", 10);
 
   const config: SingBoxConfig = {
     log: { level: "info", timestamp: true },
     inbounds: [
-      {
-        type: "socks",
-        tag: "socks-in",
-        listen: bindAddress,
-        listen_port: socksPort,
-      },
       {
         type: "http",
         tag: "http-in",
@@ -42,14 +32,6 @@ async function writeConfig(): Promise<void> {
         version: "5",
         network: "tcp",
       },
-      {
-        type: "socks",
-        tag: "vpn-socks-udp",
-        server: "127.0.0.1",
-        server_port: upstreamSocksPort,
-        version: "5",
-        network: "udp",
-      },
       { type: "direct", tag: "direct" },
     ],
     route: {
@@ -57,15 +39,6 @@ async function writeConfig(): Promise<void> {
         {
           inbound: ["http-in"],
           outbound: "vpn-socks",
-        },
-        {
-          inbound: ["socks-in"],
-          outbound: "vpn-socks",
-        },
-        {
-          inbound: ["socks-in"],
-          network: "udp",
-          outbound: "vpn-socks-udp",
         },
       ],
     },
