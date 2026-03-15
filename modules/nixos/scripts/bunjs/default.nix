@@ -380,8 +380,8 @@
       # Copies node_modules for elysia runtime deps. Server runs unbundled via bun.
       packages.vpn-proxy-web =
         let
-          proxyWebEnv = pkgs.runCommandLocal "proxy-web-env" { } ''
-            mkdir -p $out/web-ui/dist
+          proxyWebSource = pkgs.runCommandLocal "proxy-web-source" { } ''
+            mkdir -p $out/web-ui
             cp ${./proxy/vpn-resolver.ts} $out/vpn-resolver.ts
             cp ${./proxy/shared.ts} $out/shared.ts
             cp ${./proxy/socks5-proxy.ts} $out/socks5-proxy.ts
@@ -392,9 +392,17 @@
             cp ${./proxy/proxy-tester.ts} $out/proxy-tester.ts
             cp ${./proxy/cli-tools.ts} $out/cli-tools.ts
             cp ${./proxy/web-server.ts} $out/web-server.ts
-            cp -r ${./proxy/web-ui/dist}/* $out/web-ui/dist/
+            cp -r ${./proxy/web-ui}/* $out/web-ui/
+            cp ${./package.json} $out/package.json
             # ElysiaJS and plugins need node_modules at runtime
             cp -rL ${./node_modules} $out/node_modules
+          '';
+          proxyWebEnv = pkgs.runCommandLocal "proxy-web-env" { } ''
+            mkdir -p $out
+            cp -r ${proxyWebSource}/* $out/
+            if [ -f "$out/web-ui/vite.config.ts" ]; then
+              ${pkgs.bun}/bin/bun $out/node_modules/vite/bin/vite.js build --config "$out/web-ui/vite.config.ts"
+            fi
           '';
         in
         inputs.wrappers.lib.makeWrapper {

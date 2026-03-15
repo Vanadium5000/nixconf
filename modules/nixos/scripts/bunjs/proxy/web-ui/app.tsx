@@ -108,6 +108,7 @@ interface Settings {
     testGapSeconds: number;
     excludeFailedFromRandom: boolean;
     lastFullTestAt: number | null;
+    nextFullTestAt?: number | null;
   };
   webUi: { port: number };
 }
@@ -125,6 +126,43 @@ interface TestProgress {
   running: boolean;
   progress: { completed: number; total: number } | null;
   currentSlug: string | null;
+}
+
+type ToastMessage = { id: number; message: string };
+
+function emitToast(message: string) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent("vpn-proxy-toast", { detail: message }));
+}
+
+function ToastHost() {
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<string>).detail;
+      const toast: ToastMessage = { id: Date.now(), message: detail };
+      setToasts((prev) => [...prev, toast]);
+      setTimeout(() => {
+        setToasts((prev) => prev.filter((t) => t.id !== toast.id));
+      }, 2200);
+    };
+    window.addEventListener("vpn-proxy-toast", handler);
+    return () => window.removeEventListener("vpn-proxy-toast", handler);
+  }, []);
+
+  return (
+    <div className="fixed right-4 top-4 z-50 flex flex-col gap-2">
+      {toasts.map((toast) => (
+        <div
+          key={toast.id}
+          className="glass-panel px-3 py-2 text-xs uppercase tracking-wide text-accent"
+        >
+          {toast.message}
+        </div>
+      ))}
+    </div>
+  );
 }
 
 // ============================================================================
@@ -215,15 +253,17 @@ function DashboardTab({ status }: { status: ProxyStatus | null }) {
 
   const handlePin = async (slug: string, pinned?: boolean) => {
     await api(`/proxy/${slug}/${pinned ? "unpin" : "pin"}`, { method: "POST" });
+    emitToast(pinned ? "Unpinned" : "Pinned");
   };
 
   const handleCopy = async (value: string) => {
     await navigator.clipboard.writeText(value);
+    emitToast("Copied to clipboard");
   };
 
   return (
     <div className="space-y-6">
-      <Card className="border-primary/20">
+      <Card className="glass-panel border-primary/20">
         <CardHeader className="pb-3">
           <CardTitle className="text-lg flex items-center gap-2">
             Overview
@@ -231,7 +271,7 @@ function DashboardTab({ status }: { status: ProxyStatus | null }) {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="flex flex-col items-center justify-center p-4 bg-muted/30 rounded-lg border border-border/50">
+            <div className="flex flex-col items-center justify-center p-4 glass-soft rounded-lg border border-border/50">
               <div className="text-2xl font-bold text-foreground">
                 {status.activeCount}
               </div>
@@ -239,7 +279,7 @@ function DashboardTab({ status }: { status: ProxyStatus | null }) {
                 Active Proxies
               </div>
             </div>
-            <div className="flex flex-col items-center justify-center p-4 bg-muted/30 rounded-lg border border-border/50">
+            <div className="flex flex-col items-center justify-center p-4 glass-soft rounded-lg border border-border/50">
               <div className="text-2xl font-bold text-foreground">
                 {status.currentTimeoutSeconds}s
               </div>
@@ -247,7 +287,7 @@ function DashboardTab({ status }: { status: ProxyStatus | null }) {
                 Idle Timeout
               </div>
             </div>
-            <div className="flex flex-col items-center justify-center p-4 bg-muted/30 rounded-lg border border-border/50">
+            <div className="flex flex-col items-center justify-center p-4 glass-soft rounded-lg border border-border/50">
               <div className="text-2xl font-bold text-foreground">
                 {status.socks5Port}
               </div>
@@ -255,7 +295,7 @@ function DashboardTab({ status }: { status: ProxyStatus | null }) {
                 SOCKS5 Port
               </div>
             </div>
-            <div className="flex flex-col items-center justify-center p-4 bg-muted/30 rounded-lg border border-border/50">
+            <div className="flex flex-col items-center justify-center p-4 glass-soft rounded-lg border border-border/50">
               <div className="text-2xl font-bold text-foreground">
                 {status.httpPort}
               </div>
@@ -285,7 +325,7 @@ function DashboardTab({ status }: { status: ProxyStatus | null }) {
         </CardContent>
       </Card>
 
-      <Card className="border-primary/20">
+      <Card className="glass-panel border-primary/20">
         <CardHeader className="pb-3">
           <CardTitle className="text-lg">Active Proxies</CardTitle>
         </CardHeader>
@@ -300,6 +340,7 @@ function DashboardTab({ status }: { status: ProxyStatus | null }) {
                 <TableRow>
                   <TableHead>VPN</TableHead>
                   <TableHead>Namespace</TableHead>
+                  <TableHead>Interface</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Idle</TableHead>
                   <TableHead>In</TableHead>
@@ -330,6 +371,27 @@ function DashboardTab({ status }: { status: ProxyStatus | null }) {
                         )}
                       </div>
                     </TableCell>
+                    <TableCell className="text-muted-foreground tabular-nums">
+                      <button
+                        type="button"
+                        onClick={() => handleCopy(ns.nsName)}
+                        className="hover:underline"
+                      >
+                        {ns.nsName}
+                      </button>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground tabular-nums">
+                      <button
+                        type="button"
+                        onClick={() => handleCopy(`veth-h-${ns.nsIndex}`)}
+                        className="hover:underline"
+                      >
+                        veth-h-{ns.nsIndex}
+                      </button>
+                      <div className="text-[9px] text-muted-foreground/70">
+                        Host interface (not VPN-routed)
+                      </div>
+                    </TableCell>
                     <TableCell>
                       <Badge
                         variant="outline"
@@ -345,15 +407,6 @@ function DashboardTab({ status }: { status: ProxyStatus | null }) {
                       >
                         {ns.status}
                       </Badge>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground tabular-nums">
-                      <button
-                        type="button"
-                        onClick={() => handleCopy(ns.nsName)}
-                        className="hover:underline"
-                      >
-                        {ns.nsName}
-                      </button>
                     </TableCell>
                     <TableCell className="text-muted-foreground tabular-nums">
                       {formatIdle(ns.lastUsed)}
@@ -375,6 +428,18 @@ function DashboardTab({ status }: { status: ProxyStatus | null }) {
                         onClick={() => handlePin(ns.slug, ns.pinned)}
                       >
                         {ns.pinned ? "Pinned" : "Pin"}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-[10px]"
+                        onClick={() =>
+                          handleCopy(
+                            `vpn-proxy tool exec ${ns.slug} -- qbittorrent`,
+                          )
+                        }
+                      >
+                        Exec
                       </Button>
                       <Button
                         variant="destructive"
@@ -443,6 +508,7 @@ function VpnsTab() {
     const res = await api(`/export/${format}?${params.toString()}`);
     const text = await res.text();
     navigator.clipboard.writeText(text);
+    emitToast("Export copied");
   };
 
   if (loading)
@@ -453,7 +519,7 @@ function VpnsTab() {
     );
 
   return (
-    <Card className="border-primary/20">
+    <Card className="glass-panel border-primary/20">
       <CardHeader className="pb-3">
         <CardTitle className="text-lg flex justify-between items-center">
           <span>Available VPNs ({filtered.length})</span>
@@ -670,7 +736,7 @@ function TestingTab() {
   const failed = totalTests - passed;
 
   return (
-    <Card className="border-primary/20">
+    <Card className="glass-panel border-primary/20">
       <CardHeader className="pb-3">
         <CardTitle className="text-lg">Proxy Health Testing</CardTitle>
       </CardHeader>
@@ -774,6 +840,7 @@ function SettingsTab() {
   const [tiers, setTiers] = useState<
     { minActive: number; timeoutSeconds: number }[]
   >([]);
+  const [results, setResults] = useState<TestResults | null>(null);
 
   useEffect(() => {
     api("/settings")
@@ -782,6 +849,9 @@ function SettingsTab() {
         setSettings(s);
         setTiers(s.idleTimeoutTiers);
       });
+    api("/test-results")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => data && setResults(data));
   }, []);
 
   // Sync tiers with settings when settings change externally
@@ -831,14 +901,20 @@ function SettingsTab() {
     }
   };
 
-  function NextTestCountdown({ settings }: { settings: Settings }) {
+  function NextTestCountdown({
+    settings,
+    results,
+  }: {
+    settings: Settings;
+    results: TestResults | null;
+  }) {
     const [now, setNow] = useState(Date.now());
     useEffect(() => {
       const interval = setInterval(() => setNow(Date.now()), 1000);
       return () => clearInterval(interval);
     }, []);
 
-    if (!settings.testing.enabled || !settings.testing.lastFullTestAt) {
+    if (!settings.testing.enabled || !results?.lastFullTestAt) {
       return (
         <span className="text-muted-foreground text-[11px]">
           No test run yet
@@ -847,9 +923,8 @@ function SettingsTab() {
     }
 
     const nextAt =
-      settings.testing.nextFullTestAt ||
-      settings.testing.lastFullTestAt +
-        settings.testing.intervalHours * 3600 * 1000;
+      results.nextFullTestAt ||
+      results.lastFullTestAt + settings.testing.intervalHours * 3600 * 1000;
     const diff = nextAt - now;
 
     if (diff <= 0) {
@@ -882,7 +957,7 @@ function SettingsTab() {
 
   return (
     <div className="space-y-6">
-      <Card className="border-primary/20">
+      <Card className="glass-panel border-primary/20">
         <CardHeader className="pb-3">
           <CardTitle className="text-lg flex items-center justify-between">
             <span>Testing Settings</span>
@@ -912,7 +987,7 @@ function SettingsTab() {
                   Time until next scheduled test run
                 </p>
               </div>
-              <NextTestCountdown settings={settings} />
+              <NextTestCountdown settings={settings} results={results} />
             </div>
           )}
 
@@ -967,7 +1042,7 @@ function SettingsTab() {
         </CardContent>
       </Card>
 
-      <Card className="border-primary/20">
+      <Card className="glass-panel border-primary/20">
         <CardHeader className="pb-3">
           <CardTitle className="text-lg">Pattern Matching</CardTitle>
         </CardHeader>
@@ -989,7 +1064,7 @@ function SettingsTab() {
         </CardContent>
       </Card>
 
-      <Card className="border-primary/20">
+      <Card className="glass-panel border-primary/20">
         <CardHeader className="pb-3">
           <CardTitle className="text-lg flex items-center justify-between">
             <span>Idle Timeout Tiers</span>
@@ -1088,6 +1163,7 @@ function ApiTab() {
 
   const copyPrompt = async (text: string) => {
     await navigator.clipboard.writeText(text);
+    emitToast("Prompt copied");
   };
 
   const baseUrl = openapiUrl?.specUrl || "";
@@ -1107,7 +1183,7 @@ function ApiTab() {
   ];
 
   return (
-    <Card className="border-primary/20">
+    <Card className="glass-panel border-primary/20">
       <CardHeader className="pb-3">
         <CardTitle className="text-lg">API Management</CardTitle>
       </CardHeader>
@@ -1133,7 +1209,7 @@ function ApiTab() {
 
         <div className="space-y-4">
           {prompts.map((prompt) => (
-            <Card key={prompt.title} className="border-primary/10">
+            <Card key={prompt.title} className="glass-soft border-primary/10">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm">{prompt.title}</CardTitle>
               </CardHeader>
@@ -1165,7 +1241,12 @@ function App() {
   const [authenticated, setAuthenticated] = useState(!!API_KEY);
   const [tab, setTab] = useState("dashboard");
   const [status, setStatus] = useState<ProxyStatus | null>(null);
-  const [isDark, setIsDark] = useState(true);
+  const [isDark, setIsDark] = useState(() => {
+    const stored = localStorage.getItem("vpn-proxy-theme");
+    if (stored === "light") return false;
+    if (stored === "dark") return true;
+    return window.matchMedia("(prefers-color-scheme: dark)").matches;
+  });
 
   const handleAuth = (key: string) => {
     API_KEY = key;
@@ -1225,22 +1306,26 @@ function App() {
   }, [authenticated]);
 
   useEffect(() => {
-    document.documentElement.className = isDark ? "dark" : "light";
+    document.documentElement.classList.remove("dark", "light");
+    document.documentElement.classList.add(isDark ? "dark" : "light");
+    localStorage.setItem("vpn-proxy-theme", isDark ? "dark" : "light");
   }, [isDark]);
 
   if (!authenticated) return <AuthScreen onAuth={handleAuth} />;
 
   return (
     <div className="min-h-screen bg-background text-foreground selection:bg-primary/30">
+      <ToastHost />
       <div className="max-w-6xl mx-auto px-4 py-6 space-y-8">
-        <header className="flex flex-col md:flex-row justify-between items-center gap-4 p-6 bg-card border border-primary/20 rounded-2xl glass shadow-lg">
+        <header className="flex flex-col md:flex-row justify-between items-center gap-4 p-4 glass-panel rounded-2xl">
           <div className="flex flex-col">
-            <h1 className="text-2xl font-black tracking-tight text-primary uppercase italic">
+            <h1 className="text-xl font-black tracking-tight text-primary uppercase italic">
               VPN <span className="text-accent not-italic">Proxy</span> Manager
             </h1>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">
-              Liquid Glass Interface
-            </p>
+            <div className="flex items-center gap-3 text-[10px] uppercase tracking-widest font-bold text-muted-foreground">
+              <span>Liquid Glass Interface</span>
+              <span className="chip">Active</span>
+            </div>
           </div>
           <div className="flex items-center gap-3">
             <Button
@@ -1272,7 +1357,7 @@ function App() {
 
         <Tabs value={tab} onValueChange={setTab} className="space-y-6">
           <div className="flex justify-center md:justify-start overflow-x-auto pb-1">
-            <TabsList className="bg-card/50 border border-primary/10 h-auto p-1 rounded-xl glass">
+            <TabsList className="glass-panel h-auto p-1 rounded-xl">
               {["dashboard", "vpns", "testing", "settings", "api"].map((t) => (
                 <TabsTrigger
                   key={t}

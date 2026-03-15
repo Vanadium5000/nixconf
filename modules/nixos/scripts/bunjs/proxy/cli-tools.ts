@@ -1,5 +1,11 @@
 import { listVpns, getRandomVpn, resolveVpnByPattern } from "./vpn-resolver";
-import { CONFIG, loadState, setNamespacePinned } from "./shared";
+import {
+  CONFIG,
+  loadState,
+  setNamespacePinned,
+  resolveSlugFromUsername,
+  getOrCreateNamespace,
+} from "./shared";
 import {
   loadSettings,
   saveSettings,
@@ -87,6 +93,34 @@ export async function runTools(args: string[]) {
       await setNamespacePinned(slug, false);
       console.log(`Unpinned ${slug}`);
       break;
+    }
+    case "exec": {
+      const slug = args[1];
+      const separatorIndex = args.indexOf("--");
+      if (!slug || separatorIndex === -1) {
+        console.error(
+          "Usage: vpn-proxy tool exec <slug-or-display> -- <command...>",
+        );
+        process.exit(1);
+      }
+      const cmd = args.slice(separatorIndex + 1);
+      if (cmd.length === 0) {
+        console.error(
+          "Usage: vpn-proxy tool exec <slug-or-display> -- <command...>",
+        );
+        process.exit(1);
+      }
+      const state = await loadState();
+      const resolvedSlug = await resolveSlugFromUsername(slug, state);
+      const nsInfo = await getOrCreateNamespace(resolvedSlug, state);
+      const result = spawn({
+        cmd: ["sudo", "ip", "netns", "exec", nsInfo.nsName, ...cmd],
+        stdout: "inherit",
+        stderr: "inherit",
+        stdin: "inherit",
+      });
+      await result.exited;
+      process.exit(result.exitCode ?? 0);
     }
 
     // ======================== Settings ========================

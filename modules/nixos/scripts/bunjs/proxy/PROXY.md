@@ -404,6 +404,7 @@ New subcommands for managing advanced features:
 - **Pattern**: `vpn-proxy tool match <pattern>` (test matching logic)
 - **Status**: `vpn-proxy tool status-json` (raw state for scripts)
 - **Pinning**: `vpn-proxy tool pin <slug-or-display>` / `vpn-proxy tool unpin <slug-or-display>`
+- **Exec**: `vpn-proxy tool exec <slug-or-display> -- <command...>`
 
 ### vpn-proxy-singbox (HTTP)
 
@@ -420,6 +421,15 @@ when binding an app to a specific interface (e.g., qBittorrent).
 vpn-proxy tool pin <slug>
 vpn-proxy tool unpin <slug>
 ```
+
+To run an app inside the VPN namespace (recommended for qBittorrent):
+
+```bash
+vpn-proxy tool exec <slug-or-display> -- <command...>
+```
+
+> **Note:** Binding directly to `veth-h-<idx>` on the host is now routed into the
+> namespace, but the safest option remains `vpn-proxy tool exec`.
 
 ## OpenAPI
 

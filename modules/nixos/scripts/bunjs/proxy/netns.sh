@@ -111,6 +111,25 @@ setup_namespace_base() {
     mkdir -p "$STATE_DIR"
 }
 
+setup_host_policy_routing() {
+    local idx="$1"
+    local host_ip="$2"
+    local ns_ip="$3"
+    local veth_host="$4"
+    local table_id=$((10000 + idx))
+    local priority=$((10000 + idx))
+
+    run ip rule add from "$host_ip/32" table "$table_id" priority "$priority" 2>/dev/null || true
+    run ip route replace default via "$ns_ip" dev "$veth_host" table "$table_id"
+}
+
+setup_namespace_forwarding() {
+    local ns="$1"
+    local subnet="$2"
+    run ip netns exec "$ns" sysctl -w net.ipv4.ip_forward=1 >/dev/null
+    run ip netns exec "$ns" iptables -t nat -A POSTROUTING -s "10.200.$subnet.0/24" -o tun0 -j MASQUERADE
+}
+
 start_namespace_socks() {
     local ns="$1"
     local idx="$2"
@@ -164,6 +183,9 @@ EOF
     if [[ -n "$dante_pid" ]]; then
         echo "$dante_pid" > "$dante_pid_file"
         log "Started sockd on $ns_ip:$socks_port (PID $dante_pid)"
+        if [[ -n "$vpn_ip" && -n "$vpn_port" ]]; then
+            apply_namespace_vpn_nat "$ns"
+        fi
     else
         log "WARNING: Could not determine sockd PID"
     fi
@@ -180,12 +202,14 @@ create_namespace() {
     setup_namespace_base "$ns" "$idx"
     
     apply_killswitch "$ns" "$vpn_ip" "$vpn_port"
-    
+
     local veth_host="veth-h-$idx"
     local veth_ns="veth-n-$idx"
     local subnet=$(( (idx % 254) + 1 ))
     local host_ip="10.200.$subnet.1"
     local ns_ip="10.200.$subnet.2"
+    setup_host_policy_routing "$idx" "$host_ip" "$ns_ip" "$veth_host"
+    setup_namespace_forwarding "$ns" "$subnet"
     local socks_port=$((10900 + idx))
     
     cat > "$STATE_DIR/ns-$ns.json" <<EOF
@@ -219,6 +243,7 @@ create_direct_namespace() {
     setup_namespace_base "$ns" "$idx"
     
     # No kill-switch applied — traffic goes out directly via host NAT
+    run iptables -t nat -A POSTROUTING -s "10.200.$subnet.0/24" -j MASQUERADE
     
     local veth_host="veth-h-$idx"
     local veth_ns="veth-n-$idx"
@@ -226,6 +251,8 @@ create_direct_namespace() {
     local host_ip="10.200.$subnet.1"
     local ns_ip="10.200.$subnet.2"
     local socks_port=$((10900 + idx))
+
+    apply_host_vpn_route "$idx" "$subnet"
     
     cat > "$STATE_DIR/ns-$ns.json" <<EOF
 {
@@ -240,6 +267,23 @@ create_direct_namespace() {
   "vpnServerPort": 0,
   "createdAt": $(date +%s)
 }
+
+apply_host_vpn_route() {
+    local idx="$1"
+    local subnet="$2"
+    local table=$((200 + idx))
+    local host_ip="10.200.$subnet.1"
+    local veth_host="veth-h-$idx"
+
+    run ip rule add from "$host_ip/32" table "$table" 2>/dev/null || true
+    run ip route add default dev "$veth_host" table "$table" 2>/dev/null || true
+}
+
+apply_namespace_vpn_nat() {
+    local ns="$1"
+    run ip netns exec "$ns" iptables -t nat -A POSTROUTING -o tun0 -j MASQUERADE 2>/dev/null || true
+}
+
 EOF
     
     log "Direct namespace $ns created successfully"
@@ -275,6 +319,15 @@ table inet vpn_killswitch {
         
         ip protocol icmp accept
     }
+
+    chain forward {
+        type filter hook forward priority 0; policy drop;
+
+        ct state established,related accept
+
+        iifname "veth-n-*" oifname "tun*" accept
+        iifname "tun*" oifname "veth-n-*" accept
+    }
     
     chain input {
         type filter hook input priority 0; policy accept;
@@ -292,11 +345,15 @@ destroy_namespace() {
     
     local info_file="$STATE_DIR/ns-$ns.json"
     if [[ -f "$info_file" ]]; then
-        local idx veth_host subnet
+        local idx veth_host subnet table host_ip
         idx=$(jq -r '.index' "$info_file")
         veth_host=$(jq -r '.vethHost' "$info_file")
         subnet=$(( (idx % 254) + 1 ))
-        
+        host_ip="10.200.$subnet.1"
+        table=$((200 + idx))
+
+        run ip rule del from "$host_ip/32" table "$table" 2>/dev/null || true
+        run ip route flush table "$table" 2>/dev/null || true
         run iptables -t nat -D POSTROUTING -s "10.200.$subnet.0/24" -j MASQUERADE 2>/dev/null || true
         run iptables -D FORWARD -i "$veth_host" -j ACCEPT 2>/dev/null || true
         run iptables -D FORWARD -o "$veth_host" -j ACCEPT 2>/dev/null || true

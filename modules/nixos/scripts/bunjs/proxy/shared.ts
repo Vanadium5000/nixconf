@@ -954,7 +954,8 @@ export async function getStatus(): Promise<string> {
       const isRandom = state.random?.currentSlug === ns.slug ? " (random)" : "";
       const bytesInKb = ((ns.bytesIn || 0) / 1024).toFixed(1);
       const bytesOutKb = ((ns.bytesOut || 0) / 1024).toFixed(1);
-      output += `  ${ns.vpnDisplayName} (${ns.nsName})  idle: ${idleMin}m ${idleSec}s  status: ${ns.status}${isRandom}  ↓${bytesInKb}KB ↑${bytesOutKb}KB  conns: ${ns.connections || 0}${ns.pinned ? "  pinned" : ""}\n`;
+      const hostInterface = `veth-h-${ns.nsIndex}`;
+      output += `  ${ns.vpnDisplayName} (${ns.nsName}, ${hostInterface})  idle: ${idleMin}m ${idleSec}s  status: ${ns.status}${isRandom}  ↓${bytesInKb}KB ↑${bytesOutKb}KB  conns: ${ns.connections || 0}${ns.pinned ? "  pinned" : ""}\n`;
     }
   }
 
