@@ -302,7 +302,7 @@
             pkgs.iptables
             pkgs.nftables
             pkgs.openvpn
-            pkgs.microsocks
+            pkgs.dante
             pkgs.libnotify
             pkgs.jq
             pkgs.coreutils
@@ -336,7 +336,7 @@
             pkgs.iptables
             pkgs.nftables
             pkgs.openvpn
-            pkgs.microsocks
+            pkgs.dante
             pkgs.libnotify
             pkgs.jq
             pkgs.coreutils
@@ -412,8 +412,11 @@
       packages.playwright-browser =
         let
           # Extract the chromium directory name from the browsers package
-          chromiumDir = builtins.head (builtins.filter (x: builtins.match "chromium-.*" x != null)
-            (builtins.attrNames (builtins.readDir pkgs.playwright-driver.browsers)));
+          chromiumDir = builtins.head (
+            builtins.filter (x: builtins.match "chromium-.*" x != null) (
+              builtins.attrNames (builtins.readDir pkgs.playwright-driver.browsers)
+            )
+          );
           chromiumBin = "${pkgs.playwright-driver.browsers}/${chromiumDir}/chrome-linux/chrome";
         in
         inputs.wrappers.lib.makeWrapper {
