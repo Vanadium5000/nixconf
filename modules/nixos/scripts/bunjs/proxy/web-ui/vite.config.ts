@@ -7,8 +7,8 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   root: __dirname,
   build: {
-    outDir: "dist",
-    emptyDirBeforeWrite: true,
+    outDir: process.env.VPN_PROXY_WEB_DIST || "dist",
+    emptyOutDir: true,
   },
   resolve: {
     alias: {

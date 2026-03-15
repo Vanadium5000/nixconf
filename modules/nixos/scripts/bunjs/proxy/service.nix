@@ -226,6 +226,7 @@
                 VPN_PROXY_WEB_PORT = toString cfg.webUiPort;
                 # API key injected from password-store via secrets.nix
                 VPN_PROXY_API_KEY = self.secrets.VPN_PROXY_API_KEY or "";
+                VPN_PROXY_WEB_DIST = "/var/lib/vpn-proxy/web-ui-dist";
               };
 
               serviceConfig = commonServiceConfig // {

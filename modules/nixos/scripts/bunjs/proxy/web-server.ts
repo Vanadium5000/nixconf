@@ -592,7 +592,9 @@ const MIME_TYPES: Record<string, string> = {
   ".woff2": "font/woff2",
 };
 
-const distDir = new URL("./web-ui/dist", import.meta.url).pathname;
+const distDir =
+  process.env.VPN_PROXY_WEB_DIST ||
+  new URL("./web-ui/dist", import.meta.url).pathname;
 
 // Build a lookup map of dist/ files at startup for O(1) static file resolution.
 // Elysia's router silently drops routes added after chain compilation, so we

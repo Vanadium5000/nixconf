@@ -400,14 +400,16 @@
           proxyWebEnv = pkgs.runCommandLocal "proxy-web-env" { } ''
             mkdir -p $out
             cp -r ${proxyWebSource}/* $out/
-            if [ -f "$out/web-ui/vite.config.ts" ]; then
-              ${pkgs.bun}/bin/bun $out/node_modules/vite/bin/vite.js build --config "$out/web-ui/vite.config.ts"
-            fi
           '';
         in
         inputs.wrappers.lib.makeWrapper {
           inherit pkgs;
           package = pkgs.writeShellScriptBin "vpn-proxy-web" ''
+            export VPN_PROXY_WEB_DIST="/var/lib/vpn-proxy/web-ui-dist"
+            if [ -f "${proxyWebEnv}/web-ui/vite.config.ts" ]; then
+              mkdir -p "$VPN_PROXY_WEB_DIST"
+              ${pkgs.bun}/bin/bun ${proxyWebEnv}/node_modules/vite/bin/vite.js build --config "${proxyWebEnv}/web-ui/vite.config.ts"
+            fi
             exec ${pkgs.bun}/bin/bun run ${proxyWebEnv}/web-server.ts "$@"
           '';
           runtimeInputs = [
