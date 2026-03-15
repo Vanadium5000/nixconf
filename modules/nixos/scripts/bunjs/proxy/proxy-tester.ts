@@ -47,6 +47,7 @@ export interface TestResultsState {
   results: Record<string, ProxyTestResult>;
   lastFullTestAt: number | null;
   lastFullTestDurationMs: number | null;
+  nextFullTestAt: number | null;
 }
 
 // ============================================================================
@@ -74,7 +75,12 @@ export async function loadTestResults(): Promise<TestResultsState> {
     const content = await readFile(TEST_RESULTS_FILE, "utf-8");
     return JSON.parse(content) as TestResultsState;
   } catch {
-    return { results: {}, lastFullTestAt: null, lastFullTestDurationMs: null };
+    return {
+      results: {},
+      lastFullTestAt: null,
+      lastFullTestDurationMs: null,
+      nextFullTestAt: null,
+    };
   }
 }
 
@@ -180,6 +186,8 @@ export async function testAllProxies(
   // Record start time immediately so the auto-test interval counts from start,
   // not from completion.
   state.lastFullTestAt = startTime;
+  state.nextFullTestAt =
+    startTime + settings.testing.intervalHours * 60 * 60 * 1000;
   await saveTestResults(state);
 
   const gapMs = (settings.testing.testGapSeconds ?? 30) * 1000;
@@ -232,6 +240,8 @@ export async function testAllProxies(
   }
 
   state.lastFullTestDurationMs = Date.now() - startTime;
+  state.nextFullTestAt =
+    Date.now() + settings.testing.intervalHours * 60 * 60 * 1000;
   await saveTestResults(state);
 
   const passed = Object.values(state.results).filter((r) => r.success).length;
@@ -362,7 +372,6 @@ async function main(): Promise<void> {
       const due = await isAutoTestDue();
       console.log(due ? "Auto-test is due" : "Auto-test is not due");
       process.exit(due ? 0 : 1);
-      break;
     }
 
     default:

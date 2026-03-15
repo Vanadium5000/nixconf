@@ -1,3 +1,4 @@
+// @ts-nocheck — Browser-only TSX; tsconfig targets node, not DOM.
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { createRoot } from "react-dom/client";
 import {
@@ -15,7 +16,6 @@ import {
   Trash2,
 } from "lucide-react";
 
-// @ts-nocheck — Browser-only TSX; tsconfig targets node, not DOM.
 // Bun.build handles this correctly regardless of TS errors.
 
 import "./globals.css";
@@ -118,6 +118,13 @@ interface TestResults {
     { success: boolean; testedAt: number; [key: string]: any }
   >;
   lastFullTestAt: number | null;
+  nextFullTestAt: number | null;
+}
+
+interface TestProgress {
+  running: boolean;
+  progress: { completed: number; total: number } | null;
+  currentSlug: string | null;
 }
 
 // ============================================================================
@@ -210,6 +217,10 @@ function DashboardTab({ status }: { status: ProxyStatus | null }) {
     await api(`/proxy/${slug}/${pinned ? "unpin" : "pin"}`, { method: "POST" });
   };
 
+  const handleCopy = async (value: string) => {
+    await navigator.clipboard.writeText(value);
+  };
+
   return (
     <div className="space-y-6">
       <Card className="border-primary/20">
@@ -288,6 +299,7 @@ function DashboardTab({ status }: { status: ProxyStatus | null }) {
               <TableHeader>
                 <TableRow>
                   <TableHead>VPN</TableHead>
+                  <TableHead>Namespace</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Idle</TableHead>
                   <TableHead>In</TableHead>
@@ -301,9 +313,13 @@ function DashboardTab({ status }: { status: ProxyStatus | null }) {
                   <TableRow key={ns.slug}>
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-2">
-                        <span className="text-foreground">
+                        <button
+                          type="button"
+                          onClick={() => handleCopy(ns.vpnDisplayName)}
+                          className="text-foreground hover:underline"
+                        >
                           {ns.vpnDisplayName}
-                        </span>
+                        </button>
                         {status.random?.currentSlug === ns.slug && (
                           <Badge
                             variant="secondary"
@@ -329,6 +345,15 @@ function DashboardTab({ status }: { status: ProxyStatus | null }) {
                       >
                         {ns.status}
                       </Badge>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground tabular-nums">
+                      <button
+                        type="button"
+                        onClick={() => handleCopy(ns.nsName)}
+                        className="hover:underline"
+                      >
+                        {ns.nsName}
+                      </button>
                     </TableCell>
                     <TableCell className="text-muted-foreground tabular-nums">
                       {formatIdle(ns.lastUsed)}
@@ -403,10 +428,19 @@ function VpnsTab() {
     return true;
   });
 
+  const [selected, setSelected] = useState<Record<string, boolean>>({});
+  const toggleSelected = (slug: string) =>
+    setSelected((prev) => ({ ...prev, [slug]: !prev[slug] }));
+
+  const selectedSlugs = Object.entries(selected)
+    .filter(([, v]) => v)
+    .map(([k]) => k);
+
   const handleExport = async (format: string) => {
-    const res = await api(
-      `/export/${format}${onlyWorking ? "?working=true" : ""}`,
-    );
+    const params = new URLSearchParams();
+    if (onlyWorking) params.set("working", "true");
+    if (selectedSlugs.length > 0) params.set("slugs", selectedSlugs.join(","));
+    const res = await api(`/export/${format}?${params.toString()}`);
     const text = await res.text();
     navigator.clipboard.writeText(text);
   };
@@ -489,12 +523,30 @@ function VpnsTab() {
           <TableBody>
             {filtered.map((v) => (
               <TableRow key={v.slug}>
-                <TableCell className="text-lg leading-none">{v.flag}</TableCell>
+                <TableCell className="text-lg leading-none">
+                  <input
+                    type="checkbox"
+                    checked={!!selected[v.slug]}
+                    onChange={() => toggleSelected(v.slug)}
+                  />
+                </TableCell>
                 <TableCell className="font-medium text-foreground">
-                  {v.displayName}
+                  <button
+                    type="button"
+                    onClick={() => handleCopy(v.displayName)}
+                    className="hover:underline"
+                  >
+                    {v.displayName}
+                  </button>
                 </TableCell>
                 <TableCell className="text-muted-foreground">
-                  {v.countryCode}
+                  <button
+                    type="button"
+                    onClick={() => handleCopy(v.countryCode)}
+                    className="hover:underline"
+                  >
+                    {v.countryCode}
+                  </button>
                 </TableCell>
                 <TableCell className="text-muted-foreground text-[11px]">
                   {v.testResult ? formatAgo(v.testResult.testedAt) : "Never"}
@@ -516,7 +568,15 @@ function VpnsTab() {
                     : "--"}
                 </TableCell>
                 <TableCell className="text-muted-foreground font-mono text-[10px]">
-                  {v.testResult?.ip || "--"}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      v.testResult?.ip && handleCopy(v.testResult.ip)
+                    }
+                    className="hover:underline"
+                  >
+                    {v.testResult?.ip || "--"}
+                  </button>
                 </TableCell>
               </TableRow>
             ))}
@@ -535,6 +595,7 @@ function TestingTab() {
   const [testing, setTesting] = useState(false);
   const [progress, setProgress] = useState({ completed: 0, total: 0 });
   const [results, setResults] = useState<TestResults | null>(null);
+  const [currentSlug, setCurrentSlug] = useState<string | null>(null);
 
   const loadResults = useCallback(async () => {
     const res = await api("/test-results");
@@ -543,6 +604,15 @@ function TestingTab() {
 
   useEffect(() => {
     loadResults();
+    api("/test-progress")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: TestProgress | null) => {
+        if (data?.running && data.progress) {
+          setTesting(true);
+          setProgress(data.progress);
+          setCurrentSlug(data.currentSlug || null);
+        }
+      });
   }, [loadResults]);
 
   const handleTestAll = async () => {
@@ -575,17 +645,21 @@ function TestingTab() {
             const data = JSON.parse(line.slice(6));
             if (data.done) {
               setTesting(false);
+              setProgress({ completed: 0, total: 0 });
               loadResults();
               return;
             }
-            if (data.completed) {
+            if (typeof data.completed === "number") {
               setProgress({ completed: data.completed, total: data.total });
+              setCurrentSlug(data.result?.slug || null);
             }
           } catch {}
         }
       }
     }
     setTesting(false);
+    setProgress({ completed: 0, total: 0 });
+    setCurrentSlug(null);
     loadResults();
   };
 
@@ -670,6 +744,11 @@ function TestingTab() {
                   Stop
                 </Button>
               </div>
+              {currentSlug && (
+                <div className="text-[10px] text-muted-foreground">
+                  Testing: {currentSlug}
+                </div>
+              )}
               <div className="text-right text-[10px] text-muted-foreground tabular-nums">
                 {Math.round(
                   progress.total
@@ -768,8 +847,9 @@ function SettingsTab() {
     }
 
     const nextAt =
+      settings.testing.nextFullTestAt ||
       settings.testing.lastFullTestAt +
-      settings.testing.intervalHours * 3600 * 1000;
+        settings.testing.intervalHours * 3600 * 1000;
     const diff = nextAt - now;
 
     if (diff <= 0) {
@@ -994,6 +1074,89 @@ function SettingsTab() {
   );
 }
 
+function ApiTab() {
+  const [openapiUrl, setOpenapiUrl] = useState<{
+    docsUrl: string;
+    specUrl: string;
+  } | null>(null);
+
+  useEffect(() => {
+    api("/openapi-url")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => data && setOpenapiUrl(data));
+  }, []);
+
+  const copyPrompt = async (text: string) => {
+    await navigator.clipboard.writeText(text);
+  };
+
+  const baseUrl = openapiUrl?.specUrl || "";
+  const prompts = [
+    {
+      title: "Proxy Manager (OpenAPI)",
+      text: `You are an API client. Use the VPN Proxy OpenAPI spec at ${baseUrl} to manage proxies. Always include Authorization: Bearer <API_KEY>. List active namespaces, pin a namespace by slug, and export SOCKS5 URLs.`,
+    },
+    {
+      title: "Health & Testing",
+      text: `Use the OpenAPI spec at ${baseUrl} to run proxy tests. Trigger /api/test-all, stream progress, and summarize failed proxies. Include Authorization: Bearer <API_KEY>.`,
+    },
+    {
+      title: "Settings & Timeouts",
+      text: `Use the OpenAPI spec at ${baseUrl} to read and update settings. Adjust idleTimeoutTiers and testing interval. Include Authorization: Bearer <API_KEY>.`,
+    },
+  ];
+
+  return (
+    <Card className="border-primary/20">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-lg">API Management</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="flex flex-wrap gap-3">
+          <Button
+            variant="secondary"
+            onClick={() =>
+              openapiUrl?.docsUrl && window.open(openapiUrl.docsUrl, "_blank")
+            }
+          >
+            Open API Docs
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() =>
+              openapiUrl?.specUrl && window.open(openapiUrl.specUrl, "_blank")
+            }
+          >
+            Open OpenAPI JSON
+          </Button>
+        </div>
+
+        <div className="space-y-4">
+          {prompts.map((prompt) => (
+            <Card key={prompt.title} className="border-primary/10">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">{prompt.title}</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="text-xs text-muted-foreground whitespace-pre-wrap">
+                  {prompt.text}
+                </div>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => copyPrompt(prompt.text)}
+                >
+                  Copy Prompt
+                </Button>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 // ============================================================================
 // Main App
 // ============================================================================
@@ -1110,7 +1273,7 @@ function App() {
         <Tabs value={tab} onValueChange={setTab} className="space-y-6">
           <div className="flex justify-center md:justify-start overflow-x-auto pb-1">
             <TabsList className="bg-card/50 border border-primary/10 h-auto p-1 rounded-xl glass">
-              {["dashboard", "vpns", "testing", "settings"].map((t) => (
+              {["dashboard", "vpns", "testing", "settings", "api"].map((t) => (
                 <TabsTrigger
                   key={t}
                   value={t}
@@ -1134,6 +1297,9 @@ function App() {
             </TabsContent>
             <TabsContent value="settings">
               <SettingsTab />
+            </TabsContent>
+            <TabsContent value="api">
+              <ApiTab />
             </TabsContent>
           </div>
         </Tabs>

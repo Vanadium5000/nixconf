@@ -403,7 +403,7 @@ New subcommands for managing advanced features:
 - **Export**: `vpn-proxy tool export usernames|socks5|http [--working]`
 - **Pattern**: `vpn-proxy tool match <pattern>` (test matching logic)
 - **Status**: `vpn-proxy tool status-json` (raw state for scripts)
-- **Pinning**: `vpn-proxy tool pin <slug>` / `vpn-proxy tool unpin <slug>`
+- **Pinning**: `vpn-proxy tool pin <slug-or-display>` / `vpn-proxy tool unpin <slug-or-display>`
 
 ### vpn-proxy-singbox (HTTP)
 
@@ -420,6 +420,11 @@ when binding an app to a specific interface (e.g., qBittorrent).
 vpn-proxy tool pin <slug>
 vpn-proxy tool unpin <slug>
 ```
+
+## OpenAPI
+
+The Web UI exposes OpenAPI docs at `/api/docs` and the JSON spec at
+`/api/docs/json`.
 
 ### vpn-resolver
 

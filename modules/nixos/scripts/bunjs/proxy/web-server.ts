@@ -58,6 +58,8 @@ import {
 const API_KEY = process.env.VPN_PROXY_API_KEY || "";
 
 let currentTestController: AbortController | null = null;
+let currentTestProgress: { completed: number; total: number } | null = null;
+let currentTestSlug: string | null = null;
 
 if (!API_KEY) {
   console.error(
@@ -172,6 +174,18 @@ const app = new Elysia()
         socks5Port: CONFIG.SOCKS5_PORT,
         httpPort: CONFIG.HTTP_PORT,
         timestamp: Date.now(),
+      };
+    },
+    { detail: { tags: ["Status"] } },
+  )
+
+  .get(
+    "/api/openapi-url",
+    async ({ request }) => {
+      const url = new URL(request.url);
+      return {
+        docsUrl: `${url.origin}/api/docs`,
+        specUrl: `${url.origin}/api/docs/json`,
       };
     },
     { detail: { tags: ["Status"] } },
@@ -408,6 +422,17 @@ const app = new Elysia()
     },
     { detail: { tags: ["Testing"] } },
   )
+  .get(
+    "/api/test-progress",
+    async () => {
+      return {
+        running: !!currentTestController,
+        progress: currentTestProgress,
+        currentSlug: currentTestSlug,
+      };
+    },
+    { detail: { tags: ["Testing"] } },
+  )
 
   .post(
     "/api/test/:slug",
@@ -440,6 +465,8 @@ const app = new Elysia()
           currentTestController = abortController;
           try {
             await testAllProxies((completed, total, result) => {
+              currentTestProgress = { completed, total };
+              currentTestSlug = result.slug;
               const event = JSON.stringify({ completed, total, result });
               try {
                 controller.enqueue(`data: ${event}\n\n`);
@@ -448,11 +475,15 @@ const app = new Elysia()
               }
             }, abortController.signal);
             controller.enqueue(`data: ${JSON.stringify({ done: true })}\n\n`);
+            currentTestProgress = null;
+            currentTestSlug = null;
             controller.close();
           } catch (error) {
             controller.enqueue(
               `data: ${JSON.stringify({ error: String(error) })}\n\n`,
             );
+            currentTestProgress = null;
+            currentTestSlug = null;
             controller.close();
           } finally {
             currentTestController = null;
@@ -477,6 +508,8 @@ const app = new Elysia()
       if (currentTestController) {
         currentTestController.abort();
         currentTestController = null;
+        currentTestProgress = null;
+        currentTestSlug = null;
         return { stopped: true };
       }
       return { stopped: false };
@@ -499,11 +532,16 @@ const app = new Elysia()
     "/api/export/:format",
     async ({ params: { format }, query }) => {
       const onlyWorking = query.working === "true";
+      const slugs = query.slugs
+        ? new Set(query.slugs.split(",").map((s) => s.trim()))
+        : null;
       const vpns = await listVpns();
       const failedSlugs = onlyWorking ? await getFailedSlugs() : new Set();
-      const filtered = onlyWorking
-        ? vpns.filter((v) => !failedSlugs.has(v.slug))
-        : vpns;
+      const filtered = vpns.filter((v) => {
+        if (slugs && !slugs.has(v.slug)) return false;
+        if (onlyWorking && failedSlugs.has(v.slug)) return false;
+        return true;
+      });
 
       let result: string;
       switch (format) {
@@ -529,7 +567,12 @@ const app = new Elysia()
     },
     {
       params: t.Object({ format: t.String() }),
-      query: t.Optional(t.Object({ working: t.Optional(t.String()) })),
+      query: t.Optional(
+        t.Object({
+          working: t.Optional(t.String()),
+          slugs: t.Optional(t.String()),
+        }),
+      ),
       detail: { tags: ["Export"] },
     },
   );

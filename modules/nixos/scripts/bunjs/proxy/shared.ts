@@ -837,7 +837,17 @@ export async function setNamespacePinned(
   pinned: boolean,
 ): Promise<void> {
   const state = await loadState();
-  const info = state.namespaces[slug];
+  const normalized = slug.replace(/\s+/g, "");
+  let info =
+    state.namespaces[slug] ??
+    state.namespaces[normalized] ??
+    Object.values(state.namespaces).find(
+      (ns) => ns.vpnDisplayName.replace(/\s+/g, "") === normalized,
+    );
+  if (!info && pinned) {
+    const resolvedSlug = await resolveSlugFromUsername(slug, state);
+    info = await getOrCreateNamespace(resolvedSlug, state);
+  }
   if (!info) {
     throw new Error(`Namespace not found: ${slug}`);
   }
@@ -944,7 +954,7 @@ export async function getStatus(): Promise<string> {
       const isRandom = state.random?.currentSlug === ns.slug ? " (random)" : "";
       const bytesInKb = ((ns.bytesIn || 0) / 1024).toFixed(1);
       const bytesOutKb = ((ns.bytesOut || 0) / 1024).toFixed(1);
-      output += `  ${ns.vpnDisplayName}  idle: ${idleMin}m ${idleSec}s  status: ${ns.status}${isRandom}  ↓${bytesInKb}KB ↑${bytesOutKb}KB  conns: ${ns.connections || 0}\n`;
+      output += `  ${ns.vpnDisplayName} (${ns.nsName})  idle: ${idleMin}m ${idleSec}s  status: ${ns.status}${isRandom}  ↓${bytesInKb}KB ↑${bytesOutKb}KB  conns: ${ns.connections || 0}${ns.pinned ? "  pinned" : ""}\n`;
     }
   }
 

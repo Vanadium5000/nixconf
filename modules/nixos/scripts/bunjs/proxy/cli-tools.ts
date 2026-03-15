@@ -71,7 +71,7 @@ export async function runTools(args: string[]) {
     case "pin": {
       const slug = args[1];
       if (!slug) {
-        console.error("Usage: vpn-proxy tool pin <slug>");
+        console.error("Usage: vpn-proxy tool pin <slug-or-display>");
         process.exit(1);
       }
       await setNamespacePinned(slug, true);
@@ -81,7 +81,7 @@ export async function runTools(args: string[]) {
     case "unpin": {
       const slug = args[1];
       if (!slug) {
-        console.error("Usage: vpn-proxy tool unpin <slug>");
+        console.error("Usage: vpn-proxy tool unpin <slug-or-display>");
         process.exit(1);
       }
       await setNamespacePinned(slug, false);
