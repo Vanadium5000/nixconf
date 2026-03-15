@@ -109,13 +109,38 @@ setup_namespace_base() {
     echo "nameserver 1.0.0.1" | run tee -a "/etc/netns/$ns/resolv.conf" >/dev/null
     
     mkdir -p "$STATE_DIR"
-    
+}
+
+start_namespace_socks() {
+    local ns="$1"
+    local idx="$2"
+    local vpn_ip="$3"
+    local vpn_port="$4"
+
+    local veth_ns="veth-n-$idx"
+    local subnet=$(( (idx % 254) + 1 ))
+    local ns_ip="10.200.$subnet.2"
+    local socks_port=$((10900 + (idx % 50000)))
+    local external_interface="$veth_ns"
+
     local dante_pid_file="$STATE_DIR/dante-$ns.pid"
     local dante_conf="$STATE_DIR/danted-$ns.conf"
+    if [[ -n "$vpn_ip" && -n "$vpn_port" ]]; then
+        local retries=20
+        while [[ $retries -gt 0 ]]; do
+            if run ip netns exec "$ns" ip link show tun0 >/dev/null 2>&1; then
+                external_interface="tun0"
+                break
+            fi
+            sleep 0.2
+            ((retries--))
+        done
+    fi
+
     cat > "$dante_conf" <<EOF
 logoutput: stderr
 internal: $ns_ip port = $socks_port
-external: $veth_ns
+external: $external_interface
 socksmethod: none
 clientmethod: none
 user.privileged: root
@@ -131,15 +156,16 @@ socks pass {
 }
 EOF
 
-    run ip netns exec "$ns" danted -f "$dante_conf" &
+    log "Starting sockd in namespace"
+    run ip netns exec "$ns" sockd -f "$dante_conf" > "$STATE_DIR/dante-$ns.log" 2>&1 &
     sleep 0.3
     local dante_pid
     dante_pid=$(run ip netns pids "$ns" 2>/dev/null | grep -v "^$" | head -1 || echo "")
     if [[ -n "$dante_pid" ]]; then
         echo "$dante_pid" > "$dante_pid_file"
-        log "Started danted on $ns_ip:$socks_port (PID $dante_pid)"
+        log "Started sockd on $ns_ip:$socks_port (PID $dante_pid)"
     else
-        log "WARNING: Could not determine danted PID"
+        log "WARNING: Could not determine sockd PID"
     fi
 }
 
@@ -157,8 +183,9 @@ create_namespace() {
     
     local veth_host="veth-h-$idx"
     local veth_ns="veth-n-$idx"
-    local host_ip="10.200.$idx.1"
-    local ns_ip="10.200.$idx.2"
+    local subnet=$(( (idx % 254) + 1 ))
+    local host_ip="10.200.$subnet.1"
+    local ns_ip="10.200.$subnet.2"
     local socks_port=$((10900 + idx))
     
     cat > "$STATE_DIR/ns-$ns.json" <<EOF
@@ -195,8 +222,9 @@ create_direct_namespace() {
     
     local veth_host="veth-h-$idx"
     local veth_ns="veth-n-$idx"
-    local host_ip="10.200.$idx.1"
-    local ns_ip="10.200.$idx.2"
+    local subnet=$(( (idx % 254) + 1 ))
+    local host_ip="10.200.$subnet.1"
+    local ns_ip="10.200.$subnet.2"
     local socks_port=$((10900 + idx))
     
     cat > "$STATE_DIR/ns-$ns.json" <<EOF
@@ -332,6 +360,10 @@ case "$ACTION" in
         [[ -z "$NS_NAME" ]] && die "Usage: $0 create <name> <index> <vpn_server_ip> [vpn_server_port]"
         [[ -z "$VPN_SERVER_IP" ]] && die "VPN server IP is required"
         create_namespace "$NS_NAME" "$NS_INDEX" "$VPN_SERVER_IP" "$VPN_SERVER_PORT"
+        ;;
+    start-socks)
+        [[ -z "$NS_NAME" ]] && die "Usage: $0 start-socks <name> <index> <vpn_server_ip> [vpn_server_port]"
+        start_namespace_socks "$NS_NAME" "$NS_INDEX" "$VPN_SERVER_IP" "$VPN_SERVER_PORT"
         ;;
     create-direct)
         [[ -z "$NS_NAME" ]] && die "Usage: $0 create-direct <name> <index>"

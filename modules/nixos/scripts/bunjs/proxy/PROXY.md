@@ -35,7 +35,7 @@ mode for direct connections that bypass device-level VPNs.
 │  │ + tun0    │  │              │  │  direct   │  │  │  │ + tun0    │  │
 │  └───────────┘  │              │  └───────────┘  │  │  └───────────┘  │
 │  ┌───────────┐  │              │  ┌───────────┐  │  │  ┌───────────┐  │
-│  │danted     │  │              │  │danted     │  │  │  │danted     │  │
+│  │sockd      │  │              │  │sockd      │  │  │  │sockd      │  │
 │  │ :10900    │  │              │  │ :10901    │  │  │  │ :1090N    │  │
 │  └───────────┘  │              │  └───────────┘  │  │  └───────────┘  │
 │  ┌───────────┐  │              │                 │  │  ┌───────────┐  │
@@ -209,7 +209,7 @@ interface, not through the VPN tunnel.
 
 1. A new namespace is created with a veth pair and NAT (same as VPN namespaces)
 2. No OpenVPN is started — no tunnel, no kill-switch
-3. danted runs inside the namespace for SOCKS5 proxying
+3. sockd starts after the tunnel is up for VPN namespaces (direct namespaces start immediately)
 4. Traffic routes: app → proxy → namespace → host NAT → real internet
 
 **The namespace is idle-cleaned** like VPN namespaces (default 5 minutes).
@@ -365,7 +365,7 @@ All runtime state is stored in tmpfs at `/dev/shm/vpn-proxy-0/`:
 | `resolver-cache.json`     | VPN config cache with mtime validation |
 | `openvpn-vpn-proxy-N.pid` | OpenVPN daemon PID                     |
 | `openvpn-vpn-proxy-N.log` | OpenVPN logs                           |
-| `dante-vpn-proxy-N.pid`   | danted PID                             |
+| `dante-vpn-proxy-N.pid`   | sockd PID                              |
 
 ### Persistent State
 
@@ -747,4 +747,4 @@ modules/nixos/scripts/bunjs/proxy/
 - **Subsequent requests**: Fast (reuses existing namespace)
 - **Idle cleanup**: 5 minutes default (configurable)
 - **Random rotation**: 5 minutes default (configurable)
-- **Memory per namespace**: ~10-20MB (OpenVPN + danted)
+- **Memory per namespace**: ~10-20MB (OpenVPN + sockd)

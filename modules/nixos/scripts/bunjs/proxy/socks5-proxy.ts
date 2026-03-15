@@ -88,10 +88,6 @@ function parseSocks5Auth(
   return { username, password };
 }
 
-/**
- * Forward traffic to the SOCKS5 proxy running inside the namespace
- * The namespace runs danted bound to its veth IP
- */
 function forwardToNamespaceSocks(
   clientSocket: Socket,
   nsInfo: NamespaceInfo,

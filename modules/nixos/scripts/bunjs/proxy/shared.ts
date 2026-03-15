@@ -453,6 +453,7 @@ export async function createNamespace(
   const subnet = (nsIndex % 254) + 1;
   const nsName = `vpn-proxy-${nsIndex}`;
   const nsIp = `10.200.${subnet}.2`;
+  const socksPort = 10900 + (nsIndex % 50000);
 
   // Always advance nextIndex so failed indexes are never reused
   state.nextIndex++;
@@ -487,11 +488,27 @@ export async function createNamespace(
       throw new Error("VPN tunnel failed to establish");
     }
 
+    const startSocks = runNetnsScript(
+      [
+        "start-socks",
+        nsName,
+        nsIndex.toString(),
+        vpn.serverIp,
+        vpn.serverPort.toString(),
+      ],
+      { notifySudo: true },
+    );
+
+    if (!startSocks.success) {
+      runNetnsScript(["destroy", nsName]);
+      throw new Error(`Namespace SOCKS startup failed: ${startSocks.output}`);
+    }
+
     const info: NamespaceInfo = {
       nsName,
       nsIndex,
       nsIp,
-      socksPort: 10900 + (nsIndex % 50000), // SOCKS5 port inside namespace for danted
+      socksPort,
       slug: vpn.slug,
       vpnDisplayName: vpn.displayName,
       lastUsed: Date.now(),
@@ -515,23 +532,14 @@ export async function createNamespace(
   }
 }
 
-/**
- * Create a direct network namespace (no VPN, no kill-switch)
- *
- * Bypasses any device-level VPN by using a separate network namespace with
- * its own routing table. Traffic goes directly through the host's real
- * interface via NAT masquerading — no OpenVPN, no nftables kill-switch.
- *
- * Steps:
- * 1. Call netns.sh create-direct to set up namespace with veth/NAT/DNS/danted
- * 2. Update state with new namespace info (no OpenVPN PID)
- */
 export async function createDirectNamespace(
   state: ProxyState,
 ): Promise<NamespaceInfo> {
   const nsIndex = state.nextIndex;
+  const subnet = (nsIndex % 254) + 1;
   const nsName = `vpn-proxy-${nsIndex}`;
-  const nsIp = `10.200.${nsIndex}.2`;
+  const nsIp = `10.200.${subnet}.2`;
+  const socksPort = 10900 + (nsIndex % 50000);
 
   log("INFO", `Creating direct namespace ${nsName} (no VPN)`);
 
@@ -544,11 +552,25 @@ export async function createDirectNamespace(
     throw new Error(`Direct namespace creation failed`);
   }
 
+  const startSocks = runNetnsScript(
+    ["start-socks", nsName, nsIndex.toString(), "", ""],
+    {
+      notifySudo: true,
+    },
+  );
+
+  if (!startSocks.success) {
+    runNetnsScript(["destroy", nsName]);
+    throw new Error(
+      `Direct namespace SOCKS startup failed: ${startSocks.output}`,
+    );
+  }
+
   const info: NamespaceInfo = {
     nsName,
     nsIndex,
     nsIp,
-    socksPort: 10900 + nsIndex, // SOCKS5 port inside namespace for danted
+    socksPort,
     slug: "none",
     vpnDisplayName: "Direct (no VPN)",
     lastUsed: Date.now(),
