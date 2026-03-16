@@ -346,6 +346,7 @@
         REPO_DIR="/home/matrix/nixconf/modules/nixos/terminal/opencode"
         MODELS_FILE="$REPO_DIR/models.json"
         STATE_FILE="$REPO_DIR/state.json"
+        PRESETS_DIR="$REPO_DIR/presets"
         GLOBAL_CONFIG_FILE="$HOME/.config/opencode/config.json"
         GLOBAL_OMA_FILE="$HOME/.config/opencode/oh-my-opencode.jsonc"
         LOCAL_JSONC_FILE="$PWD/opencode.jsonc"
@@ -363,6 +364,10 @@
           if [ ! -f "$STATE_FILE" ] || [ ! -s "$STATE_FILE" ]; then
             printf '{"categories":{}}\n' > "$STATE_FILE"
           fi
+        }
+
+        ensure_presets_dir() {
+          mkdir -p "$PRESETS_DIR"
         }
 
         get_menu_text() {
@@ -394,6 +399,50 @@
           data=$($JQ -r --arg category_id "$group_id" '.categories[$category_id] // empty' "$STATE_FILE")
           if [ -n "$data" ] && echo "$data" | grep -q "^{"; then
             echo "$data" | $JQ -r '.reasoningEffort // empty'
+          fi
+        }
+
+        config_out_of_date() {
+          ensure_state_file
+          if [ ! -f "$GLOBAL_OMA_FILE" ] || [ ! -s "$GLOBAL_OMA_FILE" ]; then
+            return 0
+          fi
+
+          local mismatch=0
+          while IFS=$'\t' read -r category_id; do
+            local state_model
+            local state_effort
+            local config_model
+            local config_effort
+            state_model=$(get_group_model "$category_id")
+            state_effort=$(get_group_reasoning_effort "$category_id")
+
+            config_model=$($JQ -r --arg category_id "$category_id" '
+              .categories[$category_id]
+              | if type == "object" then .model else . end
+            ' "$GLOBAL_OMA_FILE")
+            config_effort=$($JQ -r --arg category_id "$category_id" '
+              .categories[$category_id]
+              | if type == "object" then (.reasoningEffort // "") else "" end
+            ' "$GLOBAL_OMA_FILE")
+
+            if [ "$state_model" != "$config_model" ] || [ "$state_effort" != "$config_effort" ]; then
+              mismatch=1
+              break
+            fi
+          done < <($JQ -r '.categories | keys[]' "$METADATA_FILE")
+
+          [ "$mismatch" -eq 1 ]
+        }
+
+        sync_config_from_state() {
+          local quiet="''${1:-0}"
+
+          if config_out_of_date; then
+            rebuild_runtime_configs
+            if [ "$quiet" -ne 1 ]; then
+              $GUM style --foreground 212 "✅ Synced OpenCode config from state"
+            fi
           fi
         }
 
@@ -471,10 +520,7 @@
               | (.supportedInputModalities // [] | map(ascii_downcase)) as $input_modalities
               | (.supportedOutputModalities // [] | map(ascii_downcase)) as $output_modalities
               # Models that require explicit reasoning_effort levels (no "auto" support)
-              | {
-                  "kimi-k2.5": ["low", "medium", "high"]
-                } as $reasoning_map
-              | ($reasoning_map | to_entries | map(select($id | test(.key))) | .[0].value // null) as $reasoning_efforts
+              | (if $id == "kimi-k2.5" or ($id | test("kimi-k2.5")) then ["low", "medium", "high"] else null end) as $reasoning_efforts
               | {
                   key: $id,
                   value: (
@@ -617,50 +663,7 @@
         }
 
         # Searchable model picker using gum filter
-        choose_model() {
-          local state_kind="$1"
-          local target_id="$2"
-          local header="$3"
-          local p_id
-          p_id=$(pick_model_id "$header") || return 1
-
-          # Check if the selected model has supported reasoning_effort
-          local provider="''${p_id%%/*}"
-          local model_id="''${p_id#*/}"
-          local efforts
-          efforts=$($JQ -r --arg provider "$provider" --arg model_id "$model_id" '.providers[$provider].models[$model_id].reasoning_effort // empty' "$MODELS_FILE")
-
-          local selected_effort=""
-          if [ -n "$efforts" ]; then
-            # Format efforts for gum choose (from JSON array to lines)
-            local effort_options
-            effort_options=$(echo "$efforts" | $JQ -r '.[]')
-            selected_effort=$(echo "$effort_options" | $GUM choose --header "$(get_menu_text reasoningEffortHeader)")
-            if [ -z "$selected_effort" ]; then
-              return 1
-            fi
-          fi
-
-          update_group_state "$target_id" "$p_id" "$selected_effort"
-          $GUM style --foreground 212 "✅ Set category '$target_id' to $p_id (effort: ''${selected_effort:-auto})"
-        }
-
-        choose_category() {
-          local selection
-          selection=$($JQ -r '.categories | to_entries[] | "\(.value.label)\t\(.key)\t\(.value.description)"' "$METADATA_FILE" \
-            | while IFS=$'\t' read -r label category_id description; do
-                printf '%s [%s] (%s) — %s\n' "$label" "$category_id" "$(get_group_model "$category_id")" "$description"
-              done \
-            | $GUM filter --placeholder "Search categories..." --header "$(get_menu_text categoryHeader)")
-
-          if [ -z "$selection" ]; then return 1; fi
-
-          local category_id
-          category_id=$(echo "$selection" | sed -E 's/^.*\[([^]]+)\].*$/\1/')
-          choose_model "category" "$category_id" "$(get_menu_text modelHeaderPrefix) $category_id"
-        }
-
-        choose_multiple_categories() {
+        choose_categories() {
           local selected
           selected=$($JQ -r '.categories | to_entries[] | "\(.key)\t\(.value.label) [\(.key)] (\(.value.description))"' "$METADATA_FILE" \
             | $GUM choose --no-limit --header "$(get_menu_text categoryMultiHeader)" --cursor="▶ " --selected.foreground="212" --cursor.foreground="212")
@@ -699,6 +702,144 @@
 
           update_multiple_groups_state "$new_model" "$selected_effort" "''${category_ids[@]}"
           $GUM style --foreground 212 "✅ Updated ''${#category_ids[@]} categories to $new_model (effort: ''${selected_effort:-auto})"
+        }
+
+        preset_file_for_name() {
+          local raw_name="$1"
+          local safe_name
+          safe_name=$(echo "$raw_name" | tr ' /' '__' | sed -E 's/[^A-Za-z0-9._-]//g')
+          if [ -z "$safe_name" ]; then
+            return 1
+          fi
+          printf '%s/%s.json\n' "$PRESETS_DIR" "$safe_name"
+        }
+
+        preset_summary() {
+          local preset_file="$1"
+          $JQ -r --argfile meta "$METADATA_FILE" '
+            def model_of($value):
+              if $value == null then "unset"
+              elif ($value | type) == "object" then ($value.model // "unset")
+              else $value
+              end;
+            (.categories // {}) as $cats
+            | ($meta.categories | keys) as $keys
+            | $keys
+            | map("\(.):\(model_of($cats[.]))")
+            | join(", ")
+          ' "$preset_file"
+        }
+
+        preset_lines() {
+          ensure_presets_dir
+          local files
+          shopt -s nullglob
+          files=("$PRESETS_DIR"/*.json)
+          shopt -u nullglob
+
+          if [ "''${#files[@]}" -eq 0 ]; then
+            return 1
+          fi
+
+          for preset_file in "''${files[@]}"; do
+            local name
+            local summary
+            name=$(basename "$preset_file" .json)
+            summary=$(preset_summary "$preset_file")
+            printf '%s\t%s\n' "$name" "$summary"
+          done
+        }
+
+        save_preset() {
+          ensure_state_file
+          ensure_presets_dir
+
+          local preset_name
+          preset_name=$($GUM input --placeholder "$(get_menu_text presetNamePrompt)")
+          if [ -z "$preset_name" ]; then
+            return 1
+          fi
+
+          local preset_file
+          preset_file=$(preset_file_for_name "$preset_name") || return 1
+
+          if [ -f "$preset_file" ]; then
+            if ! $GUM confirm "Preset already exists. Overwrite?"; then
+              return 1
+            fi
+          fi
+
+          if ! $JQ '.' "$STATE_FILE" > "$preset_file"; then
+            $GUM style --foreground 196 "Error: Failed to save preset"
+            return 1
+          fi
+
+          $GUM style --foreground 212 "✅ Saved preset '$preset_name'"
+        }
+
+        validate_preset_file() {
+          local preset_file="$1"
+          $JQ -e '.categories | type == "object"' "$preset_file" >/dev/null 2>&1
+        }
+
+        apply_preset() {
+          local preset_file="$1"
+          if ! validate_preset_file "$preset_file"; then
+            $GUM style --foreground 196 "Error: Preset file is invalid"
+            return 1
+          fi
+
+          cp "$preset_file" "$STATE_FILE"
+          rebuild_runtime_configs
+          $GUM style --foreground 212 "✅ Applied preset $(basename "$preset_file" .json)"
+        }
+
+        delete_preset() {
+          local preset_file="$1"
+          if $GUM confirm "Delete preset $(basename "$preset_file" .json)?"; then
+            rm -f "$preset_file"
+            $GUM style --foreground 212 "✅ Deleted preset"
+          fi
+        }
+
+        edit_preset() {
+          local preset_file="$1"
+          local editor="''${EDITOR:-nano}"
+          $editor "$preset_file"
+
+          if ! validate_preset_file "$preset_file"; then
+            $GUM style --foreground 196 "Error: Preset file is invalid"
+            return 1
+          fi
+        }
+
+        preset_manager() {
+          while true; do
+            local selection
+            selection=$(preset_lines | $GUM filter --placeholder "$(get_menu_text presetManagerHeader)" --header "$(get_menu_text presetManagerHeader)")
+            if [ -z "$selection" ]; then
+              return 1
+            fi
+
+            local preset_name
+            preset_name=$(printf '%s\n' "$selection" | cut -f1)
+            local preset_file="$PRESETS_DIR/$preset_name.json"
+
+            local action
+            action=$($GUM choose \
+              "Use" \
+              "Edit" \
+              "Delete" \
+              "Back" \
+              --header "$(get_menu_text presetActionHeader): $preset_name")
+
+            case "$action" in
+              Use) apply_preset "$preset_file" ;;
+              Edit) edit_preset "$preset_file" ;;
+              Delete) delete_preset "$preset_file" ;;
+              *) return 0 ;;
+            esac
+          done
         }
 
         replace_model_across_categories() {
@@ -832,6 +973,7 @@
           local context_msg="Context: Global"
           if [ -f "$LOCAL_JSONC_FILE" ]; then context_msg="Context: Local Project ($LOCAL_JSONC_FILE)"; fi
 
+          sync_config_from_state
           rebuild_runtime_configs >/dev/null 2>&1 || true
 
           local sync_warning=""
@@ -842,9 +984,11 @@
           local action
           action=$($GUM choose \
             "$(get_menu_text syncAction)$sync_warning" \
-            "$(get_menu_text changeCategoryAction)" \
-            "$(get_menu_text changeMultipleCategoriesAction)" \
+            "$(get_menu_text syncConfigAction)" \
+            "$(get_menu_text changeCategoriesAction)" \
             "$(get_menu_text replaceModelAction)" \
+            "$(get_menu_text presetSaveAction)" \
+            "$(get_menu_text presetManageAction)" \
             "$(get_menu_text initAction)" \
             "$(get_menu_text exitAction)" \
             --header "$(get_menu_text title)
@@ -854,9 +998,11 @@
 
           case "$action" in
             "$(get_menu_text syncAction)"*) sync_models ;;
-            "$(get_menu_text changeCategoryAction)") choose_category ;;
-            "$(get_menu_text changeMultipleCategoriesAction)") choose_multiple_categories ;;
+            "$(get_menu_text syncConfigAction)") sync_config_from_state ;;
+            "$(get_menu_text changeCategoriesAction)") choose_categories ;;
             "$(get_menu_text replaceModelAction)") replace_model_across_categories ;;
+            "$(get_menu_text presetSaveAction)") save_preset ;;
+            "$(get_menu_text presetManageAction)") preset_manager ;;
             "$(get_menu_text initAction)") init_project ;;
             *) exit 0 ;;
           esac
@@ -866,8 +1012,9 @@
 
         case "''${1:-}" in
           sync) sync_models ;;
+          sync-config) sync_config_from_state 1 ;;
           init) init_project ;;
-          *) echo "Usage: opencode-models [sync|init]"; exit 1 ;;
+          *) echo "Usage: opencode-models [sync|sync-config|init]"; exit 1 ;;
         esac
       '';
 
@@ -890,6 +1037,10 @@
             ln -sf "$HOME/.config/opencode/node_modules/@opencode-ai/plugin" \
                    "$HOME/.local/cache/opencode/node_modules/@opencode-ai/plugin"
           fi
+        fi
+
+        if command -v opencode-models >/dev/null 2>&1; then
+          opencode-models sync-config >/dev/null 2>&1 || true
         fi
 
         exec ${opencode}/bin/opencode "$@"

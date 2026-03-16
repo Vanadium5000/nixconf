@@ -237,17 +237,14 @@ EOF
 create_direct_namespace() {
     local ns="$1"
     local idx="$2"
+    local subnet=$(( (idx % 254) + 1 ))
     
     log "Creating direct namespace: $ns (index=$idx, no VPN)"
     
     setup_namespace_base "$ns" "$idx"
     
-    # No kill-switch applied — traffic goes out directly via host NAT
-    run iptables -t nat -A POSTROUTING -s "10.200.$subnet.0/24" -j MASQUERADE
-    
     local veth_host="veth-h-$idx"
     local veth_ns="veth-n-$idx"
-    local subnet=$(( (idx % 254) + 1 ))
     local host_ip="10.200.$subnet.1"
     local ns_ip="10.200.$subnet.2"
     local socks_port=$((10900 + idx))
@@ -267,6 +264,11 @@ create_direct_namespace() {
   "vpnServerPort": 0,
   "createdAt": $(date +%s)
 }
+EOF
+    
+    log "Direct namespace $ns created successfully"
+    echo "$ns_ip:$socks_port"
+}
 
 apply_host_vpn_route() {
     local idx="$1"
@@ -282,12 +284,6 @@ apply_host_vpn_route() {
 apply_namespace_vpn_nat() {
     local ns="$1"
     run ip netns exec "$ns" iptables -t nat -A POSTROUTING -o tun0 -j MASQUERADE 2>/dev/null || true
-}
-
-EOF
-    
-    log "Direct namespace $ns created successfully"
-    echo "$ns_ip:$socks_port"
 }
 
 apply_killswitch() {
