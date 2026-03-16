@@ -346,7 +346,7 @@
         REPO_DIR="/home/matrix/nixconf/modules/nixos/terminal/opencode"
         MODELS_FILE="$REPO_DIR/models.json"
         STATE_FILE="$REPO_DIR/state.json"
-        PRESETS_DIR="$REPO_DIR/presets"
+        PRESETS_FILE="$REPO_DIR/presets.json"
         GLOBAL_CONFIG_FILE="$HOME/.config/opencode/config.json"
         GLOBAL_OMA_FILE="$HOME/.config/opencode/oh-my-opencode.jsonc"
         LOCAL_JSONC_FILE="$PWD/opencode.jsonc"
@@ -366,8 +366,10 @@
           fi
         }
 
-        ensure_presets_dir() {
-          mkdir -p "$PRESETS_DIR"
+        ensure_presets_file() {
+          if [ ! -f "$PRESETS_FILE" ] || [ ! -s "$PRESETS_FILE" ]; then
+            printf '{"presets":{}}\n' > "$PRESETS_FILE"
+          fi
         }
 
         get_menu_text() {
@@ -704,55 +706,40 @@
           $GUM style --foreground 212 "✅ Updated ''${#category_ids[@]} categories to $new_model (effort: ''${selected_effort:-auto})"
         }
 
-        preset_file_for_name() {
-          local raw_name="$1"
-          local safe_name
-          safe_name=$(echo "$raw_name" | tr ' /' '__' | sed -E 's/[^A-Za-z0-9._-]//g')
-          if [ -z "$safe_name" ]; then
-            return 1
-          fi
-          printf '%s/%s.json\n' "$PRESETS_DIR" "$safe_name"
-        }
-
         preset_summary() {
-          local preset_file="$1"
-          $JQ -r --argfile meta "$METADATA_FILE" '
+          local preset_name="$1"
+          $JQ -r --argfile meta "$METADATA_FILE" --arg name "$preset_name" '
             def model_of($value):
               if $value == null then "unset"
               elif ($value | type) == "object" then ($value.model // "unset")
               else $value
               end;
-            (.categories // {}) as $cats
+            (.presets[$name].categories // {}) as $cats
             | ($meta.categories | keys) as $keys
             | $keys
             | map("\(.):\(model_of($cats[.]))")
             | join(", ")
-          ' "$preset_file"
+          ' "$PRESETS_FILE"
         }
 
         preset_lines() {
-          ensure_presets_dir
-          local files
-          shopt -s nullglob
-          files=("$PRESETS_DIR"/*.json)
-          shopt -u nullglob
+          ensure_presets_file
 
-          if [ "''${#files[@]}" -eq 0 ]; then
+          if [ "$($JQ -r '.presets | length' "$PRESETS_FILE")" -eq 0 ]; then
+            $GUM style --foreground 214 "No presets available yet. Use 'Save Current Config as Preset' first."
             return 1
           fi
 
-          for preset_file in "''${files[@]}"; do
-            local name
+          $JQ -r '.presets | keys[]' "$PRESETS_FILE" | while IFS= read -r name; do
             local summary
-            name=$(basename "$preset_file" .json)
-            summary=$(preset_summary "$preset_file")
+            summary=$(preset_summary "$name")
             printf '%s\t%s\n' "$name" "$summary"
           done
         }
 
         save_preset() {
           ensure_state_file
-          ensure_presets_dir
+          ensure_presets_file
 
           local preset_name
           preset_name=$($GUM input --placeholder "$(get_menu_text presetNamePrompt)")
@@ -760,57 +747,93 @@
             return 1
           fi
 
-          local preset_file
-          preset_file=$(preset_file_for_name "$preset_name") || return 1
+          local safe_name
+          safe_name=$(echo "$preset_name" | tr ' /' '__' | sed -E 's/[^A-Za-z0-9._-]//g')
+          if [ -z "$safe_name" ]; then
+            $GUM style --foreground 196 "Error: Invalid preset name"
+            return 1
+          fi
 
-          if [ -f "$preset_file" ]; then
+          if $JQ -e --arg name "$safe_name" '.presets[$name] != null' "$PRESETS_FILE" >/dev/null; then
             if ! $GUM confirm "Preset already exists. Overwrite?"; then
               return 1
             fi
           fi
 
-          if ! $JQ '.' "$STATE_FILE" > "$preset_file"; then
+          if ! $JQ --arg name "$safe_name" --argjson state "$(cat "$STATE_FILE")" '
+            .presets[$name] = $state
+          ' "$PRESETS_FILE" > "''${PRESETS_FILE}.tmp"; then
             $GUM style --foreground 196 "Error: Failed to save preset"
             return 1
           fi
 
-          $GUM style --foreground 212 "✅ Saved preset '$preset_name'"
+          mv "''${PRESETS_FILE}.tmp" "$PRESETS_FILE"
+
+          $GUM style --foreground 212 "✅ Saved preset '$safe_name'"
         }
 
         validate_preset_file() {
-          local preset_file="$1"
-          $JQ -e '.categories | type == "object"' "$preset_file" >/dev/null 2>&1
+          local preset_name="$1"
+          $JQ -e --arg name "$preset_name" '.presets[$name].categories | type == "object"' "$PRESETS_FILE" >/dev/null 2>&1
         }
 
         apply_preset() {
-          local preset_file="$1"
-          if ! validate_preset_file "$preset_file"; then
+          local preset_name="$1"
+          if ! validate_preset_file "$preset_name"; then
             $GUM style --foreground 196 "Error: Preset file is invalid"
             return 1
           fi
 
-          cp "$preset_file" "$STATE_FILE"
+          if ! $JQ -r --arg name "$preset_name" '.presets[$name]' "$PRESETS_FILE" > "$STATE_FILE"; then
+            $GUM style --foreground 196 "Error: Failed to apply preset"
+            return 1
+          fi
           rebuild_runtime_configs
-          $GUM style --foreground 212 "✅ Applied preset $(basename "$preset_file" .json)"
+          $GUM style --foreground 212 "✅ Applied preset $preset_name"
         }
 
         delete_preset() {
-          local preset_file="$1"
-          if $GUM confirm "Delete preset $(basename "$preset_file" .json)?"; then
-            rm -f "$preset_file"
+          local preset_name="$1"
+          if $GUM confirm "Delete preset $preset_name?"; then
+            if ! $JQ --arg name "$preset_name" 'del(.presets[$name])' "$PRESETS_FILE" > "''${PRESETS_FILE}.tmp"; then
+              $GUM style --foreground 196 "Error: Failed to delete preset"
+              return 1
+            fi
+
+            mv "''${PRESETS_FILE}.tmp" "$PRESETS_FILE"
             $GUM style --foreground 212 "✅ Deleted preset"
           fi
         }
 
         edit_preset() {
-          local preset_file="$1"
+          local preset_name="$1"
+          local tmp_file
+          tmp_file=$(mktemp)
           local editor="''${EDITOR:-nano}"
-          $editor "$preset_file"
-
-          if ! validate_preset_file "$preset_file"; then
-            $GUM style --foreground 196 "Error: Preset file is invalid"
+          if ! $JQ -r --arg name "$preset_name" '.presets[$name]' "$PRESETS_FILE" > "$tmp_file"; then
+            $GUM style --foreground 196 "Error: Failed to load preset"
+            rm -f "$tmp_file"
             return 1
           fi
+
+          $editor "$tmp_file"
+
+          if ! $JQ -e '.categories | type == "object"' "$tmp_file" >/dev/null 2>&1; then
+            $GUM style --foreground 196 "Error: Preset file is invalid"
+            rm -f "$tmp_file"
+            return 1
+          fi
+
+          if ! $JQ --arg name "$preset_name" --argjson preset "$(cat "$tmp_file")" '
+            .presets[$name] = $preset
+          ' "$PRESETS_FILE" > "''${PRESETS_FILE}.tmp"; then
+            $GUM style --foreground 196 "Error: Failed to update preset"
+            rm -f "$tmp_file"
+            return 1
+          fi
+
+          mv "''${PRESETS_FILE}.tmp" "$PRESETS_FILE"
+          rm -f "$tmp_file"
         }
 
         preset_manager() {
@@ -823,7 +846,6 @@
 
             local preset_name
             preset_name=$(printf '%s\n' "$selection" | cut -f1)
-            local preset_file="$PRESETS_DIR/$preset_name.json"
 
             local action
             action=$($GUM choose \
@@ -834,9 +856,9 @@
               --header "$(get_menu_text presetActionHeader): $preset_name")
 
             case "$action" in
-              Use) apply_preset "$preset_file" ;;
-              Edit) edit_preset "$preset_file" ;;
-              Delete) delete_preset "$preset_file" ;;
+              Use) apply_preset "$preset_name" ;;
+              Edit) edit_preset "$preset_name" ;;
+              Delete) delete_preset "$preset_name" ;;
               *) return 0 ;;
             esac
           done
