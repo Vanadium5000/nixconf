@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "playwright": {
+      "source": "openai/skills",
+      "sourceType": "github",
+      "computedHash": "595a334de3bd5335f442a33d1bdefb01207c88c99fe43e3bd99b0d5435f230de"
+    }
+  }
+}
