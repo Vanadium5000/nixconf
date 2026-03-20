@@ -31,6 +31,60 @@ VPN_SERVER_PORT="${5:-1194}"
 STATE_DIR="/dev/shm/vpn-proxy-$(id -u)"
 LOG_PREFIX="[netns-setup]"
 
+ensure_iptables_rule() {
+    local table_args=()
+    local chain=""
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -t|--table)
+                table_args+=("$1" "$2")
+                shift 2
+                ;;
+            *)
+                chain="$1"
+                shift
+                break
+                ;;
+        esac
+    done
+
+    if [[ -z "$chain" ]]; then
+        die "Missing iptables chain"
+    fi
+
+    if ! run iptables "${table_args[@]}" -C "$chain" "$@" 2>/dev/null; then
+        run iptables "${table_args[@]}" -A "$chain" "$@"
+    fi
+}
+
+remove_iptables_rule() {
+    local table_args=()
+    local chain=""
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -t|--table)
+                table_args+=("$1" "$2")
+                shift 2
+                ;;
+            *)
+                chain="$1"
+                shift
+                break
+                ;;
+        esac
+    done
+
+    if [[ -z "$chain" ]]; then
+        die "Missing iptables chain"
+    fi
+
+    while run iptables "${table_args[@]}" -C "$chain" "$@" 2>/dev/null; do
+        run iptables "${table_args[@]}" -D "$chain" "$@" 2>/dev/null || break
+    done
+}
+
 run() {
     if [[ $(id -u) -eq 0 ]]; then
         "$@"
@@ -100,9 +154,9 @@ setup_namespace_base() {
     
     run sysctl -w net.ipv4.ip_forward=1 >/dev/null
     
-    run iptables -t nat -A POSTROUTING -s "10.200.$subnet.0/24" -j MASQUERADE
-    run iptables -A FORWARD -i "$veth_host" -j ACCEPT
-    run iptables -A FORWARD -o "$veth_host" -j ACCEPT
+    ensure_iptables_rule -t nat POSTROUTING -s "10.200.$subnet.0/24" ! -d 127.0.0.0/8 -j MASQUERADE
+    ensure_iptables_rule FORWARD -i "$veth_host" -j ACCEPT
+    ensure_iptables_rule FORWARD -o "$veth_host" -j ACCEPT
     
     run mkdir -p "/etc/netns/$ns"
     echo "nameserver 1.1.1.1" | run tee "/etc/netns/$ns/resolv.conf" >/dev/null
@@ -119,7 +173,9 @@ setup_host_policy_routing() {
     local table_id=$((10000 + idx))
     local priority=$((10000 + idx))
 
+    run ip rule del from "$host_ip/32" table "$table_id" priority "$priority" 2>/dev/null || true
     run ip rule add from "$host_ip/32" table "$table_id" priority "$priority" 2>/dev/null || true
+    run ip route replace local 127.0.0.0/8 dev lo table "$table_id"
     run ip route replace default via "$ns_ip" dev "$veth_host" table "$table_id"
 }
 
@@ -277,8 +333,10 @@ apply_host_vpn_route() {
     local host_ip="10.200.$subnet.1"
     local veth_host="veth-h-$idx"
 
+    run ip rule del from "$host_ip/32" table "$table" 2>/dev/null || true
     run ip rule add from "$host_ip/32" table "$table" 2>/dev/null || true
-    run ip route add default dev "$veth_host" table "$table" 2>/dev/null || true
+    run ip route replace local 127.0.0.0/8 dev lo table "$table"
+    run ip route replace default dev "$veth_host" table "$table" 2>/dev/null || true
 }
 
 apply_namespace_vpn_nat() {
@@ -350,9 +408,9 @@ destroy_namespace() {
 
         run ip rule del from "$host_ip/32" table "$table" 2>/dev/null || true
         run ip route flush table "$table" 2>/dev/null || true
-        run iptables -t nat -D POSTROUTING -s "10.200.$subnet.0/24" -j MASQUERADE 2>/dev/null || true
-        run iptables -D FORWARD -i "$veth_host" -j ACCEPT 2>/dev/null || true
-        run iptables -D FORWARD -o "$veth_host" -j ACCEPT 2>/dev/null || true
+        remove_iptables_rule -t nat POSTROUTING -s "10.200.$subnet.0/24" ! -d 127.0.0.0/8 -j MASQUERADE
+        remove_iptables_rule FORWARD -i "$veth_host" -j ACCEPT
+        remove_iptables_rule FORWARD -o "$veth_host" -j ACCEPT
         run ip link delete "$veth_host" 2>/dev/null || true
         
         rm -f "$info_file"
@@ -433,7 +491,7 @@ case "$ACTION" in
         [[ -z "$NS_NAME" ]] && die "Usage: $0 check <name>"
         check_namespace "$NS_NAME"
         ;;
-    cleanup-all)
+cleanup-all)
         log "Cleaning up all vpn-proxy namespaces"
         for ns in $(list_namespaces); do
             destroy_namespace "$ns"
@@ -445,6 +503,31 @@ case "$ACTION" in
             log "Cleaning stale netns file: $ns_name"
             run umount "$nsfile" 2>/dev/null || true
             run rm -f "$nsfile" 2>/dev/null || true
+        done
+        for rule in $(run ip rule show 2>/dev/null | awk '/from 10\.200\./ {print $0}'); do
+            host_ip=$(echo "$rule" | awk '{for (i=1; i<=NF; i++) if ($i == "from") print $(i+1)}')
+            table_id=$(echo "$rule" | awk '{for (i=1; i<=NF; i++) if ($i == "lookup") print $(i+1)}')
+            [[ -z "$host_ip" || -z "$table_id" ]] && continue
+            idx=""
+            if [[ "$table_id" =~ ^[0-9]+$ ]] && [[ "$table_id" -ge 10000 ]]; then
+                idx=$((table_id - 10000))
+            elif [[ "$table_id" =~ ^[0-9]+$ ]] && [[ "$table_id" -ge 200 ]]; then
+                idx=$((table_id - 200))
+            fi
+            if [[ -n "$idx" ]] && [[ ! -e "/sys/class/net/veth-h-$idx" ]]; then
+                run ip rule del from "$host_ip/32" table "$table_id" 2>/dev/null || true
+                run ip route flush table "$table_id" 2>/dev/null || true
+            fi
+        done
+        for veth in $(run iptables -S 2>/dev/null | awk '/-A FORWARD .*veth-h-/{for (i=1; i<=NF; i++) if ($i == "-i" || $i == "-o") print $(i+1)}' | sort -u); do
+            [[ -e "/sys/class/net/$veth" ]] && continue
+            remove_iptables_rule FORWARD -i "$veth" -j ACCEPT
+            remove_iptables_rule FORWARD -o "$veth" -j ACCEPT
+        done
+        for subnet in $(run iptables -t nat -S 2>/dev/null | awk '/-A POSTROUTING -s 10\.200\./ {for (i=1; i<=NF; i++) if ($i == "-s") {split($(i+1), a, "."); print a[3]}}' | sort -u); do
+            if ! run ip -o addr show 2>/dev/null | grep -q "10\.200\.${subnet}\.1/24"; then
+                remove_iptables_rule -t nat POSTROUTING -s "10.200.${subnet}.0/24" ! -d 127.0.0.0/8 -j MASQUERADE
+            fi
         done
         # Clean up any orphaned veth interfaces
         for veth in $(ip link show 2>/dev/null | grep -o 'veth-h-[0-9]*' || true); do
