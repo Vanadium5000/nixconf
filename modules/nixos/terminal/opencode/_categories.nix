@@ -66,7 +66,8 @@ let
       # Helper to extract full category config from either string or object format
       # Handles: "cliproxyapi/model" or { model = "cliproxyapi/model"; reasoningEffort = "high" }
       # Returns full object to preserve reasoningEffort, not just the model string
-      extractModel = raw:
+      extractModel =
+        raw:
         if builtins.isString raw then
           { model = raw; }
         else if builtins.isAttrs raw && raw ? model then
@@ -94,14 +95,21 @@ let
       rawUnspecifiedLow = data.categories."unspecified-low" or null;
       rawUnspecifiedHigh = data.categories."unspecified-high" or null;
 
-      catVisualEngineering = if rawVisualEngineering == null then legacyMultimodal else extractModel rawVisualEngineering;
+      catVisualEngineering =
+        if rawVisualEngineering == null then legacyMultimodal else extractModel rawVisualEngineering;
       catUltrabrain = if rawUltrabrain == null then legacyOrchestrator else extractModel rawUltrabrain;
-      catDeep = if rawDeep == null then (if data.categories ? coding then legacyCoding else legacyResearch) else extractModel rawDeep;
+      catDeep =
+        if rawDeep == null then
+          (if data.categories ? coding then legacyCoding else legacyResearch)
+        else
+          extractModel rawDeep;
       catArtistry = if rawArtistry == null then legacyMultimodal else extractModel rawArtistry;
       catQuick = if rawQuick == null then legacyFast else extractModel rawQuick;
       catWriting = if rawWriting == null then legacyWriting else extractModel rawWriting;
-      catUnspecifiedLow = if rawUnspecifiedLow == null then legacyMedium else extractModel rawUnspecifiedLow;
-      catUnspecifiedHigh = if rawUnspecifiedHigh == null then legacyAdvanced else extractModel rawUnspecifiedHigh;
+      catUnspecifiedLow =
+        if rawUnspecifiedLow == null then legacyMedium else extractModel rawUnspecifiedLow;
+      catUnspecifiedHigh =
+        if rawUnspecifiedHigh == null then legacyAdvanced else extractModel rawUnspecifiedHigh;
     in
     {
       categories = {
@@ -151,17 +159,16 @@ let
     { state }:
     let
       # Extract category config, handling both legacy string format and new object format
-      extractCategory = categoryId:
+      extractCategory =
+        categoryId:
         let
           raw = state.categories.${categoryId};
         in
-        if builtins.isString raw then
-          { model = raw; }
-        else
-          raw;
+        if builtins.isString raw then { model = raw; } else raw;
 
       # Get reasoning effort from category config
-      getReasoningEffort = categoryId:
+      getReasoningEffort =
+        categoryId:
         let
           cat = extractCategory categoryId;
         in
@@ -175,75 +182,81 @@ let
         # Main orchestrator — Claude Opus (communicator type, 1100-line prompt)
         sisyphus = {
           category = "unspecified-high";
-        } // (lib.optionalAttrs (getReasoningEffort "unspecified-high" != null) {
+        }
+        // (lib.optionalAttrs (getReasoningEffort "unspecified-high" != null) {
           variant = getReasoningEffort "unspecified-high";
         });
         # Task executor — category overridden dynamically per-task by orchestrator
         "sisyphus-junior" = {
           category = "unspecified-low";
-        } // (lib.optionalAttrs (getReasoningEffort "unspecified-low" != null) {
+        }
+        // (lib.optionalAttrs (getReasoningEffort "unspecified-low" != null) {
           variant = getReasoningEffort "unspecified-low";
         });
         # Autonomous deep worker — requires GPT-5.3 Codex (no fallback)
         hephaestus = {
           category = "deep";
-        } // (lib.optionalAttrs (getReasoningEffort "deep" != null) {
+        }
+        // (lib.optionalAttrs (getReasoningEffort "deep" != null) {
           variant = getReasoningEffort "deep";
         });
         # Strategic planner — Claude-optimized dual-prompt agent
         prometheus = {
           category = "unspecified-high";
-        } // (lib.optionalAttrs (getReasoningEffort "unspecified-high" != null) {
+        }
+        // (lib.optionalAttrs (getReasoningEffort "unspecified-high" != null) {
           variant = getReasoningEffort "unspecified-high";
         });
         # Todo orchestrator/conductor — Sonnet-class sufficient
         atlas = {
           category = "unspecified-low";
-        } // (lib.optionalAttrs (getReasoningEffort "unspecified-low" != null) {
+        }
+        // (lib.optionalAttrs (getReasoningEffort "unspecified-low" != null) {
           variant = getReasoningEffort "unspecified-low";
         });
         # Architecture consultant — GPT-5.4 for deep reasoning (read-only)
         oracle = {
           category = "ultrabrain";
-        } // (lib.optionalAttrs (getReasoningEffort "ultrabrain" != null) {
+        }
+        // (lib.optionalAttrs (getReasoningEffort "ultrabrain" != null) {
           variant = getReasoningEffort "ultrabrain";
         });
         # Docs/code search — utility runner, speed over intelligence
         librarian = {
           category = "quick";
-        } // (lib.optionalAttrs (getReasoningEffort "quick" != null) {
+        }
+        // (lib.optionalAttrs (getReasoningEffort "quick" != null) {
           variant = getReasoningEffort "quick";
         });
         # Fast codebase grep — utility runner, fire many in parallel
         explore = {
           category = "quick";
-        } // (lib.optionalAttrs (getReasoningEffort "quick" != null) {
+        }
+        // (lib.optionalAttrs (getReasoningEffort "quick" != null) {
           variant = getReasoningEffort "quick";
         });
         # Gap analyzer — Claude-optimized communicator type
         metis = {
           category = "unspecified-high";
-        } // (lib.optionalAttrs (getReasoningEffort "unspecified-high" != null) {
+        }
+        // (lib.optionalAttrs (getReasoningEffort "unspecified-high" != null) {
           variant = getReasoningEffort "unspecified-high";
         });
         # Ruthless plan reviewer — GPT-5.4 for deep verification
         momus = {
           category = "ultrabrain";
-        } // (lib.optionalAttrs (getReasoningEffort "ultrabrain" != null) {
+        }
+        // (lib.optionalAttrs (getReasoningEffort "ultrabrain" != null) {
           variant = getReasoningEffort "ultrabrain";
         });
         # Vision/screenshots — GPT-5.3 Codex preferred (multimodal)
         "multimodal-looker" = {
           category = "deep";
-        } // (lib.optionalAttrs (getReasoningEffort "deep" != null) {
+        }
+        // (lib.optionalAttrs (getReasoningEffort "deep" != null) {
           variant = getReasoningEffort "deep";
         });
       };
-      disabled_mcps = [
-        "websearch"
-        "context7"
-        "grep_app"
-      ];
       background_task = {
         defaultConcurrency = 4;
         staleTimeoutMs = 180000;

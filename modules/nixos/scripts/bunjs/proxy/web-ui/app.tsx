@@ -433,13 +433,19 @@ function DashboardTab({ status }: { status: ProxyStatus | null }) {
                         variant="outline"
                         size="sm"
                         className="h-7 text-[10px]"
-                        onClick={() =>
-                          handleCopy(
-                            `vpn-proxy tool exec ${ns.slug} -- qbittorrent`,
-                          )
-                        }
+                        disabled={!ns.pinned}
+                        title={!ns.pinned ? "Pin the proxy first to generate commands" : "Generate command"}
+                        onClick={() => {
+                          if (!ns.pinned) return;
+                          const cmd = window.prompt("Enter the command to run inside this VPN namespace (e.g., qbittorrent):");
+                          if (cmd) {
+                            handleCopy(
+                              `vpn-proxy tool command ${ns.slug} -- ${cmd}`
+                            );
+                          }
+                        }}
                       >
-                        Exec
+                        Cmd Gen
                       </Button>
                       <Button
                         variant="destructive"
