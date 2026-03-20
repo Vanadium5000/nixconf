@@ -257,10 +257,12 @@ let
           variant = getReasoningEffort "deep";
         });
       };
-      background_task = {
-        defaultConcurrency = 4;
-        staleTimeoutMs = 180000;
-      };
+      disabled_mcps = [
+        # Example Content:
+        # "websearch"
+        # "context7"
+        # "grep_app"
+      ];
       tmux = {
         enabled = true;
         layout = "main-vertical";
