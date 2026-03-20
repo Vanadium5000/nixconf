@@ -9,59 +9,16 @@
           "name": "arcee-ai/trinity-large-preview:free"
         },
         "claude-opus-4-6-thinking": {
-          "name": "Claude Opus 4.6 (Thinking)",
-          "context": 200000,
-          "output": 64000,
-          "modalities": {
-            "input": [
-              "text",
-              "image"
-            ],
-            "output": [
-              "text"
-            ]
-          }
+          "name": "Claude Opus 4.6 (Thinking)"
         },
         "claude-sonnet-4-6": {
-          "name": "Claude Sonnet 4.6 (Thinking)",
-          "context": 200000,
-          "output": 64000,
-          "modalities": {
-            "input": [
-              "text",
-              "image"
-            ],
-            "output": [
-              "text"
-            ]
-          }
+          "name": "Claude Sonnet 4.6 (Thinking)"
         },
         "gemini-2.5-flash": {
-          "name": "Gemini 2.5 Flash",
-          "context": 1048576,
-          "output": 65535,
-          "modalities": {
-            "input": [
-              "text",
-              "image"
-            ],
-            "output": [
-              "text"
-            ]
-          }
+          "name": "Gemini 2.5 Flash"
         },
         "gemini-2.5-flash-lite": {
-          "name": "Gemini 2.5 Flash Lite",
-          "context": 1048576,
-          "output": 65535,
-          "modalities": {
-            "input": [
-              "text"
-            ],
-            "output": [
-              "text"
-            ]
-          }
+          "name": "Gemini 2.5 Flash Lite"
         },
         "gemini-2.5-pro": {
           "name": "Gemini 2.5 Pro",
@@ -69,34 +26,7 @@
           "output": 65536
         },
         "gemini-3-flash": {
-          "name": "Gemini 3 Flash",
-          "context": 1048576,
-          "output": 65536,
-          "modalities": {
-            "input": [
-              "text",
-              "image",
-              "video"
-            ],
-            "output": [
-              "text"
-            ]
-          }
-        },
-        "gemini-3-flash-agent": {
-          "name": "Gemini 3 Flash",
-          "context": 1048576,
-          "output": 65536,
-          "modalities": {
-            "input": [
-              "text",
-              "image",
-              "video"
-            ],
-            "output": [
-              "text"
-            ]
-          }
+          "name": "Gemini 3 Flash"
         },
         "gemini-3-flash-preview": {
           "name": "Gemini 3 Flash Preview",
@@ -104,34 +34,10 @@
           "output": 65536
         },
         "gemini-3-pro-high": {
-          "name": "Gemini 3 Pro (High)",
-          "context": 1048576,
-          "output": 65535,
-          "modalities": {
-            "input": [
-              "text",
-              "image",
-              "video"
-            ],
-            "output": [
-              "text"
-            ]
-          }
+          "name": "Gemini 3 Pro (High)"
         },
         "gemini-3-pro-low": {
-          "name": "Gemini 3 Pro (Low)",
-          "context": 1048576,
-          "output": 65535,
-          "modalities": {
-            "input": [
-              "text",
-              "image",
-              "video"
-            ],
-            "output": [
-              "text"
-            ]
-          }
+          "name": "Gemini 3 Pro (Low)"
         },
         "gemini-3-pro-preview": {
           "name": "Gemini 3 Pro Preview",
@@ -139,15 +45,7 @@
           "output": 65536
         },
         "gemini-3.1-flash-image": {
-          "name": "Gemini 3.1 Flash Image",
-          "modalities": {
-            "input": [
-              "text"
-            ],
-            "output": [
-              "text"
-            ]
-          }
+          "name": "Gemini 3.1 Flash Image"
         },
         "gemini-3.1-flash-lite-preview": {
           "name": "Gemini 3.1 Flash Lite Preview",
@@ -155,34 +53,10 @@
           "output": 65536
         },
         "gemini-3.1-pro-high": {
-          "name": "Gemini 3.1 Pro (High)",
-          "context": 1048576,
-          "output": 65535,
-          "modalities": {
-            "input": [
-              "text",
-              "image",
-              "video"
-            ],
-            "output": [
-              "text"
-            ]
-          }
+          "name": "Gemini 3.1 Pro (High)"
         },
         "gemini-3.1-pro-low": {
-          "name": "Gemini 3.1 Pro (Low)",
-          "context": 1048576,
-          "output": 65535,
-          "modalities": {
-            "input": [
-              "text",
-              "image",
-              "video"
-            ],
-            "output": [
-              "text"
-            ]
-          }
+          "name": "Gemini 3.1 Pro (Low)"
         },
         "gemini-3.1-pro-preview": {
           "name": "Gemini 3.1 Pro Preview",
@@ -216,18 +90,17 @@
         "gpt-5.2-codex": {
           "name": "GPT 5.2 Codex"
         },
+        "gpt-5.3-codex": {
+          "name": "GPT 5.3 Codex"
+        },
+        "gpt-5.4": {
+          "name": "GPT 5.4"
+        },
+        "gpt-5.4-mini": {
+          "name": "GPT 5.4 Mini"
+        },
         "gpt-oss-120b-medium": {
-          "name": "GPT-OSS 120B (Medium)",
-          "context": 114000,
-          "output": 32768,
-          "modalities": {
-            "input": [
-              "text"
-            ],
-            "output": [
-              "text"
-            ]
-          }
+          "name": "GPT-OSS 120B (Medium)"
         },
         "minimax/minimax-m2.5:free": {
           "name": "minimax/minimax-m2.5:free"

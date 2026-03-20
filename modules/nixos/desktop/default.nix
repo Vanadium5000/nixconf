@@ -52,6 +52,10 @@
       ++ (with pkgs; [
         # Tools
         localsend
+        # Playwright on NixOS uses nixpkgs-provided browser bundles instead of
+        # upstream downloads so Chromium stays runnable under the Nix dynamic
+        # linker model. Ref: https://wiki.nixos.org/wiki/Playwright
+        playwright-driver.browsers
 
         # Video players
         vlc
@@ -129,6 +133,16 @@
 
       # XDG Integration
       xdg.mime.enable = true;
+      xdg.mime.defaultApplications = {
+        # Keep LibreWolf as the human-facing default browser even though
+        # Playwright gets its own Chromium bundle for automation.
+        "text/html" = [ "librewolf.desktop" ];
+        "application/xhtml+xml" = [ "librewolf.desktop" ];
+        "x-scheme-handler/http" = [ "librewolf.desktop" ];
+        "x-scheme-handler/https" = [ "librewolf.desktop" ];
+        "x-scheme-handler/about" = [ "librewolf.desktop" ];
+        "x-scheme-handler/unknown" = [ "librewolf.desktop" ];
+      };
 
       # Dolphin requires applications.menu to discover apps.
       # Outside a full Plasma session, this file is missing or not detected.
@@ -138,6 +152,12 @@
       environment.sessionVariables = {
         # Tell KDE apps which menu to use
         XDG_MENU_PREFIX = "plasma-";
+        # Reuse the nixpkgs Playwright browser bundle so npm/bun Playwright
+        # clients do not attempt mutable browser downloads outside the store.
+        # Ref: https://wiki.nixos.org/wiki/Playwright
+        PLAYWRIGHT_BROWSERS_PATH = "${pkgs.playwright-driver.browsers}";
+        # Keep Playwright aligned with the store-managed browser bundle above.
+        PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "1";
         # Add Flatpak exports to XDG_DATA_DIRS
         XDG_DATA_DIRS = [
           "/var/lib/flatpak/exports/share"
