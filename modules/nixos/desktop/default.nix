@@ -8,6 +8,7 @@
       ...
     }:
     let
+      cfg = lib.attrByPath [ "preferences" "profiles" "desktop" ] { enable = false; } config;
       # inherit (lib) getExe;
       selfpkgs = self.packages."${pkgs.stdenv.hostPlatform.system}";
     in
@@ -23,6 +24,7 @@
 
         self.nixosModules.firefox
         self.nixosModules.hyprland
+        self.nixosModules.hyprland-support
         self.nixosModules.hyprsunset
         self.nixosModules.tuigreet
 
@@ -31,25 +33,26 @@
         self.nixosModules.qt
       ];
 
-      # Automatically start waybar & qs-notifications & niri-screen-time daemon
-      preferences.autostart = [
-        "waybar"
-        "qs-notifications"
-        "niri-screen-time --daemon"
-        # KDE daemon - hosts kded modules like SolidUiServer for LUKS password prompts
-        "kded6"
-      ];
+      config = lib.mkIf cfg.enable {
+        # Automatically start waybar & qs-notifications & niri-screen-time daemon
+        preferences.autostart = [
+          "waybar"
+          "qs-notifications"
+          "niri-screen-time --daemon"
+          # KDE daemon - hosts kded modules like SolidUiServer for LUKS password prompts
+          "kded6"
+        ];
 
-      # Enable Localsend, a utility to share data with local devices
-      programs.localsend.enable = true;
+        # Enable Localsend, a utility to share data with local devices
+        programs.localsend.enable = true;
 
-      environment.systemPackages = [
-        selfpkgs.terminal
-        selfpkgs.waybar
-        selfpkgs.qs-notifications
-        selfpkgs.qs-notify
-      ]
-      ++ (with pkgs; [
+        environment.systemPackages = [
+          selfpkgs.terminal
+          selfpkgs.waybar
+          selfpkgs.qs-notifications
+          selfpkgs.qs-notify
+        ]
+        ++ (with pkgs; [
         # Tools
         localsend
         # Playwright on NixOS uses nixpkgs-provided browser bundles instead of
@@ -97,9 +100,9 @@
         # adwaita-icon-theme - Removed
       ])
       # GPU monitoring
-      ++ (lib.optional config.nixpkgs.config.cudaSupport pkgs.nvtopPackages.full);
+        ++ (lib.optional config.nixpkgs.config.cudaSupport pkgs.nvtopPackages.full);
 
-      services = {
+        services = {
         # D-Bus activation for KDE services (SolidUiServer requires plasma-workspace)
         dbus.packages = [
           pkgs.kdePackages.kded
@@ -116,24 +119,24 @@
         udisks2.enable = true;
         # Enable usbmuxd service for iOS devices
         usbmuxd.enable = true;
-      };
+        };
 
       # Generic command-line automation tool (macro/autoclicker)
-      programs.ydotool = {
+        programs.ydotool = {
         # Whether to enable ydotoold system service and ydotool for members of programs.ydotool.group
         enable = true;
-      };
+        };
 
       # Graphics
-      hardware = {
+        hardware = {
         graphics = {
           enable = true;
         };
-      };
+        };
 
       # XDG Integration
-      xdg.mime.enable = true;
-      xdg.mime.defaultApplications = {
+        xdg.mime.enable = true;
+        xdg.mime.defaultApplications = {
         # Keep LibreWolf as the human-facing default browser even though
         # Playwright gets its own Chromium bundle for automation.
         "text/html" = [ "librewolf.desktop" ];
@@ -142,14 +145,14 @@
         "x-scheme-handler/https" = [ "librewolf.desktop" ];
         "x-scheme-handler/about" = [ "librewolf.desktop" ];
         "x-scheme-handler/unknown" = [ "librewolf.desktop" ];
-      };
+        };
 
       # Dolphin requires applications.menu to discover apps.
       # Outside a full Plasma session, this file is missing or not detected.
-      environment.etc."xdg/menus/applications.menu".source =
-        "${pkgs.kdePackages.plasma-workspace}/etc/xdg/menus/plasma-applications.menu";
+        environment.etc."xdg/menus/applications.menu".source =
+          "${pkgs.kdePackages.plasma-workspace}/etc/xdg/menus/plasma-applications.menu";
 
-      environment.sessionVariables = {
+        environment.sessionVariables = {
         # Tell KDE apps which menu to use
         XDG_MENU_PREFIX = "plasma-";
         # Reuse the nixpkgs Playwright browser bundle so npm/bun Playwright
@@ -163,10 +166,10 @@
           "/var/lib/flatpak/exports/share"
           "$HOME/.local/share/flatpak/exports/share"
         ];
-      };
+        };
 
       # Rebuild KDE system configuration cache after rebuilds
-      system.activationScripts.kbuildsycoca = {
+        system.activationScripts.kbuildsycoca = {
         text = ''
           for dir in /home/*; do
             user="$(basename "$dir")"
@@ -178,17 +181,17 @@
           done
         '';
         deps = [ "users" ];
-      };
+        };
 
       # XDG Portal
-      xdg.portal = {
+        xdg.portal = {
         enable = true;
         extraPortals = [ pkgs.kdePackages.xdg-desktop-portal-kde ];
         config.common.default = "hyprland";
         xdgOpenUsePortal = true;
-      };
+        };
 
-      fonts.packages = with pkgs; [
+        fonts.packages = with pkgs; [
         nerd-fonts.jetbrains-mono
         font-awesome
         roboto
@@ -207,13 +210,14 @@
         openmoji-color
         twemoji-color-font
         self.packages.${pkgs.stdenv.hostPlatform.system}.aptos-fonts
-      ];
+        ];
 
       # Microsoft Aptos is proprietary
-      preferences.allowedUnfree = [ "aptos-fonts" ];
+        preferences.allowedUnfree = [ "aptos-fonts" ];
 
-      # Safeeyes - A uitlity to remind the user to look away from the screen every x minutes
-      # NOTE: Quite annoying tho
-      # services.safeeyes.enable = true;
+        # Safeeyes - A uitlity to remind the user to look away from the screen every x minutes
+        # NOTE: Quite annoying tho
+        # services.safeeyes.enable = true;
+      };
     };
 }

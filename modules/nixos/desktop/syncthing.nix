@@ -12,7 +12,7 @@
         openDefaultPorts = true; # Open ports in the firewall for Syncthing. (NOTE: this will not open syncthing gui port)
 
         # Set the dataDir to home
-        dataDir = "/home/${config.preferences.user.username}";
+        dataDir = config.preferences.paths.homeDirectory;
         user = config.preferences.user.username;
       };
 

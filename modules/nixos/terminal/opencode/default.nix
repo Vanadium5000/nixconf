@@ -9,6 +9,8 @@
     }:
     let
       user = config.preferences.user.username;
+      homeDirectory = config.preferences.paths.homeDirectory;
+      configDirectory = config.preferences.paths.configDirectory;
       languages = import ./_languages.nix { inherit pkgs self; };
       providers = import ./_providers.nix {
         inherit self lib;
@@ -343,9 +345,16 @@
         cp ${./project-templates/shadcn-ui/SKILL.md} "$out/shadcn-ui/SKILL.md"
       '';
 
+      stateAssetsDir = pkgs.runCommand "opencode-state-assets" { } ''
+        mkdir -p "$out"
+        cp ${./models.json} "$out/models.json"
+        cp ${./state.json} "$out/state.json"
+        cp ${./presets.json} "$out/presets.json"
+      '';
+
       # TUI for model/profile and template switching
       opencodeModelSwitch = pkgs.writeShellScriptBin "opencode-models" ''
-        REPO_DIR="/home/matrix/nixconf/modules/nixos/terminal/opencode"
+        REPO_DIR="${configDirectory}/modules/nixos/terminal/opencode"
         MODELS_FILE="$REPO_DIR/models.json"
         STATE_FILE="$REPO_DIR/state.json"
         PRESETS_FILE="$REPO_DIR/presets.json"
@@ -362,13 +371,31 @@
         SYSTEMCTL="${pkgs.systemd}/bin/systemctl"
         CURL="${pkgs.curl}/bin/curl"
 
+        ensure_repo_state_files() {
+          mkdir -p "$REPO_DIR"
+
+          if [ ! -f "$MODELS_FILE" ]; then
+            cp "${stateAssetsDir}/models.json" "$MODELS_FILE"
+          fi
+
+          if [ ! -f "$STATE_FILE" ]; then
+            cp "${stateAssetsDir}/state.json" "$STATE_FILE"
+          fi
+
+          if [ ! -f "$PRESETS_FILE" ]; then
+            cp "${stateAssetsDir}/presets.json" "$PRESETS_FILE"
+          fi
+        }
+
         ensure_state_file() {
+          ensure_repo_state_files
           if [ ! -f "$STATE_FILE" ] || [ ! -s "$STATE_FILE" ]; then
             printf '{"categories":{}}\n' > "$STATE_FILE"
           fi
         }
 
         ensure_presets_file() {
+          ensure_repo_state_files
           if [ ! -f "$PRESETS_FILE" ] || [ ! -s "$PRESETS_FILE" ]; then
             printf '{"presets":{}}\n' > "$PRESETS_FILE"
           fi
@@ -499,6 +526,8 @@
           local api_key="${self.secrets.CLIPROXYAPI_KEY}"
           local url="http://localhost:8317/v1beta/models"
           
+          ensure_repo_state_files
+
           echo "Fetching models from $url..."
           local response
           response=$($CURL -s -H "Authorization: Bearer $api_key" "$url")
@@ -1084,7 +1113,7 @@
         method = "bind";
         inherit user;
         fileName = "antigravity_tools";
-        targetFile = "/home/${user}/.antigravity_tools";
+        targetFile = "${homeDirectory}/.antigravity_tools";
         isDirectory = true;
       };
 
@@ -1092,7 +1121,7 @@
         method = "bind";
         inherit user;
         fileName = "opencode";
-        targetFile = "/home/${user}/.local/share/opencode";
+        targetFile = "${homeDirectory}/.local/share/opencode";
         isDirectory = true;
       };
 
@@ -1100,12 +1129,12 @@
         method = "bind";
         inherit user;
         fileName = "opencode-mem";
-        targetFile = "/home/${user}/.opencode-mem";
+        targetFile = "${homeDirectory}/.opencode-mem";
         isDirectory = true;
       };
 
       opencodeMemConfig = {
-        storagePath = "/home/${user}/.opencode-mem/data";
+        storagePath = "${homeDirectory}/.opencode-mem/data";
         embeddingModel = "Xenova/nomic-embed-text-v1";
         memoryProvider = "openai-chat";
         memoryModel = state.categories.deep.model;

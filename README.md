@@ -402,6 +402,11 @@ Access the Web UI at `http://127.0.0.1:8083` (password: `nixos`).
 | `vpn-resolver`      | VPN config parsing + cache          |
 | `vpn-proxy-cleanup` | Idle namespace cleanup daemon       |
 
+Run `bun install` or `npm install` from the repository root to hydrate the Bun
+workspace used by these scripts. The root workspace points at
+`modules/nixos/scripts/bunjs/`, which keeps editor/LSP dependencies working on a
+fresh clone without hunting for nested `node_modules`.
+
 See [`modules/nixos/scripts/bunjs/README.md`](modules/nixos/scripts/bunjs/README.md)
 for BunJS development details.
 
@@ -417,20 +422,20 @@ for BunJS development details.
 
 ### General Scripts
 
-| Script                                     | Purpose                            |
-| ------------------------------------------ | ---------------------------------- |
-| `sound-change` / `sound-up` / `sound-down` | Volume control via WirePlumber     |
-| `sound-toggle`                             | Mute toggle                        |
-| `colorpicker`                              | Screen color picker with history   |
-| `toggle-lid-inhibit`                       | Toggle suspend-on-lid-close        |
-| `monero-wallet`                            | Monero CLI with pass + VPN         |
-| `bitcoin-wallet`                           | Electrum with pass + VPN           |
-| `litecoin-wallet`                          | Electrum-LTC with pass + VPN       |
-| `ethereum-wallet`                          | Foundry cast with pass + VPN       |
-| `autoclicker-daemon`                       | Multi-point autoclicker            |
-| `run-flatpak-instance`                     | Isolated multi-instance Flatpak    |
-| `opencode-models`                          | Switch OpenCode / OMA agent models |
-| `rebuild.sh`                               | NixOS rebuild wrapper with secrets |
+| Script                                     | Purpose                                      |
+| ------------------------------------------ | -------------------------------------------- |
+| `sound-change` / `sound-up` / `sound-down` | Volume control via WirePlumber               |
+| `sound-toggle`                             | Mute toggle                                  |
+| `colorpicker`                              | Screen color picker with history             |
+| `toggle-lid-inhibit`                       | Toggle suspend-on-lid-close                  |
+| `monero-wallet`                            | Monero CLI with pass + VPN                   |
+| `bitcoin-wallet`                           | Electrum with pass + VPN                     |
+| `litecoin-wallet`                          | Electrum-LTC with pass + VPN                 |
+| `ethereum-wallet`                          | Foundry cast with pass + VPN                 |
+| `autoclicker-daemon`                       | Multi-point autoclicker                      |
+| `run-flatpak-instance`                     | Isolated multi-instance Flatpak              |
+| `opencode-models`                          | Host-installed OpenCode / OMA model switcher |
+| `rebuild.sh`                               | NixOS rebuild wrapper with secrets           |
 
 ---
 
@@ -483,6 +488,89 @@ nixconf/
 │   ├── flake-parts.nix    # Flake-parts configuration & overlays
 │   └── LIQUID_GLASS_SPEC.md # Full Liquid Glass design specification
 ```
+
+## 🧱 Modular Host Composition
+
+Hosts now declare both their identity and their intended role explicitly via
+profile toggles plus feature/service toggles.
+
+- `preferences.profiles.terminal.enable` - enables the terminal profile module
+- `preferences.profiles.desktop.enable` - enables the desktop profile module
+- `preferences.profiles.laptop.enable` - laptop-oriented defaults
+- `preferences.profiles.server.enable` - server-oriented defaults
+- `preferences.hardware.tlp.enable` - laptop power tuning module
+- `preferences.obs.enable` - OBS Studio feature toggle
+- `services.*.enable` - daemon-style modules such as `openclaw`,
+  `cliproxyapi`, `opencode-server`, `vpn-proxy`, `netdata-monitor`,
+  `homepage-monitor`, and `mitmproxy`
+
+This keeps hosts thin: import the reusable modules you need, then switch
+features and services on or off in one place. Profiles are still regular NixOS
+modules; the profile flags now gate their config instead of self-enabling via
+`mkDefault`.
+
+## 🔌 Export Surface
+
+The flake keeps the existing flat exports such as `self.nixosModules.desktop`
+for compatibility, and now also publishes grouped exports under
+`self.moduleSets`:
+
+- `self.moduleSets.profiles`
+- `self.moduleSets.features`
+- `self.moduleSets.services`
+- `self.moduleSets.hosts`
+
+The grouped module exports are stable. The rebuild-time module matrix is being
+reworked so it can be generated without recursive flake evaluation.
+
+Current flake app exports are intentionally conservative:
+
+- `nix run .#rebuild` - wrapper around `rebuild.sh`
+
+Some tools such as `opencode-models` remain host-installed runtime commands for
+now because they still depend on host-specific NixOS module state and checked-out
+repo data rather than a fully generic per-system package interface.
+
+## 🤝 Contributing
+
+### Bun / TypeScript tooling
+
+From the repository root:
+
+```bash
+bun install
+```
+
+or:
+
+```bash
+npm install
+```
+
+Useful root scripts:
+
+```bash
+bun run build:vpn-proxy-web
+bun run typecheck:scripts
+```
+
+### Adding a new module
+
+1. Add the module under `modules/` in the closest matching domain.
+2. Expose a complete option surface with `mkOption` / `mkEnableOption`.
+3. Gate behavior with `mkIf cfg.enable` where appropriate.
+4. Prefer shared values from `config.preferences` and
+   `config.preferences.paths` over hardcoded absolute paths.
+5. Add the module to the grouped flake exports if it is intended for reuse.
+
+### Adding a new host
+
+1. Create `modules/hosts/<name>/configuration.nix` and related hardware/disko
+   files.
+2. Define `flake.nixosConfigurations.<name>` and `flake.nixosModules.<name>Host`.
+3. Set `preferences.hostName` and explicit `preferences.profiles.*` toggles.
+4. Enable or disable feature/service modules in the host file rather than
+   editing shared profile modules.
 
 ### Module Hierarchy
 

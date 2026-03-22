@@ -51,6 +51,7 @@
         enable = true;
         bindAddress = "127.0.0.1"; # Secure: bind localhost only
       };
+      services.unison-sync.enable = true;
 
       # System monitoring — real-time metrics with persistent history
       services.netdata-monitor.enable = true;
@@ -65,6 +66,10 @@
       # Preferences
       preferences = {
         hostName = "ionos_vps";
+        profiles = {
+          terminal.enable = true;
+          server.enable = true;
+        };
         user = {
           username = "main";
         };

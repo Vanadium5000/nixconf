@@ -10,6 +10,7 @@
     let
       inherit (lib)
         types
+        mkEnableOption
         mkOption
         ;
 
@@ -21,39 +22,82 @@
       imports = [ self.nixosModules.extra_hjem ];
 
       options.preferences = {
-        enable = mkOption {
-          type = types.bool;
+        enable = mkEnableOption "the shared nixconf preference layer" // {
           default = true;
         };
 
         configDirectory = mkOption {
-          type = types.str;
-          default = "/home/${cfg.user.username}/nixconf";
+          type = types.nullOr types.str;
+          default = null;
+          description = ''
+            Repository checkout used by helper scripts.
+            Leave null to follow the primary user's home directory automatically.
+          '';
         };
 
         hostName = mkOption {
           type = types.str;
+          description = "Host name exported to networking and shell tooling.";
         };
 
         allowedUnfree = mkOption {
           type = types.listOf (types.str);
           default = [ ];
+          description = "Additional unfree packages this host intentionally allows.";
         };
 
         autostart = mkOption {
           type = types.listOf (types.either types.str types.package);
           default = [ ];
+          description = "Commands or packages started by the desktop session.";
+        };
+
+        profiles = {
+          terminal.enable = mkEnableOption "the shared terminal profile";
+          desktop.enable = mkEnableOption "the shared desktop profile";
+          laptop.enable = mkEnableOption "laptop-oriented defaults";
+          server.enable = mkEnableOption "server-oriented defaults";
+        };
+
+        paths = {
+          homeDirectory = mkOption {
+            type = types.str;
+            readOnly = true;
+            description = "Primary user's home directory derived from preferences.user.username.";
+          };
+
+          configDirectory = mkOption {
+            type = types.str;
+            readOnly = true;
+            description = "Final config checkout path after applying defaults.";
+          };
+
+          sharedDirectory = mkOption {
+            type = types.str;
+            readOnly = true;
+            description = "Shared top-level directory used by cross-host tooling and sync flows.";
+          };
+
+          vpnDirectory = mkOption {
+            type = types.str;
+            readOnly = true;
+            description = "Directory containing VPN profiles consumed by proxy tooling.";
+          };
         };
 
         user = {
           username = mkOption {
             type = types.str;
+            description = "Primary interactive user managed by the host profile.";
           };
           extraGroups = mkOption {
             type = types.listOf types.str;
             default = [ ];
+            description = "Additional groups granted to the primary user.";
           };
         };
+
+        hardware.tlp.enable = mkEnableOption "the laptop TLP tuning module";
 
         system = {
           backlightDevice = mkOption {
@@ -71,10 +115,12 @@
         timeZone = mkOption {
           type = types.str;
           default = "Europe/London";
+          description = "System time zone shared by host and user tooling.";
         };
         locale = mkOption {
           type = types.str;
           default = "en_GB.UTF-8";
+          description = "Default system locale for shells and services.";
         };
 
         # Git identity
@@ -90,7 +136,19 @@
         };
       };
 
-      config = lib.mkIf cfg.enable {
+      config = lib.mkIf cfg.enable (
+        let
+          homeDirectory = "/home/${cfg.user.username}";
+          configDirectory =
+            if cfg.configDirectory != null then cfg.configDirectory else "${homeDirectory}/nixconf";
+        in
+        {
+          preferences.paths = {
+            inherit homeDirectory configDirectory;
+            sharedDirectory = "${homeDirectory}/Shared";
+            vpnDirectory = "${homeDirectory}/Shared/VPNs";
+          };
+
         users.users.${cfg.user.username} = {
           isNormalUser = true;
 
@@ -125,60 +183,61 @@
         ];
 
         # Persist ZSH history
-        impermanence.home.cache.files = [
-          ".zsh_history"
-        ];
+          impermanence.home.cache.files = [
+            ".zsh_history"
+          ];
 
         # Locales
-        time.timeZone = cfg.timeZone;
-        i18n.defaultLocale = cfg.locale;
+          time.timeZone = cfg.timeZone;
+          i18n.defaultLocale = cfg.locale;
 
         # Git global config
-        hjem.users.${cfg.user.username}.files.".gitconfig".text = ''
-          [user]
-            name = ${cfg.git.username}
-            email = ${cfg.git.email}
-        '';
+          hjem.users.${cfg.user.username}.files.".gitconfig".text = ''
+            [user]
+              name = ${cfg.git.username}
+              email = ${cfg.git.email}
+          '';
 
         # SSH
         # Enable GnuPG with SSH support
-        programs.gnupg.agent = {
-          enable = true;
-          enableSSHSupport = true;
-          # Use Pinentry Qt
-          pinentryPackage = pkgs.pinentry-qt;
-        };
+          programs.gnupg.agent = {
+            enable = true;
+            enableSSHSupport = true;
+            # Use Pinentry Qt on graphical hosts by default; server hosts can override.
+            pinentryPackage = pkgs.pinentry-qt;
+          };
 
         # OpenSSH
-        services.openssh = {
-          enable = true;
-          settings = {
-            PermitRootLogin = "yes";
-            PasswordAuthentication = false;
+          services.openssh = {
+            enable = true;
+            settings = {
+              PermitRootLogin = "yes";
+              PasswordAuthentication = false;
+            };
           };
-        };
 
         # Disable the default SSH agent to avoid conflicts
-        programs.ssh.startAgent = false;
+          programs.ssh.startAgent = false;
 
         # Bootloader
         # Use the grub EFI boot loader.
         # NOTE: No need to set devices, disko will add all devices that have a EF02 partition to the list already
-        boot.loader = {
-          grub.enable = true;
-          grub.efiSupport = true;
-          grub.efiInstallAsRemovable = true;
-        };
+          boot.loader = {
+            grub.enable = true;
+            grub.efiSupport = true;
+            grub.efiInstallAsRemovable = true;
+          };
 
         # Alfa AWUS036AX (RTL8832BU/RTL8852BU chipset) WiFi adapter support
         # Using in-kernel rtw89_8852bu driver (requires kernel 6.14+)
         # Pros: Upstream (no DKMS breaks), standard mac80211 stack
-        boot.kernelModules = [
-          "rtw89_8852bu"
+          boot.kernelModules = [
+            "rtw89_8852bu"
 
-          "ch341" # Load CH340/CH341 USB-to-Serial driver
-        ];
-        boot.blacklistedKernelModules = [ "rtl8xxxu" ]; # Prevent generic driver conflict
-      };
+            "ch341" # Load CH340/CH341 USB-to-Serial driver
+          ];
+          boot.blacklistedKernelModules = [ "rtl8xxxu" ]; # Prevent generic driver conflict
+        }
+      );
     };
 }

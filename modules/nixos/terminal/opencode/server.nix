@@ -17,6 +17,7 @@
         ;
       cfg = config.services.opencode-server;
       user = config.preferences.user.username;
+      homeDirectory = config.preferences.paths.homeDirectory;
     in
     {
       options.services.opencode-server = {
@@ -55,12 +56,12 @@
             ExecStart = "${cfg.package}/bin/opencode serve --port ${toString cfg.port} --hostname ${cfg.hostname}";
             Restart = "always";
             RestartSec = 5;
-            WorkingDirectory = "/home/${user}";
+            WorkingDirectory = homeDirectory;
 
             # Run as the configured user to access hjem-deployed config
             Environment = [
-              "HOME=/home/${user}"
-              "XDG_CONFIG_HOME=/home/${user}/.config"
+              "HOME=${homeDirectory}"
+              "XDG_CONFIG_HOME=${homeDirectory}/.config"
               # Auth set only in service unit, not system-wide (avoids breaking TUI usage)
               "OPENCODE_SERVER_PASSWORD=${self.secrets.OPENCODE_SERVER_PASSWORD or ""}"
             ];

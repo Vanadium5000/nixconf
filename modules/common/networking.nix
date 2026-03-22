@@ -248,7 +248,7 @@
         #   dnscrypt-proxy -resolve example.com
         #
 
-        environment.variables.VPN_DIR = "/home/${config.preferences.user.username}/Shared/VPNs";
+        environment.variables.VPN_DIR = config.preferences.paths.vpnDirectory;
 
         environment.systemPackages = with pkgs; [
           dnscrypt-proxy

@@ -22,7 +22,7 @@ rec {
   #               but requires proper systemd service ordering.
   #
   #   user: The username (string)
-  #   fileName: The name of the file in Shared/Data (e.g., "permissions.sqlite")
+   #   fileName: The name of the file in Shared/Data (e.g., "permissions.sqlite")
   #   targetFile: The absolute path where the file should appear
   #   sourceFile: (Optional) Path to initialize from if persistent file doesn't exist
   #   defaultContent: (Optional) Default content if creating a new file
@@ -48,6 +48,8 @@ rec {
       isDirectory ? false,
     }:
     let
+      # Shared/Data is the long-lived cross-host storage area used by this repo's
+      # impermanence workflow, so persistence helpers target it by default.
       sharedDataDir = "/home/${user}/Shared/Data";
       persistentFile = "${sharedDataDir}/${fileName}";
 

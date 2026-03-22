@@ -175,8 +175,49 @@ setup_host_policy_routing() {
 
     run ip rule del from "$host_ip/32" table "$table_id" priority "$priority" 2>/dev/null || true
     run ip rule add from "$host_ip/32" table "$table_id" priority "$priority" 2>/dev/null || true
-    run ip route replace local 127.0.0.0/8 dev lo table "$table_id"
     run ip route replace default via "$ns_ip" dev "$veth_host" table "$table_id"
+}
+
+get_direct_route_table() {
+    local idx="$1"
+    echo $((200 + idx))
+}
+
+get_vpn_route_table() {
+    local idx="$1"
+    echo $((10000 + idx))
+}
+
+get_vpn_route_priority() {
+    local idx="$1"
+    echo $((10000 + idx))
+}
+
+is_reserved_route_table() {
+    local table_id="$1"
+    case "$table_id" in
+        local|main|default|255|254|253)
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+remove_host_policy_routing() {
+    local host_ip="$1"
+    local table_id="$2"
+    local priority="${3:-}"
+
+    is_reserved_route_table "$table_id" && return 0
+
+    if [[ -n "$priority" ]]; then
+        run ip rule del from "$host_ip/32" table "$table_id" priority "$priority" 2>/dev/null || true
+    fi
+
+    run ip rule del from "$host_ip/32" table "$table_id" 2>/dev/null || true
+    run ip route flush table "$table_id" 2>/dev/null || true
 }
 
 setup_namespace_forwarding() {
@@ -279,7 +320,10 @@ create_namespace() {
   "socksPort": $socks_port,
   "vpnServerIp": "$vpn_ip",
   "vpnServerPort": $vpn_port,
-  "createdAt": $(date +%s)
+  "createdAt": $(date +%s),
+  "routeMode": "vpn",
+  "routeTable": $(get_vpn_route_table "$idx"),
+  "routePriority": $(get_vpn_route_priority "$idx")
 }
 EOF
     
@@ -318,7 +362,9 @@ create_direct_namespace() {
   "socksPort": $socks_port,
   "vpnServerIp": "none",
   "vpnServerPort": 0,
-  "createdAt": $(date +%s)
+  "createdAt": $(date +%s),
+  "routeMode": "direct",
+  "routeTable": $(get_direct_route_table "$idx")
 }
 EOF
     
@@ -329,13 +375,13 @@ EOF
 apply_host_vpn_route() {
     local idx="$1"
     local subnet="$2"
-    local table=$((200 + idx))
+    local table
+    table=$(get_direct_route_table "$idx")
     local host_ip="10.200.$subnet.1"
     local veth_host="veth-h-$idx"
 
     run ip rule del from "$host_ip/32" table "$table" 2>/dev/null || true
     run ip rule add from "$host_ip/32" table "$table" 2>/dev/null || true
-    run ip route replace local 127.0.0.0/8 dev lo table "$table"
     run ip route replace default dev "$veth_host" table "$table" 2>/dev/null || true
 }
 
@@ -399,15 +445,40 @@ destroy_namespace() {
     
     local info_file="$STATE_DIR/ns-$ns.json"
     if [[ -f "$info_file" ]]; then
-        local idx veth_host subnet table host_ip
+        local idx veth_host subnet host_ip route_table route_priority route_mode legacy_direct_table legacy_vpn_table
         idx=$(jq -r '.index' "$info_file")
         veth_host=$(jq -r '.vethHost' "$info_file")
-        subnet=$(( (idx % 254) + 1 ))
-        host_ip="10.200.$subnet.1"
-        table=$((200 + idx))
+        host_ip=$(jq -r '.hostIp // empty' "$info_file")
+        if [[ -z "$host_ip" ]]; then
+            subnet=$(( (idx % 254) + 1 ))
+            host_ip="10.200.$subnet.1"
+        else
+            subnet=$(echo "$host_ip" | cut -d'.' -f3)
+        fi
 
-        run ip rule del from "$host_ip/32" table "$table" 2>/dev/null || true
-        run ip route flush table "$table" 2>/dev/null || true
+        route_table=$(jq -r '.routeTable // empty' "$info_file")
+        route_priority=$(jq -r '.routePriority // empty' "$info_file")
+        route_mode=$(jq -r '.routeMode // empty' "$info_file")
+        legacy_direct_table=$(get_direct_route_table "$idx")
+        legacy_vpn_table=$(get_vpn_route_table "$idx")
+
+        # Why: older state files did not record the host routing identifiers, and
+        # the previous destroy path removed only the direct-mode table even for VPN
+        # namespaces. Remove the recorded table when available, then sweep both
+        # historical table schemes so already-leaked host rules are unwound too.
+        if [[ -n "$route_table" ]]; then
+            remove_host_policy_routing "$host_ip" "$route_table" "$route_priority"
+        fi
+        if [[ "$legacy_direct_table" != "$route_table" ]]; then
+            remove_host_policy_routing "$host_ip" "$legacy_direct_table"
+        fi
+        if [[ "$legacy_vpn_table" != "$route_table" ]]; then
+            if [[ "$route_mode" == "vpn" ]]; then
+                remove_host_policy_routing "$host_ip" "$legacy_vpn_table" "$(get_vpn_route_priority "$idx")"
+            else
+                remove_host_policy_routing "$host_ip" "$legacy_vpn_table"
+            fi
+        fi
         remove_iptables_rule -t nat POSTROUTING -s "10.200.$subnet.0/24" ! -d 127.0.0.0/8 -j MASQUERADE
         remove_iptables_rule FORWARD -i "$veth_host" -j ACCEPT
         remove_iptables_rule FORWARD -o "$veth_host" -j ACCEPT
@@ -516,7 +587,9 @@ cleanup-all)
             fi
             if [[ -n "$idx" ]] && [[ ! -e "/sys/class/net/veth-h-$idx" ]]; then
                 run ip rule del from "$host_ip/32" table "$table_id" 2>/dev/null || true
-                run ip route flush table "$table_id" 2>/dev/null || true
+                if ! is_reserved_route_table "$table_id"; then
+                    run ip route flush table "$table_id" 2>/dev/null || true
+                fi
             fi
         done
         for veth in $(run iptables -S 2>/dev/null | awk '/-A FORWARD .*veth-h-/{for (i=1; i<=NF; i++) if ($i == "-i" || $i == "-o") print $(i+1)}' | sort -u); do

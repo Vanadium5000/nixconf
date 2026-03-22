@@ -65,5 +65,12 @@
           inputs.nix4vscode.overlays.default
         ];
       };
+
+      apps = {
+        rebuild = {
+          type = "app";
+          program = "${self.packages.${system}.rebuild}/bin/rebuild";
+        };
+      };
     };
 }

@@ -38,7 +38,7 @@
       services.mpd = {
         enable = true;
         user = user; # Required so the musicDirectory can be accessed
-        musicDirectory = "/home/${user}/Shared/Music";
+        musicDirectory = "${config.preferences.paths.sharedDirectory}/Music";
         # Make MPD only start when something actually tries to connect to it
         startWhenNeeded = true;
 

@@ -8,6 +8,9 @@
       ...
     }:
     let
+      cfg = lib.attrByPath [ "preferences" "profiles" "terminal" ] { enable = false; } config;
+      hostName = lib.attrByPath [ "preferences" "hostName" ] null config;
+
       # Per-host package exclusions
       # Add package names (matching pname or derivation name) to exclude from self.packages
       hostPackageExclusions = {
@@ -32,7 +35,7 @@
       };
 
       # Get exclusions for current host (empty list if not defined)
-      excludedPackages = hostPackageExclusions.${config.preferences.hostName} or [ ];
+      excludedPackages = if hostName == null then [ ] else hostPackageExclusions.${hostName} or [ ];
 
       # Filter self.packages, removing any that match the exclusion list
       filteredFlakePackages = lib.filterAttrs (
@@ -61,10 +64,8 @@
         self.nixosModules.cliproxyapi
       ];
 
-      # VPN Proxy (SOCKS5 on :10800, HTTP CONNECT on :10801)
-      services.vpn-proxy.enable = true;
-
-      security.polkit.enable = true;
+      config = lib.mkIf cfg.enable {
+        security.polkit.enable = true;
 
       # =========================================================================
       # Out-Of-Memory Daemon (systemd-oomd) Configuration
@@ -132,14 +133,11 @@
       services.git-sync.repositories = {
         passwords = {
           uri = "github.com:Vanadium5000/passwords.git";
-          path = "/home/${config.preferences.user.username}/.local/share/password-store";
-          interval = 300;
-          user = config.preferences.user.username;
-        };
-      };
-
-      # Enable Unison synchronization
-      services.unison-sync.enable = true;
+           path = "${config.preferences.paths.homeDirectory}/.local/share/password-store";
+           interval = 300;
+           user = config.preferences.user.username;
+         };
+       };
 
       # Network monitoring tools
       # - snitch: TUI for inspecting network connections (netstat for humans)
@@ -158,11 +156,11 @@
       users.groups.wireshark = { };
 
       # Environment Variables
-      environment.variables = {
-        # PASSWORD_STORE_DIR for stuff like qs-passmenu
-        PASSWORD_STORE_DIR = "$HOME/.local/share/password-store";
-        FLAKE = config.preferences.configDirectory; # Config Directory
-      };
+        environment.variables = {
+          # PASSWORD_STORE_DIR for stuff like qs-passmenu
+          PASSWORD_STORE_DIR = "$HOME/.local/share/password-store";
+          FLAKE = config.preferences.paths.configDirectory; # Config Directory
+        };
 
       # Add environment packages to system packages
       environment.systemPackages =
@@ -177,7 +175,8 @@
           foundry # provides "cast"
         ]);
 
-      # Declare the HOST as an environment variable for use in scripts, etc.
-      environment.variables.HOST = config.preferences.hostName;
+        # Declare the HOST as an environment variable for use in scripts, etc.
+        environment.variables.HOST = config.preferences.hostName;
+      };
     };
 }

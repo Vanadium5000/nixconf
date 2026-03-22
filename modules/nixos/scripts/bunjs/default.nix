@@ -189,8 +189,8 @@
         ];
       };
 
-      # MCP servers - run from absolute path for live editing
-      # Requires: bun install in /home/matrix/nixconf/modules/nixos/scripts/bunjs
+      # MCP servers execute the checked-out TypeScript sources so local edits are
+      # reflected immediately once the workspace dependencies are installed.
       packages.markdown-lint-mcp = inputs.wrappers.lib.makeWrapper {
         inherit pkgs;
         package = pkgs.writeShellScriptBin "markdown-lint-mcp" ''

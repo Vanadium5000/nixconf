@@ -44,9 +44,15 @@
       # Preferences
       preferences = {
         hostName = "macbook";
+        profiles = {
+          terminal.enable = true;
+          desktop.enable = true;
+          laptop.enable = true;
+        };
         user = {
           username = "matrix";
         };
+        hardware.tlp.enable = true;
         system = {
           backlightDevice = "acpi_video0";
           keyboardBacklightDevice = "apple::kbd_backlight";
@@ -139,6 +145,11 @@
       # HTTPS traffic analyzer — on-demand: systemctl start mitmproxy
       services.mitmproxy.enable = true;
       services.mitmproxy.trustCA = true;
+      services.vpn-proxy.enable = true;
+      services.unison-sync.enable = true;
+      services.hyprsunset.enable = true;
+      services.hypridle.enable = true;
+      programs.hyprlock.enable = true;
 
       # No cuda - doesn't have an Nvidia GPU
       nixpkgs.config.cudaSupport = false;

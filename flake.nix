@@ -125,7 +125,9 @@
     ];
   };
 
-  # Define flake outputs using flake-parts and import-tree for modular configuration
+  # Define flake outputs using flake-parts and import-tree for modular configuration.
+  # `path:.#...` consumers rely on this import-tree set staying complete even when the
+  # working tree is dirty or includes generated files like `secrets.nix`.
   outputs =
     inputs:
     inputs.flake-parts.lib.mkFlake

@@ -41,9 +41,15 @@
       # Preferences
       preferences = {
         hostName = "legion5i";
+        profiles = {
+          terminal.enable = true;
+          desktop.enable = true;
+          laptop.enable = true;
+        };
         user = {
           username = "matrix";
         };
+        hardware.tlp.enable = true;
         system = {
           backlightDevice = "intel_backlight";
           keyboardBacklightDevice = "platform::kbd_backlight";
@@ -107,6 +113,11 @@
       # HTTPS traffic analyzer — on-demand: systemctl start mitmproxy
       services.mitmproxy.enable = true;
       services.mitmproxy.trustCA = true;
+      services.vpn-proxy.enable = true;
+      services.unison-sync.enable = true;
+      services.hyprsunset.enable = true;
+      services.hypridle.enable = true;
+      programs.hyprlock.enable = true;
 
       # State version
       system.stateVersion = "25.11";

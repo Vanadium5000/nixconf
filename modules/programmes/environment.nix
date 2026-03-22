@@ -167,5 +167,9 @@
           PASSWORD_STORE_DIR = "$HOME/.local/share/password-store";
         };
       };
+
+      packages.rebuild = pkgs.writeShellScriptBin "rebuild" ''
+        exec ${../../rebuild.sh} "$@"
+      '';
     };
 }

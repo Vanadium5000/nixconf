@@ -13,7 +13,6 @@
     let
       inherit (lib) mkOption mkIf types;
       cfg = config.services.vpn-proxy;
-      username = config.preferences.user.username;
     in
     {
       options.services.vpn-proxy = {
@@ -43,7 +42,7 @@
 
         vpnDir = mkOption {
           type = types.str;
-          default = "/home/${username}/Shared/VPNs";
+          default = config.preferences.paths.vpnDirectory;
           description = "Directory containing .ovpn files";
         };
 
