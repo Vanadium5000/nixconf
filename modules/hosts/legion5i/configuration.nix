@@ -83,8 +83,10 @@
         # Experimental and only works on modern Nvidia GPUs (Turing or newer).
         powerManagement.finegrained = true;
 
-        # It is suggested to use the open source kernel modules on Turing or later GPUs (RTX series, GTX 16xx)
-        open = true;
+        # The open kernel module currently fails to build against this linuxPackages_latest snapshot
+        # because Linux 6.19 made vm_flags writes go through accessors. Stay on the proprietary
+        # module until the selected nixpkgs driver branch carries the upstream compatibility fix.
+        open = false;
 
         prime = {
           # Make sure to use the correct Bus ID values for your system!

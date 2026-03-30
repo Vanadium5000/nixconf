@@ -25,6 +25,7 @@ let
     gopls = "${pkgs.gopls}/bin/gopls";
     marksman = "${pkgs.marksman}/bin/marksman";
     lua = "${pkgs.lua-language-server}/bin/lua-language-server";
+    luau = "${pkgs.luau-lsp}/bin/luau-lsp";
     rust = "${pkgs.rust-analyzer}/bin/rust-analyzer";
     sql = "${pkgs.sqls}/bin/sqls";
     tailwindcss = "${pkgs.tailwindcss-language-server}/bin/tailwindcss-language-server";
@@ -51,6 +52,7 @@ in
       gopls
       gofumpt
       lua-language-server
+      luau-lsp
       marksman
       nodePackages.markdownlint-cli
       nixfmt-rfc-style
@@ -355,6 +357,13 @@ in
     lua = {
       command = [ lspBins.lua ];
       extensions = [ ".lua" ];
+    };
+    luau = {
+      command = [
+        lspBins.luau
+        "lsp" # luau-lsp uses the 'lsp' subcommand to start the language server
+      ];
+      extensions = [ ".luau" ];
     };
     rust = {
       command = [ lspBins.rust ];
