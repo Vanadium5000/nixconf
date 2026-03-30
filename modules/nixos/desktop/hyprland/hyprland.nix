@@ -23,6 +23,48 @@
 
       makeScript = script: builtins.toString (pkgs.writeScriptBin "script" script) + "/bin/script";
 
+      closeConfirmWindowSeconds = 20;
+
+      closeActiveWindowScript = makeScript ''
+        #!${pkgs.bash}/bin/bash
+        set -euo pipefail
+
+        STATE_FILE="/dev/shm/hyprland-close-confirm-$UID"
+        LOCK_FILE="$STATE_FILE.lock"
+        CONFIRM_WINDOW_SECONDS=${toString closeConfirmWindowSeconds}
+        NOW_SECONDS=''${EPOCHREALTIME%.*}
+
+        # Serialize rapid presses so lag cannot interleave reads/writes and close the
+        # wrong window while the confirmation state is being refreshed.
+        exec 9>"$LOCK_FILE"
+        ${pkgs.util-linux}/bin/flock -x 9
+
+        if [ -r "$STATE_FILE" ]; then
+          IFS=' ' read -r LAST_PRESS_SECONDS _ < "$STATE_FILE" || true
+
+          if [ -n "''${LAST_PRESS_SECONDS:-}" ]; then
+            if (( NOW_SECONDS - LAST_PRESS_SECONDS <= CONFIRM_WINDOW_SECONDS )); then
+              rm -f "$STATE_FILE"
+              exec ${pkgs.hyprland}/bin/hyprctl dispatch killactive
+            fi
+          fi
+        fi
+
+        # Persist the first press in tmpfs so confirmation stays fast even when the
+        # rest of the system is under I/O pressure, and stale state disappears on reboot.
+        printf '%s\n' "$NOW_SECONDS" > "$STATE_FILE"
+
+        # Fire-and-forget reminder so a sluggish notification stack never delays the
+        # keybind itself or shortens the effective double-press window.
+        (
+          ${pkgs.libnotify}/bin/notify-send \
+            -u low \
+            -t 2000 \
+            "Close window" \
+            "Press SUPER+Q again within ''${CONFIRM_WINDOW_SECONDS}s to close this app."
+        ) >/dev/null 2>&1 < /dev/null &
+      '';
+
       # ═══════════════════════════════════════════════════════════════════
       # UNIFIED KEYBIND DEFINITIONS - Single source of truth
       # Each keybind has: key (hyprland format), exec, description, category
@@ -51,7 +93,7 @@
 
         # ── Windows ──
         windows = [
-          (kb "${mod},Q" "killactive," "Close active window" "Windows")
+          (kb "${mod},Q" "exec, ${closeActiveWindowScript}" "Close active window (press twice)" "Windows")
           (kb "${mod} ALT, Q" "exec, hyprctl kill" "Force kill window (click)" "Windows")
           (kb "${shiftMod},F" "togglefloating," "Toggle floating mode" "Windows")
           (kb "${shiftMod},C" "centerwindow" "Center floating window" "Windows")
