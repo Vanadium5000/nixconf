@@ -377,25 +377,33 @@
         };
 
       # Web management UI — ElysiaJS backend serving the React SPA.
-      # Copies node_modules for elysia runtime deps. Server runs unbundled via bun.
+      # Bun workspaces wire nested node_modules entries back into the repo-root
+      # .bun store via relative symlinks. Preserve that layout inside the
+      # derivation instead of dereferencing developer-local links, otherwise the
+      # sandbox cannot resolve packages like react or @faker-js/faker.
+      # Server runs unbundled via bun so runtime deps must stay discoverable.
       packages.vpn-proxy-web =
         let
           proxyWebSource = pkgs.runCommandLocal "proxy-web-source" { } ''
-            mkdir -p $out/web-ui
-            cp ${./proxy/vpn-resolver.ts} $out/vpn-resolver.ts
-            cp ${./proxy/shared.ts} $out/shared.ts
-            cp ${./proxy/socks5-proxy.ts} $out/socks5-proxy.ts
-            cp ${./proxy/http-proxy.ts} $out/http-proxy.ts
-            cp ${./proxy/cleanup.ts} $out/cleanup.ts
-            cp ${./proxy/netns.sh} $out/netns.sh
-            cp ${./proxy/settings.ts} $out/settings.ts
-            cp ${./proxy/proxy-tester.ts} $out/proxy-tester.ts
-            cp ${./proxy/cli-tools.ts} $out/cli-tools.ts
-            cp ${./proxy/web-server.ts} $out/web-server.ts
-            cp -r ${./proxy/web-ui}/* $out/web-ui/
-            cp ${./package.json} $out/package.json
-            # ElysiaJS and plugins need node_modules at runtime
-            cp -rL ${./node_modules} $out/node_modules
+            mkdir -p "$out/modules/nixos/scripts/bunjs/proxy/web-ui"
+            mkdir -p "$out/node_modules"
+
+            cp ${./proxy/vpn-resolver.ts} "$out/modules/nixos/scripts/bunjs/vpn-resolver.ts"
+            cp ${./proxy/shared.ts} "$out/modules/nixos/scripts/bunjs/shared.ts"
+            cp ${./proxy/socks5-proxy.ts} "$out/modules/nixos/scripts/bunjs/socks5-proxy.ts"
+            cp ${./proxy/http-proxy.ts} "$out/modules/nixos/scripts/bunjs/http-proxy.ts"
+            cp ${./proxy/cleanup.ts} "$out/modules/nixos/scripts/bunjs/cleanup.ts"
+            cp ${./proxy/netns.sh} "$out/modules/nixos/scripts/bunjs/netns.sh"
+            cp ${./proxy/settings.ts} "$out/modules/nixos/scripts/bunjs/settings.ts"
+            cp ${./proxy/proxy-tester.ts} "$out/modules/nixos/scripts/bunjs/proxy-tester.ts"
+            cp ${./proxy/cli-tools.ts} "$out/modules/nixos/scripts/bunjs/cli-tools.ts"
+            cp ${./proxy/web-server.ts} "$out/modules/nixos/scripts/bunjs/web-server.ts"
+            cp -r ${./proxy/web-ui}/* "$out/modules/nixos/scripts/bunjs/proxy/web-ui/"
+            cp ${./package.json} "$out/modules/nixos/scripts/bunjs/package.json"
+            # Keep the Bun workspace symlink graph intact by copying the nested
+            # node_modules tree and the repo-root .bun store into matching paths.
+            cp -r ${./node_modules} "$out/modules/nixos/scripts/bunjs/node_modules"
+            cp -r ${../../../../node_modules/.bun} "$out/node_modules/.bun"
           '';
           proxyWebEnv = pkgs.runCommandLocal "proxy-web-env" { } ''
             mkdir -p $out
@@ -406,11 +414,11 @@
           inherit pkgs;
           package = pkgs.writeShellScriptBin "vpn-proxy-web" ''
             export VPN_PROXY_WEB_DIST="/var/lib/vpn-proxy/web-ui-dist"
-            if [ -f "${proxyWebEnv}/web-ui/vite.config.ts" ]; then
+            if [ -f "${proxyWebEnv}/modules/nixos/scripts/bunjs/proxy/web-ui/vite.config.ts" ]; then
               mkdir -p "$VPN_PROXY_WEB_DIST"
-              ${pkgs.bun}/bin/bun ${proxyWebEnv}/node_modules/vite/bin/vite.js build --config "${proxyWebEnv}/web-ui/vite.config.ts"
+              ${pkgs.bun}/bin/bun ${proxyWebEnv}/modules/nixos/scripts/bunjs/node_modules/vite/bin/vite.js build --config "${proxyWebEnv}/modules/nixos/scripts/bunjs/proxy/web-ui/vite.config.ts"
             fi
-            exec ${pkgs.bun}/bin/bun run ${proxyWebEnv}/web-server.ts "$@"
+            exec ${pkgs.bun}/bin/bun run ${proxyWebEnv}/modules/nixos/scripts/bunjs/web-server.ts "$@"
           '';
           runtimeInputs = [
             pkgs.bun

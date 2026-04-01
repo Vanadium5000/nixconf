@@ -91,6 +91,10 @@ let
       # peft 0.8.2 - compatible with transformers 4.36.2 (newer versions need EncoderDecoderCache from 4.39+)
       peft = pinnedPeft pyFinal;
 
+      # einops tests pull the Jupyter/OpenAPI/Django stack through nixpkgs
+      # check inputs, but PersonaLive only needs the runtime library.
+      einops = pyPrev.einops.overridePythonAttrs { doCheck = false; };
+
       # pydevd - debugger that fails tests in sandbox (subprocess issues)
       # Pulled in via omegaconf, not needed at runtime
       pydevd = pyPrev.pydevd.overridePythonAttrs { doCheck = false; };
