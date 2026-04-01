@@ -758,7 +758,7 @@
                   ;;
                 launch-playwright)
                   notify-send "VPN Proxy" "Launching Playwright with $SLUG_NAME proxy..."
-                  playwright-browser "http://$SLUG_NAME:@127.0.0.1:10801" &
+                  playwright-stealth-browser "http://$SLUG_NAME:@127.0.0.1:10801" &
                   ;;
               esac
               exit 0

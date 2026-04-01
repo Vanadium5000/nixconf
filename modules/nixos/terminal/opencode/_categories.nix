@@ -263,6 +263,9 @@ let
         # "context7"
         # "grep_app"
       ];
+      # Keep Playwright repo-owned so built-in skill lifecycle does not compete
+      # with per-repository setup managed outside the shared host config.
+      disabled_skills = [ "playwright" ];
       tmux = {
         enabled = true;
         layout = "main-vertical";

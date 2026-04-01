@@ -55,6 +55,10 @@
         ++ (with pkgs; [
         # Tools
         localsend
+        # Install the upstream Playwright CLI from nixpkgs so browser tooling is
+        # available declaratively instead of via mutable npm globals.
+        # Ref: https://wiki.nixos.org/wiki/Playwright
+        playwright
         # Playwright on NixOS uses nixpkgs-provided browser bundles instead of
         # upstream downloads so Chromium stays runnable under the Nix dynamic
         # linker model. Ref: https://wiki.nixos.org/wiki/Playwright
@@ -159,6 +163,10 @@
         # clients do not attempt mutable browser downloads outside the store.
         # Ref: https://wiki.nixos.org/wiki/Playwright
         PLAYWRIGHT_BROWSERS_PATH = "${pkgs.playwright-driver.browsers}";
+        # NixOS already provides the runtime libraries, so Playwright host
+        # validation should not block startup on non-FHS filesystem layouts.
+        # Ref: https://wiki.nixos.org/wiki/Playwright
+        PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS = "true";
         # Keep Playwright aligned with the store-managed browser bundle above.
         PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "1";
         # Add Flatpak exports to XDG_DATA_DIRS

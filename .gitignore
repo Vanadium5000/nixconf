@@ -12,3 +12,4 @@ target
 # Secrets
 secrets/
 secrets.nix
+node_modules/

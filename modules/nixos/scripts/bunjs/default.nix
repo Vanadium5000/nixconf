@@ -437,9 +437,13 @@
           ];
         };
 
-      packages.playwright-browser =
+      packages.playwright-stealth-browser =
         let
           # Extract the chromium directory name from the browsers package
+          # Keep the Bun workspace's `playwright` dependency pinned to the
+          # nixpkgs Playwright version so the client protocol matches the
+          # store-managed browser revision on NixOS.
+          # Ref: https://wiki.nixos.org/wiki/Playwright
           chromiumDir = builtins.head (
             builtins.filter (x: builtins.match "chromium-.*" x != null) (
               builtins.attrNames (builtins.readDir pkgs.playwright-driver.browsers)
@@ -449,14 +453,14 @@
         in
         inputs.wrappers.lib.makeWrapper {
           inherit pkgs;
-          package = pkgs.writeShellScriptBin "playwright-browser" ''
+          package = pkgs.writeShellScriptBin "playwright-stealth-browser" ''
             export PLAYWRIGHT_BROWSERS_PATH=${pkgs.playwright-driver.browsers}
             export PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS=true
             export PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
             export PLAYWRIGHT_NODEJS_PATH=${pkgs.nodejs}/bin/node
             export PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH="${chromiumBin}"
 
-            exec ${pkgs.bun}/bin/bun run ${./playwright-browser.ts} "$@"
+            exec ${pkgs.bun}/bin/bun run ${./playwright-stealth-browser.ts} "$@"
           '';
 
           runtimeInputs = [
