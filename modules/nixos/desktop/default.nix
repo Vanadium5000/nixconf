@@ -55,10 +55,12 @@
         ++ (with pkgs; [
         # Tools
         localsend
-        # Install the upstream Playwright CLI from nixpkgs so browser tooling is
-        # available declaratively instead of via mutable npm globals.
-        # Ref: https://wiki.nixos.org/wiki/Playwright
-        playwright
+        # The local skills.sh Playwright skill expects a `playwright-cli`
+        # command, not the Playwright test runner package exposed as `playwright`.
+        # Keep the binary declarative so fresh hosts do not need mutable global
+        # npm installs before the skill can open a browser.
+        # Ref: .agents/skills/playwright-cli/SKILL.md
+        selfpkgs.playwright-cli
         # Playwright on NixOS uses nixpkgs-provided browser bundles instead of
         # upstream downloads so Chromium stays runnable under the Nix dynamic
         # linker model. Ref: https://wiki.nixos.org/wiki/Playwright

@@ -554,6 +554,56 @@ bun run build:vpn-proxy-web
 bun run typecheck:scripts
 ```
 
+### Local `skills.sh` skill dependencies
+
+Locally installed `skills.sh` skills only add the skill metadata under
+`.agents/skills/`. If a skill expects a real binary such as `playwright-cli`,
+you must also provide that runtime declaratively in this repo.
+
+The Playwright CLI setup in this repo is the reference pattern:
+
+1. Add a repo package in `modules/_pkgs/<name>.nix`.
+   - Package the upstream tool with Nix instead of relying on mutable global
+     `npm`, `pip`, or `cargo` installs.
+   - If the tool needs NixOS-specific defaults, wrap the binary and export the
+     required environment there.
+2. Install that package from the relevant host/profile module.
+   - Example: `modules/nixos/desktop/default.nix` adds
+     `selfpkgs.playwright-cli` because the local Playwright skill needs a
+     `playwright-cli` command on desktop hosts.
+3. Keep runtime-only browser or shared-library settings close to the host
+   module that actually needs them.
+   - Example: `PLAYWRIGHT_BROWSERS_PATH` stays in the desktop module because it
+     configures the browser bundle available to user sessions.
+
+For browser automation skills specifically, NixOS usually needs both the CLI
+package and store-managed browser wiring because upstream tools often assume an
+FHS path like `/opt/google/chrome` that does not exist on NixOS. The custom
+`modules/_pkgs/playwright-cli.nix` wrapper ships a default config that points
+Playwright at the nixpkgs Chromium bundle instead.
+
+Checklist for adding dependencies for another local skill:
+
+1. Read `.agents/skills/<skill>/SKILL.md` and list every external command it
+   shells out to.
+2. Prefer an existing nixpkgs package; if none exists in your pinned channel,
+   add a small package in `modules/_pkgs/`.
+3. Install that package from the correct module/profile via
+   `environment.systemPackages`.
+4. Add wrapper env/config only when the upstream default breaks on NixOS.
+   - Good examples: executable paths, browser bundle paths, or turning off
+     unsupported auto-download behavior.
+5. Verify with a direct command from the repo root before rebuilding your
+   system, for example:
+
+```bash
+nix build --no-link path:.#playwright-cli
+result_path=$(nix build --print-out-paths --no-link path:.#playwright-cli)
+"$result_path/bin/playwright-cli" open https://duckduckgo.com
+```
+
+This keeps skill runtimes reproducible and avoids hidden per-machine state.
+
 ### Adding a new module
 
 1. Add the module under `modules/` in the closest matching domain.

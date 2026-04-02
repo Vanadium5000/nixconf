@@ -13,3 +13,4 @@ target
 secrets/
 secrets.nix
 node_modules/
+.playwright-cli/

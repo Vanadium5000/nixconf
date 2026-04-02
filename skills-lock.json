@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "playwright-cli": {
+      "source": "microsoft/playwright-cli",
+      "sourceType": "github",
+      "computedHash": "b59ec572042f6191e62c2fcf11623846769bfdf26582540daf0ddd69bf401be3"
+    }
+  }
+}
