@@ -360,6 +360,9 @@
         PRESETS_FILE="$REPO_DIR/presets.json"
         GLOBAL_CONFIG_FILE="$HOME/.config/opencode/config.json"
         GLOBAL_OMA_FILE="$HOME/.config/opencode/oh-my-opencode.jsonc"
+        # Compatibility alias used by some OpenCode/Oh-My-* plugin paths.
+        # Keep both files in sync so runtime cannot silently read stale models.
+        GLOBAL_OPENAGENT_FILE="$HOME/.config/opencode/oh-my-openagent.jsonc"
         LOCAL_JSONC_FILE="$PWD/opencode.jsonc"
         TEMPLATES_DIR="${configVariantsDir}/templates"
         SHADCN_PROJECT_SKILL_FILE="${projectTemplateAssetsDir}/shadcn-ui/SKILL.md"
@@ -433,10 +436,11 @@
           fi
         }
 
-        config_out_of_date() {
-          ensure_state_file
-          if [ ! -f "$GLOBAL_OMA_FILE" ] || [ ! -s "$GLOBAL_OMA_FILE" ]; then
-            return 0
+        config_file_matches_state() {
+          local cfg_file="$1"
+
+          if [ ! -f "$cfg_file" ] || [ ! -s "$cfg_file" ]; then
+            return 1
           fi
 
           local mismatch=0
@@ -451,11 +455,11 @@
             config_model=$($JQ -r --arg category_id "$category_id" '
               .categories[$category_id]
               | if type == "object" then .model else . end
-            ' "$GLOBAL_OMA_FILE")
+            ' "$cfg_file")
             config_effort=$($JQ -r --arg category_id "$category_id" '
               .categories[$category_id]
               | if type == "object" then (.reasoningEffort // "") else "" end
-            ' "$GLOBAL_OMA_FILE")
+            ' "$cfg_file")
 
             if [ "$state_model" != "$config_model" ] || [ "$state_effort" != "$config_effort" ]; then
               mismatch=1
@@ -463,7 +467,20 @@
             fi
           done < <($JQ -r '.categories | keys[]' "$METADATA_FILE")
 
-          [ "$mismatch" -eq 1 ]
+          [ "$mismatch" -eq 0 ]
+        }
+
+        config_out_of_date() {
+          ensure_state_file
+          if ! config_file_matches_state "$GLOBAL_OMA_FILE"; then
+            return 0
+          fi
+
+          if ! config_file_matches_state "$GLOBAL_OPENAGENT_FILE"; then
+            return 0
+          fi
+
+          return 1
         }
 
         sync_config_from_state() {
@@ -513,8 +530,14 @@
           done < <($JQ -r '.categories | keys[]' "$METADATA_FILE")
 
           mkdir -p "$(dirname "$GLOBAL_OMA_FILE")"
-          mv "$oma_tmp" "$GLOBAL_OMA_FILE"
+          cp "$oma_tmp" "$GLOBAL_OMA_FILE"
           chmod 0600 "$GLOBAL_OMA_FILE"
+
+          # Keep compatibility alias in lock-step with the canonical OMO file.
+          cp "$oma_tmp" "$GLOBAL_OPENAGENT_FILE"
+          chmod 0600 "$GLOBAL_OPENAGENT_FILE"
+
+          rm -f "$oma_tmp"
 
           if $SYSTEMCTL is-active --quiet opencode-server 2>/dev/null; then
             $SYSTEMCTL restart opencode-server 2>/dev/null && $GUM style --foreground 99 "↻ Restarted opencode-server"
@@ -1180,6 +1203,14 @@
         };
 
         ".config/opencode/oh-my-opencode.jsonc" = {
+          text = builtins.toJSON ohMyOpencodeConfig;
+          type = "copy";
+          permissions = "0600";
+        };
+
+        # Compatibility alias used by some OpenCode plugin/runtime paths.
+        # Keep this synced with oh-my-opencode.jsonc to avoid stale model picks.
+        ".config/opencode/oh-my-openagent.jsonc" = {
           text = builtins.toJSON ohMyOpencodeConfig;
           type = "copy";
           permissions = "0600";

@@ -113,37 +113,37 @@
             nurpkgs = prev;
             pkgs = prev;
           };
-          waydroid-nftables = prev.waydroid-nftables.overrideAttrs (_old: {
-            # HACK: Temporary multi-instance override from taksan's fork until upstream merges.
-            # Undo by deleting this override once https://github.com/waydroid/waydroid/pull/1990 lands.
-            # Clear inherited nixpkgs patches because this fork's source layout no longer matches
-            # the 1.5.4 revert patch context, which otherwise breaks evaluation during patchPhase.
-            src = prev.fetchFromGitHub {
-              owner = "taksan";
-              repo = "waydroid";
-              rev = "bcd79d5fc522fdac514fae1a06efd5f1d4e0d545"; # feat/multi-instance @ 2025-07-29
-              hash = "sha256-F0++vTKbzOU/Fp2IE9hDZVswNpOVduj4/Z32ALLDI/Q=";
-            };
-            patches = [ ];
-          });
-           pythonPackagesExtensions = prev.pythonPackagesExtensions ++ [
-             (python-final: python-prev: {
-               tenacity = python-prev.tenacity.overridePythonAttrs (old: {
-                 # Disable flaky tests (AssertionError: 4 not less than 1.1)
-                 # Fixes build failures when system is under load
-                 doCheck = false;
-               });
-               trezor = python-prev.trezor.overridePythonAttrs (old: {
-                 nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ python-final.pythonRelaxDepsHook ];
+          # waydroid-nftables = prev.waydroid-nftables.overrideAttrs (_old: {
+          #   # HACK: Temporary multi-instance override from taksan's fork until upstream merges.
+          #   # Undo by deleting this override once https://github.com/waydroid/waydroid/pull/1990 lands.
+          #   # Clear inherited nixpkgs patches because this fork's source layout no longer matches
+          #   # the 1.5.4 revert patch context, which otherwise breaks evaluation during patchPhase.
+          #   src = prev.fetchFromGitHub {
+          #     owner = "taksan";
+          #     repo = "waydroid";
+          #     rev = "bcd79d5fc522fdac514fae1a06efd5f1d4e0d545"; # feat/multi-instance @ 2025-07-29
+          #     hash = "sha256-F0++vTKbzOU/Fp2IE9hDZVswNpOVduj4/Z32ALLDI/Q=";
+          #   };
+          #   patches = [ ];
+          # });
+          pythonPackagesExtensions = prev.pythonPackagesExtensions ++ [
+            (python-final: python-prev: {
+              tenacity = python-prev.tenacity.overridePythonAttrs (old: {
+                # Disable flaky tests (AssertionError: 4 not less than 1.1)
+                # Fixes build failures when system is under load
+                doCheck = false;
+              });
+              trezor = python-prev.trezor.overridePythonAttrs (old: {
+                nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ python-final.pythonRelaxDepsHook ];
 
-                 # Trezor 0.20.0 tightened wheel metadata to keyring>=25.7.0, but nixpkgs still
-                 # ships 25.6.0 here. Relax the lower bound locally so electrum-ltc keeps building
-                 # until nixpkgs catches up. Source: trezor-firmware/python/pyproject.toml.
-                 pythonRelaxDeps = (old.pythonRelaxDeps or [ ]) ++ [ "keyring" ];
-               });
-             })
-           ];
-         })
+                # Trezor 0.20.0 tightened wheel metadata to keyring>=25.7.0, but nixpkgs still
+                # ships 25.6.0 here. Relax the lower bound locally so electrum-ltc keeps building
+                # until nixpkgs catches up. Source: trezor-firmware/python/pyproject.toml.
+                pythonRelaxDeps = (old.pythonRelaxDeps or [ ]) ++ [ "keyring" ];
+              });
+            })
+          ];
+        })
         inputs.nix4vscode.overlays.default
       ];
 
