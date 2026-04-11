@@ -304,17 +304,115 @@ switch_system() {
     success "System switched successfully for host: ${HOST}"
 }
 
-print_module_matrix() {
-    local title_line="Module Matrix"
+matrix_fetch_json() {
+    local -a nix_args=(--impure)
+    if [ -n "$ARGS" ]; then
+        read -r -a extra_args <<< "$ARGS"
+        nix_args+=("${extra_args[@]}")
+    fi
 
+    nix eval --json "${FLAKE_REF}#hostModuleMatrix" "${nix_args[@]}" 2>/dev/null
+}
+
+matrix_render_summary_table() {
+    local matrix_json="$1"
+    printf '%s\n' "$matrix_json" | jq -r '
+      to_entries[] |
+      [
+        .key,
+        ((.value.profiles // []) | length),
+        ((.value.features // []) | length),
+        ((.value.services // []) | length),
+        ((.value.programs // []) | length)
+      ] | @tsv
+    ' | {
+        printf '%b\n' "${BLUE}HOST\tPROFILES\tFEATURES\tSERVICES\tPROGRAMS${NC}"
+        cat
+    } | column -t -s $'\t'
+}
+
+matrix_render_category_grid() {
+    local matrix_json="$1"
+    local category="$2"
+    local title="$3"
+
+    local -a names
+    mapfile -t names < <(
+        printf '%s\n' "$matrix_json" | jq -r --arg category "$category" '
+          to_entries
+          | map(.value[$category] // [])
+          | add
+          | unique
+          | .[]
+        '
+    )
+
+    if [ "${#names[@]}" -eq 0 ]; then
+        return 0
+    fi
+
+    local -a hosts
+    mapfile -t hosts < <(printf '%s\n' "$matrix_json" | jq -r 'keys[]')
+
+    printf '%b\n' "${BLUE}${title}${NC}"
+    {
+        printf 'HOST\t'
+        printf '%s\t' "${names[@]}"
+        printf '\n'
+
+        local host
+        local name
+        local marker
+        for host in "${hosts[@]}"; do
+            printf '%s\t' "$host"
+            for name in "${names[@]}"; do
+                marker=$(printf '%s\n' "$matrix_json" | jq -r --arg host "$host" --arg category "$category" --arg name "$name" '
+                  if ((.[ $host ][ $category ] // []) | index($name)) != null then "✓" else "·" end
+                ')
+                printf '%s\t' "$marker"
+            done
+            printf '\n'
+        done
+    } | column -t -s $'\t'
+}
+
+matrix_render_host_details() {
+    local matrix_json="$1"
+    printf '%s\n' "$matrix_json" | jq -r '
+      to_entries[]
+      | .key as $host
+      | [
+          $host,
+          (.value.profiles // [] | if length == 0 then "-" else join(", ") end),
+          (.value.features // [] | if length == 0 then "-" else join(", ") end),
+          (.value.services // [] | if length == 0 then "-" else join(", ") end),
+          (.value.programs // [] | if length == 0 then "-" else join(", ") end)
+        ] | @tsv
+    ' | {
+        printf '%b\n' "${BLUE}HOST\tPROFILES\tFEATURES\tSERVICES\tPROGRAMS${NC}"
+        cat
+    } | column -t -s $'\t'
+}
+
+print_module_matrix() {
     if ! command_exists nix || ! command_exists jq; then
         warn "Skipping module matrix preview (requires both nix and jq)"
         return 0
     fi
 
     local matrix_json
-    warn "Skipping module matrix preview (hostModuleMatrix export temporarily disabled during refactor)"
-    return 0
+    if ! matrix_json=$(matrix_fetch_json); then
+        warn "Skipping module matrix preview (hostModuleMatrix export unavailable)"
+        return 0
+    fi
+
+    log "Module matrix preview"
+    matrix_render_summary_table "$matrix_json"
+    matrix_render_category_grid "$matrix_json" "profiles" "Profile capability grid"
+    matrix_render_category_grid "$matrix_json" "features" "Feature capability grid"
+    matrix_render_category_grid "$matrix_json" "services" "Service capability grid"
+    matrix_render_category_grid "$matrix_json" "programs" "Program capability grid"
+    matrix_render_host_details "$matrix_json"
 }
 
 # Rollback system
