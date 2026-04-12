@@ -43,7 +43,7 @@ Glass design language.
 | Editor          | **Neovim** (NVF)                   | Primary `$EDITOR`, custom NVF config          |
 | IDE             | **VSCodium** / **Antigravity**     | Declarative extensions, custom theme          |
 | AI Coding       | **OpenCode**                       | Terminal AI assistant with MCP servers        |
-| AI Assistant    | **OpenClaw**                       | AI gateway (formerly ZeroClaw)                |
+| AI Assistant    | **OpenClaw**                       | AI gateway                                    |
 | Browser         | **Librewolf**                      | uBlock Origin, Vimium, custom user.js         |
 | File Manager    | **Dolphin** (KDE)                  | kio-extras, kio-admin                         |
 | Display Manager | **tuigreet** (greetd)              | TUI greeter                                   |

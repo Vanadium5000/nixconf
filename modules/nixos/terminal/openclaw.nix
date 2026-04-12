@@ -24,10 +24,15 @@
         services.openclaw-gateway = {
           enable = true;
           package = inputs.nix-openclaw.packages.${pkgs.stdenv.hostPlatform.system}.openclaw-gateway;
-          # Port 3100 was zeroclaw's, we keep it for now but bind to localhost
+          # Keep 3100 to match existing reverse-proxy/public URL wiring.
           port = 3100;
-          # Upstream module creates user/group/stateDir/configPath by default
-          # We just need to configure the provider
+          # Upstream asserts the config lives under /etc, but the gateway also
+          # writes temporary siblings next to the file at startup. Put it in a
+          # dedicated writable subdirectory so both constraints are satisfied.
+          configPath = "/etc/openclaw/state/openclaw.json";
+          # Upstream module creates user/group/stateDir defaults; we override only
+          # provider config and a writable config path that still satisfies its
+          # /etc assertion.
           config = {
             gateway = {
               mode = "local";
@@ -66,6 +71,12 @@
             group = "openclaw";
             mode = "0750";
           }
+        ];
+
+        # The gateway writes a temporary file next to configPath before swapping
+        # it into place, so the parent directory must be writable by openclaw.
+        systemd.tmpfiles.rules = [
+          "d /etc/openclaw/state 0750 openclaw openclaw -"
         ];
       };
     };

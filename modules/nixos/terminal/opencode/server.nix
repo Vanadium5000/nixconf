@@ -58,12 +58,12 @@
             RestartSec = 5;
             WorkingDirectory = homeDirectory;
 
-            # Run as the configured user to access hjem-deployed config
+            # Run as the configured user to access hjem-deployed config.
+            # nginx already gates the public endpoint, so duplicating auth here
+            # turns browser access into a confusing double-login flow.
             Environment = [
               "HOME=${homeDirectory}"
               "XDG_CONFIG_HOME=${homeDirectory}/.config"
-              # Auth set only in service unit, not system-wide (avoids breaking TUI usage)
-              "OPENCODE_SERVER_PASSWORD=${self.secrets.OPENCODE_SERVER_PASSWORD or ""}"
             ];
           };
         };

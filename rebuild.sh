@@ -19,6 +19,12 @@ FLAKE_DIR="${SCRIPT_DIR}"
 FLAKE_REF="path:."
 HOST="${HOST:-}"
 ARGS="${ARGS:-} --accept-flake-config"
+# Keep interactive SSH responsive, but do not force these settings onto bulk rsync.
+export NIX_SSHOPTS="${NIX_SSHOPTS:- -4 -o ControlMaster=auto -o ControlPersist=600 -o ControlPath=~/.ssh/opencode-rebuild-%C -o Compression=no -o IPQoS=throughput}"
+# Dedicated rsync transport opts: disable multiplexing and auth fallbacks so one
+# large file gets a clean throughput-oriented SSH session.
+export RSYNC_SSHOPTS="${RSYNC_SSHOPTS:- -4 -o ControlMaster=no -o ControlPath=none -o Compression=no -o IPQoS=throughput -o PreferredAuthentications=publickey -o GSSAPIAuthentication=no -T -x -c aes128-gcm@openssh.com}"
+
 
 # Colors for output
 RED='\033[0;31m'
@@ -512,6 +518,8 @@ EOF
 }
 
 # Deploy to remote host
+# Build locally, bulk-stream the closure to the target, then activate it remotely.
+# This avoids nix copy's slow path-by-path SSH store protocol for large closures.
 deploy_system() {
     local target_host="$1"
     if [ -z "$target_host" ]; then
@@ -520,18 +528,96 @@ deploy_system() {
         exit 1
     fi
 
-    log "Deploying system configuration for host '${HOST}' to remote target: ${target_host}"
+    local target_user=""
+    local target_addr=""
+    local resolved_target=""
+    if [[ "${target_host}" == *"@"* ]]; then
+        target_user="${target_host%@*}"
+        target_addr="${target_host#*@}"
+    else
+        target_addr="${target_host}"
+    fi
+
+    # Resolve hostnames once up front so deploy uses one concrete IPv4 route.
+    # This avoids SSH flipping between slow/incorrect address families or interfaces.
+    if [[ "${target_addr}" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        resolved_target="${target_addr}"
+    else
+        resolved_target=$(getent ahostsv4 "${target_addr}" | awk 'NR == 1 { print $1 }')
+        if [ -z "${resolved_target}" ]; then
+            error "Could not resolve IPv4 address for target: ${target_addr}"
+            exit 1
+        fi
+    fi
+
+    if [ -n "${target_user}" ]; then
+        resolved_target="${target_user}@${resolved_target}"
+    fi
+
+    log "Deploying system configuration for host '${HOST}' to remote target: ${target_host} (resolved: ${resolved_target})"
     write_secrets_nix
 
-    # Deploy on target host using the target host to build packages, etc, using sudo (on normal user rather than root)
-    # Use --build-host '${target_host}' to also build on target
-    local cmd="nixos-rebuild switch --target-host '${target_host}' --ask-sudo-password  --flake '${FLAKE_REF}#${HOST}' --impure $ARGS"
-    log_command "$cmd"
-    if ! eval "$cmd"; then
-        error "System deployment failed for host '${HOST}' to target: ${target_host}"
+    local system_path
+    log_command "nix build system closure"
+    if ! system_path=$(nix --extra-experimental-features 'nix-command flakes' build --print-out-paths "${FLAKE_REF}#nixosConfigurations.${HOST}.config.system.build.toplevel" --no-link --accept-flake-config --impure); then
+        error "System build failed for host '${HOST}'"
         return 1
     fi
-    success "System deployed successfully for host '${HOST}' to target: ${target_host}"
+    success "System built successfully for host: ${HOST}"
+
+    local requisites_file
+    local export_file
+    local remote_export_file
+    local -a requisites
+    requisites_file=$(mktemp)
+    export_file=$(mktemp --suffix=.nix-closure)
+    remote_export_file="/tmp/${HOST}-system.closure"
+
+    if ! nix-store --query --requisites "${system_path}" > "${requisites_file}"; then
+        rm -f "${requisites_file}" "${export_file}"
+        error "Failed to query system closure requisites for host '${HOST}'"
+        return 1
+    fi
+    mapfile -t requisites < "${requisites_file}"
+    rm -f "${requisites_file}"
+
+    if [ "${#requisites[@]}" -eq 0 ]; then
+        rm -f "${export_file}"
+        error "System closure requisites list was empty for host '${HOST}'"
+        return 1
+    fi
+
+    log_command "export nix-store closure to local file"
+    if ! nix-store --export "${requisites[@]}" > "${export_file}"; then
+        rm -f "${export_file}"
+        error "System closure export failed for host '${HOST}'"
+        return 1
+    fi
+    success "System closure exported successfully for host: ${HOST}"
+
+    log_command "copy closure file to ${resolved_target}"
+    if ! rsync --whole-file --progress --trust-sender -e "ssh ${RSYNC_SSHOPTS}" "${export_file}" "${resolved_target}:${remote_export_file}"; then
+        rm -f "${export_file}"
+        error "System closure file copy failed for host '${HOST}' to target: ${resolved_target}"
+        return 1
+    fi
+    success "System closure file copied successfully for host '${HOST}' to target: ${resolved_target}"
+
+    log_command "import closure file on ${resolved_target}"
+    if ! ssh -4 "${resolved_target}" "nix-store --import < '${remote_export_file}' && rm -f '${remote_export_file}'"; then
+        rm -f "${export_file}"
+        error "System closure import failed for host '${HOST}' on target: ${resolved_target}"
+        return 1
+    fi
+    rm -f "${export_file}"
+    success "System closure imported successfully for host '${HOST}' on target: ${resolved_target}"
+
+    log_command "ssh activate system closure on ${resolved_target}"
+    if ! ssh -4 "${resolved_target}" sudo "${system_path}/bin/switch-to-configuration" switch; then
+        error "Remote activation failed for host '${HOST}' on target: ${resolved_target}"
+        return 1
+    fi
+    success "System deployed successfully for host '${HOST}' to target: ${resolved_target}"
 }
 
 # Install on remote host using nixos-anywhere

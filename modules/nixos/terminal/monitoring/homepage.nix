@@ -127,7 +127,7 @@
                   "OpenClaw" = {
                     icon = "mdi-robot";
                     href = "https://openclaw.my-website.space";
-                    description = "AI assistant gateway (formerly ZeroClaw)";
+                    description = "AI assistant gateway";
                   };
                 }
                 {

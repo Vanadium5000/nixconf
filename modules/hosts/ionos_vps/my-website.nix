@@ -1,7 +1,11 @@
 { self, inputs, ... }:
 {
   flake.nixosModules.ionos_vpsHost =
-    { pkgs, ... }:
+    {
+      pkgs,
+      lib,
+      ...
+    }:
     let
       # Turn list of keys into an attrset of { key = null; }
       keysAsAttrs =
@@ -24,14 +28,21 @@
       # mongodbPassword = secrets'.MONGODB_PASSWORD;
       mongoExpressPassword = secrets'.MONGO_EXPRESS_PASSWORD;
       servicesAuthPassword = secrets'.SERVICES_AUTH_PASSWORD;
+      # Multiple usernames with one shared password keeps Basic Auth simple
+      # while avoiding lock-in to a single hardcoded username.
+      servicesAuthUsers = [
+        "admin"
+        "main"
+        "matrix"
+      ];
       # mongoExpressPasswordFile = pkgs.writeText "mongo-express-password" mongoExpressPassword;
 
       # Helper for authenticated subdomains
       mkAuthenticatedSubdomain =
         {
           port,
-          description,
           extraConfig ? "",
+          ...
         }:
         {
           forceSSL = true;
@@ -43,11 +54,16 @@
               let
                 htpasswdFile = pkgs.runCommand "htpasswd-services" { } ''
                   ${pkgs.apacheHttpd}/bin/htpasswd -cbB -C 12 \
-                    $out admin "${servicesAuthPassword}"
+                    "$out" "${builtins.head servicesAuthUsers}" "${servicesAuthPassword}"
+                  ${lib.concatMapStringsSep "\n" (user: ''
+                    ${pkgs.apacheHttpd}/bin/htpasswd -bB -C 12 \
+                      "$out" "${user}" "${servicesAuthPassword}"
+                  '') (builtins.tail servicesAuthUsers)}
                 '';
               in
               ''
-                auth_basic "${description}";
+                # Shared realm improves browser credential reuse across subdomains.
+                auth_basic "my-website.space services";
                 auth_basic_user_file ${htpasswdFile};
               ''
               + extraConfig;
@@ -140,9 +156,33 @@
           description = "Fleet Dashboard";
         };
 
-        virtualHosts."netdata.my-website.space" = mkAuthenticatedSubdomain {
-          port = 19999;
-          description = "System Monitoring";
+        virtualHosts."netdata.my-website.space" = {
+          forceSSL = true;
+          enableACME = true;
+          locations."= /" = {
+            # Netdata on this host exposes API endpoints but no static dashboard at '/'.
+            # Redirecting root avoids the upstream "File does not exist" error page.
+            return = "302 /api/v1/info";
+          };
+          locations."/" = {
+            proxyPass = "http://127.0.0.1:19999/";
+            proxyWebsockets = true;
+            extraConfig =
+              let
+                htpasswdFile = pkgs.runCommand "htpasswd-services" { } ''
+                  ${pkgs.apacheHttpd}/bin/htpasswd -cbB -C 12 \
+                    "$out" "${builtins.head servicesAuthUsers}" "${servicesAuthPassword}"
+                  ${lib.concatMapStringsSep "\n" (user: ''
+                    ${pkgs.apacheHttpd}/bin/htpasswd -bB -C 12 \
+                      "$out" "${user}" "${servicesAuthPassword}"
+                  '') (builtins.tail servicesAuthUsers)}
+                '';
+              in
+              ''
+                auth_basic "my-website.space services";
+                auth_basic_user_file ${htpasswdFile};
+              '';
+          };
         };
 
         virtualHosts."mitmproxy.my-website.space" = mkAuthenticatedSubdomain {

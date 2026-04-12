@@ -251,11 +251,6 @@
           serviceConfig = mkMerge [
             # Common config for all modes
             {
-              Environment = [
-                "MITMPROXY_CA_KEY=${self.secrets.MITMPROXY_CA_KEY or ""}"
-                "MITMPROXY_CA_CERT=${self.secrets.MITMPROXY_CA_CERT or ""}"
-              ];
-
               # Deploy the pre-generated CA certificates before starting
               ExecStartPre = [ "+${deployCAScript}" ];
 

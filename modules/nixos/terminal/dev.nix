@@ -31,6 +31,8 @@ in
       # Ollama - local text AIs
       services.ollama = {
         enable = true;
+        package =
+          if config.nixpkgs.config.cudaSupport then pkgs.unstable.ollama-cuda else pkgs.unstable.ollama;
         acceleration = if config.nixpkgs.config.cudaSupport then "cuda" else false;
       };
       impermanence.nixos.cache.directories = [
