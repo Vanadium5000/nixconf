@@ -23,7 +23,7 @@ ARGS="${ARGS:-} --accept-flake-config"
 export NIX_SSHOPTS="${NIX_SSHOPTS:- -4 -o ControlMaster=auto -o ControlPersist=600 -o ControlPath=~/.ssh/opencode-rebuild-%C -o Compression=no -o IPQoS=throughput}"
 # Dedicated rsync transport opts: disable multiplexing and auth fallbacks so one
 # large file gets a clean throughput-oriented SSH session.
-export RSYNC_SSHOPTS="${RSYNC_SSHOPTS:- -4 -o ControlMaster=no -o ControlPath=none -o Compression=no -o IPQoS=throughput -o PreferredAuthentications=publickey -o GSSAPIAuthentication=no -T -x -c aes128-gcm@openssh.com}"
+export RSYNC_SSHOPTS="${RSYNC_SSHOPTS:- -4 -o ControlMaster=no -o ControlPath=none -o Compression=no -o IPQoS=throughput -o PreferredAuthentications=publickey -T -x -c aes128-gcm@openssh.com}"
 
 
 # Colors for output

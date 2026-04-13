@@ -460,6 +460,7 @@ All packages in `modules/_pkgs/` are auto-exposed via `self.packages`:
 | `snitch`                   | TUI network connection inspector        |
 | `sora-watermark-cleaner`   | AI video watermark remover (CUDA)       |
 | `update-pkgs`              | Auto-updater for `_pkgs/` (nix-update)  |
+| `waydroid-script`          | Waydroid add-on installer helper        |
 | `waydroid-total-spoof`     | Waydroid device identity spoofing       |
 
 ---

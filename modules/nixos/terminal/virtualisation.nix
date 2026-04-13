@@ -1,4 +1,4 @@
-{ ... }:
+{ self, ... }:
 {
   flake.nixosModules.virtualisation =
     {
@@ -7,6 +7,9 @@
       lib,
       ...
     }:
+    let
+      selfpkgs = self.packages.${pkgs.stdenv.hostPlatform.system};
+    in
     {
       programs.virt-manager.enable = true;
 
@@ -54,7 +57,7 @@
 
         qemu # virtualisation
 
-        nur.repos.ataraxiasjel.waydroid-script # For installing libndk & other tools (for running ARM64 Android apps on x64)
+        selfpkgs.waydroid-script # Keep this local so update-pkgs can track the exact commit pinned by this flake.
       ];
 
       virtualisation.waydroid = {
