@@ -26,6 +26,10 @@
         # Workaround for https://github.com/NixOS/nix/issues/9574
         nixPath = [ "nixpkgs=${inputs.nixpkgs}" ];
 
+        # Keep CLI `flake:nixpkgs-unstable` aligned with this flake's locked input,
+        # so ad-hoc `nix run/shell/build` usage cannot drift to user/global registry pins.
+        registry.nixpkgs-unstable.flake = inputs.nixpkgs-unstable;
+
         settings = {
           builders-use-substitutes = true;
           trusted-users = [

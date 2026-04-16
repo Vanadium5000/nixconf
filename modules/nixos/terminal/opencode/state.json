@@ -4,13 +4,13 @@
       "model": "cliproxyapi/moonshotai/kimi-k2.5",
       "reasoningEffort": "high"
     },
-    "deep": "cliproxyapi/gpt-5.4",
+    "deep": "cliproxyapi/gpt-5.3-codex",
     "quick": {
       "model": "cliproxyapi/moonshotai/kimi-k2.5",
       "reasoningEffort": "high"
     },
-    "ultrabrain": "cliproxyapi/gpt-5.4",
-    "unspecified-high": "cliproxyapi/gpt-5.4",
+    "ultrabrain": "cliproxyapi/gpt-5.3-codex",
+    "unspecified-high": "cliproxyapi/gpt-5.3-codex",
     "unspecified-low": {
       "model": "cliproxyapi/moonshotai/kimi-k2.5",
       "reasoningEffort": "high"
