@@ -283,24 +283,47 @@ pkgs.writeShellApplication {
       PACKAGES+=("''${file%.nix}")
     done
 
-    # Create a temporary expression to expose packages for nix-update
-    cat > packages.nix <<EOF
-    { pkgs ? import <nixpkgs> {} }:
-    {
-    $(for pkg in "''${PACKAGES[@]}"; do
-      if [ "$pkg" == "antigravity-manager" ]; then
-        echo "  $pkg = (pkgs.callPackage ./$pkg.nix {}).unwrapped;"
-      elif [ "$pkg" == "cliproxyapi" ]; then
-        echo "  $pkg = pkgs.callPackage ./$pkg.nix { unstable = pkgs // { buildGo126Module = pkgs.buildGoModule or pkgs.buildGo123Module; }; };"
-      elif [ "$pkg" == "sora-watermark-cleaner" ] || [ "$pkg" == "personalive" ]; then
-        # Skip - has complex Python/CUDA deps that may not eval cleanly
-        echo "  # $pkg = pkgs.callPackage ./$pkg.nix {}; # skipped - complex deps"
-      else
-        echo "  $pkg = pkgs.callPackage ./$pkg.nix {};"
-      fi
-    done)
-    }
-    EOF
+# Create a temporary expression to expose packages for nix-update
+cat > packages.nix <<EOF
+{ pkgs ? import <nixpkgs> {} }:
+{
+  $(for pkg in "''${PACKAGES[@]}"; do
+    if [ "$pkg" == "cliproxyapi" ]; then
+      # Supported: Go package with special buildGoModule override
+      echo " $pkg = pkgs.callPackage ./$pkg.nix { unstable = pkgs // { buildGo126Module = pkgs.buildGoModule or pkgs.buildGo123Module; }; };"
+    elif [ "$pkg" == "antigravity-manager" ]; then
+      # Skip: RPM-wrapped AppImage with versioned URL pattern (manual update required)
+      echo " # $pkg = (pkgs.callPackage ./$pkg.nix {}).unwrapped; # skipped - RPM-wrapped, versioned URL (manual update)"
+    elif [ "$pkg" == "aptos-fonts" ]; then
+      # Skip: Static font package from Microsoft CDN (manual update required)
+      echo " # $pkg = pkgs.callPackage ./$pkg.nix {}; # skipped - static font CDN URL (manual update)"
+    elif [ "$pkg" == "iloader" ]; then
+      # Skip: iOS device management AppImage with manual download (manual update required)
+      echo " # $pkg = pkgs.callPackage ./$pkg.nix {}; # skipped - iOS AppImage with manual download (manual update)"
+    elif [ "$pkg" == "personalive" ]; then
+      # Skip: Complex PyTorch ecosystem with CUDA pins and platform-specific wheels
+      echo " # $pkg = pkgs.callPackage ./$pkg.nix {}; # skipped - complex PyTorch/CUDA pins (manual update required)"
+    elif [ "$pkg" == "playwright-cli" ]; then
+      # Skip: NPM-based package with Playwright browser bundle dependencies
+      echo " # $pkg = pkgs.callPackage ./$pkg.nix {}; # skipped - NPM package with browser bundles (manual update)"
+    elif [ "$pkg" == "quickshell-docs-markdown" ]; then
+      # Skip: Multi-source Rust package with pinned git deps (manual update required)
+      echo " # $pkg = pkgs.callPackage ./$pkg.nix {}; # skipped - multi-source Rust with pinned deps (manual update)"
+    elif [ "$pkg" == "sideloader" ]; then
+      # Skip: iOS sideloading tool with manual download and signing requirements
+      echo " # $pkg = pkgs.callPackage ./$pkg.nix {}; # skipped - iOS sideloader with signing deps (manual update)"
+    elif [ "$pkg" == "snitch" ]; then
+      # Skip: TUI network inspector with custom build process
+      echo " # $pkg = pkgs.callPackage ./$pkg.nix {}; # skipped - custom build process (manual update)"
+    elif [ "$pkg" == "sora-watermark-cleaner" ]; then
+      # Skip: AI model with pre-fetched weights and CUDA dependencies
+      echo " # $pkg = pkgs.callPackage ./$pkg.nix {}; # skipped - AI model with pre-fetched weights (manual update)"
+    else
+      echo " $pkg = pkgs.callPackage ./$pkg.nix {};"
+    fi
+  done)
+}
+EOF
 
     # Set NIX_PATH so <nixpkgs> can be resolved
     export NIX_PATH=nixpkgs=${pkgs.path}
@@ -315,52 +338,73 @@ pkgs.writeShellApplication {
       echo "================================================================"
       echo "Checking $pkg..."
       
-      # Per-package update strategies
-      case "$pkg" in
-        "antigravity-manager")
-          # Has versioned URL - use custom updater
-          if update_versioned_url_package "$pkg" "lbjlaq" "Antigravity-Manager"; then
-            UPDATED+=("$pkg")
-          else
-            SKIPPED+=("$pkg")
-          fi
-          ;;
+  # Per-package update strategies
+  case "$pkg" in
+  "aptos-fonts")
+    # Skip: static font CDN URL (manual update required)
+    echo " Skipping aptos-fonts (manual update required - static font CDN)"
+    SKIPPED+=("$pkg")
+    ;;
 
-        "dogecoin"|"openchamber")
-          # Has versioned URL from GitHub releases
-          if update_versioned_url_package "$pkg" "openchamber" "openchamber"; then
-            UPDATED+=("$pkg")
-          else
-            SKIPPED+=("$pkg")
-          fi
-          ;;
+  "antigravity-manager")
+    # Skip: RPM-wrapped AppImage with versioned URL pattern (manual update required)
+    echo " Skipping antigravity-manager (manual update required - RPM-wrapped AppImage)"
+    SKIPPED+=("$pkg")
+    ;;
 
-        "quickshell-docs-markdown")
-          # Has multiple GitHub sources - use multi-source updater
-          if update_multi_source_package "$pkg"; then
-            UPDATED+=("$pkg")
-          else
-            SKIPPED+=("$pkg")
-          fi
-          ;;
+  "dogecoin")
+    # Has versioned URL from GitHub releases
+    if update_versioned_url_package "$pkg" "dogecoin" "dogecoin"; then
+      UPDATED+=("$pkg")
+    else
+      SKIPPED+=("$pkg")
+    fi
+    ;;
 
-        "sora-watermark-cleaner")
-          # Complex package with pre-fetched models - use multi-source updater
-          if update_multi_source_package "$pkg"; then
-            UPDATED+=("$pkg")
-          else
-            SKIPPED+=("$pkg")
-          fi
-          ;;
+  "openchamber")
+    # Has versioned URL from GitHub releases
+    if update_versioned_url_package "$pkg" "openchamber" "openchamber"; then
+      UPDATED+=("$pkg")
+    else
+      SKIPPED+=("$pkg")
+    fi
+    ;;
 
-        "deep-live-cam")
-          # Uses GitHub release tags
-          if update_versioned_url_package "$pkg" "hacksider" "Deep-Live-Cam"; then
-            UPDATED+=("$pkg")
-          else
-            SKIPPED+=("$pkg")
-          fi
-          ;;
+  "iloader")
+    # Skip: iOS AppImage with manual download (manual update required)
+    echo " Skipping iloader (manual update required - iOS AppImage with manual download)"
+    SKIPPED+=("$pkg")
+    ;;
+
+  "playwright-cli")
+    # Skip: NPM-based package with browser bundle dependencies (manual update required)
+    echo " Skipping playwright-cli (manual update required - NPM with browser bundles)"
+    SKIPPED+=("$pkg")
+    ;;
+
+  "quickshell-docs-markdown")
+    # Skip: multi-source Rust with pinned git deps (manual update required)
+    echo " Skipping quickshell-docs-markdown (manual update required - multi-source Rust)"
+    SKIPPED+=("$pkg")
+    ;;
+
+  "sideloader")
+    # Skip: iOS sideloader with signing deps (manual update required)
+    echo " Skipping sideloader (manual update required - iOS sideloader with signing deps)"
+    SKIPPED+=("$pkg")
+    ;;
+
+  "snitch")
+    # Skip: TUI network inspector with custom build process (manual update required)
+    echo " Skipping snitch (manual update required - custom build process)"
+    SKIPPED+=("$pkg")
+    ;;
+
+  "sora-watermark-cleaner")
+    # Skip: AI model with pre-fetched weights and CUDA dependencies (manual update required)
+    echo " Skipping sora-watermark-cleaner (manual update required - AI model with pre-fetched weights)"
+    SKIPPED+=("$pkg")
+    ;;
 
         "daisyui-mcp"|"pomodoro-for-waybar"|"powerpoint-mcp"|"waydroid-script"|"waydroid-total-spoof")
           # Track branches - use nix-update with branch mode
@@ -379,25 +423,13 @@ pkgs.writeShellApplication {
           set -e
           ;;
 
-        "niri-screen-time"|"snitch"|"cliproxyapi")
-          # Go package with vendorHash - standard nix-update
-          # or multi-arch binary package with release tags
+        "niri-screen-time"|"cliproxyapi")
+          # Go packages with vendorHash work well with nix-update.
           set +e
           if nix-update -f packages.nix "$pkg"; then
             UPDATED+=("$pkg")
           else
             FAILED+=("$pkg")
-          fi
-          set -e
-          ;;
-
-        "iloader"|"sideloader")
-          # AppImage/binary packages - check for new releases
-          set +e
-          if nix-update -f packages.nix "$pkg"; then
-            UPDATED+=("$pkg")
-          else
-            SKIPPED+=("$pkg")
           fi
           set -e
           ;;
