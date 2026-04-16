@@ -1,4 +1,4 @@
-{ self, inputs, ... }:
+{ inputs, ... }:
 {
   # Extends flake.nixosModules.opencode via import-tree merge
   flake.nixosModules.opencode =
@@ -18,6 +18,20 @@
       cfg = config.services.opencode-server;
       user = config.preferences.user.username;
       homeDirectory = config.preferences.paths.homeDirectory;
+
+      baseOpencode = inputs.opencode.packages.${pkgs.stdenv.hostPlatform.system}.default;
+
+      # Override node_modules hash for x86_64-linux due to upstream fixed-output drift.
+      # Upstream revision 9afbdc1 produces a different hash on x86_64-linux; pin locally.
+      opencodePackage =
+        if pkgs.stdenv.hostPlatform.system == "x86_64-linux" then
+          baseOpencode.override {
+            node_modules = baseOpencode.node_modules.override {
+              hash = "sha256-tYAb5Mo39UW1VEejYuo0jW0jzH2OyY/HrqgiZL3rmjY=";
+            };
+          }
+        else
+          baseOpencode;
     in
     {
       options.services.opencode-server = {
@@ -37,7 +51,7 @@
 
         package = mkOption {
           type = types.package;
-          default = inputs.opencode.packages.${pkgs.stdenv.hostPlatform.system}.default;
+          default = opencodePackage;
           description = "OpenCode package to use";
         };
       };

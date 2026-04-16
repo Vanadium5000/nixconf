@@ -17,7 +17,19 @@
       };
       pluginsConfig = import ./_plugins.nix;
       categoriesConfig = import ./_categories.nix { inherit lib; };
-      opencode = inputs.opencode.packages.${pkgs.stdenv.hostPlatform.system}.default;
+      baseOpencode = inputs.opencode.packages.${pkgs.stdenv.hostPlatform.system}.default;
+
+  # Override node_modules hash for x86_64-linux due to upstream fixed-output drift.
+  # Upstream revision 9afbdc1 produces a different hash on x86_64-linux; pin locally.
+  opencode =
+    if pkgs.stdenv.hostPlatform.system == "x86_64-linux" then
+      baseOpencode.override {
+        node_modules = baseOpencode.node_modules.override {
+          hash = "sha256-tYAb5Mo39UW1VEejYuo0jW0jzH2OyY/HrqgiZL3rmjY=";
+        };
+      }
+    else
+      baseOpencode;
 
       # Path to the persistent model selections
       stateFile = ./state.json;
