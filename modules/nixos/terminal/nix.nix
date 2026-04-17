@@ -51,6 +51,7 @@
         # Required by electrum-ltc (litecoin-wallet). Low-value wallet, acceptable risk.
         permittedInsecurePackages = [
           "python3.13-ecdsa-0.19.1"
+          "openclaw-2026.4.11"
         ];
 
         # Exceptions

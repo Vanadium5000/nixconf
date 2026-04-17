@@ -74,6 +74,7 @@
             cpufetch # CPU info
             nix-tree # Nix storage info
             speedtest-go # Internet speed test using speedtest.net
+            iperf3 # Connection benchmarking
 
             # Network monitoring TUI tools
             termshark # TUI packet analyzer (uses tshark backend)
@@ -131,7 +132,6 @@
               responder # LLMNR/NBT-NS/mDNS poisoner
 
               # Web Security
-              wpscan # WordPress vulnerability scanner
               zap # OWASP ZAP security scanner
               xxd # Hex dump tool
               linux-wifi-hotspot # WiFi hotspot tool
