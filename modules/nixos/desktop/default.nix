@@ -53,177 +53,174 @@
           selfpkgs.qs-notify
         ]
         ++ (with pkgs; [
-        # Tools
-        localsend
-        # The local skills.sh Playwright skill expects a `playwright-cli`
-        # command, not the Playwright test runner package exposed as `playwright`.
-        # Keep the binary declarative so fresh hosts do not need mutable global
-        # npm installs before the skill can open a browser.
-        # Ref: .agents/skills/playwright-cli/SKILL.md
-        selfpkgs.playwright-cli
-        # Playwright on NixOS uses nixpkgs-provided browser bundles instead of
-        # upstream downloads so Chromium stays runnable under the Nix dynamic
-        # linker model. Ref: https://wiki.nixos.org/wiki/Playwright
-        playwright-driver.browsers
+          # Tools
+          localsend
+          # The local skills.sh Playwright skill expects a `playwright-cli`
+          # command, not the Playwright test runner package exposed as `playwright`.
+          # Keep the binary declarative so fresh hosts do not need mutable global
+          # npm installs before the skill can open a browser.
+          # Ref: .agents/skills/playwright-cli/SKILL.md
+          selfpkgs.playwright-cli
+          # Playwright on NixOS uses nixpkgs-provided browser bundles instead of
+          # upstream downloads so Chromium stays runnable under the Nix dynamic
+          # linker model. Ref: https://wiki.nixos.org/wiki/Playwright
+          playwright-driver.browsers
 
-        # Video players
-        vlc
-        mpv
+          # Video players
+          vlc
+          mpv
 
-        # KDE Core Apps
-        kdePackages.dolphin # File Manager
-        kdePackages.ark # Archive Manager
-        kdePackages.okular # Document Viewer
-        kdePackages.gwenview # Image Viewer
-        kdePackages.plasma-systemmonitor # System Monitor GUI
+          # KDE Core Apps
+          kdePackages.dolphin # File Manager
+          kdePackages.ark # Archive Manager
+          kdePackages.okular # Document Viewer
+          kdePackages.gwenview # Image Viewer
+          kdePackages.plasma-systemmonitor # System Monitor GUI
 
-        libreoffice-qt6 # Office suite (GUI only)
-        onlyoffice-desktopeditors # Office suite 2
+          libreoffice-qt6 # Office suite (GUI only)
+          onlyoffice-desktopeditors # Office suite 2
 
-        # KDE Frameworks & System Utilities
-        kdePackages.ksystemstats # Core system statistics provider
-        kdePackages.libksysguard # System monitoring library
-        kdePackages.kactivitymanagerd # Runtime requirement for KDE apps
-        kdePackages.kded # Required for SolidUiServer (mounting drives)
-        kdePackages.plasma-workspace
-        kdePackages.kwallet # Required for storing/prompting credentials
-        kdePackages.kio-extras # Additional IO protocols (sftp, smb, thumbnails)
-        kdePackages.kio-admin # Admin actions in Dolphin
-        kdePackages.polkit-kde-agent-1 # Polkit authentication agent (Required)
+          # KDE Frameworks & System Utilities
+          kdePackages.ksystemstats # Core system statistics provider
+          kdePackages.libksysguard # System monitoring library
+          kdePackages.kactivitymanagerd # Runtime requirement for KDE apps
+          kdePackages.kded # Required for SolidUiServer (mounting drives)
+          kdePackages.plasma-workspace
+          kdePackages.kwallet # Required for storing/prompting credentials
+          kdePackages.kio-extras # Additional IO protocols (sftp, smb, thumbnails)
+          kdePackages.kio-admin # Admin actions in Dolphin
+          kdePackages.polkit-kde-agent-1 # Polkit authentication agent (Required)
 
-        kitty # Terminal Emulator
+          kitty # Terminal Emulator
 
-        # CLIs
-        powertop # CLI for checking battery power-draw
-        wl-clipboard # System clipboard
+          # CLIs
+          powertop # CLI for checking battery power-draw
+          wl-clipboard # System clipboard
 
-        # XDG Integration (MIME & Desktop Entry tools)
-        shared-mime-info
-        desktop-file-utils
+          # XDG Integration (MIME & Desktop Entry tools)
+          shared-mime-info
+          desktop-file-utils
 
-        # GTK icon themes
-        # morewaita-icon-theme - Removed
-        # adwaita-icon-theme - Removed
-      ])
-      # GPU monitoring
+          # GTK icon themes
+          # morewaita-icon-theme - Removed
+          # adwaita-icon-theme - Removed
+        ])
+        # GPU monitoring
         ++ (lib.optional config.nixpkgs.config.cudaSupport pkgs.nvtopPackages.full);
 
         services = {
-        # D-Bus activation for KDE services (SolidUiServer requires plasma-workspace)
-        dbus.packages = [
-          pkgs.kdePackages.kded
-          pkgs.kdePackages.plasma-workspace
-        ];
+          # D-Bus activation for KDE services (SolidUiServer requires plasma-workspace)
+          dbus.packages = [
+            pkgs.kdePackages.kded
+            pkgs.kdePackages.plasma-workspace
+          ];
 
-        # Battery tool, required by hyprpanel
-        upower.enable = true;
-        # Enable CUPS printing service
-        printing.enable = true;
-        # GNOME virtual filesystem
-        gvfs.enable = true;
-        # DBus service that allows applications to query and manipulate storage devices
-        udisks2.enable = true;
-        # Enable usbmuxd service for iOS devices
-        usbmuxd.enable = true;
+          # Battery tool, required by hyprpanel
+          upower.enable = true;
+          # Enable CUPS printing service
+          printing.enable = true;
+          # GNOME virtual filesystem
+          gvfs.enable = true;
+          # DBus service that allows applications to query and manipulate storage devices
+          udisks2.enable = true;
+          # Enable usbmuxd service for iOS devices
+          usbmuxd.enable = true;
         };
 
-      # Generic command-line automation tool (macro/autoclicker)
+        # Generic command-line automation tool (macro/autoclicker)
         programs.ydotool = {
-        # Whether to enable ydotoold system service and ydotool for members of programs.ydotool.group
-        enable = true;
-        };
-
-      # Graphics
-        hardware = {
-        graphics = {
+          # Whether to enable ydotoold system service and ydotool for members of programs.ydotool.group
           enable = true;
         };
+
+        # Graphics
+        hardware = {
+          graphics = {
+            enable = true;
+          };
         };
 
-      # XDG Integration
+        # XDG Integration
         xdg.mime.enable = true;
         xdg.mime.defaultApplications = {
-        # Keep LibreWolf as the human-facing default browser even though
-        # Playwright gets its own Chromium bundle for automation.
-        "text/html" = [ "librewolf.desktop" ];
-        "application/xhtml+xml" = [ "librewolf.desktop" ];
-        "x-scheme-handler/http" = [ "librewolf.desktop" ];
-        "x-scheme-handler/https" = [ "librewolf.desktop" ];
-        "x-scheme-handler/about" = [ "librewolf.desktop" ];
-        "x-scheme-handler/unknown" = [ "librewolf.desktop" ];
+          # Keep LibreWolf as the human-facing default browser even though
+          # Playwright gets its own Chromium bundle for automation.
+          "text/html" = [ "librewolf.desktop" ];
+          "application/xhtml+xml" = [ "librewolf.desktop" ];
+          "x-scheme-handler/http" = [ "librewolf.desktop" ];
+          "x-scheme-handler/https" = [ "librewolf.desktop" ];
+          "x-scheme-handler/about" = [ "librewolf.desktop" ];
+          "x-scheme-handler/unknown" = [ "librewolf.desktop" ];
         };
 
-      # Dolphin requires applications.menu to discover apps.
-      # Outside a full Plasma session, this file is missing or not detected.
+        # Dolphin requires applications.menu to discover apps.
+        # Outside a full Plasma session, this file is missing or not detected.
         environment.etc."xdg/menus/applications.menu".source =
           "${pkgs.kdePackages.plasma-workspace}/etc/xdg/menus/plasma-applications.menu";
 
         environment.sessionVariables = {
-        # Tell KDE apps which menu to use
-        XDG_MENU_PREFIX = "plasma-";
-        # Reuse the nixpkgs Playwright browser bundle so npm/bun Playwright
-        # clients do not attempt mutable browser downloads outside the store.
-        # Ref: https://wiki.nixos.org/wiki/Playwright
-        PLAYWRIGHT_BROWSERS_PATH = "${pkgs.playwright-driver.browsers}";
-        # NixOS already provides the runtime libraries, so Playwright host
-        # validation should not block startup on non-FHS filesystem layouts.
-        # Ref: https://wiki.nixos.org/wiki/Playwright
-        PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS = "true";
-        # Keep Playwright aligned with the store-managed browser bundle above.
-        PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "1";
-        # Add Flatpak exports to XDG_DATA_DIRS
-        XDG_DATA_DIRS = [
-          "/var/lib/flatpak/exports/share"
-          "$HOME/.local/share/flatpak/exports/share"
-        ];
+          # Tell KDE apps which menu to use
+          XDG_MENU_PREFIX = "plasma-";
+          # Reuse the nixpkgs Playwright browser bundle so npm/bun Playwright
+          # clients do not attempt mutable browser downloads outside the store.
+          # Ref: https://wiki.nixos.org/wiki/Playwright
+          PLAYWRIGHT_BROWSERS_PATH = "${pkgs.playwright-driver.browsers}";
+          # NixOS already provides the runtime libraries, so Playwright host
+          # validation should not block startup on non-FHS filesystem layouts.
+          # Ref: https://wiki.nixos.org/wiki/Playwright
+          PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS = "true";
+          # Keep Playwright aligned with the store-managed browser bundle above.
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "1";
+          # Add Flatpak exports to XDG_DATA_DIRS
+          XDG_DATA_DIRS = [
+            "/var/lib/flatpak/exports/share"
+            "$HOME/.local/share/flatpak/exports/share"
+          ];
         };
 
-      # Rebuild KDE system configuration cache after rebuilds
+        # Rebuild KDE system configuration cache after rebuilds
         system.activationScripts.kbuildsycoca = {
-        text = ''
-          for dir in /home/*; do
-            user="$(basename "$dir")"
-            if id "$user" &>/dev/null; then
-              if [ -d "$dir" ]; then
-                ${pkgs.util-linux}/bin/runuser -u "$user" -- ${pkgs.kdePackages.kservice}/bin/kbuildsycoca6 --noincremental 2>/dev/null || true
+          text = ''
+            for dir in /home/*; do
+              user="$(basename "$dir")"
+              if id "$user" &>/dev/null; then
+                if [ -d "$dir" ]; then
+                  ${pkgs.util-linux}/bin/runuser -u "$user" -- ${pkgs.kdePackages.kservice}/bin/kbuildsycoca6 --noincremental 2>/dev/null || true
+                fi
               fi
-            fi
-          done
-        '';
-        deps = [ "users" ];
+            done
+          '';
+          deps = [ "users" ];
         };
 
-      # XDG Portal
+        # XDG Portal
         xdg.portal = {
-        enable = true;
-        extraPortals = [ pkgs.kdePackages.xdg-desktop-portal-kde ];
-        config.common.default = "hyprland";
-        xdgOpenUsePortal = true;
+          enable = true;
+          extraPortals = [ pkgs.kdePackages.xdg-desktop-portal-kde ];
+          config.common.default = "hyprland";
+          xdgOpenUsePortal = true;
         };
 
         fonts.packages = with pkgs; [
-        nerd-fonts.jetbrains-mono
-        font-awesome
-        roboto
-        work-sans
-        comic-neue
-        source-sans
-        comfortaa
-        inter
-        lato
-        lexend
-        jost
-        dejavu_fonts
-        noto-fonts
-        noto-fonts-cjk-sans
-        noto-fonts-color-emoji
-        openmoji-color
-        twemoji-color-font
-        self.packages.${pkgs.stdenv.hostPlatform.system}.aptos-fonts
+          nerd-fonts.jetbrains-mono
+          font-awesome
+          roboto
+          work-sans
+          comic-neue
+          source-sans
+          comfortaa
+          inter
+          lato
+          lexend
+          jost
+          dejavu_fonts
+          noto-fonts
+          noto-fonts-cjk-sans
+          noto-fonts-color-emoji
+          openmoji-color
+          twemoji-color-font
+          self.packages.${pkgs.stdenv.hostPlatform.system}.aptos-fonts
         ];
-
-      # Microsoft Aptos is proprietary
-        preferences.allowedUnfree = [ "aptos-fonts" ];
 
         # Safeeyes - A uitlity to remind the user to look away from the screen every x minutes
         # NOTE: Quite annoying tho

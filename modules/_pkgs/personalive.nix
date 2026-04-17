@@ -112,183 +112,199 @@ let
   # ==========================================================================
 
   # Protobuf 3.20.3 - mediapipe uses MessageFactory.GetPrototype() removed in 5.x
-  pinnedProtobuf = pyPkgs: pyPkgs.buildPythonPackage {
-    pname = "protobuf";
-    version = "3.20.3";
-    format = "wheel";
+  pinnedProtobuf =
+    pyPkgs:
+    pyPkgs.buildPythonPackage {
+      pname = "protobuf";
+      version = "3.20.3";
+      format = "wheel";
 
-    src = pkgs.fetchurl {
-      url = "https://files.pythonhosted.org/packages/8d/14/619e24a4c70df2901e1f4dbc50a6291eb63a759172558df326347dce1f0d/protobuf-3.20.3-py2.py3-none-any.whl";
-      hash = "sha256-p8ptSIqo/38ynUxUWy262KwxRk8dixyHrRNGcXcx5Ns=";
+      src = pkgs.fetchurl {
+        url = "https://files.pythonhosted.org/packages/8d/14/619e24a4c70df2901e1f4dbc50a6291eb63a759172558df326347dce1f0d/protobuf-3.20.3-py2.py3-none-any.whl";
+        hash = "sha256-p8ptSIqo/38ynUxUWy262KwxRk8dixyHrRNGcXcx5Ns=";
+      };
+
+      doCheck = false;
     };
-
-    doCheck = false;
-  };
 
   # huggingface-hub 0.25.2 - last version with cached_download()
-  pinnedHuggingfaceHub = pyPkgs: pyPkgs.buildPythonPackage {
-    pname = "huggingface-hub";
-    version = "0.25.2";
-    format = "wheel";
+  pinnedHuggingfaceHub =
+    pyPkgs:
+    pyPkgs.buildPythonPackage {
+      pname = "huggingface-hub";
+      version = "0.25.2";
+      format = "wheel";
 
-    src = pkgs.fetchurl {
-      url = "https://files.pythonhosted.org/packages/64/09/a535946bf2dc88e61341f39dc507530411bb3ea4eac493e5ec833e8f35bd/huggingface_hub-0.25.2-py3-none-any.whl";
-      hash = "sha256-GJfK+Izn+X/gEQYD2PZqwmTjumrM3zDNZswP7VKCrSU=";
+      src = pkgs.fetchurl {
+        url = "https://files.pythonhosted.org/packages/64/09/a535946bf2dc88e61341f39dc507530411bb3ea4eac493e5ec833e8f35bd/huggingface_hub-0.25.2-py3-none-any.whl";
+        hash = "sha256-GJfK+Izn+X/gEQYD2PZqwmTjumrM3zDNZswP7VKCrSU=";
+      };
+
+      propagatedBuildInputs = with pyPkgs; [
+        filelock
+        fsspec
+        packaging
+        pyyaml
+        requests
+        tqdm
+        typing-extensions
+      ];
+
+      doCheck = false;
     };
-
-    propagatedBuildInputs = with pyPkgs; [
-      filelock
-      fsspec
-      packaging
-      pyyaml
-      requests
-      tqdm
-      typing-extensions
-    ];
-
-    doCheck = false;
-  };
 
   # tokenizers 0.15.2 - required by transformers 4.36.2 (needs >=0.14,<0.19)
-  pinnedTokenizers = pyPkgs: pyPkgs.buildPythonPackage {
-    pname = "tokenizers";
-    version = "0.15.2";
-    format = "wheel";
+  pinnedTokenizers =
+    pyPkgs:
+    pyPkgs.buildPythonPackage {
+      pname = "tokenizers";
+      version = "0.15.2";
+      format = "wheel";
 
-    src = pkgs.fetchurl {
-      url = "https://files.pythonhosted.org/packages/15/0b/c09b2c0dc688c82adadaa0d5080983de3ce920f4a5cbadb7eaa5302ad251/tokenizers-0.15.2-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl";
-      hash = "sha256-zNc6gnUcUjs/wx/4GUcC5K9Nsh3CDlWzDswgecXUPLc=";
+      src = pkgs.fetchurl {
+        url = "https://files.pythonhosted.org/packages/15/0b/c09b2c0dc688c82adadaa0d5080983de3ce920f4a5cbadb7eaa5302ad251/tokenizers-0.15.2-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl";
+        hash = "sha256-zNc6gnUcUjs/wx/4GUcC5K9Nsh3CDlWzDswgecXUPLc=";
+      };
+
+      nativeBuildInputs = [ pkgs.autoPatchelfHook ];
+      buildInputs = [ pkgs.stdenv.cc.cc.lib ];
+
+      propagatedBuildInputs = [ pyPkgs.huggingface-hub ]; # Uses override version
+
+      doCheck = false;
     };
-
-    nativeBuildInputs = [ pkgs.autoPatchelfHook ];
-    buildInputs = [ pkgs.stdenv.cc.cc.lib ];
-
-    propagatedBuildInputs = [ pyPkgs.huggingface-hub ]; # Uses override version
-
-    doCheck = false;
-  };
 
   # Transformers 4.36.2 - tested configuration matching diffusers 0.27.0
-  pinnedTransformers = pyPkgs: pyPkgs.buildPythonPackage {
-    pname = "transformers";
-    version = "4.36.2";
-    format = "wheel";
+  pinnedTransformers =
+    pyPkgs:
+    pyPkgs.buildPythonPackage {
+      pname = "transformers";
+      version = "4.36.2";
+      format = "wheel";
 
-    src = pkgs.fetchurl {
-      url = "https://files.pythonhosted.org/packages/20/0a/739426a81f7635b422fbe6cb8d1d99d1235579a6ac8024c13d743efa6847/transformers-4.36.2-py3-none-any.whl";
-      hash = "sha256-RiBmxPdO5SUW8SiQ3MnscdGl6XmY22IWaEVRF6VDMPY=";
+      src = pkgs.fetchurl {
+        url = "https://files.pythonhosted.org/packages/20/0a/739426a81f7635b422fbe6cb8d1d99d1235579a6ac8024c13d743efa6847/transformers-4.36.2-py3-none-any.whl";
+        hash = "sha256-RiBmxPdO5SUW8SiQ3MnscdGl6XmY22IWaEVRF6VDMPY=";
+      };
+
+      propagatedBuildInputs = with pyPkgs; [
+        filelock
+        huggingface-hub # Uses override version
+        numpy
+        packaging
+        pyyaml
+        regex
+        requests
+        safetensors
+        tokenizers # Uses override version
+        tqdm
+      ];
+
+      doCheck = false;
     };
-
-    propagatedBuildInputs = with pyPkgs; [
-      filelock
-      huggingface-hub # Uses override version
-      numpy
-      packaging
-      pyyaml
-      regex
-      requests
-      safetensors
-      tokenizers # Uses override version
-      tqdm
-    ];
-
-    doCheck = false;
-  };
 
   # Diffusers 0.27.0 - newer versions have breaking API changes
-  pinnedDiffusers = pyPkgs: pyPkgs.buildPythonPackage {
-    pname = "diffusers";
-    version = "0.27.0";
-    format = "wheel";
+  pinnedDiffusers =
+    pyPkgs:
+    pyPkgs.buildPythonPackage {
+      pname = "diffusers";
+      version = "0.27.0";
+      format = "wheel";
 
-    src = pkgs.fetchurl {
-      url = "https://files.pythonhosted.org/packages/54/ea/3848667fc018341916a3677f9cc376154a381ba43e1dd08105b0777bc81c/diffusers-0.27.0-py3-none-any.whl";
-      hash = "sha256-8mop7Eir7noJ/vPCB/9kjrOHE4+vjKE6YF85dgNsxww=";
+      src = pkgs.fetchurl {
+        url = "https://files.pythonhosted.org/packages/54/ea/3848667fc018341916a3677f9cc376154a381ba43e1dd08105b0777bc81c/diffusers-0.27.0-py3-none-any.whl";
+        hash = "sha256-8mop7Eir7noJ/vPCB/9kjrOHE4+vjKE6YF85dgNsxww=";
+      };
+
+      propagatedBuildInputs = with pyPkgs; [
+        importlib-metadata
+        filelock
+        huggingface-hub # Uses override version
+        numpy
+        regex
+        requests
+        safetensors
+        pillow
+      ];
+
+      doCheck = false;
     };
-
-    propagatedBuildInputs = with pyPkgs; [
-      importlib-metadata
-      filelock
-      huggingface-hub # Uses override version
-      numpy
-      regex
-      requests
-      safetensors
-      pillow
-    ];
-
-    doCheck = false;
-  };
 
   # imageio 2.36.1 wheel - avoids nixpkgs version that pulls pillow-heif → opencv
-  pinnedImageio = pyPkgs: pyPkgs.buildPythonPackage {
-    pname = "imageio";
-    version = "2.36.1";
-    format = "wheel";
+  pinnedImageio =
+    pyPkgs:
+    pyPkgs.buildPythonPackage {
+      pname = "imageio";
+      version = "2.36.1";
+      format = "wheel";
 
-    src = pkgs.fetchurl {
-      url = "https://files.pythonhosted.org/packages/5c/f9/f78e7f5ac8077c481bf6b43b8bc736605363034b3d5eb3ce8eb79f53f5f1/imageio-2.36.1-py3-none-any.whl";
-      hash = "sha256-IKvSyuWOVcoa+Kjc9DKTM2pZrfA5HxkXv4UYYzz8LN8=";
+      src = pkgs.fetchurl {
+        url = "https://files.pythonhosted.org/packages/5c/f9/f78e7f5ac8077c481bf6b43b8bc736605363034b3d5eb3ce8eb79f53f5f1/imageio-2.36.1-py3-none-any.whl";
+        hash = "sha256-IKvSyuWOVcoa+Kjc9DKTM2pZrfA5HxkXv4UYYzz8LN8=";
+      };
+
+      propagatedBuildInputs = with pyPkgs; [
+        numpy
+        pillow
+      ];
+
+      doCheck = false;
     };
-
-    propagatedBuildInputs = with pyPkgs; [
-      numpy
-      pillow
-    ];
-
-    doCheck = false;
-  };
 
   # accelerate 1.11.0 wheel - nixpkgs version fails tests in sandbox (torch.inductor error)
-  pinnedAccelerate = pyPkgs: pyPkgs.buildPythonPackage {
-    pname = "accelerate";
-    version = "1.11.0";
-    format = "wheel";
+  pinnedAccelerate =
+    pyPkgs:
+    pyPkgs.buildPythonPackage {
+      pname = "accelerate";
+      version = "1.11.0";
+      format = "wheel";
 
-    src = pkgs.fetchurl {
-      url = "https://files.pythonhosted.org/packages/77/85/85951bc0f9843e2c10baaa1b6657227056095de08f4d1eea7d8b423a6832/accelerate-1.11.0-py3-none-any.whl";
-      hash = "sha256-pij6a+sGm45UlGD8RJE11b2Nc+ehH9CfC8n8Ss5/BvE=";
+      src = pkgs.fetchurl {
+        url = "https://files.pythonhosted.org/packages/77/85/85951bc0f9843e2c10baaa1b6657227056095de08f4d1eea7d8b423a6832/accelerate-1.11.0-py3-none-any.whl";
+        hash = "sha256-pij6a+sGm45UlGD8RJE11b2Nc+ehH9CfC8n8Ss5/BvE=";
+      };
+
+      propagatedBuildInputs = with pyPkgs; [
+        numpy
+        packaging
+        psutil
+        pyyaml
+        torch # Uses override version (torch-bin)
+        huggingface-hub # Uses override version
+        safetensors
+      ];
+
+      doCheck = false;
     };
-
-    propagatedBuildInputs = with pyPkgs; [
-      numpy
-      packaging
-      psutil
-      pyyaml
-      torch # Uses override version (torch-bin)
-      huggingface-hub # Uses override version
-      safetensors
-    ];
-
-    doCheck = false;
-  };
 
   # peft 0.8.2 - compatible with transformers 4.36.2
   # Newer versions (0.14+) require EncoderDecoderCache which was added in transformers 4.39+
-  pinnedPeft = pyPkgs: pyPkgs.buildPythonPackage {
-    pname = "peft";
-    version = "0.8.2";
-    format = "wheel";
+  pinnedPeft =
+    pyPkgs:
+    pyPkgs.buildPythonPackage {
+      pname = "peft";
+      version = "0.8.2";
+      format = "wheel";
 
-    src = pkgs.fetchurl {
-      url = "https://files.pythonhosted.org/packages/07/63/168af5aa8dbda9c23ad774a4c1d311cfe220c634e0d05a3a82a7cae01bd8/peft-0.8.2-py3-none-any.whl";
-      hash = "sha256-SpyBw45on9QEOydXzQ4rUmqbi4/QT4RC3yxIJLMsJQU=";
+      src = pkgs.fetchurl {
+        url = "https://files.pythonhosted.org/packages/07/63/168af5aa8dbda9c23ad774a4c1d311cfe220c634e0d05a3a82a7cae01bd8/peft-0.8.2-py3-none-any.whl";
+        hash = "sha256-SpyBw45on9QEOydXzQ4rUmqbi4/QT4RC3yxIJLMsJQU=";
+      };
+
+      propagatedBuildInputs = with pyPkgs; [
+        numpy
+        packaging
+        psutil
+        pyyaml
+        torch # Uses override version (torch-bin)
+        transformers # Uses override version (pinnedTransformers)
+        huggingface-hub # Uses override version
+        safetensors
+        accelerate # Uses override version (pinnedAccelerate)
+      ];
+
+      doCheck = false;
     };
-
-    propagatedBuildInputs = with pyPkgs; [
-      numpy
-      packaging
-      psutil
-      pyyaml
-      torch # Uses override version (torch-bin)
-      transformers # Uses override version (pinnedTransformers)
-      huggingface-hub # Uses override version
-      safetensors
-      accelerate # Uses override version (pinnedAccelerate)
-    ];
-
-    doCheck = false;
-  };
 
   # ==========================================================================
   # Custom packages not in nixpkgs (use pythonPkgs after override is applied)
@@ -793,7 +809,6 @@ stdenv.mkDerivation {
   meta = with lib; {
     description = "Real-time streamable diffusion framework for portrait animation";
     homepage = "https://github.com/GVCLab/PersonaLive";
-    license = licenses.unfree; # Academic research only
     platforms = platforms.linux;
     maintainers = [ ];
     mainProgram = "personalive";

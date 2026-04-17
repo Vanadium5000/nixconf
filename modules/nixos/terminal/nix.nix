@@ -61,6 +61,8 @@
             [
               "nvidia-x11"
               "nvidia-settings"
+              "torch"
+              "triton"
 
               # Nvidia CUDA
               "cuda_cudart"

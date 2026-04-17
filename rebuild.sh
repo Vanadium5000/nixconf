@@ -19,18 +19,9 @@ FLAKE_DIR="${SCRIPT_DIR}"
 FLAKE_REF="path:."
 HOST="${HOST:-}"
 ARGS="${ARGS:-} --accept-flake-config"
-# Keep interactive SSH responsive, but do not force these settings onto bulk rsync.
+# Keep deploy SSH responsive while the transfer itself is handled by rclone.
 export NIX_SSHOPTS="${NIX_SSHOPTS:- -4 -o ControlMaster=auto -o ControlPersist=600 -o ControlPath=~/.ssh/opencode-rebuild-%C -o Compression=no -o IPQoS=throughput}"
-# Dedicated rsync transport opts: disable multiplexing and auth fallbacks so one
-# large file gets a clean throughput-oriented SSH session.
-export RSYNC_SSHOPTS="${RSYNC_SSHOPTS:- -4 -o ControlMaster=no -o ControlPath=none -o Compression=no -o IPQoS=throughput -o PreferredAuthentications=publickey -T -x -c aes128-gcm@openssh.com}"
-# Parallel deploy transfers intentionally reuse the throughput-oriented SSH
-# profile because this link only reaches expected throughput when several
-# independent streams are active at the same time.
-export DEPLOY_PATH_SSHOPTS="${DEPLOY_PATH_SSHOPTS:-${RSYNC_SSHOPTS}}"
-export DEPLOY_TRANSFER_MODE="${DEPLOY_TRANSFER_MODE:-parallel-paths}"
-export DEPLOY_JOBS="${DEPLOY_JOBS:-6}"
-export DEPLOY_RETRIES="${DEPLOY_RETRIES:-2}"
+export DEPLOY_TRANSFER_MODE="${DEPLOY_TRANSFER_MODE:-single-export}"
 
 
 # Colors for output
@@ -566,12 +557,14 @@ deploy_system() {
         local resolved_target="$2"
         local requisites_file
         local export_file
+        local remote_stage_dir
         local remote_export_file
         local -a requisites
 
         requisites_file=$(mktemp)
         export_file=$(mktemp --suffix=.nix-closure)
-        remote_export_file="/tmp/${HOST}-system.closure"
+        remote_stage_dir="/tmp/rebuild-transfer/${HOST}"
+        remote_export_file="${remote_stage_dir}/system.closure"
 
         if ! nix-store --query --requisites "${system_path}" > "${requisites_file}"; then
             rm -f "${requisites_file}" "${export_file}"
@@ -595,8 +588,15 @@ deploy_system() {
         fi
         success "System closure exported successfully for host: ${HOST}"
 
-        log_command "copy closure file to ${resolved_target}"
-        if ! rsync --whole-file --progress --trust-sender -e "ssh ${RSYNC_SSHOPTS}" "${export_file}" "${resolved_target}:${remote_export_file}"; then
+        log_command "prepare remote staging path on ${resolved_target}"
+        if ! ssh -4 "${resolved_target}" "mkdir -p '${remote_stage_dir}' && rm -f '${remote_export_file}'"; then
+            rm -f "${export_file}"
+            error "Failed to prepare remote staging path for host '${HOST}' on target: ${resolved_target}"
+            return 1
+        fi
+
+        log_command "copy closure file to ${resolved_target} via rclone"
+        if ! RCLONE_SFTP_HOST_KEY_ALGORITHMS='' rclone copyto --progress --stats-one-line --stats 1s --sftp-host "${target_addr}" --sftp-user "${target_user:-$USER}" --sftp-disable-hashcheck --sftp-set-modtime=false --sftp-connections 10 --transfers 10 --checkers 10 "${export_file}" ":sftp:${remote_export_file}"; then
             rm -f "${export_file}"
             error "System closure file copy failed for host '${HOST}' to target: ${resolved_target}"
             return 1
@@ -604,127 +604,13 @@ deploy_system() {
         success "System closure file copied successfully for host: ${HOST} to target: ${resolved_target}"
 
         log_command "import closure file on ${resolved_target}"
-        if ! ssh -4 "${resolved_target}" "nix-store --import < '${remote_export_file}' && rm -f '${remote_export_file}'"; then
+        if ! ssh -4 "${resolved_target}" "nix-store --import < '${remote_export_file}' && rm -f '${remote_export_file}' && rmdir '${remote_stage_dir}' 2>/dev/null || true"; then
             rm -f "${export_file}"
             error "System closure import failed for host '${HOST}' on target: ${resolved_target}"
             return 1
         fi
         rm -f "${export_file}"
         success "System closure imported successfully for host: ${HOST} on target: ${resolved_target}"
-        return 0
-    }
-
-    deploy_transfer_parallel_paths() {
-        local system_path="$1"
-        local resolved_target="$2"
-        local requisites_file
-        local missing_file
-        local remote_stage_dir
-        local remote_missing_file
-        local path
-        local worker_failures
-
-        requisites_file=$(mktemp)
-        missing_file=$(mktemp)
-
-        if ! nix-store --query --requisites "${system_path}" > "${requisites_file}"; then
-            rm -f "${requisites_file}" "${missing_file}"
-            error "Failed to query system closure requisites for host '${HOST}'"
-            return 1
-        fi
-
-        if ! remote_stage_dir=$(ssh -4 ${DEPLOY_PATH_SSHOPTS} "${resolved_target}" 'mktemp -d /tmp/opencode-closure.XXXXXX'); then
-            rm -f "${requisites_file}" "${missing_file}"
-            error "Failed to create remote staging directory on target: ${resolved_target}"
-            return 1
-        fi
-        remote_missing_file="${remote_stage_dir}/missing-paths.txt"
-
-        log "Collecting missing store paths on ${resolved_target}"
-        if ! ssh -4 ${DEPLOY_PATH_SSHOPTS} "${resolved_target}" 'while IFS= read -r path; do [ -e "$path" ] || printf "%s\n" "$path"; done' < "${requisites_file}" > "${missing_file}"; then
-            rm -f "${requisites_file}" "${missing_file}"
-            error "Failed to probe remote store paths on target: ${resolved_target}"
-            return 1
-        fi
-
-        if ! grep -q . "${missing_file}"; then
-            rm -f "${requisites_file}" "${missing_file}"
-            if ! ssh -4 ${DEPLOY_PATH_SSHOPTS} "${resolved_target}" "rm -rf '${remote_stage_dir}'"; then
-                warn "Failed to remove empty remote staging directory: ${remote_stage_dir}"
-            fi
-            success "All closure paths already exist on target: ${resolved_target}"
-            return 0
-        fi
-
-        if ! ssh -4 ${DEPLOY_PATH_SSHOPTS} "${resolved_target}" "cat > '${remote_missing_file}'" < "${missing_file}"; then
-            rm -f "${requisites_file}" "${missing_file}"
-            error "Failed to upload missing store path manifest to target: ${resolved_target}"
-            return 1
-        fi
-
-        transfer_store_path_to_stage() {
-            local store_path="$1"
-            local resolved_target="$2"
-            local remote_stage_dir="$3"
-            local retries="$4"
-            local base_name
-            local remote_file
-            local attempt
-
-            base_name=$(basename "${store_path}")
-            remote_file="${remote_stage_dir}/${base_name}.nar"
-            attempt=1
-
-            while [ "${attempt}" -le "${retries}" ]; do
-                if nix-store --export "${store_path}" | ssh -4 ${DEPLOY_PATH_SSHOPTS} "${resolved_target}" "cat > '${remote_file}'"; then
-                    return 0
-                fi
-                attempt=$((attempt + 1))
-                sleep 1
-            done
-
-            return 1
-        }
-
-        log "Transferring missing closure paths to ${resolved_target} with ${DEPLOY_JOBS} workers"
-        worker_failures=0
-        while IFS= read -r path; do
-            [ -n "${path}" ] || continue
-            transfer_store_path_to_stage "${path}" "${resolved_target}" "${remote_stage_dir}" "$((DEPLOY_RETRIES + 1))" &
-            while [ "$(jobs -pr | wc -l | tr -d ' ')" -ge "${DEPLOY_JOBS}" ]; do
-                if ! wait -n; then
-                    worker_failures=1
-                fi
-            done
-        done < "${missing_file}"
-
-        while [ "$(jobs -pr | wc -l | tr -d ' ')" -gt 0 ]; do
-            if ! wait -n; then
-                worker_failures=1
-            fi
-        done
-
-        if [ "${worker_failures}" -ne 0 ]; then
-            rm -f "${requisites_file}" "${missing_file}"
-            error "Parallel closure path transfer failed for host '${HOST}' to target: ${resolved_target}"
-            return 1
-        fi
-
-        log_command "import staged closure paths on ${resolved_target}"
-        if ! ssh -4 ${DEPLOY_PATH_SSHOPTS} "${resolved_target}" "stage_dir='${remote_stage_dir}'; missing_file='${remote_missing_file}'; while IFS= read -r path; do [ -n "$path" ] || continue; base_name=\$(basename "$path"); nix-store --import < "$stage_dir/\${base_name}.nar" || exit 1; done < "$missing_file"; rm -rf "$stage_dir""; then
-            rm -f "${requisites_file}" "${missing_file}"
-            error "Staged closure import failed for host '${HOST}' on target: ${resolved_target}"
-            return 1
-        fi
-
-        if ! ssh -4 ${DEPLOY_PATH_SSHOPTS} "${resolved_target}" 'while IFS= read -r path; do [ -e "$path" ] || exit 1; done' < "${requisites_file}"; then
-            rm -f "${requisites_file}" "${missing_file}"
-            error "Remote closure verification failed for host '${HOST}' on target: ${resolved_target}"
-            return 1
-        fi
-
-        rm -f "${requisites_file}" "${missing_file}"
-        success "System closure transferred and verified successfully for host: ${HOST} on target: ${resolved_target}"
         return 0
     }
 
@@ -740,11 +626,6 @@ deploy_system() {
     success "System built successfully for host: ${HOST}"
 
     case "${DEPLOY_TRANSFER_MODE}" in
-        parallel-paths)
-            if ! deploy_transfer_parallel_paths "${system_path}" "${resolved_target}"; then
-                return 1
-            fi
-            ;;
         single-export)
             if ! deploy_transfer_single_export "${system_path}" "${resolved_target}"; then
                 return 1

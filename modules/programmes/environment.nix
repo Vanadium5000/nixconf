@@ -58,6 +58,7 @@
             openocd
 
             psmisc # Set of small useful utilities that use the proc filesystem (such as fuser, killall and pstree)
+            rclone
 
             tealdeer # Very fast implementation of tldr in Rust
             btop # System resource monitor

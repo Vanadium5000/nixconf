@@ -37,6 +37,8 @@
       _module.args.pkgs = import inputs.nixpkgs {
         inherit system;
         config = {
+          # HACK: this sucks
+          allowUnfree = true;
           # CVE-2024-23342: ecdsa timing side-channel attack allowing private key recovery.
           # Required by electrum-ltc (litecoin-wallet). Low-value wallet, acceptable risk.
           permittedInsecurePackages = [

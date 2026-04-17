@@ -28,7 +28,6 @@ stdenvNoCC.mkDerivation {
   meta = {
     description = "Microsoft Aptos font family - successor to Calibri";
     homepage = "https://learn.microsoft.com/en-us/typography/font-list/aptos";
-    license = lib.licenses.unfree; # Microsoft proprietary
     platforms = lib.platforms.all;
   };
 }
