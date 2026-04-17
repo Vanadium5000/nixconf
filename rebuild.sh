@@ -19,10 +19,6 @@ FLAKE_DIR="${SCRIPT_DIR}"
 FLAKE_REF="path:."
 HOST="${HOST:-}"
 ARGS="${ARGS:-} --accept-flake-config"
-# Keep deploy SSH responsive while the transfer itself is handled by rclone.
-export NIX_SSHOPTS="${NIX_SSHOPTS:- -4 -o ControlMaster=auto -o ControlPersist=600 -o ControlPath=~/.ssh/opencode-rebuild-%C -o Compression=no -o IPQoS=throughput}"
-export DEPLOY_TRANSFER_MODE="${DEPLOY_TRANSFER_MODE:-single-export}"
-
 
 # Colors for output
 RED='\033[0;31m'
@@ -516,8 +512,6 @@ EOF
 }
 
 # Deploy to remote host
-# Build locally, bulk-stream the closure to the target, then activate it remotely.
-# This avoids nix copy's slow path-by-path SSH store protocol for large closures.
 deploy_system() {
     local target_host="$1"
     if [ -z "$target_host" ]; then
@@ -526,124 +520,20 @@ deploy_system() {
         exit 1
     fi
 
-    local target_user=""
-    local target_addr=""
-    local resolved_target=""
-    if [[ "${target_host}" == *"@"* ]]; then
-        target_user="${target_host%@*}"
-        target_addr="${target_host#*@}"
-    else
-        target_addr="${target_host}"
-    fi
-
-    # Resolve hostnames once up front so deploy uses one concrete IPv4 route.
-    # This avoids SSH flipping between slow/incorrect address families or interfaces.
-    if [[ "${target_addr}" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-        resolved_target="${target_addr}"
-    else
-        resolved_target=$(getent ahostsv4 "${target_addr}" | awk 'NR == 1 { print $1 }')
-        if [ -z "${resolved_target}" ]; then
-            error "Could not resolve IPv4 address for target: ${target_addr}"
-            exit 1
-        fi
-    fi
-
-    if [ -n "${target_user}" ]; then
-        resolved_target="${target_user}@${resolved_target}"
-    fi
-
-    deploy_transfer_single_export() {
-        local system_path="$1"
-        local resolved_target="$2"
-        local requisites_file
-        local export_file
-        local remote_stage_dir
-        local remote_export_file
-        local -a requisites
-
-        requisites_file=$(mktemp)
-        export_file=$(mktemp --suffix=.nix-closure)
-        remote_stage_dir="/tmp/rebuild-transfer/${HOST}"
-        remote_export_file="${remote_stage_dir}/system.closure"
-
-        if ! nix-store --query --requisites "${system_path}" > "${requisites_file}"; then
-            rm -f "${requisites_file}" "${export_file}"
-            error "Failed to query system closure requisites for host '${HOST}'"
-            return 1
-        fi
-        mapfile -t requisites < "${requisites_file}"
-        rm -f "${requisites_file}"
-
-        if [ "${#requisites[@]}" -eq 0 ]; then
-            rm -f "${export_file}"
-            error "System closure requisites list was empty for host '${HOST}'"
-            return 1
-        fi
-
-        log_command "export nix-store closure to local file"
-        if ! nix-store --export "${requisites[@]}" > "${export_file}"; then
-            rm -f "${export_file}"
-            error "System closure export failed for host '${HOST}'"
-            return 1
-        fi
-        success "System closure exported successfully for host: ${HOST}"
-
-        log_command "prepare remote staging path on ${resolved_target}"
-        if ! ssh -4 "${resolved_target}" "mkdir -p '${remote_stage_dir}' && rm -f '${remote_export_file}'"; then
-            rm -f "${export_file}"
-            error "Failed to prepare remote staging path for host '${HOST}' on target: ${resolved_target}"
-            return 1
-        fi
-
-        log_command "copy closure file to ${resolved_target} via rclone"
-        if ! RCLONE_SFTP_HOST_KEY_ALGORITHMS='' rclone copyto --progress --stats-one-line --stats 1s --sftp-host "${target_addr}" --sftp-user "${target_user:-$USER}" --sftp-disable-hashcheck --sftp-set-modtime=false --sftp-connections 10 --transfers 10 --checkers 10 "${export_file}" ":sftp:${remote_export_file}"; then
-            rm -f "${export_file}"
-            error "System closure file copy failed for host '${HOST}' to target: ${resolved_target}"
-            return 1
-        fi
-        success "System closure file copied successfully for host: ${HOST} to target: ${resolved_target}"
-
-        log_command "import closure file on ${resolved_target}"
-        if ! ssh -4 "${resolved_target}" "nix-store --import < '${remote_export_file}' && rm -f '${remote_export_file}' && rmdir '${remote_stage_dir}' 2>/dev/null || true"; then
-            rm -f "${export_file}"
-            error "System closure import failed for host '${HOST}' on target: ${resolved_target}"
-            return 1
-        fi
-        rm -f "${export_file}"
-        success "System closure imported successfully for host: ${HOST} on target: ${resolved_target}"
-        return 0
-    }
-
-    log "Deploying system configuration for host '${HOST}' to remote target: ${target_host} (resolved: ${resolved_target})"
+    log "Deploying system configuration for host '${HOST}' to remote target: ${target_host}"
     write_secrets_nix
 
-    local system_path
-    log_command "nix build system closure"
-    if ! system_path=$(nix --extra-experimental-features 'nix-command flakes' build --print-out-paths "${FLAKE_REF}#nixosConfigurations.${HOST}.config.system.build.toplevel" --no-link --accept-flake-config --impure); then
-        error "System build failed for host '${HOST}'"
+    # Deploy on target host using the target host to build packages, etc, using sudo (on normal user rather than root)
+    # Use --build-host '${target_host}' to also build on target
+    local cmd="nixos-rebuild switch --target-host '${target_host}' --ask-sudo-password  --flake '${FLAKE_REF}#${HOST}' --impure $ARGS"
+    log_command "$cmd"
+    if ! eval "$cmd"; then
+        error "System deployment failed for host '${HOST}' to target: ${target_host}"
         return 1
     fi
-    success "System built successfully for host: ${HOST}"
-
-    case "${DEPLOY_TRANSFER_MODE}" in
-        single-export)
-            if ! deploy_transfer_single_export "${system_path}" "${resolved_target}"; then
-                return 1
-            fi
-            ;;
-        *)
-            error "Unknown DEPLOY_TRANSFER_MODE: ${DEPLOY_TRANSFER_MODE}"
-            return 1
-            ;;
-    esac
-
-    log_command "ssh activate system closure on ${resolved_target}"
-    if ! ssh -4 "${resolved_target}" sudo "${system_path}/bin/switch-to-configuration" switch; then
-        error "Remote activation failed for host '${HOST}' on target: ${resolved_target}"
-        return 1
-    fi
-    success "System deployed successfully for host '${HOST}' to target: ${resolved_target}"
+    success "System deployed successfully for host '${HOST}' to target: ${target_host}"
 }
+
 # Install on remote host using nixos-anywhere
 install_system() {
     local target_host="$1"
