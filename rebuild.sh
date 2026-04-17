@@ -19,6 +19,11 @@ FLAKE_DIR="${SCRIPT_DIR}"
 FLAKE_REF="path:."
 HOST="${HOST:-}"
 ARGS="${ARGS:-} --accept-flake-config"
+# Reuse a fast SSH control connection during remote deploys and avoid wasting CPU on recompressing Nix store data in transit.
+export NIX_SSHOPTS="-o Compression=no \
+                   -o Ciphers=chacha20-poly1305@openssh.com \
+                   -o ControlMaster=auto \
+                   -o ControlPersist=60s"
 
 # Colors for output
 RED='\033[0;31m'
@@ -525,7 +530,7 @@ deploy_system() {
 
     # Deploy on target host using the target host to build packages, etc, using sudo (on normal user rather than root)
     # Use --build-host '${target_host}' to also build on target
-    local cmd="nixos-rebuild switch --target-host '${target_host}' --ask-sudo-password  --flake '${FLAKE_REF}#${HOST}' --impure $ARGS"
+    local cmd="nixos-rebuild switch --target-host '${target_host}' --ask-sudo-password --use-substitutes --flake '${FLAKE_REF}#${HOST}' --impure $ARGS"
     log_command "$cmd"
     if ! eval "$cmd"; then
         error "System deployment failed for host '${HOST}' to target: ${target_host}"
