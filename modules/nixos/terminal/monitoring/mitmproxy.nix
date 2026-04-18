@@ -180,10 +180,14 @@
       mitmproxyCaCertPem = firstPemBlockContaining "BEGIN CERTIFICATE" (
         self.secrets.MITMPROXY_CA_CERT or ""
       );
+      mitmproxyCaBundlePem = concatStringsSep "\n" [
+        mitmproxyCaKeyPem
+        mitmproxyCaCertPem
+      ];
 
       # Some password-store exports accidentally concatenate key+cert PEMs into one secret.
-      # Extracting only the expected block keeps the trusted cert and private key paths unambiguous.
-      caKeyFile = pkgs.writeText "mitmproxy-ca.pem" mitmproxyCaKeyPem;
+      # Rebuilding the exact key+cert bundle keeps mitmproxy's CA file valid without trusting extra PEM blocks.
+      caKeyFile = pkgs.writeText "mitmproxy-ca.pem" mitmproxyCaBundlePem;
       caCertFile = pkgs.writeText "mitmproxy-ca-cert.pem" mitmproxyCaCertPem;
 
       deployCAScript = pkgs.writeShellScript "mitmproxy-deploy-ca" ''
@@ -191,6 +195,7 @@
         mkdir -p "${cfg.dataDir}"
 
         # Copy only the expected PEM blocks so malformed concatenated secrets cannot widen trust.
+        # mitmproxy-ca.pem must contain both the key and cert because mitmproxy loads certificates from it.
         cp -f ${caKeyFile} "${cfg.dataDir}/mitmproxy-ca.pem"
         cp -f ${caCertFile} "${cfg.dataDir}/mitmproxy-ca-cert.pem"
 

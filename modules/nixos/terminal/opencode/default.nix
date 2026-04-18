@@ -49,14 +49,6 @@
           timeout = 20000;
         };
 
-        daisyui = {
-          # Keep disabled by default because only UI-focused sessions need it.
-          type = "local";
-          command = [ "${self.packages.${pkgs.stdenv.hostPlatform.system}.daisyui-mcp}/bin/daisyui-mcp" ];
-          enabled = false;
-          timeout = 20000;
-        };
-
         markdown_lint = {
           # Enabled globally so repo guidance and generated plans stay lintable.
           type = "local";
@@ -65,28 +57,6 @@
           ];
           enabled = true;
           timeout = 10000;
-        };
-
-        qmllint = {
-          # Disabled until a session explicitly needs local QML validation.
-          type = "local";
-          command = [
-            "${inputs.self.packages.${pkgs.stdenv.hostPlatform.system}.qmllint-mcp}/bin/qmllint-mcp"
-          ];
-          enabled = false;
-          timeout = 20000;
-        };
-
-        quickshell = {
-          # Disabled by default because most sessions do not need Quickshell docs.
-          type = "local";
-          command = [
-            "${
-              inputs.self.packages.${pkgs.stdenv.hostPlatform.system}.quickshell-docs-mcp
-            }/bin/quickshell-docs-mcp"
-          ];
-          enabled = false;
-          timeout = 20000;
         };
 
         # Remote tool: High-quality parallel web search with deep research capabilities.
@@ -1155,7 +1125,7 @@
           permissions = "0600";
         };
 
-        ".config/opencode/skill" = {
+        ".config/opencode/skills" = {
           source = ./skill;
           type = "copy";
           permissions = "0755";

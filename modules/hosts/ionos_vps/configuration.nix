@@ -45,8 +45,25 @@
 
       services.dokploy = {
         enable = true;
-        # Keep Dokploy private and let nginx remain the only public edge.
-        port = "127.0.0.1:3000:3000";
+        # Disable Dokploy's direct UI publication because this nix-dokploy
+        # revision can only expose it through Swarm's ingress mesh, which hangs
+        # on this host. nginx instead proxies to the localhost-bound Traefik
+        # container started below.
+        port = null;
+        traefik.dynamicConfig.dokploy-ui = {
+          http = {
+            routers.dokploy-ui = {
+              rule = "Host(`dokploy.my-website.space`)";
+              entryPoints = [ "web" ];
+              service = "dokploy-ui";
+            };
+            services.dokploy-ui.loadBalancer.servers = [
+              {
+                url = "http://dokploy-app:3000";
+              }
+            ];
+          };
+        };
         # Reuse the shared services password as deterministic seed material so the
         # DB password survives rebuilds without adding another manual bootstrap secret.
         database.passwordFile = "${pkgs.writeText "dokploy-db-password" (
@@ -121,6 +138,9 @@
 
       # HTTPS traffic analyzer — on-demand: systemctl start mitmproxy
       services.mitmproxy.enable = true;
+      # Dokploy's localhost-bound Traefik already occupies 127.0.0.1:8080 on this host.
+      # Move mitmproxy's explicit proxy listener so the on-demand analyzer can start reliably.
+      services.mitmproxy.proxyPort = 8084;
       services.mitmproxy.trustCA = true;
 
       # Dokploy stores Docker images, volumes, and swarm state under /var/lib/docker.

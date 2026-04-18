@@ -193,7 +193,10 @@
         };
 
         virtualHosts."dokploy.my-website.space" = mkProtectedSubdomain {
-          port = 3000;
+          # Dokploy's UI is fronted by the localhost-only Traefik container
+          # because the upstream module's direct Swarm port publication hangs on
+          # this host. Port 8080 is the HTTP entrypoint rebound in ionos_vps.
+          port = 8080;
         };
 
         virtualHosts."mongo.my-website.space" = mkProtectedSubdomain {

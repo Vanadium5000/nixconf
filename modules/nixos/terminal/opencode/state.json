@@ -1,12 +1,12 @@
 {
   "categories": {
-    "artistry": "cliproxyapi/kilo-auto/free",
+    "artistry": "cliproxyapi/x-ai/grok-code-fast-1:optimized:free",
     "deep": "cliproxyapi/gpt-5.4",
-    "quick": "cliproxyapi/kilo-auto/free",
+    "quick": "cliproxyapi/x-ai/grok-code-fast-1:optimized:free",
     "ultrabrain": "cliproxyapi/gpt-5.4",
     "unspecified-high": "cliproxyapi/gpt-5.4",
-    "unspecified-low": "cliproxyapi/kilo-auto/free",
-    "visual-engineering": "cliproxyapi/kilo-auto/free",
-    "writing": "cliproxyapi/kilo-auto/free"
+    "unspecified-low": "cliproxyapi/x-ai/grok-code-fast-1:optimized:free",
+    "visual-engineering": "cliproxyapi/x-ai/grok-code-fast-1:optimized:free",
+    "writing": "cliproxyapi/x-ai/grok-code-fast-1:optimized:free"
   }
 }
