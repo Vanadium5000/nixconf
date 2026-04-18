@@ -3,7 +3,6 @@
   flake.nixosModules.ionos_vpsHost =
     {
       pkgs,
-      lib,
       ...
     }:
     let
@@ -17,56 +16,54 @@
           }) requiredKeys
         );
 
-      # Get the secrets sub-object with the required secrets
+      # Keep the auth password aligned with the existing services secret so
+      # one rotation updates every protected dashboard consistently.
       secrets' = builtins.intersectAttrs (keysAsAttrs [
         "MY_WEBSITE_ENV"
-        "MONGODB_PASSWORD"
-        "MONGO_EXPRESS_PASSWORD"
         "SERVICES_AUTH_PASSWORD"
       ]) self.secrets;
       envText = secrets'.MY_WEBSITE_ENV;
-      # mongodbPassword = secrets'.MONGODB_PASSWORD;
-      mongoExpressPassword = secrets'.MONGO_EXPRESS_PASSWORD;
       servicesAuthPassword = secrets'.SERVICES_AUTH_PASSWORD;
-      # Multiple usernames with one shared password keeps Basic Auth simple
-      # while avoiding lock-in to a single hardcoded username.
-      servicesAuthUsers = [
-        "admin"
-        "main"
-        "matrix"
-      ];
-      # mongoExpressPasswordFile = pkgs.writeText "mongo-express-password" mongoExpressPassword;
+      servicesAuthGatewayPort = 41276;
+      servicesAuthSigningKey = builtins.hashString "sha256" "${servicesAuthPassword}:my-website.space:services-auth-gateway";
+      servicesAuthCookieName = "__Secure-services_auth";
+      servicesAuthReturnCookieName = "__Secure-services_auth_return";
+      servicesAuthCookieDomain = ".my-website.space";
+      authGatewayBaseUrl = "http://127.0.0.1:${toString servicesAuthGatewayPort}";
 
-      # Helper for authenticated subdomains
-      mkAuthenticatedSubdomain =
+      mkProtectedSubdomain =
         {
           port,
           extraConfig ? "",
-          ...
         }:
         {
           forceSSL = true;
           enableACME = true;
+          locations."= /_services-auth/check" = {
+            extraConfig = ''
+              internal;
+              proxy_pass ${authGatewayBaseUrl}/api/check;
+              proxy_pass_request_body off;
+              proxy_set_header Content-Length "";
+              proxy_set_header Cookie $http_cookie;
+              proxy_set_header X-Forwarded-Proto https;
+              proxy_set_header X-Original-Host $host;
+              proxy_set_header X-Original-URI $request_uri;
+            '';
+          };
+          locations."@services-auth-login" = {
+            extraConfig = ''
+              add_header Set-Cookie "${servicesAuthReturnCookieName}=$scheme://$http_host$request_uri; Domain=${servicesAuthCookieDomain}; Path=/; Max-Age=300; HttpOnly; Secure; SameSite=Lax" always;
+              return 302 https://auth.my-website.space/login;
+            '';
+          };
           locations."/" = {
             proxyPass = "http://127.0.0.1:${toString port}/";
             proxyWebsockets = true;
-            extraConfig =
-              let
-                htpasswdFile = pkgs.runCommand "htpasswd-services" { } ''
-                  ${pkgs.apacheHttpd}/bin/htpasswd -cbB -C 12 \
-                    "$out" "${builtins.head servicesAuthUsers}" "${servicesAuthPassword}"
-                  ${lib.concatMapStringsSep "\n" (user: ''
-                    ${pkgs.apacheHttpd}/bin/htpasswd -bB -C 12 \
-                      "$out" "${user}" "${servicesAuthPassword}"
-                  '') (builtins.tail servicesAuthUsers)}
-                '';
-              in
-              ''
-                # Shared realm improves browser credential reuse across subdomains.
-                auth_basic "my-website.space services";
-                auth_basic_user_file ${htpasswdFile};
-              ''
-              + extraConfig;
+            extraConfig = ''
+              auth_request /_services-auth/check;
+              error_page 401 = @services-auth-login;
+            '' + extraConfig;
           };
         };
     in
@@ -74,6 +71,19 @@
       imports = [
         inputs.my-website-backend.nixosModules.default
       ];
+
+      services.services-auth-gateway = {
+        enable = true;
+        bindAddress = "127.0.0.1";
+        port = servicesAuthGatewayPort;
+        publicDomain = "my-website.space";
+        cookieDomain = servicesAuthCookieDomain;
+        cookieName = servicesAuthCookieName;
+        returnCookieName = servicesAuthReturnCookieName;
+        defaultRedirect = "https://my-website.space/";
+        password = servicesAuthPassword;
+        signingKey = servicesAuthSigningKey;
+      };
 
       # Enable backend service
       services.my-website-backend = {
@@ -93,19 +103,13 @@
           ME_CONFIG_MONGODB_PORT = "27017";
           ME_CONFIG_MONGODB_ENABLE_ADMIN = "true";
           ME_CONFIG_MONGODB_AUTH_DATABASE = "admin";
-          # ME_CONFIG_MONGODB_ADMINUSERNAME = "root";
-          ME_CONFIG_BASICAUTH_USERNAME = "admin";
+          # The outer nginx auth_request flow now owns browser auth so one
+          # login covers mongo-express together with the other dashboards.
+          ME_CONFIG_BASICAUTH = "false";
 
-          # This overrides the hard-coded "mongo" host
-          # ME_CONFIG_MONGODB_URL = "mongodb://root:${mongodbPassword}@127.0.0.1:27017/?authSource=admin";
-          # No password?
+          # This overrides the hard-coded "mongo" host.
           ME_CONFIG_MONGODB_URL = "mongodb://127.0.0.1:27017/?authSource=admin";
         };
-        environmentFiles = [
-          (pkgs.writeText "mongo-express-env" ''
-            ME_CONFIG_BASICAUTH_PASSWORD=${mongoExpressPassword}
-          '')
-        ];
         # Removed --network=host to properly use port mapping and isolate
       };
 
@@ -137,13 +141,11 @@
             proxyWebsockets = true; # If needed for WS
           };
 
-          # New auth proxy (preserves /auth/api/ path)
+          # Keep the existing backend auth API path stable for the site app.
           locations."/auth/api/" = {
             proxyPass = "http://127.0.0.1:41273"; # No trailing / to preserve path
             proxyWebsockets = true;
-            # NOTE: Update pass entry my_website/env_file APP_URL to use port 41273
           };
-
 
           # Optional: SPA fallback for frontend routes
           locations."/" = {
@@ -151,91 +153,52 @@
           };
         };
 
-        virtualHosts."dashboard.my-website.space" = mkAuthenticatedSubdomain {
-          port = 8082;
-          description = "Fleet Dashboard";
-        };
-
-        virtualHosts."netdata.my-website.space" = {
+        virtualHosts."auth.my-website.space" = {
           forceSSL = true;
           enableACME = true;
-          locations."= /" = {
-            # Netdata on this host exposes API endpoints but no static dashboard at '/'.
-            # Redirecting root avoids the upstream "File does not exist" error page.
-            return = "302 /api/v1/info";
-          };
           locations."/" = {
-            proxyPass = "http://127.0.0.1:19999/";
-            proxyWebsockets = true;
-            extraConfig =
-              let
-                htpasswdFile = pkgs.runCommand "htpasswd-services" { } ''
-                  ${pkgs.apacheHttpd}/bin/htpasswd -cbB -C 12 \
-                    "$out" "${builtins.head servicesAuthUsers}" "${servicesAuthPassword}"
-                  ${lib.concatMapStringsSep "\n" (user: ''
-                    ${pkgs.apacheHttpd}/bin/htpasswd -bB -C 12 \
-                      "$out" "${user}" "${servicesAuthPassword}"
-                  '') (builtins.tail servicesAuthUsers)}
-                '';
-              in
-              ''
-                auth_basic "my-website.space services";
-                auth_basic_user_file ${htpasswdFile};
-              '';
+            proxyPass = "${authGatewayBaseUrl}/";
+            extraConfig = ''
+              proxy_set_header Host $host;
+              proxy_set_header X-Forwarded-Proto https;
+              proxy_set_header X-Forwarded-Host $host;
+            '';
           };
         };
 
-        virtualHosts."mitmproxy.my-website.space" = mkAuthenticatedSubdomain {
+        virtualHosts."dashboard.my-website.space" = mkProtectedSubdomain {
+          port = 8082;
+        };
+
+        virtualHosts."netdata.my-website.space" = mkProtectedSubdomain {
+          port = 19999;
+          extraConfig = ''
+            # Netdata's bundled UI should render at / instead of falling back
+            # to the API metadata endpoint when exposed through nginx.
+            proxy_set_header Host $host;
+          '';
+        };
+
+        virtualHosts."mitmproxy.my-website.space" = mkProtectedSubdomain {
           port = 8083;
-          description = "HTTPS Traffic Analyzer";
         };
 
-        virtualHosts."vpn.my-website.space" = mkAuthenticatedSubdomain {
+        virtualHosts."vpn.my-website.space" = mkProtectedSubdomain {
           port = 10802;
-          description = "VPN Proxy Management";
         };
 
-        virtualHosts."cliproxyapi.my-website.space" = mkAuthenticatedSubdomain {
+        virtualHosts."cliproxyapi.my-website.space" = mkProtectedSubdomain {
           port = 8317;
-          description = "CLI Proxy API";
         };
 
-        virtualHosts."openclaw.my-website.space" = mkAuthenticatedSubdomain {
-          port = 3100;
-          description = "OpenClaw Gateway";
+        virtualHosts."dokploy.my-website.space" = mkProtectedSubdomain {
+          port = 3000;
         };
 
-        virtualHosts."opencode.my-website.space" = mkAuthenticatedSubdomain {
-          port = 4096;
-          description = "OpenCode Server";
-        };
-
-        virtualHosts."mongo.my-website.space" = {
-          forceSSL = true; # Redirect HTTP to HTTPS
-          enableACME = true; # Auto Let's Encrypt
-          locations."/" = {
-            proxyPass = "http://127.0.0.1:41275/";
-            extraConfig =
-              let
-                htpasswdFile = pkgs.runCommand "htpasswd" { } ''
-                  ${pkgs.apacheHttpd}/bin/htpasswd -cbB -C 12 \
-                    $out admin "${mongoExpressPassword}"
-                '';
-              in
-              ''
-                auth_basic "MongoDB Admin";
-                auth_basic_user_file ${htpasswdFile};
-              '';
-          };
+        virtualHosts."mongo.my-website.space" = mkProtectedSubdomain {
+          port = 41275;
         };
       };
-
-      # FORCE NEW CERTIFICATE FOR "MONGO" SUBDOMAIN
-      # security.acme.certs."mongo.my-website.space" = {
-      #   domain = "mongo.my-website.space"; # forces cert creation
-      #   email = "vanadium5000@gmail.com"; # your email
-      #   group = "nginx"; # makes nginx able to read it
-      # };
 
       # ACME (Let's Encrypt) setup
       security.acme = {

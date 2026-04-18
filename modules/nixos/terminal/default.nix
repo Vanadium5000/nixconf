@@ -60,8 +60,8 @@
         self.nixosModules.vpn-proxy-service
 
         # Server services (disabled by default, enable per-host)
-        self.nixosModules.openclaw
         self.nixosModules.cliproxyapi
+        self.nixosModules.services-auth-gateway
       ];
 
       config = lib.mkIf cfg.enable {

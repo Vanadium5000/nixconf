@@ -33,8 +33,8 @@
           default = 8082;
           description = ''
             Port for the Homepage dashboard.
-            Avoids conflicts: 41273=my-website, 3100=openclaw, 4096=opencode-server,
-            41275=mongo-express, 8317=cliproxyapi.
+            Avoids conflicts: 3000=dokploy, 41273=my-website, 41275=mongo-express,
+            8317=cliproxyapi.
           '';
         };
 
@@ -112,24 +112,10 @@
                     description = "HTTPS traffic analysis and debugging";
                   };
                 }
-                {
-                  "Netdata — Legion5i" = {
-                    icon = "netdata";
-                    href = "http://legion5i:19999";
-                    description = "Real-time system metrics (legion5i laptop)";
-                  };
-                }
               ];
             }
             {
               "Services" = [
-                {
-                  "OpenClaw" = {
-                    icon = "mdi-robot";
-                    href = "https://openclaw.my-website.space";
-                    description = "AI assistant gateway";
-                  };
-                }
                 {
                   "CLIProxyAPI" = {
                     icon = "mdi-api";
@@ -138,10 +124,10 @@
                   };
                 }
                 {
-                  "OpenCode Server" = {
-                    icon = "mdi-code-braces";
-                    href = "https://opencode.my-website.space";
-                    description = "Headless OpenCode API for remote attach";
+                  "Dokploy" = {
+                    icon = "mdi-docker";
+                    href = "https://dokploy.my-website.space";
+                    description = "Self-hosted deployment control plane";
                   };
                 }
                 {

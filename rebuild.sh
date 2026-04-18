@@ -16,7 +16,7 @@ fi
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FLAKE_DIR="${SCRIPT_DIR}"
-FLAKE_REF="path:."
+FLAKE_REF="path:$(pwd)"
 HOST="${HOST:-}"
 ARGS="${ARGS:-} --accept-flake-config"
 # Reuse a fast SSH control connection during remote deploys and avoid wasting CPU on recompressing Nix store data in transit.
@@ -116,7 +116,6 @@ declare -A SECRETS_MAP=(
     ["ANTIGRAVITY_MANAGER_KEY"]="system/antigravity-manager-key"
     ["CLIPROXYAPI_KEY"]="system/cliproxyapi-key"
     ["EXA_API_KEY"]="system/exa-api-key"
-    ["OPENCODE_SERVER_PASSWORD"]="system/opencode-server-password"
     ["MITMPROXY_CA_KEY"]="system/mitmproxy-ca-key"
     ["MITMPROXY_CA_CERT"]="system/mitmproxy-ca-cert"
     ["VPN_PROXY_API_KEY"]="system/vpn-proxy-api-key"

@@ -54,13 +54,14 @@
           mkhl.direnv # Direnv for VSCodium
         ]
         # Fetch extensions less declaritively for any not in nixpkgs or that need to be kept up to date
-        ++ (pkgs.nix4vscode.forVscode [
+        ++ (pkgs.nix4vscode.forOpenVsx [
           # AI
           # "kilocode.kilo-code" # Kilo Code - Open Source AI coding assistant for planning, building, and fixing code
           # "rooveterinaryinc.roo-cline" # Similar to Cline/Kilo Code
           # "amazonwebservices.amazon-q-vscode" # Amazon Q - Autocomplete mainly
           # "continue.continue"
           # "saoudrizwan.claude-dev" # Cline - Autonomous AI coding agent
+          "fedaykindev.openchamber"
 
           # BunJS
           "oven.bun-vscode"

@@ -10,14 +10,14 @@
 # For servers with persistent storage, use dbengine mode (historical data):
 #   services.netdata-monitor.enable = true;
 #   services.netdata-monitor.memoryMode = "dbengine";
-{ ... }:
 {
   flake.nixosModules.netdata-monitor =
-    {
-      config,
-      lib,
-      ...
-    }:
+  {
+    config,
+    lib,
+    pkgs,
+    ...
+  }:
     let
       inherit (lib)
         mkEnableOption
@@ -69,6 +69,9 @@
       config = mkIf cfg.enable {
         services.netdata = {
           enable = true;
+          package = pkgs.netdata.override {
+            withCloudUi = true;
+          }; # Ship the upstream dashboard assets locally so / no longer redirects to API-only JSON.
 
           config = {
             global = {

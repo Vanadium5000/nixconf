@@ -58,7 +58,7 @@
     # Automatically updated extensions - no more being months or years & missing extensions for VSCodium
     nix4vscode = {
       # nix4vscode is broken for latest versions
-      url = "github:nix-community/nix4vscode/ab49bc2edcd5d130f8737f2f1087e8280b9ce759";
+      url = "github:nix-community/nix4vscode";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
@@ -94,6 +94,13 @@
     # My Website
     my-website-frontend.url = "github:Vanadium5000/my-website-frontend";
     my-website-backend.url = "github:Vanadium5000/my-website-backend";
+
+    # Dokploy NixOS module for self-hosted deployment orchestration.
+    # Follow the main nixpkgs input so option defaults stay in the same package universe.
+    nix-dokploy = {
+      url = "github:el-kurto/nix-dokploy";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   nixConfig = {

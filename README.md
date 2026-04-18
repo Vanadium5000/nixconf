@@ -43,7 +43,6 @@ Glass design language.
 | Editor          | **Neovim** (NVF)                   | Primary `$EDITOR`, custom NVF config          |
 | IDE             | **VSCodium** / **Antigravity**     | Declarative extensions, custom theme          |
 | AI Coding       | **OpenCode**                       | Terminal AI assistant with MCP servers        |
-| AI Assistant    | **OpenClaw**                       | AI gateway                                    |
 | Browser         | **Librewolf**                      | uBlock Origin, Vimium, custom user.js         |
 | File Manager    | **Dolphin** (KDE)                  | kio-extras, kio-admin                         |
 | Display Manager | **tuigreet** (greetd)              | TUI greeter                                   |
@@ -263,7 +262,6 @@ Secrets flow through `pass` (password-store) → `secrets.nix` → `self.secrets
 | Tool                       | Purpose                      | Acceleration    |
 | -------------------------- | ---------------------------- | --------------- |
 | **Ollama**                 | Local LLM inference          | CUDA (legion5i) |
-| **OpenClaw**               | AI assistant gateway         | —               |
 | **PersonaLive**            | Real-time portrait animation | CUDA            |
 | **whisper-cpp**            | Speech-to-text dictation     | CPU/CUDA        |
 | **OpenCode**               | AI coding assistant          | —               |
@@ -501,9 +499,9 @@ profile toggles plus feature/service toggles.
 - `preferences.profiles.server.enable` - server-oriented defaults
 - `preferences.hardware.tlp.enable` - laptop power tuning module
 - `preferences.obs.enable` - OBS Studio feature toggle
-- `services.*.enable` - daemon-style modules such as `openclaw`,
-  `cliproxyapi`, `opencode-server`, `vpn-proxy`, `netdata-monitor`,
-  `homepage-monitor`, and `mitmproxy`
+- `services.*.enable` - daemon-style modules such as `cliproxyapi`,
+  `dokploy`, `vpn-proxy`, `netdata-monitor`, `homepage-monitor`, and
+  `mitmproxy`
 
 This keeps hosts thin: import the reusable modules you need, then switch
 features and services on or off in one place. Profiles are still regular NixOS

@@ -19,9 +19,8 @@
 ## 🏠 Server Services (ionos_vps)
 
 - **Nginx Reverse Proxy**: All services are exposed via authenticated subdomains of `my-website.space` with Let's Encrypt (ACME).
-- **OpenClaw**: AI assistant gateway (`services.openclaw`). Port: 3100 (localhost). Configured with `cliproxyapi` provider via JSON5.
-- **OpenCode Server**: Headless API (`services.opencode-server`). Port: 4096. Securely bound to localhost.
 - **CLIProxyAPI**: AI CLI wrapper (`services.cliproxyapi`). Port: 8317. Bound to localhost.
+- **Dokploy**: Self-hosted deployment control plane (`services.dokploy`). Port: 3000. Bound to localhost behind nginx.
 - **VPN Proxy**: SOCKS5/HTTP proxy with Web UI (`services.vpn-proxy`). Ports: 10800 (S5), 10801 (HTTP), 10802 (Web).
 
 ## 🎨 Liquid Glass Design System

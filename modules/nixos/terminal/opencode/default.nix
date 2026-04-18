@@ -551,9 +551,6 @@
 
           rm -f "$oma_tmp"
 
-          if $SYSTEMCTL is-active --quiet opencode-server 2>/dev/null; then
-            $SYSTEMCTL restart opencode-server 2>/dev/null && $GUM style --foreground 99 "↻ Restarted opencode-server"
-          fi
         }
 
         # Fetch models from CliProxyApi and update models.json

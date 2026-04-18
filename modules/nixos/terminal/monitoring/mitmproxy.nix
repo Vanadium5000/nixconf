@@ -91,6 +91,9 @@
         mkMerge
         types
         concatStringsSep
+        splitString
+        hasPrefix
+        hasInfix
         ;
       cfg = config.services.mitmproxy;
 
@@ -131,17 +134,63 @@
         ${pkgs.nftables}/bin/nft delete table inet mitmproxy 2>/dev/null || true
       '';
 
-      # Script to deploy the CA certificates to the data directory from the Nix store
-      # Since the secrets are already embedded in the system config, we write them
-      # to files natively and then copy them to the mutable /var/lib/mitmproxy/ directory.
-      caKeyFile = pkgs.writeText "mitmproxy-ca.pem" (self.secrets.MITMPROXY_CA_KEY or "");
-      caCertFile = pkgs.writeText "mitmproxy-ca-cert.pem" (self.secrets.MITMPROXY_CA_CERT or "");
+      pemBlocks =
+        secret:
+        let
+          lines = splitString "\n" secret;
+          step =
+            state: line:
+            let
+              beginLine = hasPrefix "-----BEGIN " line;
+              endLine = hasPrefix "-----END " line;
+              nextCurrent =
+                if beginLine then
+                  [ line ]
+                else if state.capturing then
+                  state.current ++ [ line ]
+                else
+                  [ ];
+              completedBlock =
+                if state.capturing && endLine then
+                  [ (concatStringsSep "\n" nextCurrent) ]
+                else
+                  [ ];
+            in
+            {
+              capturing = beginLine || (state.capturing && !endLine);
+              current = if endLine then [ ] else nextCurrent;
+              blocks = state.blocks ++ completedBlock;
+            };
+          result = builtins.foldl' step {
+            capturing = false;
+            current = [ ];
+            blocks = [ ];
+          } lines;
+        in
+        result.blocks;
+
+      firstPemBlockContaining = marker: secret:
+        let
+          matches = builtins.filter (block: hasInfix marker block) (pemBlocks secret);
+        in
+        if matches == [ ] then
+          ""
+        else
+          builtins.head matches;
+
+      mitmproxyCaKeyPem = firstPemBlockContaining "BEGIN RSA PRIVATE KEY" (self.secrets.MITMPROXY_CA_KEY or "");
+      mitmproxyCaCertPem = firstPemBlockContaining "BEGIN CERTIFICATE" (self.secrets.MITMPROXY_CA_CERT or "");
+
+      # Some password-store exports accidentally concatenate key+cert PEMs into one secret.
+      # Extracting only the expected block keeps the trusted cert and private key paths unambiguous.
+      caKeyFile = pkgs.writeText "mitmproxy-ca.pem" mitmproxyCaKeyPem;
+      caCertFile = pkgs.writeText "mitmproxy-ca-cert.pem" mitmproxyCaCertPem;
 
       deployCAScript = pkgs.writeShellScript "mitmproxy-deploy-ca" ''
         # Ensure the data directory exists
         mkdir -p "${cfg.dataDir}"
 
-        # Copy the CA files into the runtime directory
+        # Copy only the expected PEM blocks so malformed concatenated secrets cannot widen trust.
         cp -f ${caKeyFile} "${cfg.dataDir}/mitmproxy-ca.pem"
         cp -f ${caCertFile} "${cfg.dataDir}/mitmproxy-ca-cert.pem"
 
@@ -333,8 +382,8 @@
         # Trust the pre-generated mitmproxy CA system-wide so intercepted
         # HTTPS works without certificate errors in all applications.
         security.pki.certificates = mkIf cfg.trustCA [
-          (self.secrets.MITMPROXY_CA_CERT or "")
-        ];
+          mitmproxyCaCertPem
+        ]; # Trust only the certificate PEM so a pasted private key can never land in the system trust store.
       };
     };
 }

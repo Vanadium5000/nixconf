@@ -37,13 +37,12 @@ let
 
     services = {
       cliproxyapi = [ "services" "cliproxyapi" "enable" ];
+      dokploy = [ "services" "dokploy" "enable" ];
       homepage-monitor = [ "services" "homepage-monitor" "enable" ];
       hypridle = [ "services" "hypridle" "enable" ];
       hyprsunset = [ "services" "hyprsunset" "enable" ];
       mitmproxy = [ "services" "mitmproxy" "enable" ];
       netdata-monitor = [ "services" "netdata-monitor" "enable" ];
-      openclaw = [ "services" "openclaw" "enable" ];
-      opencode-server = [ "services" "opencode-server" "enable" ];
       unison-sync = [ "services" "unison-sync" "enable" ];
       vpn-proxy = [ "services" "vpn-proxy" "enable" ];
     };
@@ -93,13 +92,13 @@ in
 
       services = {
         cliproxyapi = self.nixosModules.cliproxyapi;
+        services-auth-gateway = self.nixosModules.services-auth-gateway;
         dev = self.nixosModules.dev;
         homepage-monitor = self.nixosModules.homepage-monitor;
         mitmproxy = self.nixosModules.mitmproxy;
         netdata-monitor = self.nixosModules.netdata-monitor;
         nix = self.nixosModules.nix;
         opencode = self.nixosModules.opencode;
-        openclaw = self.nixosModules.openclaw;
         tailscale = self.nixosModules.tailscale;
         unison = self.nixosModules.unison;
         virtualisation = self.nixosModules.virtualisation;
