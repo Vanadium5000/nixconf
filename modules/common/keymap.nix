@@ -30,9 +30,7 @@
       };
 
       # Recursive type: either a leaf node or nested keybinds
-      keymapType = types.lazyAttrsOf (
-        types.either keybindLeafType (types.lazyAttrsOf types.unspecified)
-      );
+      keymapType = types.lazyAttrsOf (types.either keybindLeafType (types.lazyAttrsOf types.unspecified));
     in
     {
       options.preferences = {

@@ -178,7 +178,9 @@
 
               serviceConfig = commonServiceConfig // {
                 Type = "simple";
-                ExecStartPre = "${self.packages.${pkgs.stdenv.hostPlatform.system}.vpn-proxy-singbox-config}/bin/vpn-proxy-singbox-config";
+                ExecStartPre = "${
+                  self.packages.${pkgs.stdenv.hostPlatform.system}.vpn-proxy-singbox-config
+                }/bin/vpn-proxy-singbox-config";
                 ExecStart = "${pkgs.sing-box}/bin/sing-box run -c /var/lib/vpn-proxy/sing-box.json";
                 Restart = "on-failure";
                 RestartSec = 5;
@@ -216,7 +218,10 @@
                 "vpn-proxy.service"
                 "vpn-proxy-singbox.service"
               ];
-              wants = [ "vpn-proxy.service" "vpn-proxy-singbox.service" ];
+              wants = [
+                "vpn-proxy.service"
+                "vpn-proxy-singbox.service"
+              ];
 
               path = commonPath ++ [
                 pkgs.curl # proxy health testing uses curl through SOCKS5

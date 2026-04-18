@@ -152,10 +152,7 @@
                 else
                   [ ];
               completedBlock =
-                if state.capturing && endLine then
-                  [ (concatStringsSep "\n" nextCurrent) ]
-                else
-                  [ ];
+                if state.capturing && endLine then [ (concatStringsSep "\n" nextCurrent) ] else [ ];
             in
             {
               capturing = beginLine || (state.capturing && !endLine);
@@ -170,17 +167,19 @@
         in
         result.blocks;
 
-      firstPemBlockContaining = marker: secret:
+      firstPemBlockContaining =
+        marker: secret:
         let
           matches = builtins.filter (block: hasInfix marker block) (pemBlocks secret);
         in
-        if matches == [ ] then
-          ""
-        else
-          builtins.head matches;
+        if matches == [ ] then "" else builtins.head matches;
 
-      mitmproxyCaKeyPem = firstPemBlockContaining "BEGIN RSA PRIVATE KEY" (self.secrets.MITMPROXY_CA_KEY or "");
-      mitmproxyCaCertPem = firstPemBlockContaining "BEGIN CERTIFICATE" (self.secrets.MITMPROXY_CA_CERT or "");
+      mitmproxyCaKeyPem = firstPemBlockContaining "BEGIN RSA PRIVATE KEY" (
+        self.secrets.MITMPROXY_CA_KEY or ""
+      );
+      mitmproxyCaCertPem = firstPemBlockContaining "BEGIN CERTIFICATE" (
+        self.secrets.MITMPROXY_CA_CERT or ""
+      );
 
       # Some password-store exports accidentally concatenate key+cert PEMs into one secret.
       # Extracting only the expected block keeps the trusted cert and private key paths unambiguous.

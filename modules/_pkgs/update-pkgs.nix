@@ -425,6 +425,20 @@ pkgs.writeShellApplication {
               set -e
               ;;
 
+            "cliproxyapi-dashboard")
+              # Next.js package with a prefixed upstream release tag and npmDepsHash.
+              # nix-update understands the package expression and can refresh both the
+              # source revision/hash and the npm dependency hash, while the generic
+              # multi-source fallback would incorrectly collapse the tag to a commit SHA.
+              set +e
+              if nix-update -f packages.nix "$pkg"; then
+                UPDATED+=("$pkg")
+              else
+                FAILED+=("$pkg")
+              fi
+              set -e
+              ;;
+
             "personalive")
               # Skip - complex PyTorch ecosystem pins (wheels, CUDA overrides)
               # Requires manual updates for compatibility between:

@@ -22,7 +22,7 @@ rec {
   #               but requires proper systemd service ordering.
   #
   #   user: The username (string)
-   #   fileName: The name of the file in Shared/Data (e.g., "permissions.sqlite")
+  #   fileName: The name of the file in Shared/Data (e.g., "permissions.sqlite")
   #   targetFile: The absolute path where the file should appear
   #   sourceFile: (Optional) Path to initialize from if persistent file doesn't exist
   #   defaultContent: (Optional) Default content if creating a new file

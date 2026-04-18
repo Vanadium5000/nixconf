@@ -119,7 +119,7 @@
                 {
                   "CLIProxyAPI" = {
                     icon = "mdi-api";
-                    href = "https://cliproxyapi.my-website.space";
+                    href = "https://cliproxyapi.my-website.space/management.html";
                     description = "OpenAI-compatible API wrapping AI CLIs";
                   };
                 }

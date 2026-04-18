@@ -63,7 +63,8 @@
             extraConfig = ''
               auth_request /_services-auth/check;
               error_page 401 = @services-auth-login;
-            '' + extraConfig;
+            ''
+            + extraConfig;
           };
         };
     in

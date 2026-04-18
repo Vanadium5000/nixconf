@@ -49,10 +49,56 @@
         port = "127.0.0.1:3000:3000";
         # Reuse the shared services password as deterministic seed material so the
         # DB password survives rebuilds without adding another manual bootstrap secret.
-  database.passwordFile = "${pkgs.writeText "dokploy-db-password" (
-    builtins.hashString "sha256" "${self.secrets.SERVICES_AUTH_PASSWORD}:dokploy-db"
-  )}";
+        database.passwordFile = "${pkgs.writeText "dokploy-db-password" (
+          builtins.hashString "sha256" "${self.secrets.SERVICES_AUTH_PASSWORD}:dokploy-db"
+        )}";
       };
+
+      systemd.services.dokploy-traefik.serviceConfig.ExecStart = lib.mkForce (
+        let
+          # nix-dokploy hard-codes host ports 80/443 in
+          # nix-dokploy.nix (rev 19f9efec3c106e979b1d8fef083c86d73e6ff7ef), which
+          # collides with this host's nginx-only edge design. Rebinding Traefik to
+          # localhost-only high ports keeps Dokploy's internal proxy available
+          # without stealing the public ACME/nginx listeners.
+          dokployTraefikStart = pkgs.writeShellApplication {
+            name = "dokploy-traefik-start-localhost";
+            runtimeInputs = [ pkgs.docker ];
+            text = ''
+              echo "Waiting for Dokploy to generate Traefik configuration..."
+              timeout=120
+              while [ ! -f "/var/lib/dokploy/traefik/traefik.yml" ]; do
+                sleep 1
+                timeout=$((timeout - 1))
+                if [ "$timeout" -le 0 ]; then
+                  echo "Error: Timed out waiting for traefik.yml"
+                  exit 1
+                fi
+              done
+              echo "Traefik configuration found."
+
+              if docker ps -a --format '{{.Names}}' | grep -q '^dokploy-traefik$'; then
+                echo "Starting existing Traefik container..."
+                docker start dokploy-traefik
+              else
+                echo "Creating and starting Traefik container..."
+                docker run -d \
+                  --name dokploy-traefik \
+                  --network dokploy-network \
+                  --restart=always \
+                  -v /var/run/docker.sock:/var/run/docker.sock \
+                  -v /var/lib/dokploy/traefik/traefik.yml:/etc/traefik/traefik.yml \
+                  -v /var/lib/dokploy/traefik/dynamic:/etc/dokploy/traefik/dynamic \
+                  -p 127.0.0.1:8080:80/tcp \
+                  -p 127.0.0.1:8443:443/tcp \
+                  -p 127.0.0.1:8443:443/udp \
+                  traefik:v3.6.13
+              fi
+            '';
+          };
+        in
+        "${dokployTraefikStart}/bin/dokploy-traefik-start-localhost"
+      );
 
       services.cliproxyapi = {
         enable = true;

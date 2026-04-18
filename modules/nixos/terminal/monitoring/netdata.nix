@@ -12,12 +12,12 @@
 #   services.netdata-monitor.memoryMode = "dbengine";
 {
   flake.nixosModules.netdata-monitor =
-  {
-    config,
-    lib,
-    pkgs,
-    ...
-  }:
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
     let
       inherit (lib)
         mkEnableOption

@@ -5,9 +5,6 @@
       "name": "CliProxyApi",
       "baseUrl": "http://127.0.0.1:8317/v1",
       "models": {
-        "arcee-ai/trinity-large-preview:free": {
-          "name": "arcee-ai/trinity-large-preview:free"
-        },
         "claude-opus-4-6-thinking": {
           "name": "Claude Opus 4.6 (Thinking)"
         },
@@ -85,8 +82,8 @@
         "gpt-oss-120b-medium": {
           "name": "GPT-OSS 120B (Medium)"
         },
-        "minimax/minimax-m2.5:free": {
-          "name": "minimax/minimax-m2.5:free"
+        "kilo-auto/free": {
+          "name": "kilo-auto/free"
         },
         "moonshotai/kimi-k2.5": {
           "name": "moonshotai/kimi-k2.5",

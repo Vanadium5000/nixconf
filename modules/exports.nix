@@ -2,7 +2,8 @@
 let
   # Read nested option paths from evaluated host config safely.
   # Why: matrix generation should reflect actual effective options, not duplicated host lists.
-  attrByPathOr = path: fallback: attrs:
+  attrByPathOr =
+    path: fallback: attrs:
     if path == [ ] then
       attrs
     else
@@ -15,40 +16,110 @@ let
       else
         fallback;
 
-  enabledBySelectors = hostConfig: selectors:
-    builtins.filter
-      (name: attrByPathOr selectors.${name} false hostConfig == true)
-      (builtins.attrNames selectors);
+  enabledBySelectors =
+    hostConfig: selectors:
+    builtins.filter (name: attrByPathOr selectors.${name} false hostConfig == true) (
+      builtins.attrNames selectors
+    );
 
   # Keep tracked capabilities in one place so rebuild.sh rendering stays modular.
   # Source for option surface: README "Modular Host Composition" + modules/hosts/*/configuration.nix.
   matrixSelectors = {
     profiles = {
-      desktop = [ "preferences" "profiles" "desktop" "enable" ];
-      laptop = [ "preferences" "profiles" "laptop" "enable" ];
-      server = [ "preferences" "profiles" "server" "enable" ];
-      terminal = [ "preferences" "profiles" "terminal" "enable" ];
+      desktop = [
+        "preferences"
+        "profiles"
+        "desktop"
+        "enable"
+      ];
+      laptop = [
+        "preferences"
+        "profiles"
+        "laptop"
+        "enable"
+      ];
+      server = [
+        "preferences"
+        "profiles"
+        "server"
+        "enable"
+      ];
+      terminal = [
+        "preferences"
+        "profiles"
+        "terminal"
+        "enable"
+      ];
     };
 
     features = {
-      obs = [ "preferences" "obs" "enable" ];
-      tlp = [ "preferences" "hardware" "tlp" "enable" ];
+      obs = [
+        "preferences"
+        "obs"
+        "enable"
+      ];
+      tlp = [
+        "preferences"
+        "hardware"
+        "tlp"
+        "enable"
+      ];
     };
 
     services = {
-      cliproxyapi = [ "services" "cliproxyapi" "enable" ];
-      dokploy = [ "services" "dokploy" "enable" ];
-      homepage-monitor = [ "services" "homepage-monitor" "enable" ];
-      hypridle = [ "services" "hypridle" "enable" ];
-      hyprsunset = [ "services" "hyprsunset" "enable" ];
-      mitmproxy = [ "services" "mitmproxy" "enable" ];
-      netdata-monitor = [ "services" "netdata-monitor" "enable" ];
-      unison-sync = [ "services" "unison-sync" "enable" ];
-      vpn-proxy = [ "services" "vpn-proxy" "enable" ];
+      cliproxyapi = [
+        "services"
+        "cliproxyapi"
+        "enable"
+      ];
+      dokploy = [
+        "services"
+        "dokploy"
+        "enable"
+      ];
+      homepage-monitor = [
+        "services"
+        "homepage-monitor"
+        "enable"
+      ];
+      hypridle = [
+        "services"
+        "hypridle"
+        "enable"
+      ];
+      hyprsunset = [
+        "services"
+        "hyprsunset"
+        "enable"
+      ];
+      mitmproxy = [
+        "services"
+        "mitmproxy"
+        "enable"
+      ];
+      netdata-monitor = [
+        "services"
+        "netdata-monitor"
+        "enable"
+      ];
+      unison-sync = [
+        "services"
+        "unison-sync"
+        "enable"
+      ];
+      vpn-proxy = [
+        "services"
+        "vpn-proxy"
+        "enable"
+      ];
     };
 
     programs = {
-      hyprlock = [ "programs" "hyprlock" "enable" ];
+      hyprlock = [
+        "programs"
+        "hyprlock"
+        "enable"
+      ];
     };
   };
 
@@ -60,8 +131,9 @@ let
   };
 
   # rebuild.sh consumes this attr via `nix eval --json path:.#hostModuleMatrix`.
-  hostModuleMatrix =
-    builtins.mapAttrs (_host: nixosConfig: mkHostMatrix nixosConfig.config) self.nixosConfigurations;
+  hostModuleMatrix = builtins.mapAttrs (
+    _host: nixosConfig: mkHostMatrix nixosConfig.config
+  ) self.nixosConfigurations;
 in
 {
   flake = {

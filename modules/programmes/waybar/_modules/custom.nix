@@ -125,7 +125,8 @@ in
     "format" = "󰅍";
     "interval" = 5;
     "tooltip" = true;
-    "on-click" = "sh -c 'cliphist list | qs-dmenu -p Clipboard | cliphist decode | wl-copy --type text/plain'";
+    "on-click" =
+      "sh -c 'cliphist list | qs-dmenu -p Clipboard | cliphist decode | wl-copy --type text/plain'";
   };
   "custom/nightshift" = {
     exec = "night-shift-status-icon";

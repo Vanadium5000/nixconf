@@ -81,6 +81,7 @@ in
       command = [
         formatterBins.clang-format
         "-i"
+        "$FILE"
       ];
       extensions = [
         ".c"
@@ -97,6 +98,7 @@ in
       command = [
         formatterBins.gofumpt
         "-w"
+        "$FILE"
       ];
       extensions = [ ".go" ];
     };
@@ -105,6 +107,7 @@ in
         formatterBins.shfmt
         "-i"
         "2"
+        "$FILE"
       ];
       extensions = [
         ".sh"
@@ -155,6 +158,7 @@ in
       command = [
         formatterBins.nixfmt
         "-q"
+        "$FILE"
       ];
       extensions = [ ".nix" ];
     };

@@ -149,57 +149,57 @@
             vpnDirectory = "${homeDirectory}/Shared/VPNs";
           };
 
-        users.users.${cfg.user.username} = {
-          isNormalUser = true;
+          users.users.${cfg.user.username} = {
+            isNormalUser = true;
 
-          packages = self.legacyPackages.${pkgs.stdenv.hostPlatform.system}.environmentPackages;
+            packages = self.legacyPackages.${pkgs.stdenv.hostPlatform.system}.environmentPackages;
 
-          extraGroups = [
-            "wheel"
-            "networkmanager"
-            "audio"
-            "video"
-            "libvirtd"
-            "podman"
-            "ollama"
-            "ydotool" # Wayland automation tool
-            "pipewire"
-            "wireshark" # Network capture permissions (for termshark/dumpcap)
-            "dialout" # For serial port access (e.g. ESP32)
-          ]
-          ++ cfg.user.extraGroups;
-          shell = self.packages.${pkgs.stdenv.hostPlatform.system}.environment;
-          uid = 1000; # Set explicitly
+            extraGroups = [
+              "wheel"
+              "networkmanager"
+              "audio"
+              "video"
+              "libvirtd"
+              "podman"
+              "ollama"
+              "ydotool" # Wayland automation tool
+              "pipewire"
+              "wireshark" # Network capture permissions (for termshark/dumpcap)
+              "dialout" # For serial port access (e.g. ESP32)
+            ]
+            ++ cfg.user.extraGroups;
+            shell = self.packages.${pkgs.stdenv.hostPlatform.system}.environment;
+            uid = 1000; # Set explicitly
 
-          hashedPassword = secrets.PASSWORD_HASH;
-        };
+            hashedPassword = secrets.PASSWORD_HASH;
+          };
 
-        # Add the default shell to environment
-        environment.shells = [ self.packages.${pkgs.stdenv.hostPlatform.system}.environment ];
+          # Add the default shell to environment
+          environment.shells = [ self.packages.${pkgs.stdenv.hostPlatform.system}.environment ];
 
-        # Pesist Tealdeer (a TLDR alternative) cache data
-        impermanence.home.cache.directories = [
-          ".cache/tealdeer"
-        ];
+          # Pesist Tealdeer (a TLDR alternative) cache data
+          impermanence.home.cache.directories = [
+            ".cache/tealdeer"
+          ];
 
-        # Persist ZSH history
+          # Persist ZSH history
           impermanence.home.cache.files = [
             ".zsh_history"
           ];
 
-        # Locales
+          # Locales
           time.timeZone = cfg.timeZone;
           i18n.defaultLocale = cfg.locale;
 
-        # Git global config
+          # Git global config
           hjem.users.${cfg.user.username}.files.".gitconfig".text = ''
             [user]
               name = ${cfg.git.username}
               email = ${cfg.git.email}
           '';
 
-        # SSH
-        # Enable GnuPG with SSH support
+          # SSH
+          # Enable GnuPG with SSH support
           programs.gnupg.agent = {
             enable = true;
             enableSSHSupport = true;
@@ -207,7 +207,7 @@
             pinentryPackage = pkgs.pinentry-qt;
           };
 
-        # OpenSSH
+          # OpenSSH
           services.openssh = {
             enable = true;
             settings = {
@@ -216,21 +216,21 @@
             };
           };
 
-        # Disable the default SSH agent to avoid conflicts
+          # Disable the default SSH agent to avoid conflicts
           programs.ssh.startAgent = false;
 
-        # Bootloader
-        # Use the grub EFI boot loader.
-        # NOTE: No need to set devices, disko will add all devices that have a EF02 partition to the list already
+          # Bootloader
+          # Use the grub EFI boot loader.
+          # NOTE: No need to set devices, disko will add all devices that have a EF02 partition to the list already
           boot.loader = {
             grub.enable = true;
             grub.efiSupport = true;
             grub.efiInstallAsRemovable = true;
           };
 
-        # Alfa AWUS036AX (RTL8832BU/RTL8852BU chipset) WiFi adapter support
-        # Using in-kernel rtw89_8852bu driver (requires kernel 6.14+)
-        # Pros: Upstream (no DKMS breaks), standard mac80211 stack
+          # Alfa AWUS036AX (RTL8832BU/RTL8852BU chipset) WiFi adapter support
+          # Using in-kernel rtw89_8852bu driver (requires kernel 6.14+)
+          # Pros: Upstream (no DKMS breaks), standard mac80211 stack
           boot.kernelModules = [
             "rtw89_8852bu"
 

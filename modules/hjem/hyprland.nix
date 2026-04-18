@@ -83,23 +83,25 @@ in
         };
 
         keybindDescriptions = mkOption {
-          type = types.listOf (types.submodule {
-            options = {
-              key = mkOption {
-                type = types.str;
-                description = "Keybind (e.g., 'SUPER + Q')";
+          type = types.listOf (
+            types.submodule {
+              options = {
+                key = mkOption {
+                  type = types.str;
+                  description = "Keybind (e.g., 'SUPER + Q')";
+                };
+                description = mkOption {
+                  type = types.str;
+                  description = "Human-readable description";
+                };
+                category = mkOption {
+                  type = types.str;
+                  default = "General";
+                  description = "Category for grouping in help display";
+                };
               };
-              description = mkOption {
-                type = types.str;
-                description = "Human-readable description";
-              };
-              category = mkOption {
-                type = types.str;
-                default = "General";
-                description = "Category for grouping in help display";
-              };
-            };
-          });
+            }
+          );
           default = [ ];
           description = "List of keybind descriptions for the help overlay";
         };
