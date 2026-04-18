@@ -17,19 +17,7 @@
       };
       pluginsConfig = import ./_plugins.nix;
       categoriesConfig = import ./_categories.nix { inherit lib; };
-      baseOpencode = inputs.opencode.packages.${pkgs.stdenv.hostPlatform.system}.default;
-
-  # Override node_modules hash for x86_64-linux due to upstream fixed-output drift.
-  # Upstream revision 9afbdc1 produces a different hash on x86_64-linux; pin locally.
-  opencode =
-    if pkgs.stdenv.hostPlatform.system == "x86_64-linux" then
-      baseOpencode.override {
-        node_modules = baseOpencode.node_modules.override {
-          hash = "sha256-tYAb5Mo39UW1VEejYuo0jW0jzH2OyY/HrqgiZL3rmjY=";
-        };
-      }
-    else
-      baseOpencode;
+      opencode = pkgs.unstable.opencode;
 
       # Path to the persistent model selections
       stateFile = ./state.json;
@@ -58,30 +46,6 @@
           enabled = false;
           timeout = 20000;
         };
-        # Local tool: Browse and install shadcn/ui registry items in-project.
-        # Source: https://ui.shadcn.com/docs/mcp
-        shadcn = {
-          type = "local";
-          command = [
-            "${pkgs.nodejs}/bin/npx"
-            "-y"
-            "shadcn@latest"
-            "mcp"
-          ];
-          enabled = false;
-          timeout = 30000;
-        };
-        # Local tool: Headless browser automation and end-to-end testing
-        # Already declared by Oh-My-OpenAgent
-        # playwright = {
-        #   enabled = false;
-        #   type = "local";
-        #   command = [
-        #     "${pkgs.playwright-mcp}/bin/mcp-server-playwright"
-        #     "--browser=firefox"
-        #     "--headless"
-        #   ];
-        # };
         # Local tool: Lints markdown files to ensure compliance with format standards
         markdown_lint = {
           type = "local";
@@ -119,15 +83,6 @@
         #   enabled = true;
         #   timeout = 30000;
         # };
-        # Local tool: Create and manipulate PowerPoint presentations programmatically
-        powerpoint = {
-          type = "local";
-          command = [
-            "${self.packages.${pkgs.stdenv.hostPlatform.system}.powerpoint-mcp}/bin/ppt_mcp_server"
-          ];
-          enabled = false;
-          timeout = 30000;
-        };
         # Local tool: Generates images via the primary image-capable model
         image_gen = {
           type = "local";
@@ -155,23 +110,6 @@
           ];
           enabled = true;
           timeout = 60000;
-        };
-        # Local tool: Renders presentation slides to images for visual previewing
-        slide_preview = {
-          type = "local";
-          command = [
-            "${pkgs.writeShellScript "slide-preview-mcp-wrapper" ''
-              export PATH="${
-                pkgs.lib.makeBinPath [
-                  pkgs.libreoffice
-                  pkgs.poppler-utils
-                ]
-              }:$PATH"
-              exec ${pkgs.bun}/bin/bun ${../../../nixos/scripts/bunjs/mcp/slide-preview.ts}
-            ''}"
-          ];
-          enabled = false;
-          timeout = 30000;
         };
       };
 
@@ -313,22 +251,6 @@
             "{\n  \"mcp\": {\n${lib.concatStringsSep "\n" result}\n  }\n}";
         in
         {
-          "Web Dev - daisyUI" = mkTemplateJsonC "Web Dev - daisyUI" [
-            "daisyui"
-            "playwright"
-          ];
-          "Web Dev - shadcn" = mkTemplateJsonC "Web Dev - shadcn" [
-            "shadcn"
-            "playwright"
-          ];
-          "NixOS Config" = mkTemplateJsonC "NixOS Config" [
-            "quickshell"
-            "qmllint"
-          ];
-          "PowerPoint/Office Work" = mkTemplateJsonC "PowerPoint/Office Work" [
-            "powerpoint"
-            "slide_preview"
-          ];
           "All MCPs" = mkTemplateJsonC "All MCPs" allMcpNames;
           "No MCPs" = mkTemplateJsonC "No MCPs" [ ];
           "Custom MCP File" = mkTemplateJsonC "Custom MCP File" [ ];
@@ -352,11 +274,6 @@
         )}
       '';
 
-      projectTemplateAssetsDir = pkgs.runCommand "opencode-project-template-assets" { } ''
-        mkdir -p "$out/shadcn-ui"
-        cp ${./project-templates/shadcn-ui/SKILL.md} "$out/shadcn-ui/SKILL.md"
-      '';
-
       stateAssetsDir = pkgs.runCommand "opencode-state-assets" { } ''
         mkdir -p "$out"
         cp ${./models.json} "$out/models.json"
@@ -366,6 +283,7 @@
 
       # TUI for model/profile and template switching
       opencodeModelSwitch = pkgs.writeShellScriptBin "opencode-models" ''
+        # shell
         REPO_DIR="${configDirectory}/modules/nixos/terminal/opencode"
         MODELS_FILE="$REPO_DIR/models.json"
         STATE_FILE="$REPO_DIR/state.json"
@@ -377,7 +295,6 @@
         GLOBAL_OPENAGENT_FILE="$HOME/.config/opencode/oh-my-openagent.jsonc"
         LOCAL_JSONC_FILE="$PWD/opencode.jsonc"
         TEMPLATES_DIR="${configVariantsDir}/templates"
-        SHADCN_PROJECT_SKILL_FILE="${projectTemplateAssetsDir}/shadcn-ui/SKILL.md"
         BASE_CONFIG_FILE="${runtimeConfigDir}/opencode-base.json"
         BASE_OMA_FILE="${runtimeConfigDir}/oh-my-opencode-base.json"
         METADATA_FILE="${runtimeConfigDir}/opencode-models-metadata.json"
@@ -1042,14 +959,6 @@
           if [ ! -f "$template_file" ]; then echo "Error: Template not found."; return 1; fi
 
           cat "$template_file" > "$LOCAL_JSONC_FILE"
-
-          if [ "$choice" = "Web Dev - shadcn" ]; then
-            local project_skill_dir="$PWD/.opencode/skills/shadcn-ui"
-            local project_skill_file="$project_skill_dir/SKILL.md"
-
-            mkdir -p "$project_skill_dir"
-            cp "$SHADCN_PROJECT_SKILL_FILE" "$project_skill_file"
-          fi
 
           $GUM style --foreground 212 --border double --align center --padding "1 2" "✨ Project Initialized ✨" "Template: $choice" "Saved to: opencode.jsonc"
         }

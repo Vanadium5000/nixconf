@@ -100,7 +100,7 @@ python3.pkgs.buildPythonApplication {
             escaped_next = html.escape(next_url, quote=True)
             escaped_error = html.escape(error_message)
             error_block = f'<p class="error">{escaped_error}</p>' if escaped_error else ""
-            return f'''<!doctype html>
+            return f"""<!doctype html>
     <html lang="en">
       <head>
         <meta charset="utf-8" />
@@ -167,7 +167,7 @@ python3.pkgs.buildPythonApplication {
           <p class="small">Redirect target: {escaped_next}</p>
         </main>
       </body>
-    </html>'''
+    </html>"""
 
 
     class Handler(BaseHTTPRequestHandler):

@@ -289,17 +289,16 @@
         };
         users.groups.mitmproxy = { };
 
-        systemd.services.mitmproxy = {
-          description = "mitmproxy HTTPS Traffic Analyzer";
-          after = [ "network-online.target" ];
-          wants = [ "network-online.target" ];
-          # NOT in wantedBy — this is an on-demand service
-          # Start with: systemctl start mitmproxy
-          # Stop with:  systemctl stop mitmproxy
+        systemd.services.mitmproxy = mkMerge [
+          {
+            description = "mitmproxy HTTPS Traffic Analyzer";
+            after = [ "network-online.target" ];
+            wants = [ "network-online.target" ];
+            # NOT in wantedBy — this is an on-demand service
+            # Start with: systemctl start mitmproxy
+            # Stop with:  systemctl stop mitmproxy
 
-          serviceConfig = mkMerge [
-            # Common config for all modes
-            {
+            serviceConfig = {
               # Deploy the pre-generated CA certificates before starting
               ExecStartPre = [ "+${deployCAScript}" ];
 
@@ -331,15 +330,17 @@
               ProtectSystem = "strict";
               ReadWritePaths = [ cfg.dataDir ];
               PrivateDevices = true;
-            }
+            };
+          }
 
-            # Explicit mode — most restrictive sandboxing
-            (mkIf (cfg.mode == "explicit") {
-              NoNewPrivileges = true;
-            })
+          # Explicit mode — most restrictive sandboxing
+          (mkIf (cfg.mode == "explicit") {
+            serviceConfig.NoNewPrivileges = true;
+          })
 
-            # Transparent mode — needs network manipulation capabilities
-            (mkIf (cfg.mode == "transparent") {
+          # Transparent mode — needs network manipulation capabilities
+          (mkIf (cfg.mode == "transparent") {
+            serviceConfig = {
               NoNewPrivileges = false; # capabilities require privilege escalation
               AmbientCapabilities = [
                 "CAP_NET_ADMIN"
@@ -357,10 +358,12 @@
               ExecStopPost = [
                 "+${nftablesCleanupScript}"
               ];
-            })
+            };
+          })
 
-            # Local/eBPF mode — needs kernel-level capabilities for BPF programs
-            (mkIf (cfg.mode == "local") {
+          # Local/eBPF mode — needs kernel-level capabilities for BPF programs
+          (mkIf (cfg.mode == "local") {
+            serviceConfig = {
               NoNewPrivileges = false; # eBPF loading requires privilege escalation
               AmbientCapabilities = [
                 "CAP_BPF"
@@ -375,9 +378,9 @@
                 "CAP_SYS_RESOURCE"
               ];
               LimitMEMLOCK = "infinity"; # eBPF maps require locked memory
-            })
-          ];
-        };
+            };
+          })
+        ];
 
         # Trust the pre-generated mitmproxy CA system-wide so intercepted
         # HTTPS works without certificate errors in all applications.
