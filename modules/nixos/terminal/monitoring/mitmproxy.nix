@@ -88,6 +88,7 @@
         mkPackageOption
         mkOption
         mkIf
+        mkAfter
         mkMerge
         types
         concatStringsSep
@@ -340,25 +341,24 @@
 
           # Transparent mode — needs network manipulation capabilities
           (mkIf (cfg.mode == "transparent") {
-            serviceConfig = {
-              NoNewPrivileges = false; # capabilities require privilege escalation
-              AmbientCapabilities = [
-                "CAP_NET_ADMIN"
-                "CAP_NET_RAW"
-              ];
-              CapabilityBoundingSet = [
-                "CAP_NET_ADMIN"
-                "CAP_NET_RAW"
-              ];
+            serviceConfig.NoNewPrivileges = false; # capabilities require privilege escalation
+            serviceConfig.AmbientCapabilities = [
+              "CAP_NET_ADMIN"
+              "CAP_NET_RAW"
+            ];
+            serviceConfig.CapabilityBoundingSet = [
+              "CAP_NET_ADMIN"
+              "CAP_NET_RAW"
+            ];
 
-              # Set up and tear down nftables rules for traffic redirection
-              ExecStartPre = [
-                "+${nftablesRedirectScript}"
-              ];
-              ExecStopPost = [
-                "+${nftablesCleanupScript}"
-              ];
-            };
+            # Keep CA deployment first, then add redirection rules right before launch.
+            # mkAfter preserves both ExecStartPre entries instead of replacing the common one.
+            serviceConfig.ExecStartPre = mkAfter [
+              "+${nftablesRedirectScript}"
+            ];
+            serviceConfig.ExecStopPost = [
+              "+${nftablesCleanupScript}"
+            ];
           })
 
           # Local/eBPF mode — needs kernel-level capabilities for BPF programs

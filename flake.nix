@@ -68,12 +68,6 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # OpenCode upstream flake; follow unstable to match upstream packaging inputs
-    opencode = {
-      url = "github:anomalyco/opencode";
-      inputs.nixpkgs.follows = "nixpkgs-unstable";
-    };
-
     # Wallpaper collections
     nixos-artwork = {
       url = "github:nixos/nixos-artwork";

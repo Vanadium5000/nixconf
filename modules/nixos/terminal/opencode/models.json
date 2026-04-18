@@ -95,6 +95,9 @@
             "medium",
             "high"
           ]
+        },
+        "x-ai/grok-code-fast-1:optimized:free": {
+          "name": "x-ai/grok-code-fast-1:optimized:free"
         }
       }
     }

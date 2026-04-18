@@ -1,27 +1,12 @@
 {
   "categories": {
-    "artistry": {
-      "model": "cliproxyapi/moonshotai/kimi-k2.5",
-      "reasoningEffort": "high"
-    },
+    "artistry": "cliproxyapi/x-ai/grok-code-fast-1:optimized:free",
     "deep": "cliproxyapi/gpt-5.4",
-    "quick": {
-      "model": "cliproxyapi/moonshotai/kimi-k2.5",
-      "reasoningEffort": "high"
-    },
+    "quick": "cliproxyapi/x-ai/grok-code-fast-1:optimized:free",
     "ultrabrain": "cliproxyapi/gpt-5.4",
     "unspecified-high": "cliproxyapi/gpt-5.4",
-    "unspecified-low": {
-      "model": "cliproxyapi/moonshotai/kimi-k2.5",
-      "reasoningEffort": "high"
-    },
-    "visual-engineering": {
-      "model": "cliproxyapi/moonshotai/kimi-k2.5",
-      "reasoningEffort": "high"
-    },
-    "writing": {
-      "model": "cliproxyapi/moonshotai/kimi-k2.5",
-      "reasoningEffort": "high"
-    }
+    "unspecified-low": "cliproxyapi/x-ai/grok-code-fast-1:optimized:free",
+    "visual-engineering": "cliproxyapi/x-ai/grok-code-fast-1:optimized:free",
+    "writing": "cliproxyapi/x-ai/grok-code-fast-1:optimized:free"
   }
 }
