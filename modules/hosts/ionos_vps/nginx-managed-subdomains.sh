@@ -38,6 +38,14 @@ show_success() {
   gum style --foreground 42 "$1"
 }
 
+trim_whitespace() {
+  local value="$1"
+
+  value="${value#"${value%%[![:space:]]*}"}"
+  value="${value%"${value##*[![:space:]]}"}"
+  printf '%s' "${value}"
+}
+
 require_valid_hostname() {
   local hostname="$1"
 
@@ -235,7 +243,10 @@ reload_after_validation() {
 }
 
 issue_certificate() {
-  local hostname="$1"
+  local hostname
+
+  hostname=$(trim_whitespace "$1")
+  require_valid_hostname "${hostname}" || return 1
 
   certbot certonly \
     --webroot \
@@ -284,6 +295,7 @@ pick_record() {
 add_interactive() {
   local hostname mode
   hostname=$(gum input --prompt "Hostname> " --placeholder "openclaw.my-website.space")
+  hostname=$(trim_whitespace "${hostname}")
   require_valid_hostname "${hostname}" || return 1
 
   if record_exists "${hostname}"; then
@@ -306,6 +318,7 @@ edit_interactive() {
   current_mode=$(get_mode "${current_host}")
 
   new_host=$(gum input --prompt "Hostname> " --placeholder "${current_host}")
+  new_host=$(trim_whitespace "${new_host}")
   if [[ -z "${new_host}" ]]; then
     new_host="${current_host}"
   fi
