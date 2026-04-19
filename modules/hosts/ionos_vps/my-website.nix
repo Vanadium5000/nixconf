@@ -265,7 +265,9 @@
       environment.systemPackages = [ nginxManagedSubdomains ];
 
       systemd.tmpfiles.rules = [
-        "d ${managedSubdomainsStateDir} 0750 root root -"
+        # nginx workers must traverse the managed state root to serve ACME
+        # HTTP-01 files from the shared webroot for runtime-created hosts.
+        "d ${managedSubdomainsStateDir} 0755 root root -"
         "d ${managedSubdomainsSitesDir} 0750 root root -"
         "d ${managedSubdomainsWebroot} 0755 root root -"
         "d ${managedSubdomainsCertbotDir} 0700 root root -"
@@ -320,7 +322,9 @@
           directory = managedSubdomainsStateDir;
           user = "root";
           group = "root";
-          mode = "0750";
+          # Keep the parent traversable so nginx can reach the managed ACME
+          # webroot even though certificate state below remains private.
+          mode = "0755";
         }
       ];
 

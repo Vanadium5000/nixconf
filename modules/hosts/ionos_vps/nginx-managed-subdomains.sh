@@ -292,6 +292,14 @@ provision_host() {
     return 1
   fi
 
+  if ! cert_paths_exist "${hostname}"; then
+    show_error "Certificate files are still missing for ${hostname}. Rolling back the new record."
+    remove_record "${hostname}"
+    render_all_configs
+    reload_after_validation
+    return 1
+  fi
+
   render_all_configs
   reload_after_validation
   show_success "${hostname} is now configured with HTTPS."
@@ -306,6 +314,16 @@ pick_record() {
   lines=$(list_records | awk -F '\t' '{ printf "%s [%s]\n", $1, $2 }')
   [[ -z "${lines}" ]] && return 1
   gum filter --header "Select a managed subdomain" <<<"${lines}"
+}
+
+parse_selected_hostname() {
+  local selection="$1"
+  local hostname="${selection%% \[*}"
+
+  hostname=$(trim_whitespace "${hostname}")
+  [[ -n "${hostname}" ]] || return 1
+
+  printf '%s' "${hostname}"
 }
 
 add_interactive() {
@@ -330,7 +348,10 @@ edit_interactive() {
     show_info "No managed subdomains yet."
     return 0
   }
-  current_host="${selection%% \[*}"
+  current_host=$(parse_selected_hostname "${selection}") || {
+    show_info "No subdomain selected."
+    return 0
+  }
   current_mode=$(get_mode "${current_host}")
 
   new_host=$(gum input --prompt "Hostname> " --placeholder "${current_host}")
@@ -363,6 +384,15 @@ edit_interactive() {
       show_error "ACME issuance failed for ${new_host}; restored previous record."
       return 1
     fi
+
+    if ! cert_paths_exist "${new_host}"; then
+      cp "${backup_file}" "${DATA_FILE}"
+      render_all_configs
+      reload_after_validation
+      rm -f "${backup_file}"
+      show_error "Certificate files are still missing for ${new_host}; restored previous record."
+      return 1
+    fi
   fi
 
   render_all_configs
@@ -377,7 +407,10 @@ delete_interactive() {
     show_info "No managed subdomains yet."
     return 0
   }
-  hostname="${selection%% \[*}"
+  hostname=$(parse_selected_hostname "${selection}") || {
+    show_info "No subdomain selected."
+    return 0
+  }
 
   if ! gum confirm "Delete ${hostname} and its managed certificate?"; then
     return 0
@@ -394,6 +427,22 @@ delete_interactive() {
   render_all_configs
   reload_after_validation
   show_success "Deleted ${hostname}."
+}
+
+issue_missing_certificates() {
+  local hostname mode
+
+  while IFS=$'\t' read -r hostname mode; do
+    [[ -z "${hostname}" ]] && continue
+
+    if ! cert_paths_exist "${hostname}"; then
+      issue_certificate "${hostname}" || return 1
+      cert_paths_exist "${hostname}" || {
+        show_error "Certificate files are still missing for ${hostname} after issuance."
+        return 1
+      }
+    fi
+  done < <(list_records)
 }
 
 list_interactive() {
@@ -425,6 +474,7 @@ renew_all() {
 }
 
 regenerate_only() {
+  issue_missing_certificates || return 1
   render_all_configs
   reload_after_validation
   show_success "Managed nginx configs regenerated."
