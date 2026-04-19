@@ -138,6 +138,15 @@ cert_paths_exist() {
   [[ -f "${CERTBOT_CONFIG_DIR}/live/${hostname}/fullchain.pem" && -f "${CERTBOT_CONFIG_DIR}/live/${hostname}/privkey.pem" ]]
 }
 
+purge_certificate_state() {
+  local hostname="$1"
+
+  rm -rf \
+    "${CERTBOT_CONFIG_DIR}/live/${hostname}" \
+    "${CERTBOT_CONFIG_DIR}/archive/${hostname}" \
+    "${CERTBOT_CONFIG_DIR}/renewal/${hostname}.conf"
+}
+
 render_site_config() {
   local hostname="$1"
   local mode="$2"
@@ -281,6 +290,13 @@ issue_certificate() {
   hostname=$(trim_whitespace "$1")
   require_valid_hostname "${hostname}" || return 1
 
+  # Failed ACME attempts can leave stale per-host state in the persistent
+  # custom certbot config dir. Start fresh for initial issuance whenever the
+  # expected certificate files do not exist yet.
+  if ! cert_paths_exist "${hostname}"; then
+    purge_certificate_state "${hostname}"
+  fi
+
   certbot certonly \
     --webroot \
     --webroot-path "${WEBROOT}" \
@@ -304,6 +320,7 @@ provision_host() {
   if ! issue_certificate "${hostname}"; then
     show_error "ACME issuance failed for ${hostname}. Rolling back the new record."
     remove_record "${hostname}"
+    purge_certificate_state "${hostname}"
     render_all_configs
     reload_after_validation
     return 1
@@ -312,6 +329,7 @@ provision_host() {
   if ! cert_paths_exist "${hostname}"; then
     show_error "Certificate files are still missing for ${hostname}. Rolling back the new record."
     remove_record "${hostname}"
+    purge_certificate_state "${hostname}"
     render_all_configs
     reload_after_validation
     return 1
@@ -395,6 +413,7 @@ edit_interactive() {
   if [[ "${new_host}" != "${current_host}" ]]; then
     if ! issue_certificate "${new_host}"; then
       cp "${backup_file}" "${DATA_FILE}"
+      purge_certificate_state "${new_host}"
       render_all_configs
       reload_after_validation
       rm -f "${backup_file}"
@@ -404,6 +423,7 @@ edit_interactive() {
 
     if ! cert_paths_exist "${new_host}"; then
       cp "${backup_file}" "${DATA_FILE}"
+      purge_certificate_state "${new_host}"
       render_all_configs
       reload_after_validation
       rm -f "${backup_file}"
@@ -440,6 +460,7 @@ delete_interactive() {
     --config-dir "${CERTBOT_CONFIG_DIR}" \
     --work-dir "${CERTBOT_WORK_DIR}" \
     --logs-dir "${CERTBOT_LOGS_DIR}" >/dev/null 2>&1 || true
+  purge_certificate_state "${hostname}"
   rm -f "${SITES_DIR}/${hostname}.conf"
   render_all_configs
   reload_after_validation
