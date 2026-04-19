@@ -2,7 +2,9 @@
 {
   flake.nixosModules.ionos_vpsHost =
     {
+      config,
       pkgs,
+      lib,
       ...
     }:
     let
@@ -30,6 +32,51 @@
       servicesAuthReturnCookieName = "__Secure-services_auth_return";
       servicesAuthCookieDomain = ".my-website.space";
       authGatewayBaseUrl = "http://127.0.0.1:${toString servicesAuthGatewayPort}";
+      managedSubdomainsStateDir = "/var/lib/nginx-subdomains";
+      managedSubdomainsSitesDir = "${managedSubdomainsStateDir}/sites";
+      managedSubdomainsWebroot = "${managedSubdomainsStateDir}/acme-webroot";
+      managedSubdomainsCertbotDir = "${managedSubdomainsStateDir}/certbot";
+      managedSubdomainsStaticHostsFile = pkgs.writeText "nginx-managed-subdomains-static-hosts" ''
+        my-website.space
+        www.my-website.space
+        auth.my-website.space
+        dashboard.my-website.space
+        netdata.my-website.space
+        mitmproxy.my-website.space
+        vpn.my-website.space
+        cliproxyapi.my-website.space
+        dokploy.my-website.space
+        mongo.my-website.space
+      '';
+      nginxManagedSubdomains = pkgs.writeShellApplication {
+        name = "nginx-managed-subdomains";
+        runtimeInputs = with pkgs; [
+          bash
+          certbot
+          coreutils
+          gnugrep
+          gnused
+          gawk
+          gum
+          nginx
+          systemd
+        ];
+        text = ''
+          STATE_DIR=${lib.escapeShellArg managedSubdomainsStateDir}
+          DATA_FILE=${lib.escapeShellArg "${managedSubdomainsStateDir}/subdomains.tsv"}
+          SITES_DIR=${lib.escapeShellArg managedSubdomainsSitesDir}
+          WEBROOT=${lib.escapeShellArg managedSubdomainsWebroot}
+          CERTBOT_DIR=${lib.escapeShellArg managedSubdomainsCertbotDir}
+          ACME_EMAIL=${lib.escapeShellArg config.security.acme.defaults.email}
+          TRAEFIK_UPSTREAM='http://127.0.0.1:8080'
+          AUTH_GATEWAY_BASE_URL=${lib.escapeShellArg authGatewayBaseUrl}
+          AUTH_COOKIE_DOMAIN=${lib.escapeShellArg servicesAuthCookieDomain}
+          AUTH_COOKIE_NAME=${lib.escapeShellArg servicesAuthCookieName}
+          AUTH_RETURN_COOKIE_NAME=${lib.escapeShellArg servicesAuthReturnCookieName}
+          STATIC_HOSTS_FILE=${lib.escapeShellArg managedSubdomainsStaticHostsFile}
+        ''
+        + builtins.readFile ./nginx-managed-subdomains.sh;
+      };
 
       mkProtectedSubdomain =
         {
@@ -121,6 +168,11 @@
         recommendedOptimisation = true;
         recommendedProxySettings = true;
         recommendedTlsSettings = true;
+        appendHttpConfig = ''
+          # Load additive runtime-managed subdomains after the declarative vhosts.
+          # The manager rejects collisions with the static hosts defined here.
+          include ${managedSubdomainsSitesDir}/*.conf;
+        '';
 
         virtualHosts."my-website.space" = {
           serverAliases = [ "www.my-website.space" ];
@@ -210,6 +262,43 @@
         defaults.email = "vanadium5000@gmail.com"; # Required for cert issuance
       };
 
+      environment.systemPackages = [ nginxManagedSubdomains ];
+
+      systemd.tmpfiles.rules = [
+        "d ${managedSubdomainsStateDir} 0750 root root -"
+        "d ${managedSubdomainsSitesDir} 0750 root root -"
+        "d ${managedSubdomainsWebroot} 0755 root root -"
+        "d ${managedSubdomainsCertbotDir} 0700 root root -"
+        "d ${managedSubdomainsCertbotDir}/config 0700 root root -"
+        "d ${managedSubdomainsCertbotDir}/work 0700 root root -"
+        "d ${managedSubdomainsCertbotDir}/logs 0700 root root -"
+        "f ${managedSubdomainsStateDir}/subdomains.tsv 0640 root root -"
+        "f ${managedSubdomainsSitesDir}/_empty.conf 0644 root root -"
+      ];
+
+      systemd.services.nginx-managed-subdomains-renew = {
+        description = "Renew runtime-managed nginx subdomain certificates";
+        after = [
+          "nginx.service"
+          "network-online.target"
+        ];
+        wants = [ "network-online.target" ];
+        serviceConfig = {
+          Type = "oneshot";
+          ExecStart = "${nginxManagedSubdomains}/bin/nginx-managed-subdomains renew-all";
+        };
+      };
+
+      systemd.timers.nginx-managed-subdomains-renew = {
+        description = "Daily renewal for runtime-managed nginx subdomain certificates";
+        wantedBy = [ "timers.target" ];
+        timerConfig = {
+          OnCalendar = "daily";
+          RandomizedDelaySec = "1h";
+          Persistent = true;
+        };
+      };
+
       # Persist uploaded images and ACME/SSL certificates across reboots
       # Without this, user images are lost and Let's Encrypt rate-limits hit on every reboot
       impermanence.nixos.directories = [
@@ -223,6 +312,14 @@
           directory = "/var/lib/acme";
           user = "acme";
           group = "acme";
+          mode = "0750";
+        }
+        {
+          # Managed app subdomains are runtime-created, so their nginx snippets,
+          # ACME webroot, and certbot state must survive the impermanent root.
+          directory = managedSubdomainsStateDir;
+          user = "root";
+          group = "root";
           mode = "0750";
         }
       ];
