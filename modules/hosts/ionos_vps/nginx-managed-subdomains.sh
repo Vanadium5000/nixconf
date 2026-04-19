@@ -76,8 +76,8 @@ list_records() {
 write_records() {
   local tmp
   tmp=$(mktemp)
-  cat > "${tmp}"
-  sort -t $'\t' -k1,1 -u "${tmp}" > "${DATA_FILE}"
+  cat >"${tmp}"
+  sort -t $'\t' -k1,1 -u "${tmp}" >"${DATA_FILE}"
   rm -f "${tmp}"
 }
 
@@ -87,25 +87,25 @@ replace_record() {
   local new_mode="$3"
   local tmp
   tmp=$(mktemp)
-  awk -F '\t' -v old="${old_host}" '$1 != old { print }' "${DATA_FILE}" > "${tmp}"
-  printf '%s\t%s\n' "${new_host}" "${new_mode}" >> "${tmp}"
-  write_records < "${tmp}"
+  awk -F '\t' -v old="${old_host}" '$1 != old { print }' "${DATA_FILE}" >"${tmp}"
+  printf '%s\t%s\n' "${new_host}" "${new_mode}" >>"${tmp}"
+  write_records <"${tmp}"
   rm -f "${tmp}"
 }
 
 append_record() {
   local hostname="$1"
   local mode="$2"
-  printf '%s\t%s\n' "${hostname}" "${mode}" >> "${DATA_FILE}"
-  write_records < "${DATA_FILE}"
+  printf '%s\t%s\n' "${hostname}" "${mode}" >>"${DATA_FILE}"
+  write_records <"${DATA_FILE}"
 }
 
 remove_record() {
   local hostname="$1"
   local tmp
   tmp=$(mktemp)
-  awk -F '\t' -v host="${hostname}" '$1 != host { print }' "${DATA_FILE}" > "${tmp}"
-  write_records < "${tmp}"
+  awk -F '\t' -v host="${hostname}" '$1 != host { print }' "${DATA_FILE}" >"${tmp}"
+  write_records <"${tmp}"
   rm -f "${tmp}"
 }
 
@@ -120,7 +120,7 @@ render_site_config() {
   local conf_file="${SITES_DIR}/${hostname}.conf"
   local cert_dir="${CERTBOT_CONFIG_DIR}/live/${hostname}"
 
-  cat > "${conf_file}" <<EOF
+  cat >"${conf_file}" <<EOF
 server {
   listen 80;
   listen [::]:80;
@@ -142,7 +142,7 @@ EOF
     return 0
   fi
 
-  cat >> "${conf_file}" <<EOF
+  cat >>"${conf_file}" <<EOF
 
 server {
   listen 443 ssl;
@@ -155,7 +155,7 @@ server {
 EOF
 
   if [[ "${mode}" == "authenticated" ]]; then
-    cat >> "${conf_file}" <<EOF
+    cat >>"${conf_file}" <<EOF
   location = /_services-auth/check {
     internal;
     proxy_pass ${AUTH_GATEWAY_BASE_URL}/api/check;
@@ -175,26 +175,29 @@ EOF
 EOF
   fi
 
-  cat >> "${conf_file}" <<EOF
+  # shellcheck disable=SC2154
+  cat >>"${conf_file}" <<EOF
   location / {
     proxy_pass ${TRAEFIK_UPSTREAM}/;
     proxy_http_version 1.1;
-    proxy_set_header Host \$host;
+    # Dokploy/Traefik routes app requests by the original Host header, so keep
+    # the exact client-sent authority instead of nginx's normalized host value.
+    proxy_set_header Host \$http_host;
     proxy_set_header X-Forwarded-Proto https;
-    proxy_set_header X-Forwarded-Host \$host;
+    proxy_set_header X-Forwarded-Host \$http_host;
     proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
     proxy_set_header Upgrade \$http_upgrade;
     proxy_set_header Connection \$connection_upgrade;
 EOF
 
   if [[ "${mode}" == "authenticated" ]]; then
-    cat >> "${conf_file}" <<EOF
+    cat >>"${conf_file}" <<EOF
     auth_request /_services-auth/check;
     error_page 401 = @services-auth-login;
 EOF
   fi
 
-  cat >> "${conf_file}" <<'EOF'
+  cat >>"${conf_file}" <<'EOF'
   }
 }
 EOF
@@ -275,7 +278,7 @@ pick_record() {
   local lines
   lines=$(list_records | awk -F '\t' '{ printf "%s [%s]\n", $1, $2 }')
   [[ -z "${lines}" ]] && return 1
-  gum filter --header "Select a managed subdomain" <<< "${lines}"
+  gum filter --header "Select a managed subdomain" <<<"${lines}"
 }
 
 add_interactive() {
@@ -375,12 +378,6 @@ list_interactive() {
   printf '%s\n' "${output}"
 }
 
-show_dashboard() {
-  gum style --foreground 212 --bold "Managed nginx subdomains"
-  list_interactive
-  printf '\n'
-}
-
 renew_all() {
   if ! certbot renew \
     --non-interactive \
@@ -418,32 +415,30 @@ main_menu() {
 
 interactive_main() {
   while true; do
-    clear
-    show_dashboard
     case "$(main_menu)" in
-      "Add subdomain") add_interactive ;;
-      "Edit subdomain") edit_interactive ;;
-      "Delete subdomain") delete_interactive ;;
-      "List subdomains") list_interactive ;;
-      "Regenerate configs") regenerate_only ;;
-      "Renew certificates") renew_all ;;
-      "Quit") exit 0 ;;
+    "Add subdomain") add_interactive ;;
+    "Edit subdomain") edit_interactive ;;
+    "Delete subdomain") delete_interactive ;;
+    "List subdomains") list_interactive ;;
+    "Regenerate configs") regenerate_only ;;
+    "Renew certificates") renew_all ;;
+    "Quit") exit 0 ;;
     esac
   done
 }
 
 case "${1:-interactive}" in
-  interactive)
-    interactive_main
-    ;;
-  regenerate)
-    regenerate_only
-    ;;
-  renew-all)
-    renew_all
-    ;;
-  *)
-    echo "Usage: nginx-managed-subdomains [interactive|regenerate|renew-all]" >&2
-    exit 1
-    ;;
+interactive)
+  interactive_main
+  ;;
+regenerate)
+  regenerate_only
+  ;;
+renew-all)
+  renew_all
+  ;;
+*)
+  echo "Usage: nginx-managed-subdomains [interactive|regenerate|renew-all]" >&2
+  exit 1
+  ;;
 esac
