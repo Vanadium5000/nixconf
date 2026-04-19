@@ -77,15 +77,31 @@ get_mode() {
   awk -F '\t' -v host="${hostname}" '$1 == host { print $2; exit }' "${DATA_FILE}"
 }
 
+list_records_from_file() {
+  local file_path="$1"
+
+  awk -F '\t' '
+    {
+      host = $1
+      sub(/^[[:space:]]+/, "", host)
+      sub(/[[:space:]]+$/, "", host)
+
+      if (host != "") {
+        print
+      }
+    }
+  ' "${file_path}"
+}
+
 list_records() {
-  grep -v '^[[:space:]]*$' "${DATA_FILE}" | sort -t $'\t' -k1,1
+  list_records_from_file "${DATA_FILE}" | sort -t $'\t' -k1,1
 }
 
 write_records() {
   local tmp
   tmp=$(mktemp)
   cat >"${tmp}"
-  sort -t $'\t' -k1,1 -u "${tmp}" >"${DATA_FILE}"
+  list_records_from_file "${tmp}" | sort -t $'\t' -k1,1 -u >"${DATA_FILE}"
   rm -f "${tmp}"
 }
 
