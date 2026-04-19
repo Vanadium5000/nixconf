@@ -34,7 +34,11 @@
       authGatewayBaseUrl = "http://127.0.0.1:${toString servicesAuthGatewayPort}";
       managedSubdomainsStateDir = "/var/lib/nginx-subdomains";
       managedSubdomainsSitesDir = "${managedSubdomainsStateDir}/sites";
-      managedSubdomainsWebroot = "${managedSubdomainsStateDir}/acme-webroot";
+      # Runtime-created hosts must share nginx's declarative ACME challenge
+      # directory because validation can hit an existing static vhost before the
+      # runtime host has its own TLS server block. Keeping one webroot avoids
+      # split-brain HTTP-01 state between /var/lib/acme and the manager.
+      managedSubdomainsWebroot = "/var/lib/acme/acme-challenge";
       managedSubdomainsCertbotDir = "${managedSubdomainsStateDir}/certbot";
       managedSubdomainsStaticHostsFile = pkgs.writeText "nginx-managed-subdomains-static-hosts" ''
         my-website.space
@@ -269,7 +273,6 @@
         # HTTP-01 files from the shared webroot for runtime-created hosts.
         "d ${managedSubdomainsStateDir} 0755 root root -"
         "d ${managedSubdomainsSitesDir} 0750 root root -"
-        "d ${managedSubdomainsWebroot} 0755 root root -"
         "d ${managedSubdomainsCertbotDir} 0700 root root -"
         "d ${managedSubdomainsCertbotDir}/config 0700 root root -"
         "d ${managedSubdomainsCertbotDir}/work 0700 root root -"
@@ -317,8 +320,9 @@
           mode = "0750";
         }
         {
-          # Managed app subdomains are runtime-created, so their nginx snippets,
-          # ACME webroot, and certbot state must survive the impermanent root.
+          # Managed app subdomains are runtime-created, so their nginx snippets
+          # and certbot state must survive the impermanent root. The ACME
+          # challenge webroot is shared with declarative nginx under /var/lib/acme.
           directory = managedSubdomainsStateDir;
           user = "root";
           group = "root";

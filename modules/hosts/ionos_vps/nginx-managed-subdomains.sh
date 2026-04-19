@@ -154,6 +154,10 @@ server {
     root ${WEBROOT};
     default_type text/plain;
     try_files \$uri =404;
+    # Match nixpkgs' nginx ACME handling so HTTP-01 validation bypasses any
+    # outer auth layers the host may otherwise enforce.
+    auth_basic off;
+    auth_request off;
   }
 
   location / {
@@ -198,6 +202,19 @@ EOF
 
 EOF
   fi
+
+  cat >>"${conf_file}" <<EOF
+  location ^~ /.well-known/acme-challenge/ {
+    root ${WEBROOT};
+    default_type text/plain;
+    try_files \$uri =404;
+    # Match nixpkgs' nginx ACME handling so HTTP-01 validation bypasses any
+    # outer auth layers the host may otherwise enforce.
+    auth_basic off;
+    auth_request off;
+  }
+
+EOF
 
   # shellcheck disable=SC2154
   cat >>"${conf_file}" <<EOF
