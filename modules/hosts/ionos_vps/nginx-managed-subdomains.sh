@@ -22,6 +22,7 @@ STATIC_HOSTS_FILE="${STATIC_HOSTS_FILE:?}"
 readonly CERTBOT_CONFIG_DIR="${CERTBOT_DIR}/config"
 readonly CERTBOT_WORK_DIR="${CERTBOT_DIR}/work"
 readonly CERTBOT_LOGS_DIR="${CERTBOT_DIR}/logs"
+readonly MANAGED_DOMAIN_SUFFIX=".my-website.space"
 
 mkdir -p "${STATE_DIR}" "${SITES_DIR}" "${WEBROOT}" "${CERTBOT_CONFIG_DIR}" "${CERTBOT_WORK_DIR}" "${CERTBOT_LOGS_DIR}"
 touch "${DATA_FILE}" "${SITES_DIR}/_empty.conf"
@@ -55,7 +56,7 @@ require_valid_hostname() {
   fi
 
   if [[ ! "${hostname}" =~ ^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*\.my-website\.space$ ]]; then
-    show_error "Hostnames must be lowercase and end in .my-website.space"
+    show_error "Hostnames must be lowercase and end in ${MANAGED_DOMAIN_SUFFIX}"
     return 1
   fi
 
@@ -65,6 +66,27 @@ require_valid_hostname() {
   fi
 
   return 0
+}
+
+prompt_hostname() {
+  local prompt="$1"
+  local placeholder="$2"
+  local allow_empty="$3"
+  local hostname
+
+  hostname=$(gum input --prompt "${prompt}" --placeholder "${placeholder}") || return 1
+  hostname=$(trim_whitespace "${hostname}")
+
+  if [[ -z "${hostname}" && "${allow_empty}" == "allow-empty" ]]; then
+    return 0
+  fi
+
+  if [[ -z "${hostname}" ]]; then
+    show_info "No hostname entered. Nothing changed."
+    return 1
+  fi
+
+  printf '%s' "${hostname}"
 }
 
 record_exists() {
@@ -81,13 +103,19 @@ list_records_from_file() {
   local file_path="$1"
 
   awk -F '\t' '
+    BEGIN {
+      host_pattern = "^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*\\.my-website\\.space$"
+    }
     {
       host = $1
+      mode = $2
       sub(/^[[:space:]]+/, "", host)
       sub(/[[:space:]]+$/, "", host)
+      sub(/^[[:space:]]+/, "", mode)
+      sub(/[[:space:]]+$/, "", mode)
 
-      if (host != "") {
-        print
+      if (host ~ host_pattern && (mode == "authenticated" || mode == "unauthenticated")) {
+        printf "%s\t%s\n", host, mode
       }
     }
   ' "${file_path}"
@@ -103,6 +131,10 @@ write_records() {
   cat >"${tmp}"
   list_records_from_file "${tmp}" | sort -t $'\t' -k1,1 -u >"${DATA_FILE}"
   rm -f "${tmp}"
+}
+
+sanitize_data_file() {
+  write_records <"${DATA_FILE}"
 }
 
 replace_record() {
@@ -147,6 +179,82 @@ purge_certificate_state() {
     "${CERTBOT_CONFIG_DIR}/renewal/${hostname}.conf"
 }
 
+render_acme_location() {
+  cat <<EOF
+  location ^~ /.well-known/acme-challenge/ {
+    root ${WEBROOT};
+    default_type text/plain;
+    try_files \$uri =404;
+    # Runtime-created hosts share the declarative ACME webroot so HTTP-01
+    # validation still succeeds before the host has its final HTTPS server.
+    auth_basic off;
+    auth_request off;
+  }
+EOF
+}
+
+render_auth_locations() {
+  cat <<EOF
+  location = /_services-auth/check {
+    internal;
+    proxy_pass ${AUTH_GATEWAY_BASE_URL}/api/check;
+    proxy_pass_request_body off;
+    proxy_set_header Content-Length "";
+    proxy_set_header Cookie \$http_cookie;
+    proxy_set_header X-Forwarded-Proto https;
+    proxy_set_header X-Original-Host \$host;
+    proxy_set_header X-Original-URI \$request_uri;
+  }
+
+  location @services-auth-login {
+    add_header Set-Cookie "${AUTH_RETURN_COOKIE_NAME}=\$scheme://\$http_host\$request_uri; Domain=${AUTH_COOKIE_DOMAIN}; Path=/; Max-Age=300; HttpOnly; Secure; SameSite=Lax" always;
+    return 302 https://auth.my-website.space/login;
+  }
+EOF
+}
+
+render_proxy_location() {
+  local mode="$1"
+
+  cat <<EOF
+  location / {
+    proxy_pass ${TRAEFIK_UPSTREAM}/;
+    proxy_http_version 1.1;
+    # Preserve the browser hostname so Traefik can keep routing on Host rules
+    # instead of falling back to a catch-all backend that would 404.
+    proxy_set_header Host \$host;
+    proxy_set_header X-Forwarded-Proto https;
+    proxy_set_header X-Forwarded-Host \$host;
+    proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+    proxy_set_header Upgrade \$http_upgrade;
+    # Use an explicitly declared map from nginx config so runtime snippets do
+    # not silently depend on an implicit global variable.
+    proxy_set_header Connection \$managed_subdomains_connection_upgrade;
+EOF
+
+  if [[ "${mode}" == "authenticated" ]]; then
+    cat <<'EOF'
+    auth_request /_services-auth/check;
+    error_page 401 = @services-auth-login;
+EOF
+  fi
+
+  cat <<'EOF'
+  }
+EOF
+}
+
+restore_records_from_backup() {
+  local backup_file="$1"
+
+  cp "${backup_file}" "${DATA_FILE}"
+}
+
+apply_rendered_config() {
+  render_all_configs
+  reload_after_validation
+}
+
 render_site_config() {
   local hostname="$1"
   local mode="$2"
@@ -159,15 +267,7 @@ server {
   listen [::]:80;
   server_name ${hostname};
 
-  location ^~ /.well-known/acme-challenge/ {
-    root ${WEBROOT};
-    default_type text/plain;
-    try_files \$uri =404;
-    # Match nixpkgs' nginx ACME handling so HTTP-01 validation bypasses any
-    # outer auth layers the host may otherwise enforce.
-    auth_basic off;
-    auth_request off;
-  }
+$(render_acme_location)
 
   location / {
     return 301 https://\$host\$request_uri;
@@ -191,66 +291,19 @@ server {
 
 EOF
 
-  if [[ "${mode}" == "authenticated" ]]; then
-    cat >>"${conf_file}" <<EOF
-  location = /_services-auth/check {
-    internal;
-    proxy_pass ${AUTH_GATEWAY_BASE_URL}/api/check;
-    proxy_pass_request_body off;
-    proxy_set_header Content-Length "";
-    proxy_set_header Cookie \$http_cookie;
-    proxy_set_header X-Forwarded-Proto https;
-    proxy_set_header X-Original-Host \$host;
-    proxy_set_header X-Original-URI \$request_uri;
-  }
+  {
+    if [[ "${mode}" == "authenticated" ]]; then
+      render_auth_locations
+      printf '\n'
+    fi
 
-  location @services-auth-login {
-    add_header Set-Cookie "${AUTH_RETURN_COOKIE_NAME}=\$scheme://\$http_host\$request_uri; Domain=${AUTH_COOKIE_DOMAIN}; Path=/; Max-Age=300; HttpOnly; Secure; SameSite=Lax" always;
-    return 302 https://auth.my-website.space/login;
-  }
-
-EOF
-  fi
-
-  cat >>"${conf_file}" <<EOF
-  location ^~ /.well-known/acme-challenge/ {
-    root ${WEBROOT};
-    default_type text/plain;
-    try_files \$uri =404;
-    # Match nixpkgs' nginx ACME handling so HTTP-01 validation bypasses any
-    # outer auth layers the host may otherwise enforce.
-    auth_basic off;
-    auth_request off;
-  }
-
-EOF
-
-  # shellcheck disable=SC2154
-  cat >>"${conf_file}" <<EOF
-  location / {
-    proxy_pass ${TRAEFIK_UPSTREAM}/;
-    proxy_http_version 1.1;
-    # Dokploy/Traefik routes app requests by the original Host header, so keep
-    # the exact client-sent authority instead of nginx's normalized host value.
-    proxy_set_header Host \$http_host;
-    proxy_set_header X-Forwarded-Proto https;
-    proxy_set_header X-Forwarded-Host \$http_host;
-    proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-    proxy_set_header Upgrade \$http_upgrade;
-    proxy_set_header Connection \$connection_upgrade;
-EOF
-
-  if [[ "${mode}" == "authenticated" ]]; then
-    cat >>"${conf_file}" <<EOF
-    auth_request /_services-auth/check;
-    error_page 401 = @services-auth-login;
-EOF
-  fi
-
-  cat >>"${conf_file}" <<'EOF'
-  }
+    render_acme_location
+    printf '\n'
+    render_proxy_location "${mode}"
+    cat <<'EOF'
 }
 EOF
+  } >>"${conf_file}"
 }
 
 render_all_configs() {
@@ -314,15 +367,13 @@ provision_host() {
   local hostname="$1"
   local mode="$2"
 
-  render_all_configs
-  reload_after_validation
+  apply_rendered_config
 
   if ! issue_certificate "${hostname}"; then
     show_error "ACME issuance failed for ${hostname}. Rolling back the new record."
     remove_record "${hostname}"
     purge_certificate_state "${hostname}"
-    render_all_configs
-    reload_after_validation
+    apply_rendered_config
     return 1
   fi
 
@@ -330,13 +381,11 @@ provision_host() {
     show_error "Certificate files are still missing for ${hostname}. Rolling back the new record."
     remove_record "${hostname}"
     purge_certificate_state "${hostname}"
-    render_all_configs
-    reload_after_validation
+    apply_rendered_config
     return 1
   fi
 
-  render_all_configs
-  reload_after_validation
+  apply_rendered_config
   show_success "${hostname} is now configured with HTTPS."
 }
 
@@ -357,14 +406,14 @@ parse_selected_hostname() {
 
   hostname=$(trim_whitespace "${hostname}")
   [[ -n "${hostname}" ]] || return 1
+  require_valid_hostname "${hostname}" || return 1
 
   printf '%s' "${hostname}"
 }
 
 add_interactive() {
   local hostname mode
-  hostname=$(gum input --prompt "Hostname> " --placeholder "openclaw.my-website.space")
-  hostname=$(trim_whitespace "${hostname}")
+  hostname=$(prompt_hostname "Hostname> " "openclaw.my-website.space" "require-value") || return 0
   require_valid_hostname "${hostname}" || return 1
 
   if record_exists "${hostname}"; then
@@ -372,7 +421,10 @@ add_interactive() {
     return 1
   fi
 
-  mode=$(pick_mode)
+  mode=$(pick_mode) || {
+    show_info "No mode selected. Nothing changed."
+    return 0
+  }
   append_record "${hostname}" "${mode}"
   provision_host "${hostname}" "${mode}"
 }
@@ -380,7 +432,11 @@ add_interactive() {
 edit_interactive() {
   local selection current_host current_mode new_host new_mode backup_file
   selection=$(pick_record) || {
-    show_info "No managed subdomains yet."
+    if [[ -n "$(list_records)" ]]; then
+      show_info "No subdomain selected."
+    else
+      show_info "No managed subdomains yet."
+    fi
     return 0
   }
   current_host=$(parse_selected_hostname "${selection}") || {
@@ -389,8 +445,10 @@ edit_interactive() {
   }
   current_mode=$(get_mode "${current_host}")
 
-  new_host=$(gum input --prompt "Hostname> " --placeholder "${current_host}")
-  new_host=$(trim_whitespace "${new_host}")
+  new_host=$(prompt_hostname "Hostname> " "${current_host}" "allow-empty") || {
+    show_info "No subdomain selected."
+    return 0
+  }
   if [[ -z "${new_host}" ]]; then
     new_host="${current_host}"
   fi
@@ -406,34 +464,46 @@ edit_interactive() {
   backup_file=$(mktemp)
   cp "${DATA_FILE}" "${backup_file}"
 
-  replace_record "${current_host}" "${new_host}" "${new_mode}"
-  render_all_configs
-  reload_after_validation
-
   if [[ "${new_host}" != "${current_host}" ]]; then
+    # Keep the existing host live until the replacement hostname has a working
+    # certificate, otherwise nginx falls back to another TLS vhost and serves a
+    # misleading default certificate/404 during the rename window.
+    append_record "${new_host}" "${new_mode}"
+    apply_rendered_config
+
     if ! issue_certificate "${new_host}"; then
-      cp "${backup_file}" "${DATA_FILE}"
+      remove_record "${new_host}"
+      restore_records_from_backup "${backup_file}"
       purge_certificate_state "${new_host}"
-      render_all_configs
-      reload_after_validation
+      apply_rendered_config
       rm -f "${backup_file}"
       show_error "ACME issuance failed for ${new_host}; restored previous record."
       return 1
     fi
 
     if ! cert_paths_exist "${new_host}"; then
-      cp "${backup_file}" "${DATA_FILE}"
+      remove_record "${new_host}"
+      restore_records_from_backup "${backup_file}"
       purge_certificate_state "${new_host}"
-      render_all_configs
-      reload_after_validation
+      apply_rendered_config
       rm -f "${backup_file}"
       show_error "Certificate files are still missing for ${new_host}; restored previous record."
       return 1
     fi
+
+    remove_record "${current_host}"
+    certbot delete \
+      --non-interactive \
+      --cert-name "${current_host}" \
+      --config-dir "${CERTBOT_CONFIG_DIR}" \
+      --work-dir "${CERTBOT_WORK_DIR}" \
+      --logs-dir "${CERTBOT_LOGS_DIR}" >/dev/null 2>&1 || true
+    purge_certificate_state "${current_host}"
+  else
+    replace_record "${current_host}" "${new_host}" "${new_mode}"
   fi
 
-  render_all_configs
-  reload_after_validation
+  apply_rendered_config
   rm -f "${backup_file}"
   show_success "Updated ${new_host}."
 }
@@ -441,7 +511,11 @@ edit_interactive() {
 delete_interactive() {
   local selection hostname
   selection=$(pick_record) || {
-    show_info "No managed subdomains yet."
+    if [[ -n "$(list_records)" ]]; then
+      show_info "No subdomain selected."
+    else
+      show_info "No managed subdomains yet."
+    fi
     return 0
   }
   hostname=$(parse_selected_hostname "${selection}") || {
@@ -462,8 +536,7 @@ delete_interactive() {
     --logs-dir "${CERTBOT_LOGS_DIR}" >/dev/null 2>&1 || true
   purge_certificate_state "${hostname}"
   rm -f "${SITES_DIR}/${hostname}.conf"
-  render_all_configs
-  reload_after_validation
+  apply_rendered_config
   show_success "Deleted ${hostname}."
 }
 
@@ -531,8 +604,14 @@ main_menu() {
 }
 
 interactive_main() {
+  local selection
+
+  sanitize_data_file
+
   while true; do
-    case "$(main_menu)" in
+    selection=$(main_menu) || exit 0
+
+    case "${selection}" in
     "Add subdomain") add_interactive ;;
     "Edit subdomain") edit_interactive ;;
     "Delete subdomain") delete_interactive ;;
@@ -549,9 +628,11 @@ interactive)
   interactive_main
   ;;
 regenerate)
+  sanitize_data_file
   regenerate_only
   ;;
 renew-all)
+  sanitize_data_file
   renew_all
   ;;
 *)

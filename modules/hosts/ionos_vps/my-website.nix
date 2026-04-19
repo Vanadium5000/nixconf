@@ -173,8 +173,17 @@
         recommendedProxySettings = true;
         recommendedTlsSettings = true;
         appendHttpConfig = ''
+          # Runtime-generated snippets need their own explicit websocket map so
+          # the manager can emit self-contained proxy headers instead of relying
+          # on whichever nginx include happened to define `$connection_upgrade`.
+          map $http_upgrade $managed_subdomains_connection_upgrade {
+            default upgrade;
+            "" close;
+          }
+
           # Load additive runtime-managed subdomains after the declarative vhosts.
-          # The manager rejects collisions with the static hosts defined here.
+          # The manager rejects collisions with the static hosts defined here, so
+          # nginx only reaches these snippets when a runtime host is present.
           include ${managedSubdomainsSitesDir}/*.conf;
         '';
 
