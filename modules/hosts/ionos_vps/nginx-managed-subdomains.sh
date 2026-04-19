@@ -375,6 +375,12 @@ list_interactive() {
   printf '%s\n' "${output}"
 }
 
+show_dashboard() {
+  gum style --foreground 212 --bold "Managed nginx subdomains"
+  list_interactive
+  printf '\n'
+}
+
 renew_all() {
   if ! certbot renew \
     --non-interactive \
@@ -412,6 +418,8 @@ main_menu() {
 
 interactive_main() {
   while true; do
+    clear
+    show_dashboard
     case "$(main_menu)" in
       "Add subdomain") add_interactive ;;
       "Edit subdomain") edit_interactive ;;
