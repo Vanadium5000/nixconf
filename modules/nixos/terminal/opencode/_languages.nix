@@ -1,5 +1,56 @@
 { pkgs, self }:
 let
+  lib = pkgs.lib;
+  timeoutSeconds = 20;
+  timeoutBin = "${pkgs.coreutils}/bin/timeout";
+  notifySendBin = "${pkgs.libnotify}/bin/notify-send";
+
+  timeoutNotifyWrapper = pkgs.writeShellScript "opencode-timeout-notify-wrapper" ''
+        set -u
+
+        kind="$1"
+        name="$2"
+        bin="$3"
+        shift 3
+
+        renderedCommand="$(printf '%q ' "$@")"
+        renderedCommand="''${renderedCommand% }"
+
+        if "${timeoutBin}" --foreground --signal=TERM --kill-after=5s "${toString timeoutSeconds}s" "$@"; then
+          exit 0
+        fi
+
+        status="$?"
+
+        if [ "$status" -eq 124 ]; then
+          "${notifySendBin}" \
+            -a "OpenCode" \
+            -u critical \
+            -t 0 \
+            "OpenCode ''${kind} timed out" \
+            "Name: $name
+    Binary: $bin
+    Timeout: ${toString timeoutSeconds}s
+    Command: $renderedCommand"
+        fi
+
+        exit "$status"
+  '';
+
+  # Keep timeout + notification behavior centralized so every tool fails the same way.
+  wrapCommand =
+    kind: name: command:
+    [
+      timeoutNotifyWrapper
+      kind
+      name
+      (builtins.head command)
+    ]
+    ++ command;
+  wrapCommands =
+    kind: definitions:
+    lib.mapAttrs (name: spec: spec // { command = wrapCommand kind name spec.command; }) definitions;
+
   formatterBins = {
     clang-format = "${pkgs.clang-tools}/bin/clang-format";
     nixfmt = "${pkgs.nixfmt-rfc-style}/bin/nixfmt";
@@ -39,44 +90,8 @@ let
     eslint = "${pkgs.vscode-langservers-extracted}/bin/vscode-eslint-language-server";
     yaml = "${pkgs.yaml-language-server}/bin/yaml-language-server";
   };
-in
-{
-  packages =
-    (with pkgs; [
-      bash-language-server
-      basedpyright
-      clang-tools
-      cmake-language-server
-      docker-compose-language-service
-      dockerfile-language-server
-      gopls
-      gofumpt
-      lua-language-server
-      luau-lsp
-      marksman
-      nodePackages.markdownlint-cli
-      nixfmt-rfc-style
-      nodePackages.prettier
-      ruff
-      rust-analyzer
-      rustfmt
-      shfmt
-      sqlfluff
-      sqls
-      stylua
-      tailwindcss-language-server
-      taplo
-      texlab
-      tinymist
-      vscode-langservers-extracted
-      typescript-language-server
-      typstyle
-      yaml-language-server
-      eslint_d
-    ])
-    ++ (with self.packages.${pkgs.stdenv.hostPlatform.system}; [ daisyui-mcp ]);
 
-  formatter = {
+  formatterDefinitions = {
     clang-format = {
       command = [
         formatterBins.clang-format
@@ -214,7 +229,7 @@ in
     };
   };
 
-  lsp = {
+  lspDefinitions = {
     # nixd is already included
     # nil = {
     #   command = [ lspBins.nil ];
@@ -407,4 +422,44 @@ in
       ];
     };
   };
+in
+{
+  packages =
+    (with pkgs; [
+      bash-language-server
+      basedpyright
+      clang-tools
+      cmake-language-server
+      docker-compose-language-service
+      dockerfile-language-server
+      gopls
+      gofumpt
+      lua-language-server
+      luau-lsp
+      marksman
+      nodePackages.markdownlint-cli
+      nixfmt-rfc-style
+      nodePackages.prettier
+      ruff
+      rust-analyzer
+      rustfmt
+      shfmt
+      sqlfluff
+      sqls
+      stylua
+      tailwindcss-language-server
+      taplo
+      texlab
+      tinymist
+      vscode-langservers-extracted
+      typescript-language-server
+      typstyle
+      yaml-language-server
+      eslint_d
+    ])
+    ++ (with self.packages.${pkgs.stdenv.hostPlatform.system}; [ daisyui-mcp ]);
+
+  formatter = wrapCommands "formatter" formatterDefinitions;
+
+  lsp = wrapCommands "LSP" lspDefinitions;
 }
