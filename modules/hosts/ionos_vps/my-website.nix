@@ -34,9 +34,12 @@
       servicesAuthReturnCookieName = "__Secure-services_auth_return";
       servicesAuthCookieDomain = ".my-website.space";
       authGatewayBaseUrl = "http://127.0.0.1:${toString servicesAuthGatewayPort}";
-      traefikUpstream = "http://127.0.0.1:8080";
-      wildcardAcmeHost = "my-website.space-wildcard";
+      traefikUpstream = "http://127.0.0.1:81";
+      # Keep the ACME host key filesystem-safe so nginx and the ACME module
+      # agree on the certificate directory for wildcard consumers.
+      wildcardAcmeHost = "my-website-space-wildcard";
       wildcardUnauthenticatedHosts = [ ];
+
       # lego reads `IONOS_API_KEY_FILE` as a path whose contents are the raw API
       # key, so this file must contain only the secret value rather than `KEY=`.
       ionosAcmeCredentialsFile = pkgs.writeText "ionos-acme-api-key" ionosApiKey;
@@ -77,8 +80,10 @@
                 # Traefik routes wildcard traffic exactly like the old runtime
                 # nginx snippets instead of collapsing everything into one host.
                 proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
                 proxy_set_header X-Forwarded-Proto https;
                 proxy_set_header X-Forwarded-Host $host;
+                proxy_set_header X-Forwarded-Port 443;
                 proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
               ''
               + lib.optionalString authenticated ''
@@ -245,8 +250,8 @@
           "dokploy.my-website.space" = mkProtectedSubdomain {
             # Dokploy's UI is fronted by the localhost-only Traefik container
             # because the upstream module's direct Swarm port publication hangs on
-            # this host. Port 8080 is the HTTP entrypoint rebound in ionos_vps.
-            port = 8080;
+            # this host. Port 81 is the HTTP entrypoint rebound in ionos_vps.
+            port = 81;
           };
 
           "mongo.my-website.space" = mkProtectedSubdomain {
@@ -271,6 +276,7 @@
             IONOS_API_KEY_FILE = ionosAcmeCredentialsFile;
           };
           group = config.services.nginx.group;
+          reloadServices = [ "nginx.service" ];
         };
       };
 

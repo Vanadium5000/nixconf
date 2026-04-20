@@ -76,8 +76,8 @@
           # nix-dokploy hard-codes host ports 80/443 in
           # nix-dokploy.nix (rev 19f9efec3c106e979b1d8fef083c86d73e6ff7ef), which
           # collides with this host's nginx-only edge design. Rebinding Traefik to
-          # localhost-only high ports keeps Dokploy's internal proxy available
-          # without stealing the public ACME/nginx listeners.
+          # localhost-only one-above-edge ports keeps Dokploy's internal proxy
+          # available without stealing the public ACME/nginx listeners.
           dokployTraefikStart = pkgs.writeShellApplication {
             name = "dokploy-traefik-start-localhost";
             runtimeInputs = [ pkgs.docker ];
@@ -106,9 +106,9 @@
                   -v /var/run/docker.sock:/var/run/docker.sock \
                   -v /var/lib/dokploy/traefik/traefik.yml:/etc/traefik/traefik.yml \
                   -v /var/lib/dokploy/traefik/dynamic:/etc/dokploy/traefik/dynamic \
-                  -p 127.0.0.1:8080:80/tcp \
-                  -p 127.0.0.1:8443:443/tcp \
-                  -p 127.0.0.1:8443:443/udp \
+                  -p 127.0.0.1:81:80/tcp \
+                  -p 127.0.0.1:444:443/tcp \
+                  -p 127.0.0.1:444:443/udp \
                   traefik:v3.6.13
               fi
             '';
@@ -138,7 +138,7 @@
 
       # HTTPS traffic analyzer — on-demand: systemctl start mitmproxy
       services.mitmproxy.enable = true;
-      # Dokploy's localhost-bound Traefik already occupies 127.0.0.1:8080 on this host.
+      # Dokploy's localhost-bound Traefik already occupies 127.0.0.1:81 on this host.
       # Move mitmproxy's explicit proxy listener so the on-demand analyzer can start reliably.
       services.mitmproxy.proxyPort = 8084;
       services.mitmproxy.trustCA = true;

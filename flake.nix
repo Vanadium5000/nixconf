@@ -100,8 +100,12 @@
   nixConfig = {
     # Substituters
     # NOTE: ?priority={num} specificies the priority of the substituter
-    # NOTE: All of this is duplicated both in flake.nix and common/nix.nix
     # Lower means more priority - cache.nixos.org defaults to 40 priority so it is unchanged
+    # Keep rebuilding from source when a third-party cache is flaky instead of
+    # turning a transient DNS outage into a hard failure.
+    fallback = true;
+    # Fail fast on dead caches so healthy substituters or local builds take over.
+    connect-timeout = 10;
     extra-substituters = [
       "https://cache.nixos.org?priority=1"
       "https://hyprland.cachix.org?priority=2"
