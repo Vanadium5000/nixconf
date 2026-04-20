@@ -67,6 +67,7 @@
         {
           authenticated ? true,
           extraConfig ? "",
+          preserveTraefikForwardingHeaders ? true,
         }:
         {
           forceSSL = true;
@@ -76,19 +77,23 @@
               proxyPass = "${traefikUpstream}/";
               proxyWebsockets = true;
               extraConfig = ''
-                 # Preserve the browser-facing host and forwarding chain so
-                 # Traefik routes wildcard traffic exactly like the old runtime
-                 # nginx snippets instead of collapsing everything into one host.
-                 proxy_set_header Host $host;
-                 proxy_set_header X-Real-IP $remote_addr;
+                # Preserve the browser-facing host so Traefik can still route
+                # on the original wildcard subdomain seen by the browser.
+                proxy_set_header Host $host;
+              ''
+              + lib.optionalString preserveTraefikForwardingHeaders ''
+                # For the shared wildcard path, keep explicit forwarding headers
+                # aligned with the historical runtime snippets so Traefik-backed
+                # services continue to see the browser-facing origin details.
+                proxy_set_header X-Real-IP $remote_addr;
                 proxy_set_header X-Forwarded-Proto https;
                 proxy_set_header X-Forwarded-Host $host;
                 proxy_set_header X-Forwarded-Port 443;
                 proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
               ''
               + lib.optionalString authenticated ''
-                auth_request /_services-auth/check;
-                error_page 401 = @services-auth-login;
+                 auth_request /_services-auth/check;
+                 error_page 401 = @services-auth-login;
                 # The shared edge auth cookie is only for nginx's gate. Strip it
                 # from the upstream request so Traefik-backed apps see the same
                 # effective cookies they would receive without the edge wrapper.
@@ -235,6 +240,7 @@
 
           "openclaw.my-website.space" = mkTraefikForwardedSubdomain {
             authenticated = false;
+            preserveTraefikForwardingHeaders = false;
           };
 
           "dashboard.my-website.space" = mkProtectedSubdomain {
