@@ -110,6 +110,7 @@ command_exists() {
 # Format: ["env_var_name"]="password_store_path"
 declare -A SECRETS_MAP=(
     ["PASSWORD_HASH"]="system/matrix/hashedPassword"
+    ["IONOS_API_KEY"]="system/ionos-api-key"
     ["MY_WEBSITE_ENV"]="my_website/env_file"
     ["MONGODB_PASSWORD"]="system/mongodb_password"
     ["MONGO_EXPRESS_PASSWORD"]="system/mongo_express_password"

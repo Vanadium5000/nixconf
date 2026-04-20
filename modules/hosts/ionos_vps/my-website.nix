@@ -18,13 +18,15 @@
           }) requiredKeys
         );
 
-      # Keep the auth password aligned with the existing services secret so
-      # one rotation updates every protected dashboard consistently.
+      # Pull the wildcard ACME key and the shared dashboard password from the
+      # same generated secrets surface so nginx/auth changes stay declarative.
       secrets' = builtins.intersectAttrs (keysAsAttrs [
+        "IONOS_API_KEY"
         "MY_WEBSITE_ENV"
         "SERVICES_AUTH_PASSWORD"
       ]) self.secrets;
       envText = secrets'.MY_WEBSITE_ENV;
+      ionosApiKey = secrets'.IONOS_API_KEY;
       servicesAuthPassword = secrets'.SERVICES_AUTH_PASSWORD;
       servicesAuthGatewayPort = 41276;
       servicesAuthSigningKey = builtins.hashString "sha256" "${servicesAuthPassword}:my-website.space:services-auth-gateway";
@@ -32,56 +34,61 @@
       servicesAuthReturnCookieName = "__Secure-services_auth_return";
       servicesAuthCookieDomain = ".my-website.space";
       authGatewayBaseUrl = "http://127.0.0.1:${toString servicesAuthGatewayPort}";
-      managedSubdomainsStateDir = "/var/lib/nginx-subdomains";
-      managedSubdomainsSitesDir = "${managedSubdomainsStateDir}/sites";
-      # Runtime-created hosts must share nginx's declarative ACME challenge
-      # directory because validation can hit an existing static vhost before the
-      # runtime host has its own TLS server block. Keeping one webroot avoids
-      # split-brain HTTP-01 state between /var/lib/acme and the manager.
-      managedSubdomainsWebroot = "/var/lib/acme/acme-challenge";
-      managedSubdomainsCertbotDir = "${managedSubdomainsStateDir}/certbot";
-      managedSubdomainsStaticHostsFile = pkgs.writeText "nginx-managed-subdomains-static-hosts" ''
-        my-website.space
-        www.my-website.space
-        auth.my-website.space
-        dashboard.my-website.space
-        netdata.my-website.space
-        mitmproxy.my-website.space
-        vpn.my-website.space
-        cliproxyapi.my-website.space
-        dokploy.my-website.space
-        mongo.my-website.space
-      '';
-      nginxManagedSubdomains = pkgs.writeShellApplication {
-        name = "nginx-managed-subdomains";
-        runtimeInputs = with pkgs; [
-          bash
-          certbot
-          coreutils
-          gnugrep
-          gnused
-          gawk
-          gum
-          nginx
-          systemd
-        ];
-        text = ''
-          STATE_DIR=${lib.escapeShellArg managedSubdomainsStateDir}
-          DATA_FILE=${lib.escapeShellArg "${managedSubdomainsStateDir}/subdomains.tsv"}
-          SITES_DIR=${lib.escapeShellArg managedSubdomainsSitesDir}
-          WEBROOT=${lib.escapeShellArg managedSubdomainsWebroot}
-          CERTBOT_DIR=${lib.escapeShellArg managedSubdomainsCertbotDir}
-          ACME_EMAIL=${lib.escapeShellArg config.security.acme.defaults.email}
-          TRAEFIK_UPSTREAM='http://127.0.0.1:8080'
-          AUTH_GATEWAY_BASE_URL=${lib.escapeShellArg authGatewayBaseUrl}
-          AUTH_COOKIE_DOMAIN=${lib.escapeShellArg servicesAuthCookieDomain}
-          AUTH_COOKIE_NAME=${lib.escapeShellArg servicesAuthCookieName}
-          AUTH_RETURN_COOKIE_NAME=${lib.escapeShellArg servicesAuthReturnCookieName}
-          STATIC_HOSTS_FILE=${lib.escapeShellArg managedSubdomainsStaticHostsFile}
-        ''
-        + builtins.readFile ./nginx-managed-subdomains.sh;
+      traefikUpstream = "http://127.0.0.1:8080";
+      wildcardAcmeHost = "my-website.space-wildcard";
+      wildcardUnauthenticatedHosts = [ ];
+      # lego reads `IONOS_API_KEY_FILE` as a path whose contents are the raw API
+      # key, so this file must contain only the secret value rather than `KEY=`.
+      ionosAcmeCredentialsFile = pkgs.writeText "ionos-acme-api-key" ionosApiKey;
+      servicesAuthLocations = {
+        "= /_services-auth/check" = {
+          extraConfig = ''
+            internal;
+            proxy_pass ${authGatewayBaseUrl}/api/check;
+            proxy_pass_request_body off;
+            proxy_set_header Content-Length "";
+            proxy_set_header Cookie $http_cookie;
+            proxy_set_header X-Forwarded-Proto https;
+            proxy_set_header X-Original-Host $host;
+            proxy_set_header X-Original-URI $request_uri;
+          '';
+        };
+        "@services-auth-login" = {
+          extraConfig = ''
+            add_header Set-Cookie "${servicesAuthReturnCookieName}=$scheme://$http_host$request_uri; Domain=${servicesAuthCookieDomain}; Path=/; Max-Age=300; HttpOnly; Secure; SameSite=Lax" always;
+            return 302 https://auth.my-website.space/login;
+          '';
+        };
       };
-
+      mkTraefikForwardedSubdomain =
+        {
+          authenticated ? true,
+          extraConfig ? "",
+        }:
+        {
+          forceSSL = true;
+          useACMEHost = wildcardAcmeHost;
+          locations = (lib.optionalAttrs authenticated servicesAuthLocations) // {
+            "/" = {
+              proxyPass = "${traefikUpstream}/";
+              proxyWebsockets = true;
+              extraConfig = ''
+                # Preserve the browser-facing host and forwarding chain so
+                # Traefik routes wildcard traffic exactly like the old runtime
+                # nginx snippets instead of collapsing everything into one host.
+                proxy_set_header Host $host;
+                proxy_set_header X-Forwarded-Proto https;
+                proxy_set_header X-Forwarded-Host $host;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+              ''
+              + lib.optionalString authenticated ''
+                auth_request /_services-auth/check;
+                error_page 401 = @services-auth-login;
+              ''
+              + extraConfig;
+            };
+          };
+        };
       mkProtectedSubdomain =
         {
           port,
@@ -89,35 +96,27 @@
         }:
         {
           forceSSL = true;
-          enableACME = true;
-          locations."= /_services-auth/check" = {
-            extraConfig = ''
-              internal;
-              proxy_pass ${authGatewayBaseUrl}/api/check;
-              proxy_pass_request_body off;
-              proxy_set_header Content-Length "";
-              proxy_set_header Cookie $http_cookie;
-              proxy_set_header X-Forwarded-Proto https;
-              proxy_set_header X-Original-Host $host;
-              proxy_set_header X-Original-URI $request_uri;
-            '';
-          };
-          locations."@services-auth-login" = {
-            extraConfig = ''
-              add_header Set-Cookie "${servicesAuthReturnCookieName}=$scheme://$http_host$request_uri; Domain=${servicesAuthCookieDomain}; Path=/; Max-Age=300; HttpOnly; Secure; SameSite=Lax" always;
-              return 302 https://auth.my-website.space/login;
-            '';
-          };
-          locations."/" = {
-            proxyPass = "http://127.0.0.1:${toString port}/";
-            proxyWebsockets = true;
-            extraConfig = ''
-              auth_request /_services-auth/check;
-              error_page 401 = @services-auth-login;
-            ''
-            + extraConfig;
+          useACMEHost = wildcardAcmeHost;
+          locations = servicesAuthLocations // {
+            "/" = {
+              proxyPass = "http://127.0.0.1:${toString port}/";
+              proxyWebsockets = true;
+              extraConfig = ''
+                auth_request /_services-auth/check;
+                error_page 401 = @services-auth-login;
+              ''
+              + extraConfig;
+            };
           };
         };
+      wildcardUnauthenticatedVhosts = builtins.listToAttrs (
+        map (hostname: {
+          name = hostname;
+          value = mkTraefikForwardedSubdomain {
+            authenticated = false;
+          };
+        }) wildcardUnauthenticatedHosts
+      );
     in
     {
       imports = [
@@ -172,144 +171,106 @@
         recommendedOptimisation = true;
         recommendedProxySettings = true;
         recommendedTlsSettings = true;
-        appendHttpConfig = ''
-          # Runtime-generated snippets need their own explicit websocket map so
-          # the manager can emit self-contained proxy headers instead of relying
-          # on whichever nginx include happened to define `$connection_upgrade`.
-          map $http_upgrade $managed_subdomains_connection_upgrade {
-            default upgrade;
-            "" close;
-          }
+        virtualHosts = {
+          "my-website.space" = {
+            serverAliases = [ "www.my-website.space" ];
+            forceSSL = true; # Redirect HTTP to HTTPS
+            enableACME = true; # HTTP-01 remains sufficient for the apex site
 
-          # Load additive runtime-managed subdomains after the declarative vhosts.
-          # The manager rejects collisions with the static hosts defined here, so
-          # nginx only reaches these snippets when a runtime host is present.
-          include ${managedSubdomainsSitesDir}/*.conf;
-        '';
+            # Serve frontend static files
+            root = "${inputs.my-website-frontend.packages.${pkgs.stdenv.hostPlatform.system}.default}";
 
-        virtualHosts."my-website.space" = {
-          serverAliases = [ "www.my-website.space" ];
-          forceSSL = true; # Redirect HTTP to HTTPS
-          enableACME = true; # Auto Let's Encrypt
+            # Proxy backend for drfrost-solver (adjust path if needed)
+            locations."/backend/drfrost-solver/" = {
+              proxyPass = "http://127.0.0.1:41274/";
+              proxyWebsockets = true; # If needed for WS
+            };
 
-          # Serve frontend static files
-          root = "${inputs.my-website-frontend.packages.${pkgs.stdenv.hostPlatform.system}.default}";
+            # Proxy backend (adjust path if needed)
+            locations."/backend/" = {
+              proxyPass = "http://127.0.0.1:41273/";
+              proxyWebsockets = true; # If needed for WS
+            };
 
-          # Proxy backend for drfrost-solver (adjust path if needed)
-          locations."/backend/drfrost-solver/" = {
-            proxyPass = "http://127.0.0.1:41274/";
-            proxyWebsockets = true; # If needed for WS
+            # Keep the existing backend auth API path stable for the site app.
+            locations."/auth/api/" = {
+              proxyPass = "http://127.0.0.1:41273"; # No trailing / to preserve path
+              proxyWebsockets = true;
+            };
+
+            # Optional: SPA fallback for frontend routes
+            locations."/" = {
+              tryFiles = "$uri $uri/ /index.html";
+            };
           };
 
-          # Proxy backend (adjust path if needed)
-          locations."/backend/" = {
-            proxyPass = "http://127.0.0.1:41273/";
-            proxyWebsockets = true; # If needed for WS
+          "auth.my-website.space" = {
+            forceSSL = true;
+            useACMEHost = wildcardAcmeHost;
+            locations."/" = {
+              proxyPass = "${authGatewayBaseUrl}/";
+              extraConfig = ''
+                proxy_set_header Host $host;
+                proxy_set_header X-Forwarded-Proto https;
+                proxy_set_header X-Forwarded-Host $host;
+              '';
+            };
           };
 
-          # Keep the existing backend auth API path stable for the site app.
-          locations."/auth/api/" = {
-            proxyPass = "http://127.0.0.1:41273"; # No trailing / to preserve path
-            proxyWebsockets = true;
+          "dashboard.my-website.space" = mkProtectedSubdomain {
+            port = 8082;
           };
 
-          # Optional: SPA fallback for frontend routes
-          locations."/" = {
-            tryFiles = "$uri $uri/ /index.html";
-          };
-        };
-
-        virtualHosts."auth.my-website.space" = {
-          forceSSL = true;
-          enableACME = true;
-          locations."/" = {
-            proxyPass = "${authGatewayBaseUrl}/";
+          "netdata.my-website.space" = mkProtectedSubdomain {
+            port = 19999;
             extraConfig = ''
+              # Netdata's bundled UI should render at / instead of falling back
+              # to the API metadata endpoint when exposed through nginx.
               proxy_set_header Host $host;
-              proxy_set_header X-Forwarded-Proto https;
-              proxy_set_header X-Forwarded-Host $host;
             '';
           };
-        };
 
-        virtualHosts."dashboard.my-website.space" = mkProtectedSubdomain {
-          port = 8082;
-        };
+          "mitmproxy.my-website.space" = mkProtectedSubdomain {
+            port = 8083;
+          };
 
-        virtualHosts."netdata.my-website.space" = mkProtectedSubdomain {
-          port = 19999;
-          extraConfig = ''
-            # Netdata's bundled UI should render at / instead of falling back
-            # to the API metadata endpoint when exposed through nginx.
-            proxy_set_header Host $host;
-          '';
-        };
+          "vpn.my-website.space" = mkProtectedSubdomain {
+            port = 10802;
+          };
 
-        virtualHosts."mitmproxy.my-website.space" = mkProtectedSubdomain {
-          port = 8083;
-        };
+          "cliproxyapi.my-website.space" = mkProtectedSubdomain {
+            port = 8317;
+          };
 
-        virtualHosts."vpn.my-website.space" = mkProtectedSubdomain {
-          port = 10802;
-        };
+          "dokploy.my-website.space" = mkProtectedSubdomain {
+            # Dokploy's UI is fronted by the localhost-only Traefik container
+            # because the upstream module's direct Swarm port publication hangs on
+            # this host. Port 8080 is the HTTP entrypoint rebound in ionos_vps.
+            port = 8080;
+          };
 
-        virtualHosts."cliproxyapi.my-website.space" = mkProtectedSubdomain {
-          port = 8317;
-        };
+          "mongo.my-website.space" = mkProtectedSubdomain {
+            port = 41275;
+          };
 
-        virtualHosts."dokploy.my-website.space" = mkProtectedSubdomain {
-          # Dokploy's UI is fronted by the localhost-only Traefik container
-          # because the upstream module's direct Swarm port publication hangs on
-          # this host. Port 8080 is the HTTP entrypoint rebound in ionos_vps.
-          port = 8080;
-        };
-
-        virtualHosts."mongo.my-website.space" = mkProtectedSubdomain {
-          port = 41275;
-        };
+          "*.my-website.space" = mkTraefikForwardedSubdomain { };
+        }
+        // wildcardUnauthenticatedVhosts;
       };
 
       # ACME (Let's Encrypt) setup
       security.acme = {
         acceptTerms = true;
         defaults.email = "vanadium5000@gmail.com"; # Required for cert issuance
-      };
-
-      environment.systemPackages = [ nginxManagedSubdomains ];
-
-      systemd.tmpfiles.rules = [
-        # nginx workers must traverse the managed state root to serve ACME
-        # HTTP-01 files from the shared webroot for runtime-created hosts.
-        "d ${managedSubdomainsStateDir} 0755 root root -"
-        "d ${managedSubdomainsSitesDir} 0750 root root -"
-        "d ${managedSubdomainsCertbotDir} 0700 root root -"
-        "d ${managedSubdomainsCertbotDir}/config 0700 root root -"
-        "d ${managedSubdomainsCertbotDir}/work 0700 root root -"
-        "d ${managedSubdomainsCertbotDir}/logs 0700 root root -"
-        "f ${managedSubdomainsStateDir}/subdomains.tsv 0640 root root -"
-        "f ${managedSubdomainsSitesDir}/_empty.conf 0644 root root -"
-      ];
-
-      systemd.services.nginx-managed-subdomains-renew = {
-        description = "Renew runtime-managed nginx subdomain certificates";
-        after = [
-          "nginx.service"
-          "network-online.target"
-        ];
-        wants = [ "network-online.target" ];
-        serviceConfig = {
-          Type = "oneshot";
-          ExecStart = "${nginxManagedSubdomains}/bin/nginx-managed-subdomains renew-all";
-        };
-      };
-
-      systemd.timers.nginx-managed-subdomains-renew = {
-        description = "Daily renewal for runtime-managed nginx subdomain certificates";
-        wantedBy = [ "timers.target" ];
-        timerConfig = {
-          OnCalendar = "daily";
-          RandomizedDelaySec = "1h";
-          Persistent = true;
+        certs.${wildcardAcmeHost} = {
+          domain = "*.my-website.space";
+          dnsProvider = "ionos";
+          # Wildcard certs require DNS-01 because HTTP-01 cannot prove control
+          # of arbitrary future subdomains before nginx has a matching vhost.
+          credentialFiles = {
+            IONOS_API_KEY_FILE = ionosAcmeCredentialsFile;
+          };
+          group = config.services.nginx.group;
         };
       };
 
@@ -327,17 +288,6 @@
           user = "acme";
           group = "acme";
           mode = "0750";
-        }
-        {
-          # Managed app subdomains are runtime-created, so their nginx snippets
-          # and certbot state must survive the impermanent root. The ACME
-          # challenge webroot is shared with declarative nginx under /var/lib/acme.
-          directory = managedSubdomainsStateDir;
-          user = "root";
-          group = "root";
-          # Keep the parent traversable so nginx can reach the managed ACME
-          # webroot even though certificate state below remains private.
-          mode = "0755";
         }
       ];
 
