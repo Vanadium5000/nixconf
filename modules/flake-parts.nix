@@ -62,6 +62,11 @@
                   # Fixes build failures when system is under load
                   doCheck = false;
                 });
+                mcp = python-prev.mcp.overridePythonAttrs (old: {
+                  # Disable flaky SSE/HTTP server tests (ClosedResourceError, server startup timeouts)
+                  # that fail in the Nix sandbox due to async race conditions
+                  doCheck = false;
+                });
                 trezor = python-prev.trezor.overridePythonAttrs (old: {
                   nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ python-final.pythonRelaxDepsHook ];
 
