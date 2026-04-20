@@ -8,7 +8,7 @@ shopt -s expand_aliases
 
 # Use custom QuickShell menu for askpass
 QS_CMD='/run/current-system/sw/bin/qs-askpass'
-if command -v "$QS_CMD" &> /dev/null; then
+if command -v "$QS_CMD" &>/dev/null; then
     export SUDO_ASKPASS="$QS_CMD"
     alias sudo='sudo -A'
 fi
@@ -57,9 +57,9 @@ send_notification() {
     if [ "$NOTIFY" = true ] && command_exists notify-send; then
         local icon="dialog-information"
         case "$level" in
-            "error") icon="dialog-error" ;;
-            "warning") icon="dialog-warning" ;;
-            "success") icon="emblem-success" ;;
+        "error") icon="dialog-error" ;;
+        "warning") icon="dialog-warning" ;;
+        "success") icon="emblem-success" ;;
         esac
         # Determine if we are in a graphical environment
         if [ -n "$DISPLAY" ] || [ -n "$WAYLAND_DISPLAY" ]; then
@@ -77,7 +77,7 @@ log_command() {
 error() {
     echo -e "${RED}[ERROR]${NC} $*" >&2
     if [ -n "$LOG_FILE" ]; then
-        echo "[$(date '+%Y-%m-%d %H:%M:%S')] [ERROR] $*" >> "$LOG_FILE"
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] [ERROR] $*" >>"$LOG_FILE"
     fi
     send_notification "error" "NixOS Rebuild Error" "$*"
     NOTIFIED_ERROR=true
@@ -114,7 +114,6 @@ declare -A SECRETS_MAP=(
     ["MY_WEBSITE_ENV"]="my_website/env_file"
     ["MONGODB_PASSWORD"]="system/mongodb_password"
     ["MONGO_EXPRESS_PASSWORD"]="system/mongo_express_password"
-    ["ANTIGRAVITY_MANAGER_KEY"]="system/antigravity-manager-key"
     ["CLIPROXYAPI_KEY"]="system/cliproxyapi-key"
     ["EXA_API_KEY"]="system/exa-api-key"
     ["MITMPROXY_CA_KEY"]="system/mitmproxy-ca-key"
@@ -171,7 +170,7 @@ write_secrets_nix() {
             fi
         done
         echo "}; }"
-    } > "$secrets_file"
+    } >"$secrets_file"
 
     success "Secrets written to ${secrets_file}"
 }
@@ -312,7 +311,7 @@ switch_system() {
 matrix_fetch_json() {
     local -a nix_args=(--impure)
     if [ -n "$ARGS" ]; then
-        read -r -a extra_args <<< "$ARGS"
+        read -r -a extra_args <<<"$ARGS"
         nix_args+=("${extra_args[@]}")
     fi
 
@@ -444,8 +443,8 @@ show_generations() {
 parse_options() {
     while [[ $# -gt 0 ]]; do
         case $1 in
-            --help)
-                cat << EOF
+        --help)
+            cat <<EOF
 Usage: HOST=<host> ARGS="..." $0 [OPTIONS] [ACTION]
 
 Environment Variables:
@@ -480,36 +479,36 @@ Examples:
   HOST=macbook $0 install root@192.168.1.100 # Install to remote host using nixos-anywhere
   HOST=legion5i $0 --validate switch         # Validate before switching legion5i
 EOF
-                exit 0
-                ;;
-            --log-file)
-                LOG_FILE="${SCRIPT_DIR}/rebuild.log"
-                shift
-                ;;
-            --git-backup)
-                GIT_BACKUP=true
-                shift
-                ;;
-            --validate)
-                VALIDATE=true
-                shift
-                ;;
-            --backup)
-                BACKUP=true
-                shift
-                ;;
-            --no-notify)
-                NOTIFY=false
-                shift
-                ;;
-            -*)
-                echo "Unknown option: $1" >&2
-                echo "Use --help for usage information" >&2
-                exit 1
-                ;;
-            *)
-                break
-                ;;
+            exit 0
+            ;;
+        --log-file)
+            LOG_FILE="${SCRIPT_DIR}/rebuild.log"
+            shift
+            ;;
+        --git-backup)
+            GIT_BACKUP=true
+            shift
+            ;;
+        --validate)
+            VALIDATE=true
+            shift
+            ;;
+        --backup)
+            BACKUP=true
+            shift
+            ;;
+        --no-notify)
+            NOTIFY=false
+            shift
+            ;;
+        -*)
+            echo "Unknown option: $1" >&2
+            echo "Use --help for usage information" >&2
+            exit 1
+            ;;
+        *)
+            break
+            ;;
         esac
     done
     # Return remaining arguments as a single string
@@ -582,18 +581,18 @@ main() {
     set -- $remaining_args
     while [[ $# -gt 0 ]]; do
         case $1 in
-            --*)
-                # Skip options that were already parsed
-                shift
-                ;;
-            *)
-                if [ -z "$action" ]; then
-                    action="$1"
-                else
-                    deploy_target="$1"
-                fi
-                shift
-                ;;
+        --*)
+            # Skip options that were already parsed
+            shift
+            ;;
+        *)
+            if [ -z "$action" ]; then
+                action="$1"
+            else
+                deploy_target="$1"
+            fi
+            shift
+            ;;
         esac
     done
 
@@ -629,63 +628,63 @@ main() {
     fi
 
     case "${action}" in
-        "build")
-            if [ "$VALIDATE" = true ]; then
-                validate_flake
-            fi
-            build_system
-            ;;
-        "switch")
-            if [ "$GIT_BACKUP" = true ]; then
-                git_commit_backup
-            fi
-            if [ "$BACKUP" = true ]; then
-                backup_system
-            fi
-            if [ "$VALIDATE" = true ]; then
-                validate_flake
-            fi
-            switch_system
-            ;;
-        "dry-run")
-            if [ "$VALIDATE" = true ]; then
-                validate_flake
-            fi
-            dry_run
-            ;;
-        "rollback")
-            rollback_system
-            ;;
-        "generations")
-            show_generations
-            ;;
-        "validate")
+    "build")
+        if [ "$VALIDATE" = true ]; then
             validate_flake
-            ;;
-        "deploy")
-            if [ "$GIT_BACKUP" = true ]; then
-                git_commit_backup
-            fi
-            if [ "$VALIDATE" = true ]; then
-                validate_flake
-            fi
-            deploy_system "$deploy_target"
-            ;;
-        "install")
-            if [ "$GIT_BACKUP" = true ]; then
-                git_commit_backup
-            fi
-            if [ "$VALIDATE" = true ]; then
-                validate_flake
-            fi
-            install_system "$deploy_target"
-            ;;
-        *)
-            error "Unknown action: ${action}"
-            echo "Usage: HOST=<host> $0 [OPTIONS] {switch|build|dry-run|rollback|generations|validate|deploy|install}"
-            echo "Use --help for more information"
-            exit 1
-            ;;
+        fi
+        build_system
+        ;;
+    "switch")
+        if [ "$GIT_BACKUP" = true ]; then
+            git_commit_backup
+        fi
+        if [ "$BACKUP" = true ]; then
+            backup_system
+        fi
+        if [ "$VALIDATE" = true ]; then
+            validate_flake
+        fi
+        switch_system
+        ;;
+    "dry-run")
+        if [ "$VALIDATE" = true ]; then
+            validate_flake
+        fi
+        dry_run
+        ;;
+    "rollback")
+        rollback_system
+        ;;
+    "generations")
+        show_generations
+        ;;
+    "validate")
+        validate_flake
+        ;;
+    "deploy")
+        if [ "$GIT_BACKUP" = true ]; then
+            git_commit_backup
+        fi
+        if [ "$VALIDATE" = true ]; then
+            validate_flake
+        fi
+        deploy_system "$deploy_target"
+        ;;
+    "install")
+        if [ "$GIT_BACKUP" = true ]; then
+            git_commit_backup
+        fi
+        if [ "$VALIDATE" = true ]; then
+            validate_flake
+        fi
+        install_system "$deploy_target"
+        ;;
+    *)
+        error "Unknown action: ${action}"
+        echo "Usage: HOST=<host> $0 [OPTIONS] {switch|build|dry-run|rollback|generations|validate|deploy|install}"
+        echo "Use --help for more information"
+        exit 1
+        ;;
     esac
 
     success "Rebuild script completed successfully"
