@@ -112,6 +112,9 @@
             servercmd = /run/current-system/sw/bin/unison
             # Remote sync breaks if this isn't false:
             addversionno = false
+
+            # Automatically ignore any stale lock files
+            ignorelocks = true
           '';
         };
 
