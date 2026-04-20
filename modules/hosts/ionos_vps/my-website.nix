@@ -39,7 +39,7 @@
       # agree on the certificate directory for wildcard consumers.
       wildcardAcmeHost = "my-website-space-wildcard";
       wildcardUnauthenticatedHosts = [ ];
-
+      servicesAuthCookieStripPattern = "(^|;[[:space:]]*)(${servicesAuthCookieName}|${servicesAuthReturnCookieName})=[^;]*";
       # lego reads `IONOS_API_KEY_FILE` as a path whose contents are the raw API
       # key, so this file must contain only the secret value rather than `KEY=`.
       ionosAcmeCredentialsFile = pkgs.writeText "ionos-acme-api-key" ionosApiKey;
@@ -76,11 +76,11 @@
               proxyPass = "${traefikUpstream}/";
               proxyWebsockets = true;
               extraConfig = ''
-                # Preserve the browser-facing host and forwarding chain so
-                # Traefik routes wildcard traffic exactly like the old runtime
-                # nginx snippets instead of collapsing everything into one host.
-                proxy_set_header Host $host;
-                proxy_set_header X-Real-IP $remote_addr;
+                 # Preserve the browser-facing host and forwarding chain so
+                 # Traefik routes wildcard traffic exactly like the old runtime
+                 # nginx snippets instead of collapsing everything into one host.
+                 proxy_set_header Host $host;
+                 proxy_set_header X-Real-IP $remote_addr;
                 proxy_set_header X-Forwarded-Proto https;
                 proxy_set_header X-Forwarded-Host $host;
                 proxy_set_header X-Forwarded-Port 443;
@@ -89,6 +89,17 @@
               + lib.optionalString authenticated ''
                 auth_request /_services-auth/check;
                 error_page 401 = @services-auth-login;
+                # The shared edge auth cookie is only for nginx's gate. Strip it
+                # from the upstream request so Traefik-backed apps see the same
+                # effective cookies they would receive without the edge wrapper.
+                set $sanitized_cookie $http_cookie;
+                if ($sanitized_cookie ~ "${servicesAuthCookieStripPattern}") {
+                  set $sanitized_cookie $1$2;
+                }
+                if ($sanitized_cookie ~ "^;[[:space:]]*(.*)$") {
+                  set $sanitized_cookie $1;
+                }
+                proxy_set_header Cookie $sanitized_cookie;
               ''
               + extraConfig;
             };
@@ -220,6 +231,10 @@
                 proxy_set_header X-Forwarded-Host $host;
               '';
             };
+          };
+
+          "openclaw.my-website.space" = mkTraefikForwardedSubdomain {
+            authenticated = false;
           };
 
           "dashboard.my-website.space" = mkProtectedSubdomain {

@@ -726,8 +726,10 @@
           "CLUTTER_BACKEND,wayland"
           "GSK_RENDERER,vulkan" # "ngl" | "vulkan"
 
-          # Proper cursor
-          "XCURSOR_THEME,Oxygen"
+          # Use Adwaita for a standard white cursor with a dark outline; this is
+          # easier to track than Oxygen's aqua pointer while leaving Qt's Oxygen
+          # widget styling in modules/nixos/desktop/qt.nix untouched.
+          "XCURSOR_THEME,Adwaita"
           "XCURSOR_SIZE,16"
 
           # Checklist directory
@@ -740,6 +742,7 @@
         cliphist # Clipboard manager
         brightnessctl
         dconf # user-prefs
+        adwaita-icon-theme # Provides the Adwaita cursor theme selected above
 
         hyprpolkitagent # Hyprland Polkit agent
         pkgs.kdePackages.polkit-kde-agent-1 # KDE Polkit agent

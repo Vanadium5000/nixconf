@@ -30,6 +30,10 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+MAGENTA='\033[0;35m'
+CYAN='\033[0;36m'
+DIM='\033[2m'
+BOLD='\033[1m'
 NC='\033[0m' # No Color
 
 # Default options (all optional features off)
@@ -315,87 +319,137 @@ matrix_fetch_json() {
         nix_args+=("${extra_args[@]}")
     fi
 
-    nix eval --json "${FLAKE_REF}#hostModuleMatrix" "${nix_args[@]}" 2>/dev/null
+    # `hostModuleMatrix` only exports metadata for the overview, so read-only eval avoids
+    # unnecessary store side effects while keeping the preview fast. Source: `nix eval --help`.
+    nix eval --json --read-only "${FLAKE_REF}#hostModuleMatrix" "${nix_args[@]}" 2>/dev/null
 }
 
-matrix_render_summary_table() {
-    local matrix_json="$1"
-    printf '%s\n' "$matrix_json" | jq -r '
-      to_entries[] |
-      [
-        .key,
-        ((.value.profiles // []) | length),
-        ((.value.features // []) | length),
-        ((.value.services // []) | length),
-        ((.value.programs // []) | length)
-      ] | @tsv
-    ' | {
-        printf '%b\n' "${BLUE}HOST\tPROFILES\tFEATURES\tSERVICES\tPROGRAMS${NC}"
-        cat
-    } | column -t -s $'\t'
+matrix_print_rule() {
+    local width="${1:-72}"
+    printf '%*s\n' "$width" '' | tr ' ' '─'
 }
 
-matrix_render_category_grid() {
-    local matrix_json="$1"
-    local category="$2"
-    local title="$3"
+matrix_print_section() {
+    local title="$1"
+    printf '\n%b\n' "${MAGENTA}╭─ ${BOLD}${title}${NC}"
+    printf '%b\n' "${DIM}$(matrix_print_rule 72)${NC}"
+}
 
-    local -a names
-    mapfile -t names < <(
-        printf '%s\n' "$matrix_json" | jq -r --arg category "$category" '
-          to_entries
-          | map(.value[$category] // [])
-          | add
-          | unique
-          | .[]
-        '
-    )
+matrix_flush_table() {
+    local title="$1"
+    shift
 
-    if [ "${#names[@]}" -eq 0 ]; then
+    if [ "$#" -eq 0 ]; then
         return 0
     fi
 
-    local -a hosts
-    mapfile -t hosts < <(printf '%s\n' "$matrix_json" | jq -r 'keys[]')
-
-    printf '%b\n' "${BLUE}${title}${NC}"
-    {
-        printf 'HOST\t'
-        printf '%s\t' "${names[@]}"
-        printf '\n'
-
-        local host
-        local name
-        local marker
-        for host in "${hosts[@]}"; do
-            printf '%s\t' "$host"
-            for name in "${names[@]}"; do
-                marker=$(printf '%s\n' "$matrix_json" | jq -r --arg host "$host" --arg category "$category" --arg name "$name" '
-                  if ((.[ $host ][ $category ] // []) | index($name)) != null then "✓" else "·" end
-                ')
-                printf '%s\t' "$marker"
-            done
-            printf '\n'
-        done
-    } | column -t -s $'\t'
+    matrix_print_section "$title"
+    printf '%s\n' "$@" | column -t -s $'\t'
 }
 
-matrix_render_host_details() {
+matrix_emit_render_blocks() {
     local matrix_json="$1"
     printf '%s\n' "$matrix_json" | jq -r '
-      to_entries[]
-      | .key as $host
-      | [
-          $host,
-          (.value.profiles // [] | if length == 0 then "-" else join(", ") end),
-          (.value.features // [] | if length == 0 then "-" else join(", ") end),
-          (.value.services // [] | if length == 0 then "-" else join(", ") end),
-          (.value.programs // [] | if length == 0 then "-" else join(", ") end)
-        ] | @tsv
-    ' | {
-        printf '%b\n' "${BLUE}HOST\tPROFILES\tFEATURES\tSERVICES\tPROGRAMS${NC}"
-        cat
-    } | column -t -s $'\t'
+      def section($title): ["SECTION", $title] | @tsv;
+      def row($cols): (["ROW"] + $cols) | @tsv;
+      def title_for($category):
+        if $category == "profiles" then "Profile capability grid"
+        elif $category == "features" then "Feature capability grid"
+        elif $category == "services" then "Service capability grid"
+        elif $category == "programs" then "Program capability grid"
+        else ($category + " capability grid")
+        end;
+      def names_for($entries; $category):
+        ($entries | map(.value[$category] // []) | add | unique);
+      def grid($entries; $category):
+        names_for($entries; $category) as $names
+        | if ($names | length) == 0 then
+            empty
+          else
+            section(title_for($category)),
+            row(["HOST"] + $names),
+            (
+              $entries[]
+              | . as $entry
+              | row(
+                  [$entry.key]
+                  + (
+                    $names
+                    | map(if (($entry.value[$category] // []) | index(.)) != null then "✓" else "·" end)
+                  )
+                )
+            )
+          end;
+
+      to_entries as $entries
+      | section("Host capability overview"),
+        row(["HOST", "PROFILES", "FEATURES", "SERVICES", "PROGRAMS"]),
+        (
+          $entries[]
+          | row([
+              .key,
+              ((.value.profiles // []) | length | tostring),
+              ((.value.features // []) | length | tostring),
+              ((.value.services // []) | length | tostring),
+              ((.value.programs // []) | length | tostring)
+            ])
+        ),
+        grid($entries; "profiles"),
+        grid($entries; "features"),
+        grid($entries; "services"),
+        grid($entries; "programs"),
+        section("Host module details"),
+        row(["HOST", "PROFILES", "FEATURES", "SERVICES", "PROGRAMS"]),
+        (
+          $entries[]
+          | row([
+              .key,
+              (.value.profiles // [] | if length == 0 then "-" else join(", ") end),
+              (.value.features // [] | if length == 0 then "-" else join(", ") end),
+              (.value.services // [] | if length == 0 then "-" else join(", ") end),
+              (.value.programs // [] | if length == 0 then "-" else join(", ") end)
+            ])
+        )
+    '
+}
+
+matrix_render_precomputed_tables() {
+    local matrix_json="$1"
+    local current_title=""
+    local -a current_rows=()
+    local line tag payload
+
+    while IFS= read -r line; do
+        IFS=$'\t' read -r tag payload <<<"$line"
+        case "$tag" in
+        SECTION)
+            if [ -n "$current_title" ] && [ "${#current_rows[@]}" -gt 0 ]; then
+                matrix_flush_table "$current_title" "${current_rows[@]}"
+            fi
+            current_title="$payload"
+            current_rows=()
+            ;;
+        ROW)
+            current_rows+=("${line#$'ROW\t'}")
+            ;;
+        esac
+    done < <(matrix_emit_render_blocks "$matrix_json")
+
+    if [ -n "$current_title" ] && [ "${#current_rows[@]}" -gt 0 ]; then
+        matrix_flush_table "$current_title" "${current_rows[@]}"
+    fi
+}
+
+should_render_module_matrix() {
+    local action="$1"
+    case "$action" in
+    build | switch | dry-run | validate | deploy | install)
+        return 0
+        ;;
+    *)
+        return 1
+        ;;
+    esac
 }
 
 print_module_matrix() {
@@ -411,12 +465,7 @@ print_module_matrix() {
     fi
 
     log "Module matrix preview"
-    matrix_render_summary_table "$matrix_json"
-    matrix_render_category_grid "$matrix_json" "profiles" "Profile capability grid"
-    matrix_render_category_grid "$matrix_json" "features" "Feature capability grid"
-    matrix_render_category_grid "$matrix_json" "services" "Service capability grid"
-    matrix_render_category_grid "$matrix_json" "programs" "Program capability grid"
-    matrix_render_host_details "$matrix_json"
+    matrix_render_precomputed_tables "$matrix_json"
 }
 
 # Rollback system
@@ -620,7 +669,9 @@ main() {
     # Load secrets (core functionality)
     load_secrets
 
-    print_module_matrix
+    if should_render_module_matrix "$action"; then
+        print_module_matrix
+    fi
 
     # Optional git status check
     if [ "$GIT_BACKUP" = true ]; then
