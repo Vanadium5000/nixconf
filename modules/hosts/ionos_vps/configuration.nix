@@ -50,6 +50,13 @@
         # on this host. The public Traefik edge instead proxies to the
         # localhost-bound Traefik container started below.
         port = null;
+        environment = {
+          # Dokploy's auth layer validates the browser Origin header against a
+          # trusted-origin list. Once TLS terminates at the host Traefik edge,
+          # logins originate from the public subdomain instead of localhost, so
+          # the public URL must be trusted explicitly to avoid INVALID_ORIGIN.
+          BETTER_AUTH_TRUSTED_ORIGINS = "https://dokploy.my-website.space,http://localhost:3000";
+        };
         traefik.dynamicConfig.dokploy-ui = {
           http = {
             routers.dokploy-ui = {

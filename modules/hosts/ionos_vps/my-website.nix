@@ -38,6 +38,10 @@
       servicesAuthCookieDomain = ".my-website.space";
       authGatewayBaseUrl = "http://127.0.0.1:${toString servicesAuthGatewayPort}";
       traefikDokployUpstream = "http://127.0.0.1:81";
+      acmeCertName = "my-website.space";
+      acmeCertDirectory = config.security.acme.certs.${acmeCertName}.directory;
+      # lego's IONOS provider reads a raw API key from the referenced file.
+      ionosAcmeCredentialsFile = pkgs.writeText "ionos-acme-api-key" ionosApiKey;
       staticSiteScript = pkgs.writeText "my-website-frontend-server.py" ''
         import http.server
         import os
@@ -92,7 +96,7 @@
           inherit rule service;
           entryPoints = [ "websecure" ];
           middlewares = [ "services-auth" ] ++ middlewares;
-          tls.certResolver = "ionos";
+          tls = { };
         }
         // lib.optionalAttrs (priority != null) {
           inherit priority;
@@ -112,7 +116,7 @@
             rule = "Host(`${hostname}`)";
             service = "dokploy-traefik";
             entryPoints = [ "websecure" ];
-            tls.certResolver = "ionos";
+            tls = { };
           };
         }) wildcardUnauthenticatedHosts
       );
@@ -183,11 +187,6 @@
 
       services.traefik = {
         enable = true;
-        environmentFiles = [
-          (pkgs.writeText "traefik-ionos.env" ''
-            IONOS_API_KEY=${ionosApiKey}
-          '')
-        ];
         staticConfigOptions = {
           entryPoints = {
             web = {
@@ -201,18 +200,6 @@
             websecure = {
               address = ":443";
               asDefault = true;
-              http.tls.certResolver = "ionos";
-            };
-          };
-          certificatesResolvers.ionos.acme = {
-            email = "vanadium5000@gmail.com"; # Required for cert issuance
-            storage = "${config.services.traefik.dataDir}/acme.json";
-            dnsChallenge = {
-              provider = "ionos";
-              resolvers = [
-                "1.1.1.1:53"
-                "8.8.8.8:53"
-              ];
             };
           };
         };
@@ -230,40 +217,40 @@
                 rule = "Host(`my-website.space`) || Host(`www.my-website.space`)";
                 service = "frontend";
                 entryPoints = [ "websecure" ];
-                tls.certResolver = "ionos";
+                tls = { };
               };
               backend = {
                 rule = "Host(`my-website.space`) && PathPrefix(`/backend/`)";
                 service = "backend";
                 entryPoints = [ "websecure" ];
                 priority = 200;
-                tls.certResolver = "ionos";
+                tls = { };
               };
               drfrost-solver = {
                 rule = "Host(`my-website.space`) && PathPrefix(`/backend/drfrost-solver/`)";
                 service = "drfrost-solver";
                 entryPoints = [ "websecure" ];
                 priority = 210;
-                tls.certResolver = "ionos";
+                tls = { };
               };
               auth-api = {
                 rule = "Host(`my-website.space`) && PathPrefix(`/auth/api/`)";
                 service = "backend-auth-api";
                 entryPoints = [ "websecure" ];
                 priority = 220;
-                tls.certResolver = "ionos";
+                tls = { };
               };
               auth-site = {
                 rule = "Host(`auth.my-website.space`)";
                 service = "services-auth-gateway";
                 entryPoints = [ "websecure" ];
-                tls.certResolver = "ionos";
+                tls = { };
               };
               openclaw = {
                 rule = "Host(`openclaw.my-website.space`)";
                 service = "dokploy-traefik";
                 entryPoints = [ "websecure" ];
-                tls.certResolver = "ionos";
+                tls = { };
               };
               dashboard = mkProtectedServiceRouter {
                 rule = "Host(`dashboard.my-website.space`)";
@@ -299,7 +286,7 @@
                 entryPoints = [ "websecure" ];
                 middlewares = [ "services-auth" ];
                 priority = 1;
-                tls.certResolver = "ionos";
+                tls = { };
               };
             }
             // wildcardUnauthenticatedRouters;
@@ -326,10 +313,36 @@
               ];
             };
           };
+          tls.certificates = [
+            {
+              certFile = "${acmeCertDirectory}/fullchain.pem";
+              keyFile = "${acmeCertDirectory}/key.pem";
+            }
+          ];
         };
       };
 
-      # Persist uploaded images and Traefik ACME state across reboots.
+      security.acme = {
+        acceptTerms = true;
+        defaults.email = "vanadium5000@gmail.com"; # Required for cert issuance.
+        certs.${acmeCertName} = {
+          domain = acmeCertName;
+          extraDomainNames = [ "*.${acmeCertName}" ];
+          dnsProvider = "ionos";
+          credentialFiles = {
+            IONOS_API_KEY_FILE = ionosAcmeCredentialsFile;
+          };
+          group = config.services.traefik.group;
+          reloadServices = [ "traefik.service" ];
+        };
+      };
+
+      systemd.services.traefik = {
+        after = [ "acme-${acmeCertName}.service" ];
+        requires = [ "acme-${acmeCertName}.service" ];
+      };
+
+      # Persist uploaded images and ACME certificates across reboots.
       # Without this, user images are lost and Let's Encrypt rate-limits hit on every reboot.
       impermanence.nixos.directories = [
         {
@@ -339,9 +352,9 @@
           mode = "0750";
         }
         {
-          directory = config.services.traefik.dataDir;
-          user = "traefik";
-          group = config.services.traefik.group;
+          directory = "/var/lib/acme";
+          user = "acme";
+          group = "acme";
           mode = "0750";
         }
       ];
