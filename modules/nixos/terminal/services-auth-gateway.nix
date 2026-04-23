@@ -44,13 +44,13 @@
         bindAddress = mkOption {
           type = types.str;
           default = "127.0.0.1";
-          description = "Local address for the auth gateway so nginx stays the only public edge";
+          description = "Local address for the auth gateway so the reverse proxy edge stays the only public entrypoint";
         };
 
         port = mkOption {
           type = types.port;
           default = 41276;
-          description = "Local HTTP port for nginx auth_request checks and the shared login form";
+          description = "Local HTTP port for reverse-proxy auth checks and the shared login form";
         };
 
         publicDomain = mkOption {
@@ -80,7 +80,7 @@
         sessionTtlSeconds = mkOption {
           type = types.ints.positive;
           default = 604800; # 7d
-          description = "Session lifetime in seconds before nginx requires another login";
+          description = "Session lifetime in seconds before the reverse proxy requires another login";
         };
 
         returnTtlSeconds = mkOption {
@@ -102,7 +102,7 @@
 
         signingKey = mkOption {
           type = types.str;
-          description = "Secret used to sign cookie sessions so nginx can trust auth_request responses";
+          description = "Secret used to sign cookie sessions so the reverse proxy can trust auth responses";
         };
       };
 

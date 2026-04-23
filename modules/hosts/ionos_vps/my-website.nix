@@ -19,7 +19,7 @@
         );
 
       # Pull the wildcard ACME key and the shared dashboard password from the
-      # same generated secrets surface so nginx/auth changes stay declarative.
+      # same generated secrets surface so proxy/auth changes stay declarative.
       secrets' = builtins.intersectAttrs (keysAsAttrs [
         "IONOS_API_KEY"
         "MY_WEBSITE_ENV"
@@ -28,113 +28,91 @@
       envText = secrets'.MY_WEBSITE_ENV;
       ionosApiKey = secrets'.IONOS_API_KEY;
       servicesAuthPassword = secrets'.SERVICES_AUTH_PASSWORD;
+      frontendPackage = inputs.my-website-frontend.packages.${pkgs.stdenv.hostPlatform.system}.default;
+      frontendRoot = "${frontendPackage}";
+      frontendPort = 41272;
       servicesAuthGatewayPort = 41276;
       servicesAuthSigningKey = builtins.hashString "sha256" "${servicesAuthPassword}:my-website.space:services-auth-gateway";
       servicesAuthCookieName = "__Secure-services_auth";
       servicesAuthReturnCookieName = "__Secure-services_auth_return";
       servicesAuthCookieDomain = ".my-website.space";
       authGatewayBaseUrl = "http://127.0.0.1:${toString servicesAuthGatewayPort}";
-      traefikUpstream = "http://127.0.0.1:81";
-      # Keep the ACME host key filesystem-safe so nginx and the ACME module
-      # agree on the certificate directory for wildcard consumers.
-      wildcardAcmeHost = "my-website-space-wildcard";
-      wildcardUnauthenticatedHosts = [ ];
-      servicesAuthCookieStripPattern = "(^|;[[:space:]]*)(${servicesAuthCookieName}|${servicesAuthReturnCookieName})=[^;]*";
-      # lego reads `IONOS_API_KEY_FILE` as a path whose contents are the raw API
-      # key, so this file must contain only the secret value rather than `KEY=`.
-      ionosAcmeCredentialsFile = pkgs.writeText "ionos-acme-api-key" ionosApiKey;
-      servicesAuthLocations = {
-        "= /_services-auth/check" = {
-          extraConfig = ''
-            internal;
-            proxy_pass ${authGatewayBaseUrl}/api/check;
-            proxy_pass_request_body off;
-            proxy_set_header Content-Length "";
-            proxy_set_header Cookie $http_cookie;
-            proxy_set_header X-Forwarded-Proto https;
-            proxy_set_header X-Original-Host $host;
-            proxy_set_header X-Original-URI $request_uri;
-          '';
-        };
-        "@services-auth-login" = {
-          extraConfig = ''
-            add_header Set-Cookie "${servicesAuthReturnCookieName}=$scheme://$http_host$request_uri; Domain=${servicesAuthCookieDomain}; Path=/; Max-Age=300; HttpOnly; Secure; SameSite=Lax" always;
-            return 302 https://auth.my-website.space/login;
-          '';
-        };
+      traefikDokployUpstream = "http://127.0.0.1:81";
+      staticSiteScript = pkgs.writeText "my-website-frontend-server.py" ''
+        import http.server
+        import os
+        import socketserver
+
+
+        ROOT = ${builtins.toJSON frontendRoot}
+        PORT = ${toString frontendPort}
+
+
+        class Handler(http.server.SimpleHTTPRequestHandler):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, directory=ROOT, **kwargs)
+
+            def do_GET(self):
+                path = self.translate_path(self.path)
+                if self.path.startswith("/backend/") or self.path.startswith("/auth/api/"):
+                    self.send_error(404)
+                    return
+                if os.path.exists(path) or self.path.endswith("/"):
+                    return super().do_GET()
+                self.path = "/index.html"
+                return super().do_GET()
+
+            def log_message(self, format, *args):
+                return
+
+
+        class ThreadingTCPServer(socketserver.ThreadingTCPServer):
+            allow_reuse_address = True
+
+
+        with ThreadingTCPServer(("127.0.0.1", PORT), Handler) as httpd:
+            httpd.serve_forever()
+      '';
+      staticSiteName = "my-website-frontend";
+      staticSiteExecutable = pkgs.writeShellApplication {
+        name = staticSiteName;
+        runtimeInputs = [ pkgs.python3 ];
+        text = ''
+          exec ${pkgs.python3}/bin/python3 ${staticSiteScript}
+        '';
       };
-      mkTraefikForwardedSubdomain =
+      mkProtectedServiceRouter =
         {
-          authenticated ? true,
-          extraConfig ? "",
-          preserveTraefikForwardingHeaders ? true,
+          rule,
+          service,
+          priority ? null,
+          middlewares ? [ ],
         }:
         {
-          forceSSL = true;
-          useACMEHost = wildcardAcmeHost;
-          locations = (lib.optionalAttrs authenticated servicesAuthLocations) // {
-            "/" = {
-              proxyPass = "${traefikUpstream}/";
-              proxyWebsockets = true;
-              extraConfig = ''
-                # Preserve the browser-facing host so Traefik can still route
-                # on the original wildcard subdomain seen by the browser.
-                proxy_set_header Host $host;
-              ''
-              + lib.optionalString preserveTraefikForwardingHeaders ''
-                # For the shared wildcard path, keep explicit forwarding headers
-                # aligned with the historical runtime snippets so Traefik-backed
-                # services continue to see the browser-facing origin details.
-                proxy_set_header X-Real-IP $remote_addr;
-                proxy_set_header X-Forwarded-Proto https;
-                proxy_set_header X-Forwarded-Host $host;
-                proxy_set_header X-Forwarded-Port 443;
-                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-              ''
-              + lib.optionalString authenticated ''
-                 auth_request /_services-auth/check;
-                 error_page 401 = @services-auth-login;
-                # The shared edge auth cookie is only for nginx's gate. Strip it
-                # from the upstream request so Traefik-backed apps see the same
-                # effective cookies they would receive without the edge wrapper.
-                set $sanitized_cookie $http_cookie;
-                if ($sanitized_cookie ~ "${servicesAuthCookieStripPattern}") {
-                  set $sanitized_cookie $1$2;
-                }
-                if ($sanitized_cookie ~ "^;[[:space:]]*(.*)$") {
-                  set $sanitized_cookie $1;
-                }
-                proxy_set_header Cookie $sanitized_cookie;
-              ''
-              + extraConfig;
-            };
-          };
+          inherit rule service;
+          entryPoints = [ "websecure" ];
+          middlewares = [ "services-auth" ] ++ middlewares;
+          tls.certResolver = "ionos";
+        }
+        // lib.optionalAttrs (priority != null) {
+          inherit priority;
         };
-      mkProtectedSubdomain =
-        {
-          port,
-          extraConfig ? "",
-        }:
-        {
-          forceSSL = true;
-          useACMEHost = wildcardAcmeHost;
-          locations = servicesAuthLocations // {
-            "/" = {
-              proxyPass = "http://127.0.0.1:${toString port}/";
-              proxyWebsockets = true;
-              extraConfig = ''
-                auth_request /_services-auth/check;
-                error_page 401 = @services-auth-login;
-              ''
-              + extraConfig;
-            };
-          };
-        };
-      wildcardUnauthenticatedVhosts = builtins.listToAttrs (
+      mkDirectService = port: {
+        loadBalancer.servers = [
+          {
+            url = "http://127.0.0.1:${toString port}";
+          }
+        ];
+      };
+      wildcardUnauthenticatedHosts = [ ];
+      wildcardUnauthenticatedRouters = builtins.listToAttrs (
         map (hostname: {
-          name = hostname;
-          value = mkTraefikForwardedSubdomain {
-            authenticated = false;
+          name = "wildcard-${lib.replaceStrings [ "." "*" ] [ "-" "wildcard" ] hostname}";
+          value = {
+            rule = "Host(`${hostname}`)";
+            service = "dokploy-traefik";
+            entryPoints = [ "websecure" ];
+            tls.certResolver = "ionos";
           };
         }) wildcardUnauthenticatedHosts
       );
@@ -164,6 +142,24 @@
         envFile = pkgs.writeText ".env" envText;
       };
 
+      systemd.services.${staticSiteName} = {
+        description = "Static frontend server for my-website.space";
+        wantedBy = [ "multi-user.target" ];
+        after = [ "network.target" ];
+        serviceConfig = {
+          Type = "simple";
+          DynamicUser = true;
+          ExecStart = "${staticSiteExecutable}/bin/${staticSiteName}";
+          Restart = "on-failure";
+          RestartSec = 5;
+          NoNewPrivileges = true;
+          ProtectSystem = "strict";
+          ProtectHome = true;
+          PrivateTmp = true;
+          WorkingDirectory = frontendRoot;
+        };
+      };
+
       # Run mongo-express in a container (isolated & easy)
       virtualisation.oci-containers.containers.mongo-express = {
         autoStart = true;
@@ -175,8 +171,8 @@
           ME_CONFIG_MONGODB_PORT = "27017";
           ME_CONFIG_MONGODB_ENABLE_ADMIN = "true";
           ME_CONFIG_MONGODB_AUTH_DATABASE = "admin";
-          # The outer nginx auth_request flow now owns browser auth so one
-          # login covers mongo-express together with the other dashboards.
+          # The shared edge auth cookie now lives in Traefik middleware so one
+          # login still covers mongo-express together with the other dashboards.
           ME_CONFIG_BASICAUTH = "false";
 
           # This overrides the hard-coded "mongo" host.
@@ -185,124 +181,156 @@
         # Removed --network=host to properly use port mapping and isolate
       };
 
-      # Nginx setup
-      services.nginx = {
+      services.traefik = {
         enable = true;
-        recommendedGzipSettings = true;
-        recommendedOptimisation = true;
-        recommendedProxySettings = true;
-        recommendedTlsSettings = true;
-        virtualHosts = {
-          "my-website.space" = {
-            serverAliases = [ "www.my-website.space" ];
-            forceSSL = true; # Redirect HTTP to HTTPS
-            enableACME = true; # HTTP-01 remains sufficient for the apex site
-
-            # Serve frontend static files
-            root = "${inputs.my-website-frontend.packages.${pkgs.stdenv.hostPlatform.system}.default}";
-
-            # Proxy backend for drfrost-solver (adjust path if needed)
-            locations."/backend/drfrost-solver/" = {
-              proxyPass = "http://127.0.0.1:41274/";
-              proxyWebsockets = true; # If needed for WS
+        environmentFiles = [
+          (pkgs.writeText "traefik-ionos.env" ''
+            IONOS_API_KEY=${ionosApiKey}
+          '')
+        ];
+        staticConfigOptions = {
+          entryPoints = {
+            web = {
+              address = ":80";
+              asDefault = true;
+              http.redirections.entryPoint = {
+                to = "websecure";
+                scheme = "https";
+              };
             };
-
-            # Proxy backend (adjust path if needed)
-            locations."/backend/" = {
-              proxyPass = "http://127.0.0.1:41273/";
-              proxyWebsockets = true; # If needed for WS
-            };
-
-            # Keep the existing backend auth API path stable for the site app.
-            locations."/auth/api/" = {
-              proxyPass = "http://127.0.0.1:41273"; # No trailing / to preserve path
-              proxyWebsockets = true;
-            };
-
-            # Optional: SPA fallback for frontend routes
-            locations."/" = {
-              tryFiles = "$uri $uri/ /index.html";
+            websecure = {
+              address = ":443";
+              asDefault = true;
+              http.tls.certResolver = "ionos";
             };
           };
-
-          "auth.my-website.space" = {
-            forceSSL = true;
-            useACMEHost = wildcardAcmeHost;
-            locations."/" = {
-              proxyPass = "${authGatewayBaseUrl}/";
-              extraConfig = ''
-                proxy_set_header Host $host;
-                proxy_set_header X-Forwarded-Proto https;
-                proxy_set_header X-Forwarded-Host $host;
-              '';
+          certificatesResolvers.ionos.acme = {
+            email = "vanadium5000@gmail.com"; # Required for cert issuance
+            storage = "${config.services.traefik.dataDir}/acme.json";
+            dnsChallenge = {
+              provider = "ionos";
+              resolvers = [
+                "1.1.1.1:53"
+                "8.8.8.8:53"
+              ];
             };
           };
-
-          "openclaw.my-website.space" = mkTraefikForwardedSubdomain {
-            authenticated = false;
-            preserveTraefikForwardingHeaders = false;
+        };
+        dynamicConfigOptions = {
+          http = {
+            middlewares = {
+              services-auth.forwardAuth = {
+                address = "${authGatewayBaseUrl}/api/forward-auth";
+                trustForwardHeader = true;
+                addAuthCookiesToResponse = [ servicesAuthReturnCookieName ];
+              };
+            };
+            routers = {
+              apex = {
+                rule = "Host(`my-website.space`) || Host(`www.my-website.space`)";
+                service = "frontend";
+                entryPoints = [ "websecure" ];
+                tls.certResolver = "ionos";
+              };
+              backend = {
+                rule = "Host(`my-website.space`) && PathPrefix(`/backend/`)";
+                service = "backend";
+                entryPoints = [ "websecure" ];
+                priority = 200;
+                tls.certResolver = "ionos";
+              };
+              drfrost-solver = {
+                rule = "Host(`my-website.space`) && PathPrefix(`/backend/drfrost-solver/`)";
+                service = "drfrost-solver";
+                entryPoints = [ "websecure" ];
+                priority = 210;
+                tls.certResolver = "ionos";
+              };
+              auth-api = {
+                rule = "Host(`my-website.space`) && PathPrefix(`/auth/api/`)";
+                service = "backend-auth-api";
+                entryPoints = [ "websecure" ];
+                priority = 220;
+                tls.certResolver = "ionos";
+              };
+              auth-site = {
+                rule = "Host(`auth.my-website.space`)";
+                service = "services-auth-gateway";
+                entryPoints = [ "websecure" ];
+                tls.certResolver = "ionos";
+              };
+              openclaw = {
+                rule = "Host(`openclaw.my-website.space`)";
+                service = "dokploy-traefik";
+                entryPoints = [ "websecure" ];
+                tls.certResolver = "ionos";
+              };
+              dashboard = mkProtectedServiceRouter {
+                rule = "Host(`dashboard.my-website.space`)";
+                service = "dashboard";
+              };
+              netdata = mkProtectedServiceRouter {
+                rule = "Host(`netdata.my-website.space`)";
+                service = "netdata";
+              };
+              mitmproxy = mkProtectedServiceRouter {
+                rule = "Host(`mitmproxy.my-website.space`)";
+                service = "mitmproxy";
+              };
+              vpn = mkProtectedServiceRouter {
+                rule = "Host(`vpn.my-website.space`)";
+                service = "vpn";
+              };
+              cliproxyapi = mkProtectedServiceRouter {
+                rule = "Host(`cliproxyapi.my-website.space`)";
+                service = "cliproxyapi";
+              };
+              dokploy = mkProtectedServiceRouter {
+                rule = "Host(`dokploy.my-website.space`)";
+                service = "dokploy-traefik";
+              };
+              mongo = mkProtectedServiceRouter {
+                rule = "Host(`mongo.my-website.space`)";
+                service = "mongo";
+              };
+              wildcard = {
+                rule = "HostRegexp(`{subdomain:[a-z0-9-]+}.my-website.space`)";
+                service = "dokploy-traefik";
+                entryPoints = [ "websecure" ];
+                middlewares = [ "services-auth" ];
+                priority = 1;
+                tls.certResolver = "ionos";
+              };
+            }
+            // wildcardUnauthenticatedRouters;
+            services = {
+              frontend.loadBalancer.servers = [
+                {
+                  url = "http://127.0.0.1:${toString frontendPort}";
+                }
+              ];
+              backend = mkDirectService 41273;
+              drfrost-solver = mkDirectService 41274;
+              backend-auth-api = mkDirectService 41273;
+              services-auth-gateway = mkDirectService servicesAuthGatewayPort;
+              dashboard = mkDirectService 8082;
+              netdata = mkDirectService 19999;
+              mitmproxy = mkDirectService 8083;
+              vpn = mkDirectService 10802;
+              cliproxyapi = mkDirectService 8317;
+              mongo = mkDirectService 41275;
+              dokploy-traefik.loadBalancer.servers = [
+                {
+                  url = traefikDokployUpstream;
+                }
+              ];
+            };
           };
-
-          "dashboard.my-website.space" = mkProtectedSubdomain {
-            port = 8082;
-          };
-
-          "netdata.my-website.space" = mkProtectedSubdomain {
-            port = 19999;
-            extraConfig = ''
-              # Netdata's bundled UI should render at / instead of falling back
-              # to the API metadata endpoint when exposed through nginx.
-              proxy_set_header Host $host;
-            '';
-          };
-
-          "mitmproxy.my-website.space" = mkProtectedSubdomain {
-            port = 8083;
-          };
-
-          "vpn.my-website.space" = mkProtectedSubdomain {
-            port = 10802;
-          };
-
-          "cliproxyapi.my-website.space" = mkProtectedSubdomain {
-            port = 8317;
-          };
-
-          "dokploy.my-website.space" = mkProtectedSubdomain {
-            # Dokploy's UI is fronted by the localhost-only Traefik container
-            # because the upstream module's direct Swarm port publication hangs on
-            # this host. Port 81 is the HTTP entrypoint rebound in ionos_vps.
-            port = 81;
-          };
-
-          "mongo.my-website.space" = mkProtectedSubdomain {
-            port = 41275;
-          };
-
-          "*.my-website.space" = mkTraefikForwardedSubdomain { };
-        }
-        // wildcardUnauthenticatedVhosts;
-      };
-
-      # ACME (Let's Encrypt) setup
-      security.acme = {
-        acceptTerms = true;
-        defaults.email = "vanadium5000@gmail.com"; # Required for cert issuance
-        certs.${wildcardAcmeHost} = {
-          domain = "*.my-website.space";
-          dnsProvider = "ionos";
-          # Wildcard certs require DNS-01 because HTTP-01 cannot prove control
-          # of arbitrary future subdomains before nginx has a matching vhost.
-          credentialFiles = {
-            IONOS_API_KEY_FILE = ionosAcmeCredentialsFile;
-          };
-          group = config.services.nginx.group;
-          reloadServices = [ "nginx.service" ];
         };
       };
 
-      # Persist uploaded images and ACME/SSL certificates across reboots
-      # Without this, user images are lost and Let's Encrypt rate-limits hit on every reboot
+      # Persist uploaded images and Traefik ACME state across reboots.
+      # Without this, user images are lost and Let's Encrypt rate-limits hit on every reboot.
       impermanence.nixos.directories = [
         {
           directory = "/var/lib/my-website-backend";
@@ -311,9 +339,9 @@
           mode = "0750";
         }
         {
-          directory = "/var/lib/acme";
-          user = "acme";
-          group = "acme";
+          directory = config.services.traefik.dataDir;
+          user = "traefik";
+          group = config.services.traefik.group;
           mode = "0750";
         }
       ];
@@ -323,5 +351,6 @@
         80
         443
       ];
+      networking.firewall.allowedUDPPorts = [ 443 ];
     };
 }

@@ -49,6 +49,11 @@ python3.pkgs.buildPythonApplication {
             self.public_domain = str(config["publicDomain"])
             self.default_redirect = str(config["defaultRedirect"])
             self.session_ttl = int(config["sessionTtlSeconds"])
+            self.return_ttl = int(config["returnTtlSeconds"])
+
+        @property
+        def login_url(self) -> str:
+            return f"https://auth.{self.public_domain}/login"
 
         def sign_session(self, now: int | None = None) -> str:
             issued_at = int(time.time() if now is None else now)
@@ -206,6 +211,22 @@ python3.pkgs.buildPythonApplication {
                     self.send_header("Cache-Control", "no-store")
                     self.end_headers()
                 return
+            if path == "/api/forward-auth":
+                if self.app.verify_session(self.get_cookie(self.app.cookie_name)):
+                    self.send_response(204)
+                    self.send_header("Cache-Control", "no-store")
+                    self.end_headers()
+                else:
+                    self.send_response(302)
+                    self.set_cookie(
+                        self.app.return_cookie_name,
+                        self.resolve_forwarded_url(),
+                        max_age=self.app.return_ttl,
+                    )
+                    self.send_header("Location", self.app.login_url)
+                    self.send_header("Cache-Control", "no-store")
+                    self.end_headers()
+                return
             if path == "/login" and self.command == "GET":
                 next_url = self.resolve_next_url(parsed)
                 page = self.app.render_login_page(next_url)
@@ -261,6 +282,18 @@ python3.pkgs.buildPythonApplication {
                 candidate = self.get_cookie(self.app.return_cookie_name)
             return self.app.validate_redirect(candidate)
 
+        def resolve_forwarded_url(self) -> str:
+            forwarded_proto = self.headers.get("X-Forwarded-Proto", "https")
+            forwarded_host = (
+                self.headers.get("X-Forwarded-Host")
+                or self.headers.get("X-Original-Host")
+                or self.headers.get("Host")
+            )
+            forwarded_uri = self.headers.get("X-Forwarded-Uri") or self.headers.get("X-Original-URI") or "/"
+            if not forwarded_host:
+                return self.app.default_redirect
+            return self.app.validate_redirect(f"{forwarded_proto}://{forwarded_host}{forwarded_uri}")
+
         def get_cookie(self, name: str) -> str | None:
             raw = self.headers.get("Cookie")
             if not raw:
@@ -314,7 +347,7 @@ python3.pkgs.buildPythonApplication {
   '';
 
   meta = with lib; {
-    description = "Minimal shared-cookie auth gateway for nginx auth_request";
+    description = "Minimal shared-cookie auth gateway for reverse-proxy forward auth";
     license = licenses.mit;
     mainProgram = "services-auth-gateway";
     platforms = platforms.unix;

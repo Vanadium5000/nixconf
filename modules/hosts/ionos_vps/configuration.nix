@@ -47,8 +47,8 @@
         enable = true;
         # Disable Dokploy's direct UI publication because this nix-dokploy
         # revision can only expose it through Swarm's ingress mesh, which hangs
-        # on this host. nginx instead proxies to the localhost-bound Traefik
-        # container started below.
+        # on this host. The public Traefik edge instead proxies to the
+        # localhost-bound Traefik container started below.
         port = null;
         traefik.dynamicConfig.dokploy-ui = {
           http = {
@@ -75,9 +75,9 @@
         let
           # nix-dokploy hard-codes host ports 80/443 in
           # nix-dokploy.nix (rev 19f9efec3c106e979b1d8fef083c86d73e6ff7ef), which
-          # collides with this host's nginx-only edge design. Rebinding Traefik to
+          # collides with this host's Traefik edge design. Rebinding Traefik to
           # localhost-only one-above-edge ports keeps Dokploy's internal proxy
-          # available without stealing the public ACME/nginx listeners.
+          # available without stealing the public ACME listeners.
           dokployTraefikStart = pkgs.writeShellApplication {
             name = "dokploy-traefik-start-localhost";
             runtimeInputs = [ pkgs.docker ];
