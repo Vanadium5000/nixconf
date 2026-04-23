@@ -326,7 +326,13 @@ matrix_fetch_json() {
 
 matrix_print_rule() {
     local width="${1:-72}"
-    printf '%*s\n' "$width" '' | tr ' ' '─'
+    # `tr` is byte-oriented, so replacing spaces with UTF-8 box-drawing glyphs
+    # corrupts the rule into mojibake instead of repeating `─` cleanly.
+    local i
+    for ((i = 0; i < width; i++)); do
+        printf '─'
+    done
+    printf '\n'
 }
 
 matrix_print_section() {
