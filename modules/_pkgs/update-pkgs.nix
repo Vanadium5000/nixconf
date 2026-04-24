@@ -99,10 +99,26 @@ pkgs.writeShellApplication {
           grep -oP "$pattern" "$file" | head -1 || echo ""
         }
 
+        # OpenChamber now keeps its real package definition under a dedicated
+        # support directory, while the top-level file remains a thin shim so the
+        # exported package name stays stable for self.packages.openchamber-web.
+        package_file() {
+          local pkg="$1"
+          case "$pkg" in
+            "openchamber-web")
+              echo "openchamber/openchamber-web.nix"
+              ;;
+            *)
+              echo "$pkg.nix"
+              ;;
+          esac
+        }
+
         # Multi-source update for packages with multiple fetchFromGitHub/fetchurl
         update_multi_source_package() {
           local pkg="$1"
-          local file="$pkg.nix"
+          local file
+          file=$(package_file "$pkg")
           local updated=false
 
           echo "  Attempting multi-source update for $pkg..."
@@ -194,7 +210,8 @@ pkgs.writeShellApplication {
         # Update packages with dynamic version URLs (like antigravity-manager)
         update_versioned_url_package() {
           local pkg="$1"
-          local file="$pkg.nix"
+          local file
+          file=$(package_file "$pkg")
           local owner="$2"
           local repo="$3"
 
@@ -355,6 +372,16 @@ pkgs.writeShellApplication {
       "dogecoin")
         # Has versioned URL from GitHub releases
         if update_versioned_url_package "$pkg" "dogecoin" "dogecoin"; then
+          UPDATED+=("$pkg")
+        else
+          SKIPPED+=("$pkg")
+        fi
+        ;;
+
+      "openchamber-web")
+        # The GitHub release tarball mirrors the npm publish artifact, so the
+        # generic versioned release updater can bump version and source hash.
+        if update_versioned_url_package "$pkg" "openchamber" "openchamber"; then
           UPDATED+=("$pkg")
         else
           SKIPPED+=("$pkg")

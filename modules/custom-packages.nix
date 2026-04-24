@@ -3,8 +3,14 @@ let
   getPackages =
     callPackage:
     let
-      # All .nix files and directories in ./_pkgs/ except default.nix
-      files = builtins.attrNames (builtins.removeAttrs (builtins.readDir ./_pkgs) [ "default.nix" ]);
+      entries = builtins.readDir ./_pkgs;
+
+      # Only treat top-level .nix files as exported packages so support files can
+      # live in nested directories without being misread as package attrs.
+      files = builtins.filter (
+        name:
+        entries.${name} == "regular" && builtins.match ".*\\.nix" name != null && name != "default.nix"
+      ) (builtins.attrNames entries);
 
       # Turn filename.nix → name = callPackage ./filename.nix {};
       toPackage = name: {
