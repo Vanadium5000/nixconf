@@ -54,10 +54,7 @@ buildNpmPackage (finalAttrs: {
         "browserName": "chromium",
         "launchOptions": {
           "executablePath": "${finalAttrs.passthru.chromiumExecutablePath}",
-          "headless": true,
-          "args": [
-            "--no-sandbox"
-          ]
+          "headless": true
         }
       }
     }

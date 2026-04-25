@@ -125,7 +125,6 @@ async function main(): Promise<void> {
       "--disable-blink-features=AutomationControlled",
       "--disable-features=IsolateOrigins,site-per-process",
       "--disable-dev-shm-usage",
-      "--no-sandbox",
       "--window-size=1920,1080",
       "--start-maximized",
     ],
