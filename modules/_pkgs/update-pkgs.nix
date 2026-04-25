@@ -308,6 +308,9 @@ pkgs.writeShellApplication {
         if [ "$pkg" == "cliproxyapi" ]; then
           # Supported: Go package with special buildGoModule override
           echo " $pkg = pkgs.callPackage ./$pkg.nix { unstable = pkgs // { buildGo126Module = pkgs.buildGoModule or pkgs.buildGo123Module; }; };"
+        elif [ "$pkg" == "cake-wallet-flatpak" ]; then
+          # Supported: versioned GitHub release asset for upstream Flatpak bundle
+          echo " $pkg = pkgs.callPackage ./$pkg.nix {};"
         elif [ "$pkg" == "antigravity-manager" ]; then
           # Skip: RPM-wrapped AppImage with versioned URL pattern (manual update required)
           echo " # $pkg = (pkgs.callPackage ./$pkg.nix {}).unwrapped; # skipped - RPM-wrapped, versioned URL (manual update)"
@@ -372,6 +375,15 @@ pkgs.writeShellApplication {
       "dogecoin")
         # Has versioned URL from GitHub releases
         if update_versioned_url_package "$pkg" "dogecoin" "dogecoin"; then
+          UPDATED+=("$pkg")
+        else
+          SKIPPED+=("$pkg")
+        fi
+        ;;
+
+      "cake-wallet-flatpak")
+        # Upstream publishes a versioned Flatpak bundle on GitHub releases.
+        if update_versioned_url_package "$pkg" "cake-tech" "cake_wallet"; then
           UPDATED+=("$pkg")
         else
           SKIPPED+=("$pkg")

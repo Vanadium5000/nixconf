@@ -1,8 +1,10 @@
-{ inputs, ... }:
+{ inputs, self, ... }:
 {
   flake.nixosModules.firefox =
     { pkgs, ... }:
     let
+      selfpkgs = self.packages.${pkgs.stdenv.hostPlatform.system};
+
       run-flatpak-instance = pkgs.writeShellScriptBin "run-flatpak-instance" ''
         set -euo pipefail
 
@@ -87,6 +89,18 @@
 
           "org.gimp.GIMP" # GIMP - Image Editor
           "org.inkscape.Inkscape" # Inkscape - Vector Graphics Editor
+
+          {
+            appId = "com.cakewallet.cake_wallet";
+            # Upstream ships Cake Wallet as a standalone Flatpak bundle on
+            # GitHub releases instead of Flathub, so nix-flatpak needs the
+            # store path to that bundle rather than a plain app ID.
+            bundle = "file://${selfpkgs.cake-wallet-flatpak}/share/cake-wallet/Cake_Wallet.flatpak";
+            # Required by nix-flatpak for bundle installs. Keep this aligned
+            # with modules/_pkgs/cake-wallet-flatpak.nix and update-pkgs.
+            # Ref: https://github.com/gmodena/nix-flatpak#flatpak-bundles
+            sha256 = "sha256-w0YqBEbGqOZK29DhmsIQgo7ruI/pl5iueOC6zpxrnK4=";
+          }
 
           # "org.vinegarhq.Sober" # Sober
         ];

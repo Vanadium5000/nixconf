@@ -53,7 +53,7 @@
 
     # Install flatpaks declaratively
     # https://github.com/gmodena/nix-flatpak
-    nix-flatpak.url = "github:gmodena/nix-flatpak/?ref=v0.6.0";
+    nix-flatpak.url = "github:gmodena/nix-flatpak/?ref=v0.7.0";
 
     # Automatically updated extensions - no more being months or years & missing extensions for VSCodium
     nix4vscode = {
