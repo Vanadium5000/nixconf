@@ -136,9 +136,10 @@
       services.hypridle.enable = true;
       programs.hyprlock.enable = true;
 
-      # ntfy stores message cache and attachments under /var/lib/ntfy-sh.
-      # Persisting it avoids losing notification history on every reboot.
-      impermanence.nixos.directories = [ "/var/lib/ntfy-sh" ];
+      # ntfy-sh runs with DynamicUser + StateDirectory, so systemd manages the real
+      # state under /var/lib/private/ntfy-sh and bind-mounts it into the service.
+      # Persist the private backing directory to avoid clashing with systemd's setup.
+      impermanence.nixos.directories = [ "/var/lib/private/ntfy-sh" ];
 
       # State version
       system.stateVersion = "25.11";
