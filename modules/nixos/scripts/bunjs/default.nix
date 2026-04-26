@@ -395,6 +395,8 @@
             cp ${./proxy/cleanup.ts} "$out/modules/nixos/scripts/bunjs/cleanup.ts"
             cp ${./proxy/netns.sh} "$out/modules/nixos/scripts/bunjs/netns.sh"
             cp ${./proxy/settings.ts} "$out/modules/nixos/scripts/bunjs/settings.ts"
+            cp ${./proxy/openvpn-auth-patching.ts} "$out/modules/nixos/scripts/bunjs/openvpn-auth-patching.ts"
+            cp ${./proxy/auth-patching.ts} "$out/modules/nixos/scripts/bunjs/auth-patching.ts"
             cp ${./proxy/proxy-tester.ts} "$out/modules/nixos/scripts/bunjs/proxy-tester.ts"
             cp ${./proxy/cli-tools.ts} "$out/modules/nixos/scripts/bunjs/cli-tools.ts"
             cp ${./proxy/web-server.ts} "$out/modules/nixos/scripts/bunjs/web-server.ts"

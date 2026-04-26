@@ -45,6 +45,14 @@ import {
 } from "./settings";
 import { listVpns, resolveVpnByPattern, invalidateCache } from "./vpn-resolver";
 import {
+  applyAuthPatch,
+  listAuthPatchCandidates,
+  type AuthPatchCandidate,
+  type AuthPatchKind,
+  type AuthPatchOverview,
+  type PatchAuthRequest,
+} from "./auth-patching";
+import {
   testSingleProxy,
   testAllProxies,
   loadTestResults,
@@ -61,6 +69,78 @@ let currentTestController: AbortController | null = null;
 let currentTestProgress: { completed: number; total: number } | null = null;
 let currentTestSlug: string | null = null;
 
+type AuthPatchGroupKey = keyof AuthPatchOverview;
+
+interface AuthPatchCandidateRow extends AuthPatchCandidate {
+  group: AuthPatchGroupKey;
+  inputMode: "password-only" | "username-password" | "manual-review";
+  requiresUsername: boolean;
+  requiresPassword: boolean;
+  canPatch: boolean;
+  manualReview: boolean;
+}
+
+interface AuthPatchGroupResponse {
+  key: AuthPatchGroupKey;
+  kind: AuthPatchKind;
+  title: string;
+  description: string;
+  count: number;
+  requiresUsername: boolean;
+  requiresPassword: boolean;
+  canPatch: boolean;
+  manualReview: boolean;
+  items: AuthPatchCandidateRow[];
+}
+
+interface AuthPatchListResponse {
+  summary: {
+    totalCandidates: number;
+    patchableCandidates: number;
+    manualReviewCandidates: number;
+    passwordOnlyCandidates: number;
+    usernamePasswordCandidates: number;
+    ambiguousCandidates: number;
+  };
+  groups: Record<AuthPatchGroupKey, AuthPatchGroupResponse>;
+  rows: AuthPatchCandidateRow[];
+}
+
+interface AuthPatchSuccessResponse {
+  ok: true;
+  ovpnPath: string;
+  slug: string;
+  displayName: string;
+  kind: "password-only" | "username-password";
+  authFilePath: string;
+  username: string;
+}
+
+interface AuthPatchErrorResponse {
+  ok: false;
+  ovpnPath: string;
+  slug: string | null;
+  displayName: string | null;
+  kind: Exclude<AuthPatchKind, "none"> | null;
+  code:
+    | "not-candidate"
+    | "manual-review-required"
+    | "missing-username"
+    | "missing-password"
+    | "patch-failed";
+  manualReview: boolean;
+  message: string;
+}
+
+interface AuthPatchBulkResponse {
+  totals: {
+    requested: number;
+    patched: number;
+    failed: number;
+  };
+  results: Array<AuthPatchSuccessResponse | AuthPatchErrorResponse>;
+}
+
 if (!API_KEY) {
   console.error(
     "[web-server] WARNING: VPN_PROXY_API_KEY not set. API is unauthenticated!",
@@ -76,6 +156,209 @@ function checkAuth(headers: Record<string, string | undefined>): boolean {
     ? authHeader.slice(7)
     : authHeader;
   return key === API_KEY;
+}
+
+function getAuthPatchRowGroup(
+  kind: Exclude<AuthPatchKind, "none">,
+): AuthPatchGroupKey {
+  switch (kind) {
+    case "password-only":
+      return "passwordOnly";
+    case "username-password":
+      return "usernamePassword";
+    case "ambiguous":
+      return "ambiguous";
+  }
+}
+
+function toAuthPatchCandidateRow(
+  candidate: AuthPatchCandidate,
+): AuthPatchCandidateRow {
+  const group = getAuthPatchRowGroup(candidate.kind);
+
+  return {
+    ...candidate,
+    group,
+    inputMode:
+      candidate.kind === "password-only"
+        ? "password-only"
+        : candidate.kind === "username-password"
+          ? "username-password"
+          : "manual-review",
+    requiresUsername: candidate.kind === "username-password",
+    requiresPassword: candidate.kind !== "ambiguous",
+    canPatch: candidate.kind !== "ambiguous",
+    manualReview: candidate.kind === "ambiguous",
+  };
+}
+
+function buildAuthPatchListResponse(
+  overview: AuthPatchOverview,
+): AuthPatchListResponse {
+  const passwordOnly = overview.passwordOnly.map(toAuthPatchCandidateRow);
+  const usernamePassword = overview.usernamePassword.map(
+    toAuthPatchCandidateRow,
+  );
+  const ambiguous = overview.ambiguous.map(toAuthPatchCandidateRow);
+  const rows = [...passwordOnly, ...usernamePassword, ...ambiguous];
+
+  return {
+    summary: {
+      totalCandidates: rows.length,
+      patchableCandidates: passwordOnly.length + usernamePassword.length,
+      manualReviewCandidates: ambiguous.length,
+      passwordOnlyCandidates: passwordOnly.length,
+      usernamePasswordCandidates: usernamePassword.length,
+      ambiguousCandidates: ambiguous.length,
+    },
+    groups: {
+      passwordOnly: {
+        key: "passwordOnly",
+        kind: "password-only",
+        title: "Password-only",
+        description:
+          "Username already exists in the auth file, so only the missing password should be written.",
+        count: passwordOnly.length,
+        requiresUsername: false,
+        requiresPassword: true,
+        canPatch: true,
+        manualReview: false,
+        items: passwordOnly,
+      },
+      usernamePassword: {
+        key: "usernamePassword",
+        kind: "username-password",
+        title: "Username + password",
+        description:
+          "The config has a bare auth-user-pass directive or a missing/unusable auth file, so both credentials are required.",
+        count: usernamePassword.length,
+        requiresUsername: true,
+        requiresPassword: true,
+        canPatch: true,
+        manualReview: false,
+        items: usernamePassword,
+      },
+      ambiguous: {
+        key: "ambiguous",
+        kind: "ambiguous",
+        title: "Manual review required",
+        description:
+          "These configs need manual review before patching because the auth-user-pass layout is ambiguous or unusable.",
+        count: ambiguous.length,
+        requiresUsername: false,
+        requiresPassword: false,
+        canPatch: false,
+        manualReview: true,
+        items: ambiguous,
+      },
+    },
+    rows,
+  };
+}
+
+async function getAuthPatchCandidateIndex(): Promise<
+  Map<string, AuthPatchCandidateRow>
+> {
+  const overview = await listAuthPatchCandidates();
+  const response = buildAuthPatchListResponse(overview);
+  return new Map(response.rows.map((row) => [row.ovpnPath, row]));
+}
+
+async function applyAuthPatchForRoute(
+  request: PatchAuthRequest,
+  candidateIndex: Map<string, AuthPatchCandidateRow>,
+): Promise<AuthPatchSuccessResponse | AuthPatchErrorResponse> {
+  const candidate = candidateIndex.get(request.ovpnPath);
+
+  if (!candidate) {
+    return {
+      ok: false,
+      ovpnPath: request.ovpnPath,
+      slug: null,
+      displayName: null,
+      kind: null,
+      code: "not-candidate",
+      manualReview: false,
+      message:
+        "This OpenVPN config is not a pending auth patch candidate. Refresh the auth inspection data before retrying.",
+    };
+  }
+
+  if (candidate.manualReview) {
+    return {
+      ok: false,
+      ovpnPath: candidate.ovpnPath,
+      slug: candidate.slug,
+      displayName: candidate.displayName,
+      kind: candidate.kind,
+      code: "manual-review-required",
+      manualReview: true,
+      message: candidate.reason,
+    };
+  }
+
+  if (!request.password.trim()) {
+    return {
+      ok: false,
+      ovpnPath: candidate.ovpnPath,
+      slug: candidate.slug,
+      displayName: candidate.displayName,
+      kind: candidate.kind,
+      code: "missing-password",
+      manualReview: false,
+      message: "Password is required to patch OpenVPN auth files.",
+    };
+  }
+
+  if (candidate.requiresUsername && !request.username?.trim()) {
+    return {
+      ok: false,
+      ovpnPath: candidate.ovpnPath,
+      slug: candidate.slug,
+      displayName: candidate.displayName,
+      kind: candidate.kind,
+      code: "missing-username",
+      manualReview: false,
+      message:
+        "Username is required when the config needs a full username/password auth file.",
+    };
+  }
+
+  try {
+    const result = await applyAuthPatch(request);
+    if (candidate.kind === "password-only") {
+      return {
+        ok: true,
+        ovpnPath: candidate.ovpnPath,
+        slug: candidate.slug,
+        displayName: candidate.displayName,
+        kind: "password-only",
+        authFilePath: result.authFilePath,
+        username: result.username,
+      };
+    }
+
+    return {
+      ok: true,
+      ovpnPath: candidate.ovpnPath,
+      slug: candidate.slug,
+      displayName: candidate.displayName,
+      kind: "username-password",
+      authFilePath: result.authFilePath,
+      username: result.username,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      ovpnPath: candidate.ovpnPath,
+      slug: candidate.slug,
+      displayName: candidate.displayName,
+      kind: candidate.kind,
+      code: "patch-failed",
+      manualReview: false,
+      message: error instanceof Error ? error.message : String(error),
+    };
+  }
 }
 
 // ============================================================================
@@ -131,6 +414,7 @@ const app = new Elysia()
         tags: [
           { name: "Status", description: "Proxy status and control" },
           { name: "VPNs", description: "VPN listing and pattern matching" },
+          { name: "Auth", description: "OpenVPN auth patching" },
           { name: "Settings", description: "Persistent configuration" },
           { name: "Testing", description: "Proxy health testing" },
           { name: "Export", description: "Proxy list export" },
@@ -343,6 +627,186 @@ const app = new Elysia()
     {
       params: t.Object({ pattern: t.String() }),
       detail: { tags: ["VPNs"] },
+    },
+  )
+
+  .get(
+    "/api/auth-patches",
+    async () => {
+      return buildAuthPatchListResponse(await listAuthPatchCandidates());
+    },
+    { detail: { tags: ["Auth"] } },
+  )
+
+  .get(
+    "/api/auth-patches/candidates",
+    async () => {
+      return buildAuthPatchListResponse(await listAuthPatchCandidates());
+    },
+    { detail: { tags: ["Auth"] } },
+  )
+
+  .post(
+    "/api/auth-patches/apply-one",
+    async ({ body, set }) => {
+      const result = await applyAuthPatchForRoute(
+        body,
+        await getAuthPatchCandidateIndex(),
+      );
+
+      if (!result.ok) {
+        set.status = result.code === "manual-review-required" ? 409 : 400;
+        return result;
+      }
+
+      invalidateCache();
+      return result;
+    },
+    {
+      body: t.Object({
+        ovpnPath: t.String(),
+        username: t.Optional(t.String()),
+        password: t.String(),
+      }),
+      detail: { tags: ["Auth"] },
+    },
+  )
+
+  .post(
+    "/api/auth-patches/apply",
+    async ({ body, set }) => {
+      if (body.items.length === 0) {
+        set.status = 400;
+        return {
+          totals: { requested: 0, patched: 0, failed: 0 },
+          results: [],
+          error: "At least one auth patch item is required.",
+        };
+      }
+
+      const candidateIndex = await getAuthPatchCandidateIndex();
+      const results: Array<AuthPatchSuccessResponse | AuthPatchErrorResponse> =
+        [];
+
+      for (const item of body.items) {
+        results.push(
+          await applyAuthPatchForRoute(
+            {
+              ovpnPath: item.ovpnPath,
+              username: item.username,
+              password: item.password,
+            },
+            candidateIndex,
+          ),
+        );
+      }
+
+      const patched = results.filter((result) => result.ok).length;
+      const failed = results.length - patched;
+
+      if (patched > 0) {
+        invalidateCache();
+      }
+
+      const response: AuthPatchBulkResponse = {
+        totals: {
+          requested: results.length,
+          patched,
+          failed,
+        },
+        results,
+      };
+
+      if (patched === 0) {
+        set.status = results.some(
+          (result) => !result.ok && result.code === "manual-review-required",
+        )
+          ? 409
+          : 400;
+      }
+
+      return response;
+    },
+    {
+      body: t.Object({
+        items: t.Array(
+          t.Object({
+            ovpnPath: t.String(),
+            username: t.Optional(t.String()),
+            password: t.String(),
+          }),
+        ),
+      }),
+      detail: { tags: ["Auth"] },
+    },
+  )
+
+  .post(
+    "/api/auth-patches/apply-bulk",
+    async ({ body, set }) => {
+      if (body.items.length === 0) {
+        set.status = 400;
+        return {
+          totals: { requested: 0, patched: 0, failed: 0 },
+          results: [],
+          error: "At least one auth patch item is required.",
+        };
+      }
+
+      const candidateIndex = await getAuthPatchCandidateIndex();
+      const results: Array<AuthPatchSuccessResponse | AuthPatchErrorResponse> =
+        [];
+
+      for (const item of body.items) {
+        results.push(
+          await applyAuthPatchForRoute(
+            {
+              ovpnPath: item.ovpnPath,
+              username: item.username,
+              password: item.password,
+            },
+            candidateIndex,
+          ),
+        );
+      }
+
+      const patched = results.filter((result) => result.ok).length;
+      const failed = results.length - patched;
+
+      if (patched > 0) {
+        invalidateCache();
+      }
+
+      const response: AuthPatchBulkResponse = {
+        totals: {
+          requested: results.length,
+          patched,
+          failed,
+        },
+        results,
+      };
+
+      if (patched === 0) {
+        set.status = results.some(
+          (result) => !result.ok && result.code === "manual-review-required",
+        )
+          ? 409
+          : 400;
+      }
+
+      return response;
+    },
+    {
+      body: t.Object({
+        items: t.Array(
+          t.Object({
+            ovpnPath: t.String(),
+            username: t.Optional(t.String()),
+            password: t.String(),
+          }),
+        ),
+      }),
+      detail: { tags: ["Auth"] },
     },
   )
 

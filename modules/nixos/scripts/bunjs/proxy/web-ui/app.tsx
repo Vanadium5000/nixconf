@@ -113,6 +113,57 @@ interface Settings {
   webUi: { port: number };
 }
 
+interface AuthPatchCandidate {
+  slug: string;
+  displayName: string;
+  ovpnPath: string;
+  kind: "password-only" | "username-password" | "ambiguous";
+  selectedByDefault: boolean;
+  usernameHint: string | null;
+  authFilePath: string | null;
+  reason: string;
+  // Additional fields from API response
+  group: "passwordOnly" | "usernamePassword" | "ambiguous";
+  inputMode: "password-only" | "username-password" | "manual-review";
+  requiresUsername: boolean;
+  requiresPassword: boolean;
+  canPatch: boolean;
+  manualReview: boolean;
+}
+
+interface AuthPatchOverview {
+  passwordOnly: AuthPatchCandidate[];
+  usernamePassword: AuthPatchCandidate[];
+  ambiguous: AuthPatchCandidate[];
+}
+
+interface AuthPatchListResponse {
+  summary: {
+    totalCandidates: number;
+    patchableCandidates: number;
+    manualReviewCandidates: number;
+    passwordOnlyCandidates: number;
+    usernamePasswordCandidates: number;
+    ambiguousCandidates: number;
+  };
+  groups: Record<
+    "passwordOnly" | "usernamePassword" | "ambiguous",
+    {
+      key: "passwordOnly" | "usernamePassword" | "ambiguous";
+      kind: "password-only" | "username-password" | "ambiguous";
+      title: string;
+      description: string;
+      count: number;
+      requiresUsername: boolean;
+      requiresPassword: boolean;
+      canPatch: boolean;
+      manualReview: boolean;
+      items: AuthPatchCandidate[];
+    }
+  >;
+  rows: AuthPatchCandidate[];
+}
+
 interface TestResults {
   results: Record<
     string,
@@ -434,13 +485,19 @@ function DashboardTab({ status }: { status: ProxyStatus | null }) {
                         size="sm"
                         className="h-7 text-[10px]"
                         disabled={!ns.pinned}
-                        title={!ns.pinned ? "Pin the proxy first to generate commands" : "Generate command"}
+                        title={
+                          !ns.pinned
+                            ? "Pin the proxy first to generate commands"
+                            : "Generate command"
+                        }
                         onClick={() => {
                           if (!ns.pinned) return;
-                          const cmd = window.prompt("Enter the command to run inside this VPN namespace (e.g., qbittorrent):");
+                          const cmd = window.prompt(
+                            "Enter the command to run inside this VPN namespace (e.g., qbittorrent):",
+                          );
                           if (cmd) {
                             handleCopy(
-                              `vpn-proxy tool command ${ns.slug} -- ${cmd}`
+                              `vpn-proxy tool command ${ns.slug} -- ${cmd}`,
                             );
                           }
                         }}
@@ -834,6 +891,450 @@ function TestingTab() {
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+// ============================================================================
+// Auth Tab
+// ============================================================================
+
+function AuthTab() {
+  const [response, setResponse] = useState<AuthPatchListResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  // Per-row selection state: ovpnPath → boolean
+  const [selected, setSelected] = useState<Record<string, boolean>>({});
+  // Bulk inputs per group
+  const [passwordOnlyPassword, setPasswordOnlyPassword] = useState("");
+  const [usernameValue, setUsernameValue] = useState("");
+  const [usernamePasswordValue, setUsernamePasswordValue] = useState("");
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const res = await api("/auth-patches");
+    if (!res.ok) {
+      setLoading(false);
+      return;
+    }
+    const data: AuthPatchListResponse = await res.json();
+    setResponse(data);
+    // Initialize selections from `selectedByDefault` on patchable rows only
+    const initial: Record<string, boolean> = {};
+    for (const row of data.rows) {
+      if (row.canPatch) {
+        initial[row.ovpnPath] = row.selectedByDefault;
+      }
+    }
+    setSelected(initial);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const toggleRow = (ovpnPath: string) =>
+    setSelected((prev) => ({ ...prev, [ovpnPath]: !prev[ovpnPath] }));
+
+  const getGroupRows = (
+    groupKey: "passwordOnly" | "usernamePassword" | "ambiguous",
+  ) => response?.rows.filter((row) => row.group === groupKey) ?? [];
+
+  const patchOne = async (row: AuthPatchCandidate) => {
+    if (!row.canPatch) {
+      emitToast("Cannot patch: requires manual review");
+      return;
+    }
+    setSubmitting(true);
+    const body: { ovpnPath: string; username?: string; password: string } = {
+      ovpnPath: row.ovpnPath,
+      password:
+        row.inputMode === "password-only"
+          ? passwordOnlyPassword
+          : usernamePasswordValue,
+    };
+    if (row.inputMode === "username-password") {
+      body.username = usernameValue;
+    }
+    const res = await api("/auth-patches/apply-one", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+    setSubmitting(false);
+    if (res.ok) {
+      emitToast(`Patched ${row.displayName}`);
+      load();
+    } else {
+      const err = await res.json().catch(() => null);
+      emitToast(err?.message || "Failed to patch");
+    }
+  };
+
+  const patchBulk = async (groupKey: "passwordOnly" | "usernamePassword") => {
+    const rows = getGroupRows(groupKey);
+    const patchable = rows.filter(
+      (row) => selected[row.ovpnPath] && row.canPatch,
+    );
+    if (patchable.length === 0) {
+      emitToast("Select at least one patchable config");
+      return;
+    }
+    if (groupKey === "passwordOnly" && !passwordOnlyPassword.trim()) {
+      emitToast("Enter a password first");
+      return;
+    }
+    if (
+      groupKey === "usernamePassword" &&
+      (!usernameValue.trim() || !usernamePasswordValue.trim())
+    ) {
+      emitToast("Enter both username and password");
+      return;
+    }
+    setSubmitting(true);
+    const res = await api("/auth-patches/apply", {
+      method: "POST",
+      body: JSON.stringify({
+        items: patchable.map((row) => ({
+          ovpnPath: row.ovpnPath,
+          username:
+            row.inputMode === "username-password" ? usernameValue : undefined,
+          password:
+            groupKey === "passwordOnly"
+              ? passwordOnlyPassword
+              : usernamePasswordValue,
+        })),
+      }),
+    });
+    setSubmitting(false);
+    if (res.ok) {
+      const body = await res.json();
+      emitToast(
+        `Patched ${body.totals.patched}/${body.totals.requested} configs`,
+      );
+      if (groupKey === "passwordOnly") setPasswordOnlyPassword("");
+      else {
+        setUsernameValue("");
+        setUsernamePasswordValue("");
+      }
+      load();
+    } else {
+      emitToast("Bulk patch failed");
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="py-20 text-center text-muted-foreground animate-pulse">
+        Inspecting OpenVPN auth files...
+      </div>
+    );
+  }
+
+  if (!response) {
+    return (
+      <div className="py-20 text-center text-muted-foreground">
+        Failed to load auth patch data.
+      </div>
+    );
+  }
+
+  const { summary, groups, rows } = response;
+
+  return (
+    <div className="space-y-6">
+      {/* Summary cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card className="glass-soft border-border/50">
+          <CardContent className="p-4 text-center">
+            <div className="text-2xl font-bold text-foreground">
+              {summary.totalCandidates}
+            </div>
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">
+              Total Candidates
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="glass-soft border-border/50">
+          <CardContent className="p-4 text-center">
+            <div className="text-2xl font-bold text-green-500">
+              {summary.patchableCandidates}
+            </div>
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">
+              Patchable
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="glass-soft border-border/50">
+          <CardContent className="p-4 text-center">
+            <div className="text-2xl font-bold text-yellow-500">
+              {summary.ambiguousCandidates}
+            </div>
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">
+              Needs Review
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="glass-soft border-border/50">
+          <CardContent className="p-4 text-center">
+            <div className="text-2xl font-bold text-accent">
+              {summary.passwordOnlyCandidates +
+                summary.usernamePasswordCandidates}
+            </div>
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">
+              Auth-User-Pass
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Refresh button */}
+      <div className="flex justify-end">
+        <Button variant="outline" size="sm" onClick={load} className="gap-2">
+          <RefreshCw className="w-3.5 h-3.5" /> Refresh
+        </Button>
+      </div>
+
+      {/* Password-only group */}
+      <Card className="glass-panel border-primary/20">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg flex items-center justify-between">
+            <span>Password-only auth files</span>
+            <Badge
+              variant="secondary"
+              className="bg-primary/15 text-primary border-primary/25"
+            >
+              {groups.passwordOnly?.count ?? 0}
+            </Badge>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-xs text-muted-foreground">
+            These configs already point at a username-only auth file
+            (auth-user-pass with existing username). Only the missing password
+            needs to be written.
+          </p>
+          {groups.passwordOnly?.count === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No password-only patches needed.
+            </p>
+          ) : (
+            <>
+              <div className="space-y-2">
+                {getGroupRows("passwordOnly").map((row) => (
+                  <div
+                    key={row.ovpnPath}
+                    className="flex items-start gap-3 rounded-lg border border-border/50 p-3 glass-soft"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={!!selected[row.ovpnPath]}
+                      onChange={() => toggleRow(row.ovpnPath)}
+                      className="mt-0.5"
+                      disabled={!row.canPatch}
+                    />
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <div className="text-sm font-medium">
+                        {row.displayName}
+                      </div>
+                      <div className="text-[11px] text-muted-foreground break-all">
+                        {row.ovpnPath}
+                      </div>
+                      <div className="text-[11px] text-muted-foreground">
+                        Username:{" "}
+                        <span className="font-mono">
+                          {row.usernameHint || "—"}
+                        </span>
+                      </div>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={!row.canPatch || submitting}
+                      onClick={() => patchOne(row)}
+                      className="gap-1 h-7 text-[10px]"
+                    >
+                      Patch
+                    </Button>
+                  </div>
+                ))}
+              </div>
+              <div className="flex flex-col gap-3 md:flex-row md:items-end">
+                <div className="flex-1 space-y-1">
+                  <Label className="text-sm">Password</Label>
+                  <Input
+                    type="password"
+                    value={passwordOnlyPassword}
+                    onChange={(e) => setPasswordOnlyPassword(e.target.value)}
+                    onKeyDown={(e) =>
+                      e.key === "Enter" &&
+                      !submitting &&
+                      patchBulk("passwordOnly")
+                    }
+                    placeholder="Enter password for selected configs"
+                  />
+                </div>
+                <Button
+                  onClick={() => patchBulk("passwordOnly")}
+                  disabled={submitting}
+                  className="md:min-w-[140px]"
+                >
+                  Apply Selected
+                </Button>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Username + password group */}
+      <Card className="glass-panel border-primary/20">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg flex items-center justify-between">
+            <span>Username + password auth files</span>
+            <Badge
+              variant="secondary"
+              className="bg-accent/15 text-accent border-accent/25"
+            >
+              {groups.usernamePassword?.count ?? 0}
+            </Badge>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-xs text-muted-foreground">
+            These configs have a bare{" "}
+            <code className="text-xs bg-muted/50 px-1 rounded">
+              auth-user-pass
+            </code>{" "}
+            directive or a missing/unusable auth file. Both credentials are
+            required before they work in OpenVPN.
+          </p>
+          {groups.usernamePassword?.count === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No username/password patches needed.
+            </p>
+          ) : (
+            <>
+              <div className="space-y-2">
+                {getGroupRows("usernamePassword").map((row) => (
+                  <div
+                    key={row.ovpnPath}
+                    className="flex items-start gap-3 rounded-lg border border-border/50 p-3 glass-soft"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={!!selected[row.ovpnPath]}
+                      onChange={() => toggleRow(row.ovpnPath)}
+                      className="mt-0.5"
+                      disabled={!row.canPatch}
+                    />
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <div className="text-sm font-medium">
+                        {row.displayName}
+                      </div>
+                      <div className="text-[11px] text-muted-foreground break-all">
+                        {row.ovpnPath}
+                      </div>
+                      <div className="text-[11px] text-muted-foreground">
+                        {row.reason}
+                      </div>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={!row.canPatch || submitting}
+                      onClick={() => patchOne(row)}
+                      className="gap-1 h-7 text-[10px]"
+                    >
+                      Patch
+                    </Button>
+                  </div>
+                ))}
+              </div>
+              <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto] md:items-end">
+                <div className="space-y-1">
+                  <Label className="text-sm">Username</Label>
+                  <Input
+                    value={usernameValue}
+                    onChange={(e) => setUsernameValue(e.target.value)}
+                    placeholder="Enter username"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-sm">Password</Label>
+                  <Input
+                    type="password"
+                    value={usernamePasswordValue}
+                    onChange={(e) => setUsernamePasswordValue(e.target.value)}
+                    onKeyDown={(e) =>
+                      e.key === "Enter" &&
+                      !submitting &&
+                      patchBulk("usernamePassword")
+                    }
+                    placeholder="Enter password"
+                  />
+                </div>
+                <Button
+                  onClick={() => patchBulk("usernamePassword")}
+                  disabled={submitting}
+                  className="md:min-w-[140px]"
+                >
+                  Apply Selected
+                </Button>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Manual review group */}
+      {groups.ambiguous?.count > 0 && (
+        <Card className="glass-panel border-primary/20">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg flex items-center justify-between">
+              <span>Manual review required</span>
+              <Badge
+                variant="secondary"
+                className="bg-destructive/15 text-destructive border-destructive/25"
+              >
+                {groups.ambiguous.count}
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <p className="text-xs text-muted-foreground mb-4">
+              These configs have an ambiguous or unusable auth-user-pass layout
+              and cannot be patched automatically. Review the OpenVPN
+              configuration and resolve manually.
+            </p>
+            {getGroupRows("ambiguous").map((row) => (
+              <div
+                key={row.ovpnPath}
+                className="rounded-lg border border-border/50 p-3 glass-soft opacity-80"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <div className="text-sm font-medium">{row.displayName}</div>
+                    <div className="text-[11px] text-muted-foreground break-all">
+                      {row.ovpnPath}
+                    </div>
+                    <div className="text-[11px] text-muted-foreground flex items-center gap-1">
+                      <ShieldAlert className="w-3 h-3" />
+                      {row.reason}
+                    </div>
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className="bg-destructive/10 text-destructive border-destructive/20 shrink-0"
+                  >
+                    Manual review
+                  </Badge>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+    </div>
   );
 }
 
@@ -1364,15 +1865,17 @@ function App() {
         <Tabs value={tab} onValueChange={setTab} className="space-y-6">
           <div className="flex justify-center md:justify-start overflow-x-auto pb-1">
             <TabsList className="glass-panel h-auto p-1 rounded-xl">
-              {["dashboard", "vpns", "testing", "settings", "api"].map((t) => (
-                <TabsTrigger
-                  key={t}
-                  value={t}
-                  className="px-6 py-2.5 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all duration-300 capitalize text-xs font-bold tracking-wide"
-                >
-                  {t}
-                </TabsTrigger>
-              ))}
+              {["dashboard", "vpns", "auth", "testing", "settings", "api"].map(
+                (t) => (
+                  <TabsTrigger
+                    key={t}
+                    value={t}
+                    className="px-6 py-2.5 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all duration-300 capitalize text-xs font-bold tracking-wide"
+                  >
+                    {t}
+                  </TabsTrigger>
+                ),
+              )}
             </TabsList>
           </div>
 
@@ -1382,6 +1885,9 @@ function App() {
             </TabsContent>
             <TabsContent value="vpns">
               <VpnsTab />
+            </TabsContent>
+            <TabsContent value="auth">
+              <AuthTab />
             </TabsContent>
             <TabsContent value="testing">
               <TestingTab />

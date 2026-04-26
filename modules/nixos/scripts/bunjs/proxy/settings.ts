@@ -164,12 +164,16 @@ const DEFAULT_EXCLUDE_PATTERNS: string[] = [
 export function getDefaultSettings(): ProxySettings {
   return {
     idleTimeoutTiers: [
-      // Default: 2 minutes idle allowed
-      { minActive: 0, timeoutSeconds: 120 },
-      // 4+ active: 10 seconds — pressure increases near the 5-connection VPN limit
-      { minActive: 4, timeoutSeconds: 10 },
-      // At capacity (5): 2 seconds — instant cleanup to free a slot
-      { minActive: 5, timeoutSeconds: 2 },
+      // Keep small deployments warm for 10 minutes to reduce reconnect churn.
+      { minActive: 0, timeoutSeconds: 600 },
+      // User requested more aggressive cleanup once more than 5 proxies are active.
+      { minActive: 6, timeoutSeconds: 480 },
+      // Mid-sized loads should release idle namespaces within 5 minutes.
+      { minActive: 11, timeoutSeconds: 300 },
+      // 20+ active namespaces justify a faster 2 minute cleanup window.
+      { minActive: 21, timeoutSeconds: 120 },
+      // 30+ active namespaces need near-immediate recovery of idle capacity.
+      { minActive: 31, timeoutSeconds: 30 },
     ],
     patternParsing: {
       enabled: true,

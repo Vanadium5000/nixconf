@@ -178,6 +178,95 @@ const KNOWN_CODES = [
   "ZA",
 ];
 
+// Shared/VPNs/openvpn contains full country-name basenames alongside AirVPN-style
+// ISO-prefixed names, so basename-only parsing needs explicit mappings for names
+// that cannot be derived from the first two characters.
+const COUNTRY_NAME_TO_CODE: Record<string, string> = {
+  albania: "AL",
+  algeria: "DZ",
+  andorra: "AD",
+  argentina: "AR",
+  armenia: "AM",
+  australia: "AU",
+  austria: "AT",
+  bahamas: "BS",
+  bangladesh: "BD",
+  belgium: "BE",
+  bolivia: "BO",
+  bosnia_and_herzegovina: "BA",
+  brazil: "BR",
+  bulgaria: "BG",
+  cambodia: "KH",
+  chile: "CL",
+  china: "CN",
+  colombia: "CO",
+  costa_rica: "CR",
+  croatia: "HR",
+  cyprus: "CY",
+  czech_republic: "CZ",
+  ecuador: "EC",
+  egypt: "EG",
+  estonia: "EE",
+  france: "FR",
+  georgia: "GE",
+  greece: "GR",
+  greenland: "GL",
+  guatemala: "GT",
+  hong_kong: "HK",
+  hungary: "HU",
+  iceland: "IS",
+  india: "IN",
+  indonesia: "ID",
+  ireland: "IE",
+  isle_of_man: "IM",
+  israel: "IL",
+  kazakhstan: "KZ",
+  latvia: "LV",
+  liechtenstein: "LI",
+  lithuania: "LT",
+  luxembourg: "LU",
+  macao: "MO",
+  malaysia: "MY",
+  malta: "MT",
+  mexico: "MX",
+  moldova: "MD",
+  monaco: "MC",
+  mongolia: "MN",
+  montenegro: "ME",
+  morocco: "MA",
+  nepal: "NP",
+  netherlands: "NL",
+  new_zealand: "NZ",
+  nigeria: "NG",
+  north_macedonia: "MK",
+  norway: "NO",
+  panama: "PA",
+  peru: "PE",
+  philippines: "PH",
+  poland: "PL",
+  portugal: "PT",
+  qatar: "QA",
+  romania: "RO",
+  saudi_arabia: "SA",
+  serbia: "RS",
+  singapore: "SG",
+  slovakia: "SK",
+  slovenia: "SI",
+  south_africa: "ZA",
+  south_korea: "KR",
+  sri_lanka: "LK",
+  switzerland: "CH",
+  taiwan: "TW",
+  turkey: "TR",
+  ukraine: "UA",
+  united_arab_emirates: "AE",
+  uruguay: "UY",
+  venezuela: "VE",
+  vietnam: "VN",
+};
+
+const NON_LOCATION_SUFFIXES = ["streaming", "optimized"];
+
 // ============================================================================
 // Logging
 // ============================================================================
@@ -201,8 +290,51 @@ function log(
  * - "AirVPN_GB_London" -> "GB"
  * - "us-server" -> "US"
  */
+function getBasenameTokens(filename: string): string[] {
+  return basename(filename, ".ovpn")
+    .split(/[-_\s]+/)
+    .filter(Boolean);
+}
+
+function getCountryCodeFromLeadingToken(tokens: string[]): string | null {
+  const [firstToken] = tokens;
+  if (!firstToken || !/^[a-zA-Z]{2}$/.test(firstToken)) {
+    return null;
+  }
+
+  return firstToken.toUpperCase();
+}
+
+function getCountryCodeFromKnownWords(baseName: string): string | null {
+  const normalizedName = baseName.toUpperCase().replace(/[-_]/g, " ");
+  for (const code of KNOWN_CODES) {
+    const regex = new RegExp(`\\b${code}\\b`);
+    if (regex.test(normalizedName)) {
+      return code;
+    }
+  }
+
+  return null;
+}
+
+function getCountryCodeFromCountryName(tokens: string[]): string | null {
+  const trimmedTokens = [...tokens];
+  while (
+    trimmedTokens.length > 0 &&
+    NON_LOCATION_SUFFIXES.includes(
+      trimmedTokens[trimmedTokens.length - 1]!.toLowerCase(),
+    )
+  ) {
+    trimmedTokens.pop();
+  }
+
+  const fullName = trimmedTokens.join("_").toLowerCase();
+  return COUNTRY_NAME_TO_CODE[fullName] ?? null;
+}
+
 function getCountryCode(filename: string): string {
   const baseName = basename(filename, ".ovpn");
+  const tokens = getBasenameTokens(filename);
 
   // Pattern 1: Standalone 2-letter code surrounded by separators
   // e.g., "AirVPN_AT_Vienna" or "AirVPN AT Vienna" -> "AT"
@@ -216,20 +348,18 @@ function getCountryCode(filename: string): string {
   const match2 = baseName.match(pattern2);
   if (match2) return match2[1]!;
 
-  // Pattern 3: Country code at start with separator
-  // e.g., "us-server", "UK_London"
-  const pattern3 = /^([a-zA-Z]{2})[-_\s]/;
-  const match3 = baseName.match(pattern3);
-  if (match3) return match3[1]!.toUpperCase();
+  // Leading provider tokens need to win before whole-word scans so
+  // filenames like "nl_netherlands_streaming_optimized" stay tied to "nl".
+  const leadingTokenCode = getCountryCodeFromLeadingToken(tokens);
+  if (leadingTokenCode) return leadingTokenCode;
 
   // Pattern 4: Known codes as whole words only
-  const normalizedName = baseName.toUpperCase().replace(/[-_]/g, " ");
-  for (const code of KNOWN_CODES) {
-    const regex = new RegExp(`\\b${code}\\b`);
-    if (regex.test(normalizedName)) {
-      return code;
-    }
-  }
+  const knownWordCode = getCountryCodeFromKnownWords(baseName);
+  if (knownWordCode) return knownWordCode;
+
+  // Pattern 5: Full country-name basenames from the local OpenVPN corpus.
+  const countryNameCode = getCountryCodeFromCountryName(tokens);
+  if (countryNameCode) return countryNameCode;
 
   // Fallback: first 2 characters
   return baseName.slice(0, 2).toUpperCase();
