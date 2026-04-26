@@ -147,9 +147,12 @@
           };
         };
 
-        # Fix "/var/lib/private" has too permissive permissions (0755 rather than 0700) errors
+        # DynamicUser services such as ollama and ntfy-sh keep their writable state under
+        # /var/lib/private. On an impermanent root, that parent may be recreated with the
+        # default 0755 mode during activation, which makes systemd refuse StateDirectory.
+        # Force the secure parent mode every boot and every switch so DynamicUser services start.
         systemd.tmpfiles.rules = [
-          "d /var/lib/private 0700 root root -"
+          "z /var/lib/private 0700 root root -"
         ];
 
         # Ensure ephemeral root is reset on every boot, not only resume.

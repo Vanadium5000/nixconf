@@ -144,11 +144,13 @@
           # Required by ntfy for attachment download links on self-hosted instances.
           # Tailscale DNS keeps the URL stable across IP changes.
           base-url = "http://ionos-vps:2586";
+          upstream-base-url = "https://ntfy.sh";
 
           # Keep attachments simple and enabled without introducing auth or extra proxying.
           attachment-cache-dir = "/var/lib/ntfy-sh/attachments";
         };
       };
+      systemd.services.ntfy-sh.serviceConfig.DynamicUser = lib.mkForce false;
       services.unison-sync.enable = true;
 
       # System monitoring — real-time metrics with persistent history
@@ -169,10 +171,9 @@
       # Persisting it avoids wiping deployments every reboot on an impermanent-root host.
       impermanence.nixos.cache.directories = [ "/var/lib/docker" ];
 
-      # ntfy-sh runs with DynamicUser + StateDirectory, so systemd manages the real
-      # state under /var/lib/private/ntfy-sh and bind-mounts it into the service.
-      # Persist the private backing directory to avoid clashing with systemd's setup.
-      impermanence.nixos.directories = [ "/var/lib/private/ntfy-sh" ];
+      # ntfy keeps its cache, auth DB, and attachments in /var/lib/ntfy-sh.
+      # Use a normal persistent state path to avoid DynamicUser StateDirectory clashes.
+      impermanence.nixos.directories = [ "/var/lib/ntfy-sh" ];
 
       # Preferences
       preferences = {
