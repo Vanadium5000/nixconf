@@ -235,6 +235,11 @@
 
               serviceConfig = commonServiceConfig // {
                 Type = "simple";
+                ReadWritePaths = commonServiceConfig.ReadWritePaths ++ [
+                  # The auth-patching panel rewrites provider-managed .ovpn/auth files
+                  # in place so the same configs work in external tools like nmtui.
+                  cfg.vpnDir
+                ];
                 ExecStart = "${self.packages.${pkgs.stdenv.hostPlatform.system}.vpn-proxy-web}/bin/vpn-proxy-web";
                 Restart = "on-failure";
                 RestartSec = 5;
