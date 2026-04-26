@@ -252,6 +252,7 @@
 
         environment.systemPackages = with pkgs; [
           dnscrypt-proxy
+          openvpn
         ];
       };
     };

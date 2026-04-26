@@ -25,6 +25,7 @@ import {
   stat as fsStat,
 } from "fs/promises";
 import { join } from "path";
+import { lookup } from "dns/promises";
 import {
   resolveVpn,
   getRandomVpn,
@@ -115,6 +116,19 @@ export function log(
 ): void {
   const timestamp = new Date().toISOString();
   console.error(`[${timestamp}] [${level}] [${component}] ${message}`);
+}
+
+function isIpv4Address(host: string): boolean {
+  return /^(?:\d{1,3}\.){3}\d{1,3}$/.test(host);
+}
+
+async function resolveFirewallDestination(host: string): Promise<string> {
+  if (isIpv4Address(host)) {
+    return host;
+  }
+
+  const { address } = await lookup(host, { family: 4 });
+  return address;
 }
 
 // ============================================================================
@@ -459,6 +473,8 @@ export async function createNamespace(
   state.nextIndex++;
   await saveState(state);
 
+  const firewallDestination = await resolveFirewallDestination(vpn.serverIp);
+
   log("INFO", `Creating namespace ${nsName} for ${vpn.displayName}`);
 
   const result = runNetnsScript(
@@ -466,7 +482,7 @@ export async function createNamespace(
       "create",
       nsName,
       nsIndex.toString(),
-      vpn.serverIp,
+      firewallDestination,
       vpn.serverPort.toString(),
     ],
     { notifySudo: true },
@@ -493,7 +509,7 @@ export async function createNamespace(
         "start-socks",
         nsName,
         nsIndex.toString(),
-        vpn.serverIp,
+        firewallDestination,
         vpn.serverPort.toString(),
       ],
       { notifySudo: true },
