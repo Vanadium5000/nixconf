@@ -1,13 +1,13 @@
 {
   "claude-opus-4-6-thinking": {
     "modalities": {
-      "input": ["text", "image", "document"],
+      "input": ["text", "image"],
       "output": ["text"]
     }
   },
   "claude-sonnet-4-6": {
     "modalities": {
-      "input": ["text", "image", "document"],
+      "input": ["text", "image"],
       "output": ["text"]
     }
   },
@@ -25,7 +25,7 @@
   },
   "gemini-2.5-pro": {
     "modalities": {
-      "input": ["text", "code", "image", "audio", "video"],
+      "input": ["text", "image", "audio", "video"],
       "output": ["text"]
     }
   },
@@ -42,13 +42,13 @@
   },
   "gemini-3-flash-preview": {
     "modalities": {
-      "input": ["text", "code", "image", "audio", "video", "pdf"],
+      "input": ["text", "image", "audio", "video", "pdf"],
       "output": ["text"]
     }
   },
   "gemini-3-pro-preview": {
     "modalities": {
-      "input": ["text", "image", "audio", "video", "pdf", "code"],
+      "input": ["text", "image", "audio", "video", "pdf"],
       "output": ["text"]
     }
   },
@@ -72,7 +72,7 @@
   },
   "gemini-3.1-pro-preview": {
     "modalities": {
-      "input": ["text", "image", "audio", "video", "pdf", "code"],
+      "input": ["text", "image", "audio", "video", "pdf"],
       "output": ["text"]
     }
   },
