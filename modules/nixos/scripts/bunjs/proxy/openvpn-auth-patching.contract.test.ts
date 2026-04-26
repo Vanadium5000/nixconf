@@ -17,16 +17,16 @@ function rerunFixture(
     {
       ...originalFixture,
       ovpnContent: firstPass.patchedOvpnContent,
-      authFileName: firstPass.authFileName ?? originalFixture.authFileName,
-      authFileContent:
-        firstPass.patchedAuthFileContent ?? originalFixture.authFileContent,
+      authFileName: undefined,
+      authFileContent: undefined,
     },
     password,
+    firstPass.username ?? undefined,
   );
 }
 
 describe("OpenVPN auth patching contract", () => {
-  test("classifies bare auth-user-pass as password-only patch work", () => {
+  test("patches bare auth-user-pass into inline embedded credentials", () => {
     const result = referencePatchOpenVpnAuthFixture(
       openVpnAuthFixtures.bareAuthUserPass,
       AUTH_PASSWORD,
@@ -38,14 +38,19 @@ describe("OpenVPN auth patching contract", () => {
       authFileName: "us_wyoming.auth",
       patchedOvpnContent: `client
 remote us-wyoming-pf.privacy.network 1198
-auth-user-pass us_wyoming.auth
+auth-user-pass
 verb 1
+<auth-user-pass>
+vpn-user
+${AUTH_PASSWORD}
+</auth-user-pass>
 `,
-      patchedAuthFileContent: `${AUTH_PASSWORD}\n`,
+      patchedAuthFileContent: null,
+      username: "vpn-user",
     });
   });
 
-  test("classifies username-only auth files as append-password work", () => {
+  test("migrates username-only auth files into inline embedded credentials", () => {
     const result = referencePatchOpenVpnAuthFixture(
       openVpnAuthFixtures.referencedUsernameOnly,
       AUTH_PASSWORD,
@@ -55,13 +60,21 @@ verb 1
       classification: "username-only-auth-file",
       changed: true,
       authFileName: "uk_london.auth",
-      patchedOvpnContent:
-        openVpnAuthFixtures.referencedUsernameOnly.ovpnContent,
-      patchedAuthFileContent: `vpn-user\n${AUTH_PASSWORD}\n`,
+      patchedOvpnContent: `client
+remote uk-london.privacy.network 1198
+auth-user-pass
+verb 1
+<auth-user-pass>
+vpn-user
+${AUTH_PASSWORD}
+</auth-user-pass>
+`,
+      patchedAuthFileContent: null,
+      username: "vpn-user",
     });
   });
 
-  test("keeps username-plus-password auth files as already complete", () => {
+  test("migrates complete auth files into inline embedded credentials", () => {
     const result = referencePatchOpenVpnAuthFixture(
       openVpnAuthFixtures.referencedUsernameAndPassword,
       AUTH_PASSWORD,
@@ -69,15 +82,23 @@ verb 1
 
     expect(result).toEqual({
       classification: "username-and-password-auth-file",
-      changed: false,
+      changed: true,
       authFileName: "AirVPN GB London Alathfar.auth",
-      patchedOvpnContent:
-        openVpnAuthFixtures.referencedUsernameAndPassword.ovpnContent,
-      patchedAuthFileContent: `vpn-user\n${AUTH_PASSWORD}\n`,
+      patchedOvpnContent: `client
+remote gb-london.airvpn.example 1194
+auth-user-pass
+verb 1
+<auth-user-pass>
+vpn-user
+${AUTH_PASSWORD}
+</auth-user-pass>
+`,
+      patchedAuthFileContent: null,
+      username: "vpn-user",
     });
   });
 
-  test("treats missing auth files as unusable until implementation decides recovery", () => {
+  test("migrates missing auth file references using supplied credentials", () => {
     const result = referencePatchOpenVpnAuthFixture(
       openVpnAuthFixtures.missingAuthFile,
       AUTH_PASSWORD,
@@ -85,10 +106,19 @@ verb 1
 
     expect(result).toEqual({
       classification: "missing-auth-file",
-      changed: false,
+      changed: true,
       authFileName: "us_seattle.auth",
-      patchedOvpnContent: openVpnAuthFixtures.missingAuthFile.ovpnContent,
+      patchedOvpnContent: `client
+remote us-seattle.privacy.network 1198
+auth-user-pass
+verb 1
+<auth-user-pass>
+vpn-user
+${AUTH_PASSWORD}
+</auth-user-pass>
+`,
       patchedAuthFileContent: null,
+      username: "vpn-user",
     });
   });
 
@@ -104,6 +134,7 @@ verb 1
       authFileName: "de_berlin.auth",
       patchedOvpnContent: openVpnAuthFixtures.unusableAuthFile.ovpnContent,
       patchedAuthFileContent: null,
+      username: null,
     });
   });
 
@@ -119,41 +150,31 @@ verb 1
       authFileName: null,
       patchedOvpnContent: openVpnAuthFixtures.duplicateAuthUserPass.ovpnContent,
       patchedAuthFileContent: null,
+      username: null,
     });
   });
 
-  test("stays idempotent on a second run after patching bare auth-user-pass", () => {
+  test("stays idempotent after inline credentials are embedded", () => {
     const secondPass = rerunFixture(
       openVpnAuthFixtures.bareAuthUserPass,
       AUTH_PASSWORD,
     );
 
     expect(secondPass).toEqual({
-      classification: "password-only-auth-file",
+      classification: "inline-auth-user-pass",
       changed: false,
-      authFileName: "us_wyoming.auth",
+      authFileName: null,
       patchedOvpnContent: `client
 remote us-wyoming-pf.privacy.network 1198
-auth-user-pass us_wyoming.auth
+auth-user-pass
 verb 1
+<auth-user-pass>
+vpn-user
+${AUTH_PASSWORD}
+</auth-user-pass>
 `,
-      patchedAuthFileContent: `${AUTH_PASSWORD}\n`,
-    });
-  });
-
-  test("stays idempotent on a second run after username-plus-password is already complete", () => {
-    const secondPass = rerunFixture(
-      openVpnAuthFixtures.referencedUsernameAndPassword,
-      AUTH_PASSWORD,
-    );
-
-    expect(secondPass).toEqual({
-      classification: "username-and-password-auth-file",
-      changed: false,
-      authFileName: "AirVPN GB London Alathfar.auth",
-      patchedOvpnContent:
-        openVpnAuthFixtures.referencedUsernameAndPassword.ovpnContent,
-      patchedAuthFileContent: `vpn-user\n${AUTH_PASSWORD}\n`,
+      patchedAuthFileContent: null,
+      username: null,
     });
   });
 });

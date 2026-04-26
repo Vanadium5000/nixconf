@@ -6,8 +6,8 @@
  * configs keep working for the proxy and for any external OpenVPN consumer.
  */
 
-import { readFile, rename, writeFile } from "fs/promises";
-import { basename, dirname, join } from "path";
+import { readFile } from "fs/promises";
+import { dirname, join } from "path";
 
 import {
   inspectOpenVpnAuth,
@@ -47,7 +47,7 @@ export interface PatchAuthRequest {
 
 export interface PatchAuthResult {
   ovpnPath: string;
-  authFilePath: string;
+  authFilePath: string | null;
   username: string;
 }
 
@@ -58,17 +58,17 @@ function getReason(classification: OpenVpnAuthPatchClassification): string {
     case "duplicate-auth-user-pass":
       return "Multiple auth-user-pass directives require manual review.";
     case "missing-auth-file":
-      return "Referenced auth file is missing.";
+      return "Referenced auth file is missing, so credentials must be embedded inline.";
     case "unusable-auth-file":
       return "Referenced auth file layout requires manual review.";
     case "bare-auth-user-pass":
-      return "Bare auth-user-pass can be completed with a sibling auth file.";
-    case "password-only-auth-file":
-      return "Referenced auth file is already patched with a password-only entry.";
+      return "Bare auth-user-pass needs inline embedded username and password.";
     case "username-only-auth-file":
-      return "Referenced auth file already provides the username only.";
+      return "Referenced auth file already provides the username, so only the missing password is needed for inline embedding.";
     case "username-and-password-auth-file":
-      return "Referenced auth file already contains username and password.";
+      return "Referenced auth file already contains both credentials and can be migrated inline.";
+    case "inline-auth-user-pass":
+      return "Credentials are already embedded inline in this .ovpn file.";
   }
 }
 
@@ -80,21 +80,15 @@ function toCandidateKind(
       return "password-only";
     case "bare-auth-user-pass":
     case "missing-auth-file":
+    case "username-and-password-auth-file":
       return "username-password";
     case "duplicate-auth-user-pass":
     case "unusable-auth-file":
       return "ambiguous";
     case "missing-auth-user-pass":
-    case "password-only-auth-file":
-    case "username-and-password-auth-file":
+    case "inline-auth-user-pass":
       return null;
   }
-}
-
-async function atomicWriteFile(path: string, content: string): Promise<void> {
-  const tmpPath = join(dirname(path), `.${basename(path)}.tmp.${process.pid}`);
-  await writeFile(tmpPath, content);
-  await rename(tmpPath, path);
 }
 
 async function readAuthFileIfPresent(
@@ -131,6 +125,7 @@ async function inspectVpnCandidate(
     ovpnFileName: ovpnPath.split("/").pop() ?? ovpnPath,
     ovpnContent,
     authFileContent,
+    username: "__vpn_proxy_placeholder_username__",
     password: "__vpn_proxy_placeholder_password__",
   });
 
@@ -199,62 +194,31 @@ export async function applyAuthPatch(
     throw new Error("Password is required to patch OpenVPN auth files.");
   }
 
-  const ovpnContent = await readFile(request.ovpnPath, "utf-8");
   const result = await patchOpenVpnAuthInPlace({
     ovpnPath: request.ovpnPath,
+    username: request.username?.trim(),
     password,
   });
-
-  if (!result.authFileName) {
-    throw new Error(getReason(result.classification));
-  }
-
-  const authFilePath = join(dirname(request.ovpnPath), result.authFileName);
 
   if (
     result.classification === "duplicate-auth-user-pass" ||
     result.classification === "unusable-auth-file" ||
-    result.classification === "missing-auth-user-pass"
+    result.classification === "missing-auth-user-pass" ||
+    result.classification === "inline-auth-user-pass"
   ) {
     throw new Error(getReason(result.classification));
   }
 
-  if (result.classification === "missing-auth-file") {
-    const username = request.username?.trim();
-    if (!username) {
-      throw new Error(
-        "Username is required when the referenced auth file is missing.",
-      );
-    }
-
-    await atomicWriteFile(authFilePath, `${username}\n${password}\n`);
-    return {
-      ovpnPath: request.ovpnPath,
-      authFilePath,
-      username,
-    };
-  }
-
-  let username = request.username?.trim() || "";
-
-  if (result.classification !== "bare-auth-user-pass") {
-    const authContent = await readFile(authFilePath, "utf-8");
-    const authLines = authContent
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter(Boolean);
-    if (authLines.length === 2) {
-      username = authLines[0] ?? username;
-    }
-  }
-
-  if (!result.changed && ovpnContent === result.patchedOvpnContent) {
-    // The helper is idempotent, so callers still get the stable target path.
+  const username = result.username ?? request.username?.trim() ?? "";
+  if (!username) {
+    throw new Error("Username is required to embed credentials inline.");
   }
 
   return {
     ovpnPath: request.ovpnPath,
-    authFilePath,
+    authFilePath: result.authFileName
+      ? join(dirname(request.ovpnPath), result.authFileName)
+      : null,
     username,
   };
 }

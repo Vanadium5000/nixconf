@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdtemp, readFile, rm, writeFile } from "fs/promises";
+import { mkdtemp, readFile, rm, stat, writeFile } from "fs/promises";
 import { join } from "path";
 import { tmpdir } from "os";
 
@@ -57,13 +57,16 @@ describe("openvpn auth patching helper", () => {
           ovpnFileName: fixture.ovpnFileName,
           ovpnContent: fixture.ovpnContent,
           authFileContent: getAuthFileContent(fixture),
+          username: "vpn-user",
           password: AUTH_PASSWORD,
         }),
-      ).toEqual(referencePatchOpenVpnAuthFixture(fixture, AUTH_PASSWORD));
+      ).toEqual(
+        referencePatchOpenVpnAuthFixture(fixture, AUTH_PASSWORD, "vpn-user"),
+      );
     }
   });
 
-  test("patches bare auth-user-pass in place and stays idempotent on rerun", async () => {
+  test("embeds bare auth-user-pass credentials inline and stays idempotent", async () => {
     const ovpnPath = await writeFixture(
       fixtureDir,
       openVpnAuthFixtures.bareAuthUserPass,
@@ -71,6 +74,7 @@ describe("openvpn auth patching helper", () => {
 
     const firstPass = await patchOpenVpnAuthInPlace({
       ovpnPath,
+      username: "vpn-user",
       password: AUTH_PASSWORD,
     });
 
@@ -78,33 +82,27 @@ describe("openvpn auth patching helper", () => {
       referencePatchOpenVpnAuthFixture(
         openVpnAuthFixtures.bareAuthUserPass,
         AUTH_PASSWORD,
+        "vpn-user",
       ),
     );
     expect(await readFile(ovpnPath, "utf-8")).toBe(
       firstPass.patchedOvpnContent,
     );
-    expect(await readFile(join(fixtureDir, "us_wyoming.auth"), "utf-8")).toBe(
-      `${AUTH_PASSWORD}\n`,
-    );
 
     const secondPass = await patchOpenVpnAuthInPlace({
       ovpnPath,
+      username: "vpn-user",
       password: AUTH_PASSWORD,
     });
 
-    expect(secondPass).toEqual({
-      classification: "password-only-auth-file",
-      changed: false,
-      authFileName: "us_wyoming.auth",
-      patchedOvpnContent: firstPass.patchedOvpnContent,
-      patchedAuthFileContent: `${AUTH_PASSWORD}\n`,
-    });
+    expect(secondPass.classification).toBe("inline-auth-user-pass");
+    expect(secondPass.changed).toBe(false);
   });
 
-  test("appends the password without touching unrelated ovpn content", async () => {
+  test("migrates referenced username-only auth into inline credentials and deletes the sidecar", async () => {
     const fixture = openVpnAuthFixtures.referencedUsernameOnly;
     const ovpnPath = await writeFixture(fixtureDir, fixture);
-    const beforeOvpn = await readFile(ovpnPath, "utf-8");
+    const authPath = join(fixtureDir, fixture.authFileName!);
 
     const result = await patchOpenVpnAuthInPlace({
       ovpnPath,
@@ -112,28 +110,42 @@ describe("openvpn auth patching helper", () => {
     });
 
     expect(result).toEqual(
-      referencePatchOpenVpnAuthFixture(fixture, AUTH_PASSWORD),
+      referencePatchOpenVpnAuthFixture(fixture, AUTH_PASSWORD, "vpn-user"),
     );
-    expect(await readFile(ovpnPath, "utf-8")).toBe(beforeOvpn);
-    expect(
-      await readFile(join(fixtureDir, fixture.authFileName!), "utf-8"),
-    ).toBe(`vpn-user\n${AUTH_PASSWORD}\n`);
+    expect(await readFile(ovpnPath, "utf-8")).toBe(result.patchedOvpnContent);
+    await expect(stat(authPath)).rejects.toThrow();
   });
 
-  test("leaves unusable and missing auth file cases untouched", async () => {
+  test("migrates missing auth file references into inline credentials when username is supplied", async () => {
+    const fixture = openVpnAuthFixtures.missingAuthFile;
+    const ovpnPath = await writeFixture(fixtureDir, fixture);
+
+    const result = await patchOpenVpnAuthInPlace({
+      ovpnPath,
+      username: "vpn-user",
+      password: AUTH_PASSWORD,
+    });
+
+    expect(result).toEqual(
+      referencePatchOpenVpnAuthFixture(fixture, AUTH_PASSWORD, "vpn-user"),
+    );
+    expect(await readFile(ovpnPath, "utf-8")).toBe(result.patchedOvpnContent);
+  });
+
+  test("leaves unusable and duplicate auth file cases untouched", async () => {
     for (const fixture of [
-      openVpnAuthFixtures.missingAuthFile,
       openVpnAuthFixtures.unusableAuthFile,
       openVpnAuthFixtures.duplicateAuthUserPass,
     ]) {
       const ovpnPath = await writeFixture(fixtureDir, fixture);
       const result = await patchOpenVpnAuthInPlace({
         ovpnPath,
+        username: "vpn-user",
         password: AUTH_PASSWORD,
       });
 
       expect(result).toEqual(
-        referencePatchOpenVpnAuthFixture(fixture, AUTH_PASSWORD),
+        referencePatchOpenVpnAuthFixture(fixture, AUTH_PASSWORD, "vpn-user"),
       );
       expect(await readFile(ovpnPath, "utf-8")).toBe(fixture.ovpnContent);
     }

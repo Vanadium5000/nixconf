@@ -112,7 +112,7 @@ interface AuthPatchSuccessResponse {
   slug: string;
   displayName: string;
   kind: "password-only" | "username-password";
-  authFilePath: string;
+  authFilePath: string | null;
   username: string;
 }
 
