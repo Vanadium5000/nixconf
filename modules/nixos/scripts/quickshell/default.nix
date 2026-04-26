@@ -510,6 +510,34 @@
                       [th]="🇹🇭" [vn]="🇻🇳" [my]="🇲🇾" [ph]="🇵🇭" [id]="🇮🇩" [tw]="🇹🇼" [cn]="🇨🇳"
                     )
 
+                    declare -A COUNTRY_NAME_CODES=(
+                      [albania]="AL" [algeria]="DZ" [andorra]="AD" [argentina]="AR" [armenia]="AM"
+                      [australia]="AU" [austria]="AT" [bahamas]="BS" [bangladesh]="BD" [belgium]="BE"
+                      [bolivia]="BO" [bosnia_and_herzegovina]="BA" [brazil]="BR" [bulgaria]="BG"
+                      [cambodia]="KH" [chile]="CL" [china]="CN" [colombia]="CO" [costa_rica]="CR"
+                      [croatia]="HR" [cyprus]="CY" [czech_republic]="CZ" [ecuador]="EC" [egypt]="EG"
+                      [estonia]="EE" [france]="FR" [georgia]="GE" [greece]="GR" [greenland]="GL"
+                      [guatemala]="GT" [hong_kong]="HK" [hungary]="HU" [iceland]="IS" [india]="IN"
+                      [indonesia]="ID" [ireland]="IE" [isle_of_man]="IM" [israel]="IL" [kazakhstan]="KZ"
+                      [latvia]="LV" [liechtenstein]="LI" [lithuania]="LT" [luxembourg]="LU" [macao]="MO"
+                      [malaysia]="MY" [malta]="MT" [mexico]="MX" [moldova]="MD" [monaco]="MC"
+                      [mongolia]="MN" [montenegro]="ME" [morocco]="MA" [nepal]="NP" [netherlands]="NL"
+                      [new_zealand]="NZ" [nigeria]="NG" [north_macedonia]="MK" [norway]="NO" [panama]="PA"
+                      [peru]="PE" [philippines]="PH" [poland]="PL" [portugal]="PT" [qatar]="QA"
+                      [romania]="RO" [saudi_arabia]="SA" [serbia]="RS" [singapore]="SG" [slovakia]="SK"
+                      [slovenia]="SI" [south_africa]="ZA" [south_korea]="KR" [sri_lanka]="LK"
+                      [switzerland]="CH" [taiwan]="TW" [turkey]="TR" [ukraine]="UA"
+                      [united_arab_emirates]="AE" [uruguay]="UY" [venezuela]="VE" [vietnam]="VN"
+                    )
+
+                    trim_suffix_tokens() {
+                      local name="$1"
+                      name="''${name%_optimized}"
+                      name="''${name%_streaming}"
+                      name="''${name%_streaming_optimized}"
+                      echo "$name"
+                    }
+
                     # Get flag emoji for country code
                     get_flag() {
                       local code="''${1,,}"  # lowercase
@@ -522,6 +550,8 @@
                       local filename="$1"
                       local basename
                       basename=$(basename "$filename" .ovpn)
+                      local normalized="''${basename//-/_}"
+                      normalized=$(trim_suffix_tokens "$normalized")
                       
                       # Pattern 1: Standalone 2-letter code surrounded by separators
                       # e.g., "AirVPN_AT_Vienna" or "AirVPN AT Vienna" -> "AT"
@@ -538,13 +568,13 @@
                       fi
                       
                       # Pattern 3: Country code at start with separator (e.g., "us-server", "UK_London")
-                      if [[ "$basename" =~ ^([a-zA-Z]{2})[-_[:space:]] ]]; then
+                      if [[ "$normalized" =~ ^([a-zA-Z]{2})[_[:space:]] ]]; then
                         echo "''${BASH_REMATCH[1]}"
                         return
                       fi
                       
                       # Pattern 4: Known codes as whole words only (word boundaries)
-                      local upper_name="''${basename^^}"
+                      local upper_name="''${normalized^^}"
                       upper_name="''${upper_name//[-_]/ }"  # normalize separators to spaces
                       for code in GB UK US CA AU NZ DE FR NL BE AT CH SE NO FI DK IE IT ES PT PL CZ RO BG HR HU GR SI SK LT LV EE LU MT IS UA RS ME MK MD CY TR RU JP KR SG HK TW CN TH VN MY PH ID IN IL AE BR MX AR CL CO ZA; do
                         # Match as whole word: start/space before, space/end after
@@ -553,9 +583,15 @@
                           return
                         fi
                       done
+
+                      local lower_name="''${normalized,,}"
+                      if [[ -n "''${COUNTRY_NAME_CODES[$lower_name]:-}" ]]; then
+                        echo "''${COUNTRY_NAME_CODES[$lower_name]}"
+                        return
+                      fi
                       
                       # Fallback: first 2 chars
-                      echo "''${basename:0:2}"
+                      echo "''${normalized:0:2}"
                     }
 
                     # Get friendly name from ovpn filename
@@ -606,6 +642,7 @@
                       local ovpn_file="$1"
                       local vpn_name="$2"
                       local temp_ovpn_file=""
+                      local imported_name=""
 
                       cleanup_import_copy() {
                         if [ -n "$temp_ovpn_file" ] && [ -f "$temp_ovpn_file" ]; then
@@ -620,15 +657,13 @@
                         nmcli connection delete "$vpn_name" 2>/dev/null || true
                       fi
                       
-                      # Also check for connection with original filename (pre-rename)
-                      local imported_name
-                      imported_name=$(basename "$ovpn_file" .ovpn)
+                      notify-send "VPN" "Importing $vpn_name..."
+                      temp_ovpn_file=$(create_nmcli_import_copy "$ovpn_file")
+                      imported_name=$(basename "$temp_ovpn_file" .ovpn)
+
                       if vpn_exists "$imported_name"; then
                         nmcli connection delete "$imported_name" 2>/dev/null || true
                       fi
-
-                      notify-send "VPN" "Importing $vpn_name..."
-                      temp_ovpn_file=$(create_nmcli_import_copy "$ovpn_file")
 
                       if nmcli connection import type openvpn file "$temp_ovpn_file"; then
                         # Rename to friendly name and enable autoconnect for persistence
