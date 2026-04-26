@@ -82,9 +82,9 @@
               # Prefer the first runtime-effective model that advertises image output.
               # Source of truth is the repo models cache plus repo-owned JSON overrides.
               if [ -f "$OVERRIDES_FILE" ] && [ -s "$OVERRIDES_FILE" ]; then
-                IMAGE_MODEL="$(${pkgs.jq}/bin/jq -r --argfile overrides "$OVERRIDES_FILE" '
+                IMAGE_MODEL="$(${pkgs.jq}/bin/jq -r --slurpfile overrides "$OVERRIDES_FILE" '
                   first(
-                    ((.providers.cliproxyapi.models // {}) * $overrides)
+                    ((.providers.cliproxyapi.models // {}) * ($overrides[0] // {}))
                     | to_entries[]
                     | select(((.value.modalities.output // []) | index("image")) != null)
                     | "cliproxyapi/\(.key)"
@@ -331,8 +331,8 @@
           ensure_repo_state_files
 
           if [ -f "$OVERRIDES_FILE" ] && [ -s "$OVERRIDES_FILE" ]; then
-            $JQ -cS --argfile overrides "$OVERRIDES_FILE" '
-              ((.providers.cliproxyapi.models // {}) * $overrides)
+            $JQ -cS --slurpfile overrides "$OVERRIDES_FILE" '
+              ((.providers.cliproxyapi.models // {}) * ($overrides[0] // {}))
             ' "$MODELS_FILE"
           else
             $JQ -cS '(.providers.cliproxyapi.models // {})' "$MODELS_FILE"
@@ -347,8 +347,8 @@
           ensure_repo_state_files
 
           if [ -f "$OVERRIDES_FILE" ] && [ -s "$OVERRIDES_FILE" ]; then
-            $JQ -r --arg provider "$provider" --arg model_id "$model_id" --argfile overrides "$OVERRIDES_FILE" "
-              (((.providers[\$provider].models // {}) * \$overrides)[\$model_id] // {})
+            $JQ -r --arg provider "$provider" --arg model_id "$model_id" --slurpfile overrides "$OVERRIDES_FILE" "
+              (((.providers[\$provider].models // {}) * (\$overrides[0] // {}))[\$model_id] // {})
               | ''${jq_expr}
             " "$MODELS_FILE"
           else
@@ -712,8 +712,8 @@
 
         model_picker_lines() {
           if [ -f "$OVERRIDES_FILE" ] && [ -s "$OVERRIDES_FILE" ]; then
-            $JQ -r --argfile overrides "$OVERRIDES_FILE" '
-              ((.providers.cliproxyapi.models // {}) * $overrides)
+            $JQ -r --slurpfile overrides "$OVERRIDES_FILE" '
+              ((.providers.cliproxyapi.models // {}) * ($overrides[0] // {}))
               | to_entries
               | .[]
               | "cliproxyapi/\(.key)\tcliproxyapi: \(.value.name) (\(.key))"
@@ -788,14 +788,14 @@
 
         preset_summary() {
           local preset_name="$1"
-          $JQ -r --argfile meta "$METADATA_FILE" --arg name "$preset_name" '
+          $JQ -r --slurpfile meta "$METADATA_FILE" --arg name "$preset_name" '
             def model_of($value):
               if $value == null then "unset"
               elif ($value | type) == "object" then ($value.model // "unset")
               else $value
               end;
             (.presets[$name].categories // {}) as $cats
-            | ($meta.categories | keys) as $keys
+            | (($meta[0].categories // {}) | keys) as $keys
             | $keys
             | map("\(.):\(model_of($cats[.]))")
             | join(", ")
