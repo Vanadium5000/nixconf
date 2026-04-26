@@ -115,11 +115,30 @@
       # HTTPS traffic analyzer — on-demand: systemctl start mitmproxy
       services.mitmproxy.enable = true;
       services.mitmproxy.trustCA = true;
+      services.ntfy-sh = {
+        enable = true;
+        settings = {
+          # Bind on all interfaces so the service is reachable over Tailscale.
+          # The normal firewall stays closed; tailscale0 is already trusted separately.
+          listen-http = "0.0.0.0:2586";
+
+          # Required by ntfy for attachment download links on self-hosted instances.
+          # Tailscale DNS keeps the URL stable across IP changes.
+          base-url = "http://legion5i:2586";
+
+          # Keep attachments simple and enabled without introducing auth or extra proxying.
+          attachment-cache-dir = "/var/lib/ntfy-sh/attachments";
+        };
+      };
       services.vpn-proxy.enable = true;
       services.unison-sync.enable = true;
       services.hyprsunset.enable = true;
       services.hypridle.enable = true;
       programs.hyprlock.enable = true;
+
+      # ntfy stores message cache and attachments under /var/lib/ntfy-sh.
+      # Persisting it avoids losing notification history on every reboot.
+      impermanence.nixos.directories = [ "/var/lib/ntfy-sh" ];
 
       # State version
       system.stateVersion = "25.11";

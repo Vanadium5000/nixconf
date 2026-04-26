@@ -134,6 +134,21 @@
         enable = true;
         bindAddress = "127.0.0.1"; # Secure: bind localhost only
       };
+      services.ntfy-sh = {
+        enable = true;
+        settings = {
+          # Bind on all interfaces so the service is reachable over Tailscale.
+          # The normal firewall stays closed; tailscale0 is already trusted separately.
+          listen-http = "0.0.0.0:2586";
+
+          # Required by ntfy for attachment download links on self-hosted instances.
+          # Tailscale DNS keeps the URL stable across IP changes.
+          base-url = "http://ionos-vps:2586";
+
+          # Keep attachments simple and enabled without introducing auth or extra proxying.
+          attachment-cache-dir = "/var/lib/ntfy-sh/attachments";
+        };
+      };
       services.unison-sync.enable = true;
 
       # System monitoring — real-time metrics with persistent history
@@ -153,6 +168,10 @@
       # Dokploy stores Docker images, volumes, and swarm state under /var/lib/docker.
       # Persisting it avoids wiping deployments every reboot on an impermanent-root host.
       impermanence.nixos.cache.directories = [ "/var/lib/docker" ];
+
+      # ntfy stores message cache and attachments under /var/lib/ntfy-sh.
+      # Persisting it avoids losing notification history on every reboot.
+      impermanence.nixos.directories = [ "/var/lib/ntfy-sh" ];
 
       # Preferences
       preferences = {
