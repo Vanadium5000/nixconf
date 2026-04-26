@@ -91,7 +91,7 @@
           "org.inkscape.Inkscape" # Inkscape - Vector Graphics Editor
 
           {
-            appId = "com.cakewallet.cake_wallet";
+            appId = "com.cakewallet.CakeWallet";
             # Upstream ships Cake Wallet as a standalone Flatpak bundle on
             # GitHub releases instead of Flathub, so nix-flatpak needs the
             # store path to that bundle rather than a plain app ID.

@@ -11,6 +11,9 @@
         "claude-sonnet-4-6": {
           "name": "Claude Sonnet 4.6 (Thinking)"
         },
+        "codex-auto-review": {
+          "name": "Codex Auto Review"
+        },
         "gemini-2.5-flash": {
           "name": "Gemini 2.5 Flash",
           "context": 1048576,

@@ -1,0 +1,115 @@
+{
+  "claude-opus-4-6-thinking": {
+    "modalities": {
+      "input": ["text", "image", "document"],
+      "output": ["text"]
+    }
+  },
+  "claude-sonnet-4-6": {
+    "modalities": {
+      "input": ["text", "image", "document"],
+      "output": ["text"]
+    }
+  },
+  "gemini-2.5-flash": {
+    "modalities": {
+      "input": ["text", "image", "audio", "video", "pdf"],
+      "output": ["text"]
+    }
+  },
+  "gemini-2.5-flash-lite": {
+    "modalities": {
+      "input": ["text", "image", "audio", "video"],
+      "output": ["text"]
+    }
+  },
+  "gemini-2.5-pro": {
+    "modalities": {
+      "input": ["text", "code", "image", "audio", "video"],
+      "output": ["text"]
+    }
+  },
+  "gemini-3-flash": {
+    "name": "Gemini 3 Flash",
+    "limit": {
+      "context": 1048576,
+      "output": 65536
+    },
+    "modalities": {
+      "input": ["text", "image", "video"],
+      "output": ["text"]
+    }
+  },
+  "gemini-3-flash-preview": {
+    "modalities": {
+      "input": ["text", "code", "image", "audio", "video", "pdf"],
+      "output": ["text"]
+    }
+  },
+  "gemini-3-pro-preview": {
+    "modalities": {
+      "input": ["text", "image", "audio", "video", "pdf", "code"],
+      "output": ["text"]
+    }
+  },
+  "gemini-3.1-flash-image": {
+    "modalities": {
+      "input": ["text", "image"],
+      "output": ["text", "image"]
+    }
+  },
+  "gemini-3.1-flash-lite": {
+    "modalities": {
+      "input": ["text", "image", "audio", "video", "pdf"],
+      "output": ["text"]
+    }
+  },
+  "gemini-3.1-flash-lite-preview": {
+    "modalities": {
+      "input": ["text", "image", "audio", "video", "pdf"],
+      "output": ["text"]
+    }
+  },
+  "gemini-3.1-pro-preview": {
+    "modalities": {
+      "input": ["text", "image", "audio", "video", "pdf", "code"],
+      "output": ["text"]
+    }
+  },
+  "gpt-5.2": {
+    "modalities": {
+      "input": ["text", "image"],
+      "output": ["text"]
+    }
+  },
+  "gpt-5.3-codex": {
+    "modalities": {
+      "input": ["text", "image"],
+      "output": ["text"]
+    }
+  },
+  "gpt-5.4": {
+    "modalities": {
+      "input": ["text", "image"],
+      "output": ["text"]
+    }
+  },
+  "gpt-5.4-mini": {
+    "modalities": {
+      "input": ["text", "image"],
+      "output": ["text"]
+    }
+  },
+  "gpt-image-2": {
+    "modalities": {
+      "input": ["text", "image"],
+      "output": ["image"]
+    }
+  },
+  "moonshotai/kimi-k2.5": {
+    "modalities": {
+      "input": ["text", "image", "video", "pdf"],
+      "output": ["text"]
+    }
+  }
+}

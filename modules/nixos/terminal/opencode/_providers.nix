@@ -3,6 +3,14 @@ let
   # Path to the dynamic model cache
   # This file is updated by 'opencode-models sync' in the repo
   modelsFile = ./models.json;
+  capabilityOverridesFile = ./_model-capability-overrides.json;
+  capabilityOverrides =
+    let
+      exists = builtins.pathExists capabilityOverridesFile;
+      content = if exists then builtins.readFile capabilityOverridesFile else "";
+      isValid = exists && content != "" && content != " " && content != "{}";
+    in
+    if isValid then builtins.fromJSON content else { };
 
   # Load the dynamic models if the file exists and is valid, otherwise use empty providers
   dynamicData =
@@ -15,7 +23,6 @@ let
     in
     data;
 
-  # Minimal static fallback for the unified provider
   unifiedProvider = {
     npm = "@ai-sdk/openai-compatible";
     name = "CliProxyApi";
@@ -23,25 +30,13 @@ let
       baseURL = "http://127.0.0.1:8317/v1";
       apiKey = self.secrets.CLIPROXYAPI_KEY;
     };
-    # Merge all models from dynamic data into a single flat set
-    # Dynamic data might have separate provider buckets, we flatten them
-    models = (dynamicData.providers.cliproxyapi.models or { }) // {
-      "gemini-3-flash" = {
-        name = "Gemini 3 Flash";
-        limit = {
-          context = 1048576;
-          output = 65536;
-        };
-        modalities = {
-          input = [
-            "text"
-            "image"
-            "video"
-          ];
-          output = [ "text" ];
-        };
-      };
-    };
+    # Dynamic models stay the base layer so sync_models() remains authoritative
+    # when upstream metadata is accurate.
+    #
+    # Repo-owned overrides are stored in JSON so both Nix evaluation and the
+    # runtime opencode-models script can apply the same trusted corrections
+    # without waiting for another rebuild.
+    models = lib.recursiveUpdate (dynamicData.providers.cliproxyapi.models or { }) capabilityOverrides;
   };
 
   # Normalize the provider structure for OpenCode
@@ -59,11 +54,13 @@ let
               output = model.output or model.limit.output;
             });
         in
-        {
-          inherit (model) name;
-        }
-        // (if model ? modalities then { inherit (model) modalities; } else { })
-        // (lib.optionalAttrs (limit != { }) { inherit limit; })
+        (
+          {
+            inherit (model) name;
+          }
+          // (if model ? modalities then { inherit (model) modalities; } else { })
+          // (lib.optionalAttrs (limit != { }) { inherit limit; })
+        )
       ) unifiedProvider.models;
     };
   };
