@@ -252,6 +252,12 @@
                 entryPoints = [ "websecure" ];
                 tls = { };
               };
+              openbullet = {
+                rule = "Host(`openbullet.my-website.space`)";
+                service = "dokploy-traefik";
+                entryPoints = [ "websecure" ];
+                tls = { };
+              };
               dashboard = mkProtectedServiceRouter {
                 rule = "Host(`dashboard.my-website.space`)";
                 service = "dashboard";
