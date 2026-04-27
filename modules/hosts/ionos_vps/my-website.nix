@@ -252,12 +252,6 @@
                 entryPoints = [ "websecure" ];
                 tls = { };
               };
-              openbullet = {
-                rule = "Host(`openbullet.my-website.space`)";
-                service = "dokploy-traefik";
-                entryPoints = [ "websecure" ];
-                tls = { };
-              };
               dashboard = mkProtectedServiceRouter {
                 rule = "Host(`dashboard.my-website.space`)";
                 service = "dashboard";
@@ -274,9 +268,11 @@
                 rule = "Host(`vpn.my-website.space`)";
                 service = "vpn";
               };
-              cliproxyapi = mkProtectedServiceRouter {
+              cliproxyapi = {
                 rule = "Host(`cliproxyapi.my-website.space`)";
                 service = "cliproxyapi";
+                entryPoints = [ "websecure" ];
+                tls = { };
               };
               dokploy = mkProtectedServiceRouter {
                 rule = "Host(`dokploy.my-website.space`)";
