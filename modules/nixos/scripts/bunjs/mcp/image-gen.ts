@@ -42,7 +42,7 @@ server.registerTool(
 
       // We use the same proxy OpenCode uses
       const response = await fetch(
-        "http://127.0.0.1:8317/v1/images/generations",
+        "https://cliproxyapi.my-website.space/v1/images/generations",
         {
           method: "POST",
           headers: {

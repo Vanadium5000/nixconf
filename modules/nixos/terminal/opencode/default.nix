@@ -564,7 +564,7 @@
         # Fetch models from CliProxyApi and update models.json
         sync_models() {
           local api_key="${self.secrets.CLIPROXYAPI_KEY}"
-          local url="http://localhost:8317/v1beta/models"
+          local url="https://cliproxyapi.my-website.space/v1beta/models"
           
           ensure_repo_state_files
 
@@ -1182,7 +1182,7 @@
         embeddingModel = "Xenova/nomic-embed-text-v1";
         memoryProvider = "openai-chat";
         memoryModel = state.categories.deep.model;
-        memoryApiUrl = "http://127.0.0.1:8317/v1";
+        memoryApiUrl = "https://cliproxyapi.my-website.space/v1";
         memoryApiKey = self.secrets.CLIPROXYAPI_KEY;
         autoCaptureEnabled = true;
         webServerEnabled = true;

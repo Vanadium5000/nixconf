@@ -27,7 +27,7 @@ let
     npm = "@ai-sdk/openai-compatible";
     name = "CliProxyApi";
     options = {
-      baseURL = "http://127.0.0.1:8317/v1";
+      baseURL = "https://cliproxyapi.my-website.space/v1";
       apiKey = self.secrets.CLIPROXYAPI_KEY;
     };
     # Dynamic models stay the base layer so sync_models() remains authoritative
