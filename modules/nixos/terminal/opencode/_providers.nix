@@ -36,7 +36,13 @@ let
     # Repo-owned overrides are stored in JSON so both Nix evaluation and the
     # runtime opencode-models script can apply the same trusted corrections
     # without waiting for another rebuild.
-    models = lib.recursiveUpdate (dynamicData.providers.cliproxyapi.models or { }) capabilityOverrides;
+    models =
+      let
+        baseModels = dynamicData.providers.cliproxyapi.models or { };
+        # Only keep overrides for models that exist in the base (to avoid phantom models)
+        filteredOverrides = lib.filterAttrs (modelId: _: baseModels ? modelId) capabilityOverrides;
+      in
+      lib.recursiveUpdate baseModels filteredOverrides;
   };
 
   # Normalize the provider structure for OpenCode
