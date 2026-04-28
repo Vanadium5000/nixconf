@@ -283,7 +283,10 @@
                 service = "mongo";
               };
               wildcard = {
-                rule = "HostRegexp(`{subdomain:[a-z0-9-]+}.my-website.space`)";
+                # Traefik v3 defaults to regex-based HostRegexp syntax, so the
+                # old named-placeholder form no longer matches arbitrary
+                # subdomains unless ruleSyntax = v2 is set explicitly.
+                rule = "HostRegexp(`^[a-z0-9-]+\\.my-website\\.space$`)";
                 service = "dokploy-traefik";
                 entryPoints = [ "websecure" ];
                 middlewares = [ "services-auth" ];
