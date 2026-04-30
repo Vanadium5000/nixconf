@@ -188,10 +188,6 @@
         user = {
           username = "main";
         };
-        git = {
-          username = lib.mkDefault "main";
-          email = lib.mkDefault "main@main-vps.local";
-        };
       };
 
       # No cuda - doesn't have an Nvidia GPU
