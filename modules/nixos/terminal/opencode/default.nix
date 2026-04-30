@@ -13,6 +13,7 @@
       user = config.preferences.user.username;
       homeDirectory = config.preferences.paths.homeDirectory;
       configDirectory = config.preferences.paths.configDirectory;
+      publicBaseDomain = self.secrets.PUBLIC_BASE_DOMAIN;
 
       # Existing adjacent helpers already split stable data domains cleanly.
       # Keep those imports, but keep the runtime assembly in this file so future
@@ -76,6 +77,7 @@
           command = [
             (pkgs.writeShellScript "image-gen-mcp-wrapper" ''
               export CLIPROXYAPI_KEY="${self.secrets.CLIPROXYAPI_KEY}"
+              export CLIPROXYAPI_BASE_URL="https://cliproxyapi.${publicBaseDomain}/v1"
               MODELS_FILE="${configDirectory}/modules/nixos/terminal/opencode/models.json"
               OVERRIDES_FILE="${configDirectory}/modules/nixos/terminal/opencode/_model-capability-overrides.json"
 
@@ -564,7 +566,7 @@
         # Fetch models from CliProxyApi and update models.json
         sync_models() {
           local api_key="${self.secrets.CLIPROXYAPI_KEY}"
-          local url="https://cliproxyapi.my-website.space/v1beta/models"
+          local url="https://cliproxyapi.${publicBaseDomain}/v1beta/models"
           
           ensure_repo_state_files
 
@@ -1182,7 +1184,7 @@
         embeddingModel = "Xenova/nomic-embed-text-v1";
         memoryProvider = "openai-chat";
         memoryModel = state.categories.deep.model;
-        memoryApiUrl = "https://cliproxyapi.my-website.space/v1";
+        memoryApiUrl = "https://cliproxyapi.${publicBaseDomain}/v1";
         memoryApiKey = self.secrets.CLIPROXYAPI_KEY;
         autoCaptureEnabled = true;
         webServerEnabled = true;

@@ -1,6 +1,6 @@
-{ self, inputs, ... }:
+{ self, ... }:
 {
-  flake.nixosModules.ionos_vpsHost =
+  flake.nixosModules.main_vpsHost =
     {
       config,
       pkgs,
@@ -22,69 +22,37 @@
       # same generated secrets surface so proxy/auth changes stay declarative.
       secrets' = builtins.intersectAttrs (keysAsAttrs [
         "IONOS_API_KEY"
-        "MY_WEBSITE_ENV"
+        "PUBLIC_BASE_DOMAIN"
         "SERVICES_AUTH_PASSWORD"
       ]) self.secrets;
-      envText = secrets'.MY_WEBSITE_ENV;
       ionosApiKey = secrets'.IONOS_API_KEY;
+      publicBaseDomain = secrets'.PUBLIC_BASE_DOMAIN;
       servicesAuthPassword = secrets'.SERVICES_AUTH_PASSWORD;
-      frontendPackage = inputs.my-website-frontend.packages.${pkgs.stdenv.hostPlatform.system}.default;
-      frontendRoot = "${frontendPackage}";
-      frontendPort = 41272;
       servicesAuthGatewayPort = 41276;
-      servicesAuthSigningKey = builtins.hashString "sha256" "${servicesAuthPassword}:my-website.space:services-auth-gateway";
+      mkHostname =
+        subdomain: if subdomain == null then publicBaseDomain else "${subdomain}.${publicBaseDomain}";
+      apexDomain = mkHostname null;
+      wwwDomain = mkHostname "www";
+      authDomain = mkHostname "auth";
+      openclawDomain = mkHostname "openclaw";
+      dashboardDomain = mkHostname "dashboard";
+      netdataDomain = mkHostname "netdata";
+      mitmproxyDomain = mkHostname "mitmproxy";
+      vpnDomain = mkHostname "vpn";
+      cliproxyapiDomain = mkHostname "cliproxyapi";
+      dokployDomain = mkHostname "dokploy";
+      mongoDomain = mkHostname "mongo";
+      wildcardDomainPattern = lib.replaceStrings [ "." ] [ "\\." ] publicBaseDomain;
+      servicesAuthSigningKey = builtins.hashString "sha256" "${servicesAuthPassword}:${publicBaseDomain}:services-auth-gateway";
       servicesAuthCookieName = "__Secure-services_auth";
       servicesAuthReturnCookieName = "__Secure-services_auth_return";
-      servicesAuthCookieDomain = ".my-website.space";
+      servicesAuthCookieDomain = ".${publicBaseDomain}";
       authGatewayBaseUrl = "http://127.0.0.1:${toString servicesAuthGatewayPort}";
       traefikDokployUpstream = "http://127.0.0.1:81";
-      acmeCertName = "my-website.space";
+      acmeCertName = publicBaseDomain;
       acmeCertDirectory = config.security.acme.certs.${acmeCertName}.directory;
       # lego's IONOS provider reads a raw API key from the referenced file.
       ionosAcmeCredentialsFile = pkgs.writeText "ionos-acme-api-key" ionosApiKey;
-      staticSiteScript = pkgs.writeText "my-website-frontend-server.py" ''
-        import http.server
-        import os
-        import socketserver
-
-
-        ROOT = ${builtins.toJSON frontendRoot}
-        PORT = ${toString frontendPort}
-
-
-        class Handler(http.server.SimpleHTTPRequestHandler):
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, directory=ROOT, **kwargs)
-
-            def do_GET(self):
-                path = self.translate_path(self.path)
-                if self.path.startswith("/backend/") or self.path.startswith("/auth/api/"):
-                    self.send_error(404)
-                    return
-                if os.path.exists(path) or self.path.endswith("/"):
-                    return super().do_GET()
-                self.path = "/index.html"
-                return super().do_GET()
-
-            def log_message(self, format, *args):
-                return
-
-
-        class ThreadingTCPServer(socketserver.ThreadingTCPServer):
-            allow_reuse_address = True
-
-
-        with ThreadingTCPServer(("127.0.0.1", PORT), Handler) as httpd:
-            httpd.serve_forever()
-      '';
-      staticSiteName = "my-website-frontend";
-      staticSiteExecutable = pkgs.writeShellApplication {
-        name = staticSiteName;
-        runtimeInputs = [ pkgs.python3 ];
-        text = ''
-          exec ${pkgs.python3}/bin/python3 ${staticSiteScript}
-        '';
-      };
       mkProtectedServiceRouter =
         {
           rule,
@@ -122,46 +90,17 @@
       );
     in
     {
-      imports = [
-        inputs.my-website-backend.nixosModules.default
-      ];
-
       services.services-auth-gateway = {
         enable = true;
         bindAddress = "127.0.0.1";
         port = servicesAuthGatewayPort;
-        publicDomain = "my-website.space";
+        publicDomain = publicBaseDomain;
         cookieDomain = servicesAuthCookieDomain;
         cookieName = servicesAuthCookieName;
         returnCookieName = servicesAuthReturnCookieName;
-        defaultRedirect = "https://my-website.space/";
+        defaultRedirect = "https://${apexDomain}/";
         password = servicesAuthPassword;
         signingKey = servicesAuthSigningKey;
-      };
-
-      # Enable backend service
-      services.my-website-backend = {
-        enable = true;
-        port = 41273; # Changed from 3000 to avoid conflicts & randomise
-        envFile = pkgs.writeText ".env" envText;
-      };
-
-      systemd.services.${staticSiteName} = {
-        description = "Static frontend server for my-website.space";
-        wantedBy = [ "multi-user.target" ];
-        after = [ "network.target" ];
-        serviceConfig = {
-          Type = "simple";
-          DynamicUser = true;
-          ExecStart = "${staticSiteExecutable}/bin/${staticSiteName}";
-          Restart = "on-failure";
-          RestartSec = 5;
-          NoNewPrivileges = true;
-          ProtectSystem = "strict";
-          ProtectHome = true;
-          PrivateTmp = true;
-          WorkingDirectory = frontendRoot;
-        };
       };
 
       # Run mongo-express in a container (isolated & easy)
@@ -213,80 +152,58 @@
               };
             };
             routers = {
-              apex = {
-                rule = "Host(`my-website.space`) || Host(`www.my-website.space`)";
-                service = "frontend";
-                entryPoints = [ "websecure" ];
-                tls = { };
-              };
-              backend = {
-                rule = "Host(`my-website.space`) && PathPrefix(`/backend/`)";
-                service = "backend";
-                entryPoints = [ "websecure" ];
-                priority = 200;
-                tls = { };
-              };
-              drfrost-solver = {
-                rule = "Host(`my-website.space`) && PathPrefix(`/backend/drfrost-solver/`)";
-                service = "drfrost-solver";
-                entryPoints = [ "websecure" ];
-                priority = 210;
-                tls = { };
-              };
-              auth-api = {
-                rule = "Host(`my-website.space`) && PathPrefix(`/auth/api/`)";
-                service = "backend-auth-api";
-                entryPoints = [ "websecure" ];
-                priority = 220;
-                tls = { };
+              apex = mkProtectedServiceRouter {
+                rule = "Host(`${apexDomain}`) || Host(`${wwwDomain}`)";
+                service = "dokploy-traefik";
+                priority = 150;
               };
               auth-site = {
-                rule = "Host(`auth.my-website.space`)";
+                rule = "Host(`${authDomain}`)";
                 service = "services-auth-gateway";
                 entryPoints = [ "websecure" ];
                 tls = { };
               };
               openclaw = {
-                rule = "Host(`openclaw.my-website.space`)";
+                rule = "Host(`${openclawDomain}`)";
                 service = "dokploy-traefik";
                 entryPoints = [ "websecure" ];
                 tls = { };
               };
               dashboard = mkProtectedServiceRouter {
-                rule = "Host(`dashboard.my-website.space`)";
+                rule = "Host(`${dashboardDomain}`)";
                 service = "dashboard";
               };
               netdata = mkProtectedServiceRouter {
-                rule = "Host(`netdata.my-website.space`)";
+                rule = "Host(`${netdataDomain}`)";
                 service = "netdata";
               };
               mitmproxy = mkProtectedServiceRouter {
-                rule = "Host(`mitmproxy.my-website.space`)";
+                rule = "Host(`${mitmproxyDomain}`)";
                 service = "mitmproxy";
               };
               vpn = mkProtectedServiceRouter {
-                rule = "Host(`vpn.my-website.space`)";
+                rule = "Host(`${vpnDomain}`)";
                 service = "vpn";
               };
               cliproxyapi = {
-                rule = "Host(`cliproxyapi.my-website.space`)";
+                rule = "Host(`${cliproxyapiDomain}`)";
                 service = "cliproxyapi";
                 entryPoints = [ "websecure" ];
                 tls = { };
               };
               dokploy = mkProtectedServiceRouter {
-                rule = "Host(`dokploy.my-website.space`)";
+                rule = "Host(`${dokployDomain}`)";
                 service = "dokploy-traefik";
               };
               mongo = mkProtectedServiceRouter {
-                rule = "Host(`mongo.my-website.space`)";
+                rule = "Host(`${mongoDomain}`)";
                 service = "mongo";
               };
               wildcard = {
                 # Traefik v3 defaults to regex-based HostRegexp syntax, so the
                 # old named-placeholder form no longer matches arbitrary
                 # subdomains unless ruleSyntax = v2 is set explicitly.
-                rule = "HostRegexp(`^[a-z0-9-]+\\.my-website\\.space$`)";
+                rule = "HostRegexp(`^[a-z0-9-]+\\.${wildcardDomainPattern}$`)";
                 service = "dokploy-traefik";
                 entryPoints = [ "websecure" ];
                 middlewares = [ "services-auth" ];
@@ -296,14 +213,6 @@
             }
             // wildcardUnauthenticatedRouters;
             services = {
-              frontend.loadBalancer.servers = [
-                {
-                  url = "http://127.0.0.1:${toString frontendPort}";
-                }
-              ];
-              backend = mkDirectService 41273;
-              drfrost-solver = mkDirectService 41274;
-              backend-auth-api = mkDirectService 41273;
               services-auth-gateway = mkDirectService servicesAuthGatewayPort;
               dashboard = mkDirectService 8082;
               netdata = mkDirectService 19999;
@@ -329,7 +238,7 @@
 
       security.acme = {
         acceptTerms = true;
-        defaults.email = "vanadium5000@gmail.com"; # Required for cert issuance.
+        defaults.email = "hostmaster@${publicBaseDomain}"; # Generic mailbox keeps certificate notices off personal addresses.
         certs.${acmeCertName} = {
           domain = acmeCertName;
           extraDomainNames = [ "*.${acmeCertName}" ];
@@ -350,12 +259,6 @@
       # Persist uploaded images and ACME certificates across reboots.
       # Without this, user images are lost and Let's Encrypt rate-limits hit on every reboot.
       impermanence.nixos.directories = [
-        {
-          directory = "/var/lib/my-website-backend";
-          user = "my-website-backend";
-          group = "my-website-backend";
-          mode = "0750";
-        }
         {
           directory = "/var/lib/acme";
           user = "acme";

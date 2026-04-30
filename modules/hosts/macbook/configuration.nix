@@ -33,7 +33,7 @@
 
       # Enable SSH support
       users.users.${config.preferences.user.username}.openssh.authorizedKeys.keys = [
-        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFsIUmSPfK9/ncfGjINjeI7sz+QK7wyaYJZtLhVpiU66 thealfiecrawford@icloud.com"
+        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFsIUmSPfK9/ncfGjINjeI7sz+QK7wyaYJZtLhVpiU66 ssh-admin@macbook"
 
         # NOTE: iPad Termius Key
         "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEg7swCzJy8e8D+gQUtGW6YEdTt6j8RMRBR89Nhco9c+"
@@ -57,10 +57,6 @@
         system = {
           backlightDevice = "acpi_video0";
           keyboardBacklightDevice = "apple::kbd_backlight";
-        };
-        git = {
-          username = "Vanadium5000";
-          email = "vanadium5000@gmail.com";
         };
       };
 

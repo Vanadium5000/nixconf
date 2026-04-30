@@ -39,14 +39,14 @@
               scanRandMacAddress = true; # Also randomize during Wi-Fi scans for extra privacy
             };
 
-            # Preserve hardware MAC for ethernet (VPS providers like IONOS bind IPs to specific MACs)
+            # Preserve the hardware MAC on ethernet because some VPS providers bind IPs to it.
             ethernet.macAddress = "preserve";
 
             # Global defaults for all new + existing connections for better privacy
             settings = {
-              # Very important: prevents sending your real hostname to every network
-              # But VPS providers like IONOS require a hostname for DHCP leases to work
-              connection.dhcp-send-hostname = config.preferences.hostName != "ionos_vps";
+              # Prevents broadcasting the machine hostname on typical networks.
+              # The server host still needs DHCP hostname announcements for its provider lease.
+              connection.dhcp-send-hostname = config.preferences.hostName != "main_vps";
             };
 
             plugins = with pkgs; [

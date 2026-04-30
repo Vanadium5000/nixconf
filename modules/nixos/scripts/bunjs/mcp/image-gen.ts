@@ -33,6 +33,13 @@ server.registerTool(
         throw new Error("CLIPROXYAPI_KEY environment variable is not set.");
       }
 
+      const cliproxyApiBaseUrl = process.env.CLIPROXYAPI_BASE_URL;
+      if (!cliproxyApiBaseUrl) {
+        throw new Error(
+          "CLIPROXYAPI_BASE_URL environment variable is not set.",
+        );
+      }
+
       const targetModel = model || process.env.IMAGE_MODEL;
       if (!targetModel) {
         throw new Error(
@@ -41,23 +48,20 @@ server.registerTool(
       }
 
       // We use the same proxy OpenCode uses
-      const response = await fetch(
-        "https://cliproxyapi.my-website.space/v1/images/generations",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${apiKey}`,
-          },
-          body: JSON.stringify({
-            prompt,
-            model: targetModel.split("/").pop(), // Extract model ID from provider/model format
-            n: 1,
-            size: "1024x1024",
-            response_format: "b64_json",
-          }),
+      const response = await fetch(`${cliproxyApiBaseUrl}/images/generations`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
         },
-      );
+        body: JSON.stringify({
+          prompt,
+          model: targetModel.split("/").pop(), // Extract model ID from provider/model format
+          n: 1,
+          size: "1024x1024",
+          response_format: "b64_json",
+        }),
+      });
 
       if (!response.ok) {
         const error = await response.text();

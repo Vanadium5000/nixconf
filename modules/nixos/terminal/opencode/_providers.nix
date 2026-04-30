@@ -1,5 +1,6 @@
 { self, lib, ... }:
 let
+  publicBaseDomain = self.secrets.PUBLIC_BASE_DOMAIN;
   # Path to the dynamic model cache
   # This file is updated by 'opencode-models sync' in the repo
   modelsFile = ./models.json;
@@ -27,7 +28,7 @@ let
     npm = "@ai-sdk/openai-compatible";
     name = "CliProxyApi";
     options = {
-      baseURL = "https://cliproxyapi.my-website.space/v1";
+      baseURL = "https://cliproxyapi.${publicBaseDomain}/v1";
       apiKey = self.secrets.CLIPROXYAPI_KEY;
     };
     # Dynamic models stay the base layer so sync_models() remains authoritative

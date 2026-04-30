@@ -85,10 +85,6 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # My Website
-    my-website-frontend.url = "github:Vanadium5000/my-website-frontend";
-    my-website-backend.url = "github:Vanadium5000/my-website-backend";
-
     # Dokploy NixOS module for self-hosted deployment orchestration.
     # Follow the main nixpkgs input so option defaults stay in the same package universe.
     nix-dokploy = {

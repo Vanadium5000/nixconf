@@ -33,7 +33,7 @@
 
       # Enable SSH support
       users.users.${config.preferences.user.username}.openssh.authorizedKeys.keys = [
-        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFsIUmSPfK9/ncfGjINjeI7sz+QK7wyaYJZtLhVpiU66 thealfiecrawford@icloud.com"
+        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFsIUmSPfK9/ncfGjINjeI7sz+QK7wyaYJZtLhVpiU66 ssh-admin@legion5i"
       ];
 
       # Use the latest kernel
@@ -54,10 +54,6 @@
         system = {
           backlightDevice = "intel_backlight";
           keyboardBacklightDevice = "platform::kbd_backlight";
-        };
-        git = {
-          username = "Vanadium5000";
-          email = "vanadium5000@gmail.com";
         };
         obs.enable = true;
       };

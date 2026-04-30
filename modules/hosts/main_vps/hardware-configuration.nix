@@ -1,5 +1,5 @@
 {
-  flake.nixosModules.ionos_vpsHost =
+  flake.nixosModules.main_vpsHost =
     {
       lib,
       modulesPath,

@@ -178,7 +178,7 @@ in
       };
 
       hosts = {
-        ionos_vps = self.nixosModules.ionos_vpsHost;
+        main_vps = self.nixosModules.main_vpsHost;
         legion5i = self.nixosModules.legion5iHost;
         macbook = self.nixosModules.macbookHost;
       };

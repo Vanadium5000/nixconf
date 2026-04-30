@@ -115,7 +115,7 @@ command_exists() {
 declare -A SECRETS_MAP=(
     ["PASSWORD_HASH"]="system/matrix/hashedPassword"
     ["IONOS_API_KEY"]="system/ionos-api-key"
-    ["MY_WEBSITE_ENV"]="my_website/env_file"
+    ["PUBLIC_BASE_DOMAIN"]="system/public-base-domain"
     ["MONGODB_PASSWORD"]="system/mongodb_password"
     ["MONGO_EXPRESS_PASSWORD"]="system/mongo_express_password"
     ["CLIPROXYAPI_KEY"]="system/cliproxyapi-key"

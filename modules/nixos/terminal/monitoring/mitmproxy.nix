@@ -231,7 +231,7 @@
           default = 8083;
           description = ''
             Port for the mitmweb browser UI.
-            Avoids 8081 (used by mongo-express on ionos_vps).
+            Avoids 8081 because the server host already uses it for mongo-express.
           '';
         };
 

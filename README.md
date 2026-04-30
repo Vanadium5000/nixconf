@@ -296,7 +296,7 @@ A fully declarative, ephemeral-root compatible monitoring stack.
 
 | Service       | Port    | Description                                                                                                                                                 |
 | ------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Homepage**  | `8082`  | Central fleet dashboard portal linking all nodes and services. (ionos_vps only)                                                                             |
+| **Homepage**  | `8082`  | Central fleet dashboard portal linking all nodes and services. (server host only)                                                                           |
 | **Netdata**   | `19999` | Real-time system monitoring (CPU, RAM, Disk, Containers). Runs in RAM mode on laptops to save disk/battery, and dbengine on servers for historical metrics. |
 | **mitmproxy** | `8083`  | On-demand HTTPS traffic analysis proxy. See details below.                                                                                                  |
 
@@ -352,11 +352,11 @@ Access the Web UI at `http://127.0.0.1:8083` (password: `nixos`).
 
 ## 🏠 Hosts
 
-| Host          | Type            | Hardware               | User     | Key Features                                            |
-| ------------- | --------------- | ---------------------- | -------- | ------------------------------------------------------- |
-| **legion5i**  | Desktop Laptop  | Intel + Nvidia (PRIME) | `matrix` | CUDA, fine-grained GPU power mgmt, primary machine      |
-| **macbook**   | Desktop Laptop  | MacBook Air (T2)       | `matrix` | T2 firmware, suspend workarounds, fn/ctrl swap          |
-| **ionos_vps** | Headless Server | IONOS VPS              | `main`   | Personal website, AI gateway, reverse proxy, monitoring |
+| Host         | Type            | Hardware               | User     | Key Features                                       |
+| ------------ | --------------- | ---------------------- | -------- | -------------------------------------------------- |
+| **legion5i** | Desktop Laptop  | Intel + Nvidia (PRIME) | `local`  | CUDA, fine-grained GPU power mgmt, primary machine |
+| **macbook**  | Desktop Laptop  | MacBook Air (T2)       | `local`  | T2 firmware, suspend workarounds, fn/ctrl swap     |
+| **main_vps** | Headless Server | Headless VPS           | `server` | Website, AI gateway, reverse proxy, monitoring     |
 
 ---
 
@@ -472,7 +472,7 @@ nixconf/
 ├── secrets.nix            # Auto-generated secrets (gitignored)
 ├── modules/
 │   ├── common/            # Shared base modules (impermanence, networking, keymap)
-│   ├── hosts/             # Per-machine configs (legion5i, macbook, ionos_vps)
+│   ├── hosts/             # Per-machine configs (legion5i, macbook, main_vps)
 │   ├── nixos/
 │   │   ├── desktop/       # Desktop environment (Hyprland, audio, browser, etc.)
 │   │   ├── terminal/      # Terminal tools (nix, opencode, git-sync)
@@ -659,7 +659,7 @@ HOST=legion5i ./rebuild.sh dry-run
 HOST=legion5i ./rebuild.sh --validate switch
 
 # Deploy to remote host
-HOST=ionos_vps ./rebuild.sh deploy root@host
+HOST=main_vps ./rebuild.sh deploy root@host
 
 # Install on new machine (nixos-anywhere)
 HOST=macbook ./rebuild.sh install root@192.168.1.100
@@ -673,29 +673,27 @@ HOST=legion5i ./rebuild.sh generations
 
 ## 📥 Flake Inputs
 
-| Input                 | Source                           | Purpose                              |
-| --------------------- | -------------------------------- | ------------------------------------ |
-| `nixpkgs`             | `nixos-25.11`                    | Main package repository (stable)     |
-| `nixpkgs-unstable`    | `nixos-unstable`                 | Bleeding-edge packages               |
-| `nur`                 | nix-community/NUR                | Nix User Repository                  |
-| `nixos-hardware`      | LukeChannings/nixos-hardware     | Hardware configs (T2, Intel, Nvidia) |
-| `flake-parts`         | hercules-ci/flake-parts          | Modular flake composition            |
-| `import-tree`         | vic/import-tree                  | Auto-import directory trees          |
-| `impermanence`        | nix-community/impermanence       | Ephemeral root management            |
-| `persist-retro`       | Geometer1729/persist-retro       | Retroactive persistence              |
-| `disko`               | nix-community/disko              | Declarative disk partitioning        |
-| `hjem`                | feel-co/hjem                     | User environment (home-manager alt)  |
-| `wrappers`            | Lassulus/wrappers                | Executable wrapping utility          |
-| `nix-index-database`  | Mic92/nix-index-database         | Pre-built nix-index DB               |
-| `nix-flatpak`         | gmodena/nix-flatpak              | Declarative Flatpak management       |
-| `nix4vscode`          | nix-community/nix4vscode         | Auto-updated VSCode extensions       |
-| `nvf-neovim`          | Vanadium5000/nvf-neovim          | Custom Neovim config                 |
-| `opencode`            | anomalyco/opencode               | AI coding assistant                  |
-| `hyprqt6engine`       | hyprwm/hyprqt6engine             | Qt6 theming for Hyprland             |
-| `nixos-artwork`       | nixos/nixos-artwork              | NixOS wallpapers                     |
-| `nixy-wallpapers`     | anotherhadi/nixy-wallpapers      | Extra wallpaper collection           |
-| `my-website-frontend` | Vanadium5000/my-website-frontend | Personal website frontend            |
-| `my-website-backend`  | Vanadium5000/my-website-backend  | Personal website backend             |
+| Input                | Source                       | Purpose                              |
+| -------------------- | ---------------------------- | ------------------------------------ |
+| `nixpkgs`            | `nixos-25.11`                | Main package repository (stable)     |
+| `nixpkgs-unstable`   | `nixos-unstable`             | Bleeding-edge packages               |
+| `nur`                | nix-community/NUR            | Nix User Repository                  |
+| `nixos-hardware`     | LukeChannings/nixos-hardware | Hardware configs (T2, Intel, Nvidia) |
+| `flake-parts`        | hercules-ci/flake-parts      | Modular flake composition            |
+| `import-tree`        | vic/import-tree              | Auto-import directory trees          |
+| `impermanence`       | nix-community/impermanence   | Ephemeral root management            |
+| `persist-retro`      | Geometer1729/persist-retro   | Retroactive persistence              |
+| `disko`              | nix-community/disko          | Declarative disk partitioning        |
+| `hjem`               | feel-co/hjem                 | User environment (home-manager alt)  |
+| `wrappers`           | Lassulus/wrappers            | Executable wrapping utility          |
+| `nix-index-database` | Mic92/nix-index-database     | Pre-built nix-index DB               |
+| `nix-flatpak`        | gmodena/nix-flatpak          | Declarative Flatpak management       |
+| `nix4vscode`         | nix-community/nix4vscode     | Auto-updated VSCode extensions       |
+| `nvf-neovim`         | Vanadium5000/nvf-neovim      | Custom Neovim config                 |
+| `opencode`           | anomalyco/opencode           | AI coding assistant                  |
+| `hyprqt6engine`      | hyprwm/hyprqt6engine         | Qt6 theming for Hyprland             |
+| `nixos-artwork`      | nixos/nixos-artwork          | NixOS wallpapers                     |
+| `nixy-wallpapers`    | anotherhadi/nixy-wallpapers  | Extra wallpaper collection           |
 
 ---
 

@@ -55,13 +55,13 @@
 
         publicDomain = mkOption {
           type = types.str;
-          default = "my-website.space";
+          default = "example.invalid";
           description = "Public suffix allowed for post-login redirects";
         };
 
         cookieDomain = mkOption {
           type = types.str;
-          default = ".my-website.space";
+          default = ".example.invalid";
           description = "Cookie scope shared across protected service subdomains";
         };
 
@@ -91,7 +91,7 @@
 
         defaultRedirect = mkOption {
           type = types.str;
-          default = "https://my-website.space/";
+          default = "https://example.invalid/";
           description = "Fallback redirect when the login flow has no valid original destination";
         };
 
@@ -116,7 +116,7 @@
         users.groups.services-auth-gateway = { };
 
         systemd.services.services-auth-gateway = {
-          description = "Shared auth gateway for my-website.space services";
+          description = "Shared auth gateway for protected service subdomains";
           wantedBy = [ "multi-user.target" ];
           after = [ "network-online.target" ];
           wants = [ "network-online.target" ];

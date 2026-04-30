@@ -6,8 +6,8 @@
 # Tailscale MagicDNS hostnames are used for cross-host links.
 # Verify your hostnames with: tailscale status
 # Note: underscores in hostnames are typically converted to hyphens by MagicDNS
-# (e.g., ionos_vps → ionos-vps)
-{ ... }:
+# (for example, server_host → server-host)
+{ self, ... }:
 {
   flake.nixosModules.homepage-monitor =
     {
@@ -23,6 +23,13 @@
         types
         ;
       cfg = config.services.homepage-monitor;
+      publicBaseDomain = self.secrets.PUBLIC_BASE_DOMAIN;
+      mkPublicUrl =
+        subdomain: path:
+        let
+          host = if subdomain == null then publicBaseDomain else "${subdomain}.${publicBaseDomain}";
+        in
+        "https://${host}${path}";
     in
     {
       options.services.homepage-monitor = {
@@ -33,7 +40,7 @@
           default = 8082;
           description = ''
             Port for the Homepage dashboard.
-            Avoids conflicts: 3000=dokploy, 41273=my-website, 41275=mongo-express,
+            Avoids conflicts: 3000=dokploy, 41275=mongo-express,
             8317=cliproxyapi.
           '';
         };
@@ -97,8 +104,8 @@
                 {
                   "Netdata — VPS" = {
                     icon = "netdata";
-                    href = "https://netdata.my-website.space";
-                    description = "Real-time system metrics (ionos_vps)";
+                    href = mkPublicUrl "netdata" "";
+                    description = "Real-time system metrics (server host)";
                     widget = {
                       type = "netdata";
                       url = "http://127.0.0.1:19999";
@@ -108,7 +115,7 @@
                 {
                   "Mitmproxy — HTTPS Analyzer" = {
                     icon = "mdi-security";
-                    href = "https://mitmproxy.my-website.space";
+                    href = mkPublicUrl "mitmproxy" "";
                     description = "HTTPS traffic analysis and debugging";
                   };
                 }
@@ -119,35 +126,35 @@
                 {
                   "CLIProxyAPI" = {
                     icon = "mdi-api";
-                    href = "https://cliproxyapi.my-website.space/management.html";
+                    href = mkPublicUrl "cliproxyapi" "/management.html";
                     description = "OpenAI-compatible API wrapping AI CLIs";
                   };
                 }
                 {
                   "Dokploy" = {
                     icon = "mdi-docker";
-                    href = "https://dokploy.my-website.space";
+                    href = mkPublicUrl "dokploy" "";
                     description = "Self-hosted deployment control plane";
                   };
                 }
                 {
                   "VPN Proxy" = {
                     icon = "mdi-vpn";
-                    href = "https://vpn.my-website.space";
+                    href = mkPublicUrl "vpn" "";
                     description = "SOCKS5/HTTP VPN proxy management";
                   };
                 }
                 {
                   "My Website" = {
                     icon = "mdi-web";
-                    href = "https://my-website.space";
-                    description = "Personal website";
+                    href = mkPublicUrl null "";
+                    description = "Primary website";
                   };
                 }
                 {
                   "MongoDB Admin" = {
                     icon = "mdi-database";
-                    href = "https://mongo.my-website.space";
+                    href = mkPublicUrl "mongo" "";
                     description = "Mongo Express database management";
                   };
                 }

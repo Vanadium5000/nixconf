@@ -18,7 +18,7 @@
           "sora-watermark-cleaner"
           "personalive"
         ];
-        ionos_vps = [
+        main_vps = [
           "antigravity-manager"
           "aptos-fonts"
           "iloader"
@@ -31,7 +31,7 @@
           "waydroid-total-spoof"
         ];
         # Example: Add more hosts as needed
-        # ionos_vps = [ "some-gui-package" ];
+        # server_host = [ "some-gui-package" ];
       };
 
       # Get exclusions for current host (empty list if not defined)

@@ -1,31 +1,34 @@
 { self, inputs, ... }:
 {
-  flake.nixosConfigurations.ionos_vps = inputs.nixpkgs.lib.nixosSystem {
+  flake.nixosConfigurations.main_vps = inputs.nixpkgs.lib.nixosSystem {
     modules = [
-      self.nixosModules.ionos_vpsHost
+      self.nixosModules.main_vpsHost
     ];
   };
 
-  flake.nixosModules.ionos_vpsHost =
+  flake.nixosModules.main_vpsHost =
     {
       config,
       pkgs,
       lib,
+      publicBaseDomain,
       ...
     }:
     {
+      _module.args.publicBaseDomain = self.secrets.PUBLIC_BASE_DOMAIN;
+
       imports = [
         self.nixosModules.terminal
         inputs.nix-dokploy.nixosModules.default
 
         # Disko
         inputs.disko.nixosModules.disko
-        self.diskoConfigurations.ionos_vps
+        self.diskoConfigurations.main_vps
       ];
 
       # Enable SSH support
       users.users.${config.preferences.user.username}.openssh.authorizedKeys.keys = [
-        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFsIUmSPfK9/ncfGjINjeI7sz+QK7wyaYJZtLhVpiU66 thealfiecrawford@icloud.com"
+        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFsIUmSPfK9/ncfGjINjeI7sz+QK7wyaYJZtLhVpiU66 ssh-admin@main-vps"
       ];
 
       # Use terminal-friendly curses backend
@@ -55,12 +58,12 @@
           # trusted-origin list. Once TLS terminates at the host Traefik edge,
           # logins originate from the public subdomain instead of localhost, so
           # the public URL must be trusted explicitly to avoid INVALID_ORIGIN.
-          BETTER_AUTH_TRUSTED_ORIGINS = "https://dokploy.my-website.space,http://localhost:3000";
+          BETTER_AUTH_TRUSTED_ORIGINS = "https://${publicBaseDomain},https://www.${publicBaseDomain},https://dokploy.${publicBaseDomain},http://localhost:3000";
         };
         traefik.dynamicConfig.dokploy-ui = {
           http = {
             routers.dokploy-ui = {
-              rule = "Host(`dokploy.my-website.space`)";
+              rule = "Host(`dokploy.${publicBaseDomain}`)";
               entryPoints = [ "web" ];
               service = "dokploy-ui";
             };
@@ -142,8 +145,8 @@
           listen-http = "0.0.0.0:2586";
 
           # Required by ntfy for attachment download links on self-hosted instances.
-          # Tailscale DNS keeps the URL stable across IP changes.
-          base-url = "http://ionos-vps:2586";
+          # Tailscale DNS keeps the URL stable across host IP changes.
+          base-url = "http://main-vps:2586";
           upstream-base-url = "https://ntfy.sh";
 
           # Keep attachments simple and enabled without introducing auth or extra proxying.
@@ -157,7 +160,7 @@
       services.netdata-monitor.enable = true;
       preferences.allowedUnfree = [ "netdata" ];
 
-      # Fleet dashboard portal — accessible via Tailscale at http://ionos-vps:8082
+      # Fleet dashboard portal — accessible via Tailscale at http://main-vps:8082
       services.homepage-monitor.enable = true;
 
       # HTTPS traffic analyzer — on-demand: systemctl start mitmproxy
@@ -177,7 +180,7 @@
 
       # Preferences
       preferences = {
-        hostName = "ionos_vps";
+        hostName = "main_vps";
         profiles = {
           terminal.enable = true;
           server.enable = true;
@@ -186,8 +189,8 @@
           username = "main";
         };
         git = {
-          username = "Vanadium5000";
-          email = "vanadium5000@gmail.com";
+          username = lib.mkDefault "main";
+          email = lib.mkDefault "main@main-vps.local";
         };
       };
 

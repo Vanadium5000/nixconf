@@ -16,9 +16,9 @@
 - **Nix Evaluation**: Always use `path:.#` (not `.#`) to include untracked/dirty files.
 - **Wayland Clipboard**: Always use `wl-copy --type text/plain` when piping stdin.
 
-## 🏠 Server Services (ionos_vps)
+## 🏠 Server Services (public server host)
 
-- **Nginx Reverse Proxy**: All services are exposed via authenticated subdomains of `my-website.space` with Let's Encrypt (ACME).
+- **Nginx Reverse Proxy**: All services are exposed via authenticated subdomains of the configured public base domain with Let's Encrypt (ACME).
 - **CLIProxyAPI**: AI CLI wrapper (`services.cliproxyapi`). Port: 8317. Bound to localhost.
 - **Dokploy**: Self-hosted deployment control plane (`services.dokploy`). Port: 3000. Bound to localhost behind nginx.
 - **VPN Proxy**: SOCKS5/HTTP proxy with Web UI (`services.vpn-proxy`). Ports: 10800 (S5), 10801 (HTTP), 10802 (Web).

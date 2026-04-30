@@ -149,6 +149,13 @@
             vpnDirectory = "${homeDirectory}/Shared/VPNs";
           };
 
+          preferences.git = {
+            # Keep the shared defaults non-identifying so host modules can stay
+            # declarative without committing personal git identities.
+            username = lib.mkDefault cfg.user.username;
+            email = lib.mkDefault "${cfg.user.username}@${cfg.hostName}.local";
+          };
+
           users.users.${cfg.user.username} = {
             isNormalUser = true;
 
