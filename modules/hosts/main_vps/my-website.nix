@@ -191,9 +191,11 @@
                 entryPoints = [ "websecure" ];
                 tls = { };
               };
-              dokploy = mkProtectedServiceRouter {
+              dokploy = {
                 rule = "Host(`${dokployDomain}`)";
                 service = "dokploy-traefik";
+                entryPoints = [ "websecure" ];
+                tls = { };
               };
               mongo = mkProtectedServiceRouter {
                 rule = "Host(`${mongoDomain}`)";

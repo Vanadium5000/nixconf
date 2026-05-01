@@ -1,12 +1,12 @@
 {
   "categories": {
-    "artistry": "cliproxyapi/kilo-auto/free",
-    "deep": "cliproxyapi/gpt-5.4",
-    "quick": "cliproxyapi/kilo-auto/free",
-    "ultrabrain": "cliproxyapi/gpt-5.4",
-    "unspecified-high": "cliproxyapi/gpt-5.4",
-    "unspecified-low": "cliproxyapi/kilo-auto/free",
-    "visual-engineering": "cliproxyapi/kilo-auto/free",
-    "writing": "cliproxyapi/kilo-auto/free"
+    "artistry": "cliproxyapi/gpt-5.4-mini",
+    "deep": "cliproxyapi/gpt-5.5",
+    "quick": "cliproxyapi/gpt-5.4-mini",
+    "ultrabrain": "cliproxyapi/gpt-5.5",
+    "unspecified-high": "cliproxyapi/gpt-5.5",
+    "unspecified-low": "cliproxyapi/gpt-5.4-mini",
+    "visual-engineering": "cliproxyapi/gpt-5.4-mini",
+    "writing": "cliproxyapi/gpt-5.4-mini"
   }
 }

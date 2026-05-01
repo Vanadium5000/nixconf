@@ -53,6 +53,7 @@
         # on this host. The public Traefik edge instead proxies to the
         # localhost-bound Traefik container started below.
         port = null;
+        image = "dokploy/dokploy:v0.29.2"; # USE NEWER & BETTER IMAGE
         environment = {
           # Dokploy's auth layer validates the browser Origin header against a
           # trusted-origin list. Once TLS terminates at the host Traefik edge,
