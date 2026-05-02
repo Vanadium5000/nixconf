@@ -43,6 +43,7 @@ VALIDATE=false
 BACKUP=false
 NOTIFY=true
 NOTIFIED_ERROR=false
+REMAINING_ARGS=()
 
 # Logging functions
 log() {
@@ -496,6 +497,8 @@ show_generations() {
 
 # Parse command-line options
 parse_options() {
+    REMAINING_ARGS=()
+
     while [[ $# -gt 0 ]]; do
         case $1 in
         --help)
@@ -556,18 +559,22 @@ EOF
             NOTIFY=false
             shift
             ;;
+        --)
+            shift
+            REMAINING_ARGS+=("$@")
+            return 0
+            ;;
         -*)
             echo "Unknown option: $1" >&2
             echo "Use --help for usage information" >&2
             exit 1
             ;;
         *)
-            break
+            REMAINING_ARGS+=("$1")
+            shift
             ;;
         esac
     done
-    # Return remaining arguments as a single string
-    echo "$@"
 }
 
 # Deploy to remote host
@@ -617,38 +624,26 @@ install_system() {
 
 # Main function
 main() {
-    # Check for --help first
-    for arg in "$@"; do
-        if [ "$arg" = "--help" ]; then
-            parse_options "$@"
-        fi
-    done
-
-    # Parse options first
-    local remaining_args
-    remaining_args=$(parse_options "$@")
+    parse_options "$@"
 
     # Extract action and deploy target from remaining arguments
     local action=""
     local deploy_target=""
 
     # Parse remaining arguments: [action] [args]
-    set -- $remaining_args
+    set -- "${REMAINING_ARGS[@]}"
     while [[ $# -gt 0 ]]; do
-        case $1 in
-        --*)
-            # Skip options that were already parsed
-            shift
-            ;;
-        *)
-            if [ -z "$action" ]; then
-                action="$1"
-            else
-                deploy_target="$1"
-            fi
-            shift
-            ;;
-        esac
+        if [ -z "$action" ]; then
+            action="$1"
+        elif [ -z "$deploy_target" ]; then
+            deploy_target="$1"
+        else
+            error "Unexpected extra argument: $1"
+            echo "Usage: HOST=<host> $0 [OPTIONS] [ACTION] [ARGS]"
+            echo "Use --help for more information"
+            exit 1
+        fi
+        shift
     done
 
     # Validate required HOST environment variable
@@ -660,6 +655,20 @@ main() {
     fi
 
     action="${action:-switch}"
+
+    case "${action}" in
+    deploy | install)
+        ;;
+    *)
+        if [ -n "$deploy_target" ]; then
+            error "Action '${action}' does not accept an extra argument: ${deploy_target}"
+            echo "Usage: HOST=<host> $0 [OPTIONS] [ACTION]"
+            echo "Use --help for more information"
+            exit 1
+        fi
+        ;;
+    esac
+
     send_notification "info" "NixOS Rebuild" "Starting ${action} for ${HOST}..."
 
     log "Starting NixOS rebuild script"
