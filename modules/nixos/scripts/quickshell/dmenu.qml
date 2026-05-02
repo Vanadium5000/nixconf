@@ -1,7 +1,7 @@
 /*
  * dmenu.qml - Quickshell dmenu/rofi replacement
  *
- * A glassmorphic menu selector implementing Apple's Liquid Glass design language.
+ * A translucent menu selector for retained Quickshell utilities.
  * Reads input from a file (piped via shell wrapper) and outputs selection to stdout.
  *
  * Environment Variables:
@@ -145,7 +145,7 @@ Scope {
         }
 
         // ---------------------------------------------------------------------
-        // Main Dialog Container - Liquid Glass Panel
+        // Main dialog container
         // ---------------------------------------------------------------------
         Item {
             id: mainDialog

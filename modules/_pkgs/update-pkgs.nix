@@ -440,7 +440,7 @@ pkgs.writeShellApplication {
         SKIPPED+=("$pkg")
         ;;
 
-            "daisyui-mcp"|"pomodoro-for-waybar"|"waydroid-script"|"waydroid-total-spoof")
+            "daisyui-mcp"|"waydroid-script"|"waydroid-total-spoof")
               # Track branches - use nix-update with branch mode
               # These packages pin to latest commit on main/master branch
               set +e

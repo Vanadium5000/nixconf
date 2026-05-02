@@ -25,7 +25,6 @@
         self.nixosModules.firefox
         self.nixosModules.hyprland
         self.nixosModules.hyprland-support
-        self.nixosModules.hyprsunset
         self.nixosModules.dankmemershell
         self.nixosModules.tuigreet
 
@@ -35,23 +34,22 @@
       ];
 
       config = lib.mkIf cfg.enable {
-        # Automatically start waybar & qs-notifications & niri-screen-time daemon
+        # Start only desktop daemons not replaced by DankMaterialShell.
         preferences.autostart = [
-          "waybar"
-          "qs-notifications"
           "niri-screen-time --daemon"
           # KDE daemon - hosts kded modules like SolidUiServer for LUKS password prompts
           "kded6"
         ];
+
+        # DankMaterialShell replaces Waybar, the launcher, notifications,
+        # lock screen, and night-light shell controls on graphical hosts.
+        preferences.dankMaterialShell.enable = true;
 
         # Enable Localsend, a utility to share data with local devices
         programs.localsend.enable = true;
 
         environment.systemPackages = [
           selfpkgs.terminal
-          selfpkgs.waybar
-          selfpkgs.qs-notifications
-          selfpkgs.qs-notify
         ]
         ++ (with pkgs; [
           # Tools

@@ -1,7 +1,7 @@
 /*
  * GlassPanel.qml - Base Glass Surface Component
  *
- * The fundamental building block of the Liquid Glass UI.
+ * The fundamental translucent panel used by retained Quickshell utilities.
  * Renders a frosted glass panel with:
  * - Backdrop blur and transparency
  * - Specular highlight gradient (top edge)

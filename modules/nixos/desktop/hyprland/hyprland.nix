@@ -88,7 +88,7 @@
           (kb "${mod},B" "exec, librewolf" "Open Librewolf browser" "Apps")
           (kb "${shiftMod},B" "exec, kitty btop" "Open btop (system monitor)" "Apps")
           (kb "${mod},G" "exec, xdg-open https://x.com/i/grok" "Open Grok AI" "Apps")
-          (kb "${mod},L" "exec, hyprlock" "Lock screen" "Apps")
+          (kb "${mod},L" "exec, dms ipc call lock lock" "Lock screen" "Apps")
         ];
 
         # ── Windows ──
@@ -133,13 +133,9 @@
 
         # ── Menus ──
         menus = [
-          (kb "${mod},D" "exec, qs-dock" "Toggle dock" "Menus")
-          (kb "${shiftMod},D" "exec, pkill waybar || ${
-            getExe self.packages.${pkgs.stdenv.hostPlatform.system}.waybar
-          }" "Toggle waybar" "Menus")
-          (kb "${mod},SPACE" "exec, ${
-            getExe self.packages.${pkgs.stdenv.hostPlatform.system}.qs-launcher
-          }" "App launcher" "Menus")
+          (kb "${mod},D" "exec, dms ipc call control-center toggle" "Toggle control center" "Menus")
+          (kb "${shiftMod},D" "exec, dms ipc call dock toggle" "Toggle DMS dock" "Menus")
+          (kb "${mod},SPACE" "exec, dms ipc call spotlight toggle" "App launcher" "Menus")
           (kb "${mod},E" "exec, ${
             getExe self.packages.${pkgs.stdenv.hostPlatform.system}.qs-emoji
           }" "Emoji picker" "Menus")
@@ -176,9 +172,7 @@
           (kb "${mod},C" "exec, ${
             getExe self.packages.${pkgs.stdenv.hostPlatform.system}.qs-checklist
           }" "Checklist" "Menus")
-          (kb "${mod},X" "exec, ${
-            getExe self.packages.${pkgs.stdenv.hostPlatform.system}.qs-powermenu
-          }" "Power menu" "Menus")
+          (kb "${mod},X" "exec, dms ipc call powermenu toggle" "Power menu" "Menus")
           (kb "${mod},V" "exec, qs-tools" "Tools menu" "Menus")
         ];
 
@@ -191,6 +185,10 @@
           (kb "${shiftMod},Z" "exec, ${
             getExe self.packages.${pkgs.stdenv.hostPlatform.system}.qs-vpn
           }" "VPN selector" "Tools")
+          (kb "${shiftMod},L" "exec, ${
+            getExe self.packages.${pkgs.stdenv.hostPlatform.system}.toggle-lyrics-overlay
+          }" "Toggle lyrics overlay" "Tools")
+          (kb "${mod},I" "exec, dms ipc call inhibit toggle" "Toggle suspend inhibitor" "Tools")
         ];
 
         # ── Accessibility ──
@@ -271,7 +269,7 @@
 
         # ── System (bindl - locked) ──
         system = [
-          (kb ",switch:Lid Switch" "exec, hyprlock" "Lock screen on lid close" "System")
+          (kb ",switch:Lid Switch" "exec, dms ipc call lock lock" "Lock screen on lid close" "System")
           (kb ",switch:Lid Switch" "exec, wpctl set-volume @DEFAULT_AUDIO_SINK@ 0" "Mute on lid close"
             "System"
           )
@@ -586,20 +584,10 @@
           #   "noanim, launcher"
           #   "noanim, rofi"
 
-          # Hyprpanel
-          "noanim, ^bar-([0-9]*)$"
-          "blur, ^bar-([0-9]*)$"
-          "blurpopups, ^bar-([0-9]*)$"
-          # Hyprpanel menus
-          "noanim, ^([a-z]*)menu$"
-          "blur, ^([a-z]*)menu$"
-          "ignorezero, ^([a-z]*)menu$" # makes blur ignore fully transparent pixels
-          #"blurpopups, ^([a-z]*)menu$"
-
-          # Waybar
-          "noanim, ^waybar$"
-          "blur, ^waybar$"
-          "ignorezero, ^waybar$" # makes blur ignore fully transparent pixels
+          # DankMaterialShell surfaces are Quickshell layer-shell windows; keep
+          # their translucent surfaces readable without retaining Waybar rules.
+          "blur, ^quickshell$"
+          "ignorezero, ^quickshell$" # ignore transparent pixels in shell layers.
         ];
 
         input = {
@@ -759,8 +747,7 @@
 
         nwg-displays # displays/outputs settings gui
 
-        # Utilities for eye & health protection
-        hyprsunset # Blue light filter
+        # Utilities for eye & health protection not replaced by DMS.
         safeeyes # Intervalled-reminders to look around/take a break
 
         # Recordings

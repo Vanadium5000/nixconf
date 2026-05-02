@@ -23,9 +23,11 @@
 - **Dokploy**: Self-hosted deployment control plane (`services.dokploy`). Port: 3000. Bound to localhost behind nginx.
 - **VPN Proxy**: SOCKS5/HTTP proxy with Web UI (`services.vpn-proxy`). Ports: 10800 (S5), 10801 (HTTP), 10802 (Web).
 
-## 🎨 Liquid Glass Design System
+## 🖥️ Desktop Shell
 
-Cyberpunk Electric Dark palette. Background: `#000000`, Accent: `#5454fc`, Active: `#54fcfc`. Glass: `rgba(8,8,12,0.75)` + 8px blur. Font: JetBrainsMono Nerd Font.
+- **DankMaterialShell** is the active desktop shell on graphical hosts (`preferences.dankMaterialShell.enable`). It replaces Waybar, Hyprlock, Hyprsunset, `qs-launcher`, and `qs-notifications` as primary shell surfaces.
+- **DMS dependency note**: keep `programs.dank-material-shell.dgop.package = pkgs.unstable.dgop;` because the upstream DMS module expects the newer `dgop` package surface.
+- **Quickshell scripts**: keep unrelated `qs-*` utilities such as `qs-dmenu`, `qs-passmenu`, `qs-wallpaper`, and overlays until they are explicitly migrated.
 
 ## 📋 Common Tasks
 

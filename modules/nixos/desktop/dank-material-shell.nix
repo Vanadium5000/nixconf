@@ -4,6 +4,7 @@
     {
       config,
       lib,
+      pkgs,
       ...
     }:
     let
@@ -22,7 +23,16 @@
         # Keep the upstream option behind a local preference so hosts can opt in
         # without learning DMS's flake-module namespace. Source:
         # https://danklinux.com/docs/dankmaterialshell/nixos
-        programs.dank-material-shell.enable = true;
+        programs.dank-material-shell = {
+          enable = true;
+          package = pkgs.unstable.dms-shell;
+          dgop.package = pkgs.unstable.dgop;
+          systemd.enable = true;
+          enableSystemMonitoring = true;
+          enableDynamicTheming = true;
+          enableAudioWavelength = true;
+          enableClipboardPaste = true;
+        };
       };
     };
 }

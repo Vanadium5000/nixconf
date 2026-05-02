@@ -1,13 +1,12 @@
 # ❄️ nixconf
 
-> **NixOS configuration flake with Liquid Glass design, ephemeral root, and
+> **NixOS configuration flake with DankMaterialShell, ephemeral root, and
 > modular architecture.**
 
 A fully declarative, reproducible NixOS system built with `flake-parts` and
-`import-tree`. Features an ephemeral root filesystem (impermanence), a custom
-Quickshell-based desktop shell, SOCKS5/HTTP VPN proxy with zero-leak
-kill-switch, and a Cyberpunk Electric Dark theme inspired by Apple's Liquid
-Glass design language.
+`import-tree`. Features an ephemeral root filesystem (impermanence),
+DankMaterialShell on graphical hosts, and a SOCKS5/HTTP VPN proxy with a
+zero-leak kill-switch.
 
 ---
 
@@ -19,11 +18,11 @@ Glass design language.
 
 ## 📸 Screenshots
 
-<!-- TODO: Add screenshot of desktop with Hyprland + Waybar -->
+<!-- TODO: Add desktop overview screenshot with Hyprland + DankMaterialShell -->
 
-<!-- TODO: Add screenshot of notification center (Liquid Glass) -->
+<!-- TODO: Add screenshot of DankMaterialShell control center -->
 
-<!-- TODO: Add screenshot of qs-launcher application launcher -->
+<!-- TODO: Add screenshot of DMS spotlight launcher -->
 
 <!-- TODO: Add screenshot of qs-dmenu with grid view -->
 
@@ -31,26 +30,22 @@ Glass design language.
 
 ## 🖥️ Desktop Stack
 
-| Component       | Tool                               | Notes                                         |
-| --------------- | ---------------------------------- | --------------------------------------------- |
-| Compositor      | **Hyprland** (Wayland)             | UWSM integration, dwindle layout              |
-| Status Bar      | **Waybar**                         | 9 module categories, theme-aware              |
-| Notifications   | **Quickshell Notification Center** | Custom-built, replaces swaync                 |
-| Launcher        | **qs-launcher**                    | Quickshell QML, app + calculator mode         |
-| Menu            | **qs-dmenu**                       | Fuzzy/prefix/exact, grid view, keybinds       |
-| Terminal        | **Kitty**                          | Cursor trail, remote control                  |
-| Shell           | **Zsh** + **Starship**             | fzf-tab, autosuggestions, syntax highlighting |
-| Editor          | **Neovim** (NVF)                   | Primary `$EDITOR`, custom NVF config          |
-| IDE             | **VSCodium** / **Antigravity**     | Declarative extensions, custom theme          |
-| AI Coding       | **OpenCode**                       | Terminal AI assistant with MCP servers        |
-| Browser         | **Librewolf**                      | uBlock Origin, Vimium, custom user.js         |
-| File Manager    | **Dolphin** (KDE)                  | kio-extras, kio-admin                         |
-| Display Manager | **tuigreet** (greetd)              | TUI greeter                                   |
-| Lock Screen     | **Hyprlock**                       | Auto-lock via Hypridle (120s)                 |
-| Wallpaper       | **Hyprpaper** + **qs-wallpaper**   | Grid preview selector                         |
-| Blue Light      | **Hyprsunset**                     | Time-based profiles (6000K→1000K)             |
-| Music           | **MPD** + **mpc**                  | PipeWire output, synced lyrics overlay        |
-| Clipboard       | **cliphist** + **wl-clipboard**    | History via `SUPER+Z`                         |
+| Component       | Tool                             | Notes                                          |
+| --------------- | -------------------------------- | ---------------------------------------------- |
+| Compositor      | **Hyprland** (Wayland)           | UWSM integration, dwindle layout               |
+| Desktop Shell   | **DankMaterialShell**            | Bar, dock, launcher, notifications, lock       |
+| Menu Utilities  | **qs-dmenu** and retained qs-\*  | Kept until each utility is explicitly migrated |
+| Terminal        | **Kitty**                        | Cursor trail, remote control                   |
+| Shell           | **Zsh** + **Starship**           | fzf-tab, autosuggestions, syntax highlighting  |
+| Editor          | **Neovim** (NVF)                 | Primary `$EDITOR`, custom NVF config           |
+| IDE             | **VSCodium** / **Antigravity**   | Declarative extensions, custom theme           |
+| AI Coding       | **OpenCode**                     | Terminal AI assistant with MCP servers         |
+| Browser         | **Librewolf**                    | uBlock Origin, Vimium, custom user.js          |
+| File Manager    | **Dolphin** (KDE)                | kio-extras, kio-admin                          |
+| Display Manager | **tuigreet** (greetd)            | TUI greeter                                    |
+| Wallpaper       | **Hyprpaper** + **qs-wallpaper** | Grid preview selector                          |
+| Music           | **MPD** + **mpc**                | PipeWire output, synced lyrics overlay         |
+| Clipboard       | **cliphist** + **wl-clipboard**  | History via `SUPER+Z`                          |
 
 ---
 
@@ -150,103 +145,29 @@ vpn-proxy status
 
 State stored in `/dev/shm/vpn-proxy-$UID/` (tmpfs, cleared on reboot).
 
-### 🔔 Notification Center
+### 🖥️ DankMaterialShell
 
-A full-featured notification daemon and center implementing the Liquid Glass
-design language, replacing swaync. Built with Quickshell QML.
+Graphical hosts enable `preferences.dankMaterialShell.enable`, which wraps the
+upstream `programs.dank-material-shell` flake module. DMS now owns the bar,
+dock, spotlight launcher, notification center, lock screen, night controls,
+power menu, and idle inhibitor UI.
 
-#### Notification Architecture
+Key Hyprland bindings call DMS through IPC rather than starting replaced tools:
 
-```text
-┌─────────────────────────────────────────────┐
-│           NotificationServer                │
-│  (DBus org.freedesktop.Notifications)       │
-└──────────────────┬──────────────────────────┘
-                   │
-        ┌──────────┴──────────┐
-        ▼                     ▼
-  NotificationPopup    NotificationPanel
-  (Corner popups)      (Full sidebar)
-        │                     │
-        └──────────┬──────────┘
-                   ▼
-           NotificationItem
-           (Glass UI card)
-```
+| Binding         | Action                               |
+| --------------- | ------------------------------------ |
+| `SUPER+SPACE`   | `dms ipc call spotlight toggle`      |
+| `SUPER+D`       | `dms ipc call control-center toggle` |
+| `SUPER+SHIFT+D` | `dms ipc call dock toggle`           |
+| `SUPER+L`       | `dms ipc call lock lock`             |
+| `SUPER+X`       | `dms ipc call powermenu toggle`      |
+| `SUPER+I`       | `dms ipc call inhibit toggle`        |
+| `SUPER+SHIFT+L` | `toggle-lyrics-overlay`              |
 
-#### Features
-
-- 🔔 Popup notifications with auto-timeout (7s)
-- 📜 Scrollable sidebar panel
-- 🎯 Clickable action buttons
-- 👆 Swipe to dismiss
-- 📋 Copy notification body to clipboard
-- 📖 Expandable long notifications
-- 💾 Persistence across restarts
-- 🔕 Do Not Disturb mode
-- 🔊 Configurable per-urgency and per-app ding sounds
-
-#### CLI Commands
-
-```bash
-qs-notifications toggle          # Toggle panel
-qs-notifications count           # Get count
-qs-notifications clear           # Clear all
-qs-notifications toggle-dnd      # Toggle DND
-qs-notifications ding            # Play sound
-qs-notifications set-volume 0.7  # Set volume (0.0-1.0)
-```
-
-#### Sending Notifications with Ding
-
-```bash
-# Recommended: qs-notify wrapper
-qs-notify --ding "Alert" "Something happened"
-qs-notify -u critical -d "Error" "Critical error occurred"
-
-# Or trigger ding separately
-qs-notifications ding & notify-send "Title" "Body"
-```
-
-#### Ding Sound Settings
-
-| Setting           | Default | Description                     |
-| ----------------- | ------- | ------------------------------- |
-| Volume            | 50%     | Sound volume (0-100%)           |
-| Low Priority      | Off     | Play sound for low urgency      |
-| Normal Priority   | On      | Play sound for normal urgency   |
-| Critical Priority | On      | Play sound for critical urgency |
-
-Per-app overrides available from the notification context menu (⋮ button).
-
-#### Waybar Integration
-
-```nix
-"custom/notifications" = {
-  format = "󰂚 {}";
-  exec = "qs-notifications count";
-  on-click = "qs-notifications toggle";
-  interval = 1;
-};
-```
-
-### 🎨 Liquid Glass Design System
-
-Adapted from Apple's iOS 26 / macOS Tahoe design language for a **Cyberpunk
-Electric Dark** palette.
-
-| Token          | Value                   | Usage                      |
-| -------------- | ----------------------- | -------------------------- |
-| Background     | `#000000`               | Main background            |
-| Alt Background | `#141420`               | Elevated surfaces          |
-| Accent         | `#5454fc`               | Primary accent (blue)      |
-| Active         | `#54fcfc`               | Active/hover accent (cyan) |
-| Glass          | `rgba(8,8,12,0.75)`     | Glass surface fill         |
-| Glass Blur     | `8px`                   | Backdrop blur radius       |
-| Corner Radius  | `22px` / `12px`         | Large / small components   |
-| Font           | JetBrainsMono Nerd Font | Monospace everywhere       |
-
-Full specification: [`modules/LIQUID_GLASS_SPEC.md`](modules/LIQUID_GLASS_SPEC.md)
+The DMS module pins `programs.dank-material-shell.dgop.package` to
+`pkgs.unstable.dgop` because upstream DMS expects the newer `dgop` package
+surface. DMS has an idle/suspend inhibitor IPC, but no documented lid-close
+policy API; lid-close behavior remains a system policy concern.
 
 ### 🔐 Secrets Management
 
@@ -362,29 +283,28 @@ Access the Web UI at `http://127.0.0.1:8083` (password: `nixos`).
 
 ## 🛠️ Scripts & Tools
 
-### Quickshell QML Scripts (`qs-*`)
+### Retained Quickshell QML Scripts (`qs-*`)
 
-| Script                  | Purpose                                 | Keybind       |
-| ----------------------- | --------------------------------------- | ------------- |
-| `qs-launcher`           | Application launcher + calculator       | `SUPER+SPACE` |
-| `qs-dmenu`              | Universal fuzzy menu (rofi replacement) | —             |
-| `qs-dock`               | Desktop dock panel                      | `SUPER+D`     |
-| `qs-notifications`      | Notification daemon & center            | —             |
-| `qs-notify`             | Send notifications with ding sound      | —             |
-| `qs-emoji`              | Emoji picker (emojilib)                 | —             |
-| `qs-nerd`               | Nerd Font glyph picker                  | —             |
-| `qs-powermenu`          | Lock/Logout/Suspend/Reboot/Shutdown     | —             |
-| `qs-vpn`                | VPN selector + proxy link copy          | —             |
-| `qs-keybinds`           | Keybind help overlay                    | —             |
-| `qs-askpass`            | Password prompt (`SUDO_ASKPASS`)        | —             |
-| `qs-wallpaper`          | Wallpaper picker with grid preview      | —             |
-| `qs-tools`              | Utility menu (crosshair, autoclicker)   | —             |
-| `qs-passmenu`           | Password store browser + autotype       | —             |
-| `qs-checklist`          | Daily checklist/todo manager            | —             |
-| `qs-music-search`       | YouTube music search + download         | —             |
-| `qs-music-local`        | Local music library browser             | —             |
-| `toggle-crosshair`      | On-screen crosshair overlay             | —             |
-| `toggle-lyrics-overlay` | Synced lyrics floating overlay          | —             |
+DankMaterialShell replaced the old `qs-launcher`, `qs-dock`,
+`qs-notifications`, `qs-notify`, and `qs-powermenu` shell surfaces. The
+remaining scripts stay available until they are explicitly migrated.
+
+| Script                  | Purpose                                 | Keybind         |
+| ----------------------- | --------------------------------------- | --------------- |
+| `qs-dmenu`              | Universal fuzzy menu (rofi replacement) | —               |
+| `qs-emoji`              | Emoji picker (emojilib)                 | —               |
+| `qs-nerd`               | Nerd Font glyph picker                  | —               |
+| `qs-vpn`                | VPN selector + proxy link copy          | —               |
+| `qs-keybinds`           | Keybind help overlay                    | —               |
+| `qs-askpass`            | Password prompt (`SUDO_ASKPASS`)        | —               |
+| `qs-wallpaper`          | Wallpaper picker with grid preview      | —               |
+| `qs-tools`              | Utility menu (crosshair, autoclicker)   | —               |
+| `qs-passmenu`           | Password store browser + autotype       | —               |
+| `qs-checklist`          | Daily checklist/todo manager            | —               |
+| `qs-music-search`       | YouTube music search + download         | —               |
+| `qs-music-local`        | Local music library browser             | —               |
+| `toggle-crosshair`      | On-screen crosshair overlay             | —               |
+| `toggle-lyrics-overlay` | Synced lyrics floating overlay          | `SUPER+SHIFT+L` |
 
 ### BunJS/TypeScript Scripts
 
@@ -451,7 +371,6 @@ All packages in `modules/_pkgs/` are auto-exposed via `self.packages`:
 | `iloader`                  | iOS device management (AppImage)        |
 | `niri-screen-time`         | Screen time tracker (Go, Wayland)       |
 | `personalive`              | Real-time portrait animation (CUDA)     |
-| `pomodoro-for-waybar`      | Waybar pomodoro widget (Python)         |
 | `powerpoint-mcp`           | PowerPoint MCP server (Python)          |
 | `quickshell-docs-markdown` | Quickshell docs as Markdown (Rust)      |
 | `sideloader`               | iOS app sideloading tool                |
@@ -477,7 +396,7 @@ nixconf/
 │   │   ├── desktop/       # Desktop environment (Hyprland, audio, browser, etc.)
 │   │   ├── terminal/      # Terminal tools (nix, opencode, git-sync)
 │   │   └── scripts/       # All scripts (quickshell/, bunjs/, general.nix)
-│   ├── programmes/        # Application configurations (waybar, kitty, zsh)
+│   ├── programmes/        # Application configurations (kitty, zsh)
 │   ├── hjem/              # User environment (hjem — home-manager alternative)
 │   ├── wrappers/          # Executable wrappers (kitty, zsh, starship)
 │   ├── lib/               # Custom library (self.lib — persistence, generators)
@@ -485,7 +404,6 @@ nixconf/
 │   ├── theme.nix          # Theme definitions (self.theme / self.colors)
 │   ├── custom-packages.nix # Package auto-loader
 │   ├── flake-parts.nix    # Flake-parts configuration & overlays
-│   └── LIQUID_GLASS_SPEC.md # Full Liquid Glass design specification
 ```
 
 ## 🧱 Modular Host Composition
@@ -497,6 +415,7 @@ profile toggles plus feature/service toggles.
 - `preferences.profiles.desktop.enable` - enables the desktop profile module
 - `preferences.profiles.laptop.enable` - laptop-oriented defaults
 - `preferences.profiles.server.enable` - server-oriented defaults
+- `preferences.dankMaterialShell.enable` - enables the DMS desktop shell wrapper
 - `preferences.hardware.tlp.enable` - laptop power tuning module
 - `preferences.obs.enable` - OBS Studio feature toggle
 - `services.*.enable` - daemon-style modules such as `cliproxyapi`,
@@ -632,11 +551,12 @@ terminal (base for all hosts)
   └── vpn-proxy-service
 
 desktop (extends terminal — GUI hosts only)
-  ├── hyprland (compositor + keybinds + idle/lock)
+  ├── dank-material-shell (bar, dock, launcher, notifications, lock)
+  ├── hyprland (compositor + keybinds + idle hooks)
   ├── audio (PipeWire, MPD, playerctl)
   ├── firefox/librewolf, vscodium, flatpaks
-  ├── tuigreet, hyprsunset, bluetooth, qt, syncthing
-  └── all quickshell/bunjs scripts
+  ├── tuigreet, bluetooth, qt, syncthing
+  └── retained quickshell/bunjs scripts
 ```
 
 ---
@@ -673,64 +593,28 @@ HOST=legion5i ./rebuild.sh generations
 
 ## 📥 Flake Inputs
 
-| Input                | Source                       | Purpose                              |
-| -------------------- | ---------------------------- | ------------------------------------ |
-| `nixpkgs`            | `nixos-25.11`                | Main package repository (stable)     |
-| `nixpkgs-unstable`   | `nixos-unstable`             | Bleeding-edge packages               |
-| `nur`                | nix-community/NUR            | Nix User Repository                  |
-| `nixos-hardware`     | LukeChannings/nixos-hardware | Hardware configs (T2, Intel, Nvidia) |
-| `flake-parts`        | hercules-ci/flake-parts      | Modular flake composition            |
-| `import-tree`        | vic/import-tree              | Auto-import directory trees          |
-| `impermanence`       | nix-community/impermanence   | Ephemeral root management            |
-| `persist-retro`      | Geometer1729/persist-retro   | Retroactive persistence              |
-| `disko`              | nix-community/disko          | Declarative disk partitioning        |
-| `hjem`               | feel-co/hjem                 | User environment (home-manager alt)  |
-| `wrappers`           | Lassulus/wrappers            | Executable wrapping utility          |
-| `nix-index-database` | Mic92/nix-index-database     | Pre-built nix-index DB               |
-| `nix-flatpak`        | gmodena/nix-flatpak          | Declarative Flatpak management       |
-| `nix4vscode`         | nix-community/nix4vscode     | Auto-updated VSCode extensions       |
-| `nvf-neovim`         | Vanadium5000/nvf-neovim      | Custom Neovim config                 |
-| `opencode`           | anomalyco/opencode           | AI coding assistant                  |
-| `hyprqt6engine`      | hyprwm/hyprqt6engine         | Qt6 theming for Hyprland             |
-| `nixos-artwork`      | nixos/nixos-artwork          | NixOS wallpapers                     |
-| `nixy-wallpapers`    | anotherhadi/nixy-wallpapers  | Extra wallpaper collection           |
-
----
-
-## 🎨 Theme & Colors
-
-### Base16 — Cyberpunk Electric Dark
-
-| Token    | Hex       | Usage                    |
-| -------- | --------- | ------------------------ |
-| `base00` | `#000000` | Background               |
-| `base01` | `#0d0d0d` | Lighter background       |
-| `base02` | `#383838` | Selection                |
-| `base03` | `#545454` | Comments                 |
-| `base04` | `#7c7c7c` | Dark foreground          |
-| `base05` | `#a8a8a8` | Default foreground       |
-| `base06` | `#d4d4d4` | Light foreground         |
-| `base07` | `#ffffff` | Bright white             |
-| `base08` | `#fc5454` | 🔴 Red                   |
-| `base09` | `#fc9c54` | 🟠 Orange                |
-| `base0A` | `#fcfc54` | 🟡 Yellow                |
-| `base0B` | `#54fc54` | 🟢 Green                 |
-| `base0C` | `#54fcfc` | 🔵 Cyan (accent alt)     |
-| `base0D` | `#5454fc` | 🟣 Blue (primary accent) |
-| `base0E` | `#fc54fc` | 🟣 Magenta               |
-| `base0F` | `#a85454` | 🟤 Brown                 |
-
-### Liquid Glass UI
-
-| Property         | Value                            |
-| ---------------- | -------------------------------- |
-| Glass Background | `rgba(15,15,23,0.78)`            |
-| Glass Blur       | `40px`                           |
-| Accent           | `#0A84FF` (iOS system blue dark) |
-| Accent Alt       | `#64D2FF` (iOS cyan dark)        |
-| Corner Radius    | `22px` (large) / `12px` (small)  |
-| Animation Speed  | `150ms` (fast) / `250ms` (slow)  |
-| Font             | JetBrainsMono Nerd Font, 11pt    |
+| Input                | Source                        | Purpose                              |
+| -------------------- | ----------------------------- | ------------------------------------ |
+| `nixpkgs`            | `nixos-25.11`                 | Main package repository (stable)     |
+| `nixpkgs-unstable`   | `nixos-unstable`              | Bleeding-edge packages               |
+| `dms`                | AvengeMedia/DankMaterialShell | DankMaterialShell module/package     |
+| `nur`                | nix-community/NUR             | Nix User Repository                  |
+| `nixos-hardware`     | LukeChannings/nixos-hardware  | Hardware configs (T2, Intel, Nvidia) |
+| `flake-parts`        | hercules-ci/flake-parts       | Modular flake composition            |
+| `import-tree`        | vic/import-tree               | Auto-import directory trees          |
+| `impermanence`       | nix-community/impermanence    | Ephemeral root management            |
+| `persist-retro`      | Geometer1729/persist-retro    | Retroactive persistence              |
+| `disko`              | nix-community/disko           | Declarative disk partitioning        |
+| `hjem`               | feel-co/hjem                  | User environment (home-manager alt)  |
+| `wrappers`           | Lassulus/wrappers             | Executable wrapping utility          |
+| `nix-index-database` | Mic92/nix-index-database      | Pre-built nix-index DB               |
+| `nix-flatpak`        | gmodena/nix-flatpak           | Declarative Flatpak management       |
+| `nix4vscode`         | nix-community/nix4vscode      | Auto-updated VSCode extensions       |
+| `nvf-neovim`         | Vanadium5000/nvf-neovim       | Custom Neovim config                 |
+| `opencode`           | anomalyco/opencode            | AI coding assistant                  |
+| `hyprqt6engine`      | hyprwm/hyprqt6engine          | Qt6 theming for Hyprland             |
+| `nixos-artwork`      | nixos/nixos-artwork           | NixOS wallpapers                     |
+| `nixy-wallpapers`    | anotherhadi/nixy-wallpapers   | Extra wallpaper collection           |
 
 ---
 

@@ -131,9 +131,7 @@
       systemd.services.ntfy-sh.serviceConfig.DynamicUser = lib.mkForce false;
       services.vpn-proxy.enable = true;
       services.unison-sync.enable = true;
-      services.hyprsunset.enable = true;
       services.hypridle.enable = true;
-      programs.hyprlock.enable = true;
 
       # ntfy keeps its cache, auth DB, and attachments in /var/lib/ntfy-sh.
       # Use a normal persistent state path to avoid DynamicUser StateDirectory clashes.

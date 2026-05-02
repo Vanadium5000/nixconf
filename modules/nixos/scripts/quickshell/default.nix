@@ -168,38 +168,6 @@
         ];
       };
 
-      packages.qs-launcher = inputs.wrappers.lib.makeWrapper {
-        inherit pkgs;
-        package =
-          let
-            launcherQml = mkQml "launcher.qml" ./launcher.qml;
-            # Extract the directory from the QML path
-            launcherDir = builtins.dirOf launcherQml;
-          in
-          pkgs.writeShellScriptBin "qs-launcher" ''
-            # Launch QuickShell Launcher
-            # Usage: qs-launcher [--calc]
-
-            MODE="app"
-            if [[ "$1" == "--calc" ]]; then
-                MODE="calc"
-            fi
-
-            QML_FILE="${launcherQml}"
-            QS_BIN="${pkgs.quickshell}/bin/qs"
-            export QML2_IMPORT_PATH="${pkgs.qt6.qt5compat}/lib/qt-6/qml:$QML2_IMPORT_PATH"
-
-            LAUNCHER_MODE="$MODE" \
-            LAUNCHER_SCRIPT_DIR="${launcherDir}" \
-            "$QS_BIN" -p "$QML_FILE" &
-          '';
-        runtimeInputs = [
-          pkgs.quickshell
-          pkgs.libqalculate
-          pkgs.bun
-        ];
-      };
-
       packages.qs-emoji = inputs.wrappers.lib.makeWrapper {
         inherit pkgs;
         package = pkgs.writeShellScriptBin "qs-emoji" ''
@@ -287,30 +255,6 @@
           pkgs.wl-clipboard
           pkgs.libnotify
           pkgs.coreutils
-        ];
-      };
-
-      packages.qs-dock = inputs.wrappers.lib.makeWrapper {
-        inherit pkgs;
-        package = pkgs.writeShellScriptBin "qs-dock" ''
-          # Launch QuickShell Dock
-
-          QML_FILE="${mkQml "dock.qml" ./dock.qml}"
-          QS_BIN="${pkgs.quickshell}/bin/qs"
-          export QML2_IMPORT_PATH="${pkgs.qt6.qt5compat}/lib/qt-6/qml:$QML2_IMPORT_PATH"
-
-          # Add icon themes to XDG_DATA_DIRS
-          export XDG_DATA_DIRS="${pkgs.adwaita-icon-theme}/share:${pkgs.papirus-icon-theme}/share:$XDG_DATA_DIRS"
-
-          # Kill if running to restart/toggle
-          "$QS_BIN" kill -p "$QML_FILE" 2>/dev/null || true
-
-          exec "$QS_BIN" -p "$QML_FILE"
-        '';
-        runtimeInputs = [
-          pkgs.quickshell
-          pkgs.adwaita-icon-theme
-          pkgs.papirus-icon-theme
         ];
       };
 
@@ -438,57 +382,6 @@
         '';
         runtimeInputs = [ self'.packages.qs-dmenu ];
       };
-      packages.qs-powermenu = inputs.wrappers.lib.makeWrapper {
-        inherit pkgs;
-        package = pkgs.writeShellScriptBin "qs-powermenu" ''
-          # Quickshell Power Menu
-
-          options=(
-            "󰌾 Lock"
-            "󰍃 Logout"
-            " Suspend"
-            "󰑐 Reboot"
-            "󰿅 Shutdown"
-          )
-
-          # Join options with newlines
-          options_str=$(printf "%s\n" "''${options[@]}")
-
-          selected=$(echo "$options_str" | ${lib.getExe self'.packages.qs-dmenu} -p "Power Menu")
-
-          if [ -z "$selected" ]; then
-            exit 0
-          fi
-
-          # Remove icon (first 2 chars + space)
-          action="''${selected:2}"
-          # Trim leading space if any (though slice usually handles it if icon+space is constant)
-          action=$(echo "$action" | xargs)
-
-          case "$action" in
-            "Lock")
-              ${pkgs.hyprlock}/bin/hyprlock
-              ;;
-            "Logout")
-              hyprctl dispatch exit
-              ;;
-            "Suspend")
-              systemctl suspend
-              ;;
-            "Reboot")
-              systemctl reboot
-              ;;
-            "Shutdown")
-              systemctl poweroff
-              ;;
-          esac
-        '';
-        runtimeInputs = [
-          self'.packages.qs-dmenu
-          pkgs.hyprlock
-        ];
-      };
-
       packages.qs-vpn = inputs.wrappers.lib.makeWrapper {
         inherit pkgs;
         package = pkgs.writeShellScriptBin "qs-vpn" ''
@@ -887,149 +780,6 @@
           pkgs.findutils
           pkgs.gawk
           self'.packages.qs-dmenu
-        ];
-      };
-
-      # =========================================================================
-      # Notification Center
-      # =========================================================================
-
-      packages.qs-notifications = inputs.wrappers.lib.makeWrapper {
-        inherit pkgs;
-        package =
-          let
-            notificationsQml = mkQml "notifications.qml" ./notifications.qml;
-          in
-          pkgs.writeShellScriptBin "qs-notifications" ''
-            # Quickshell Notification Center Daemon
-            # Usage: qs-notifications [command]
-            #
-            # Commands:
-            #   (none)     Start the notification daemon
-            #   toggle     Toggle notification panel
-            #   show       Show notification panel
-            #   hide       Hide notification panel
-            #   count      Get notification count
-            #   unread     Get unread notification count
-            #   clear      Clear all notifications
-            #   dnd        Get DND status
-            #   toggle-dnd Toggle Do Not Disturb
-            #   ding       Play notification sound
-            #   set-volume Set sound volume (0.0-1.0)
-
-            QML_FILE="${notificationsQml}"
-            QS_BIN="${pkgs.quickshell}/bin/qs"
-            export QML2_IMPORT_PATH="${pkgs.qt6.qt5compat}/lib/qt-6/qml:${pkgs.qt6.qtmultimedia}/lib/qt-6/qml:$QML2_IMPORT_PATH"
-
-            case "''${1:-start}" in
-              start)
-                exec "$QS_BIN" -p "$QML_FILE"
-                ;;
-              toggle|show|hide|count|unread|clear|dnd|toggle-dnd|ding)
-                "$QS_BIN" ipc -p "$QML_FILE" call notifications "$1"
-                ;;
-              set-volume)
-                "$QS_BIN" ipc -p "$QML_FILE" call notifications setVolume "$2"
-                ;;
-              send)
-                # Send notification via IPC: qs-notifications send "summary|body|urgency|appName"
-                # This bypasses D-Bus and works from systemd services
-                "$QS_BIN" ipc -p "$QML_FILE" call notifications send "$2"
-                ;;
-              *)
-                echo "Unknown command: $1"
-                echo "Usage: qs-notifications [start|toggle|show|hide|count|unread|clear|dnd|toggle-dnd|ding|set-volume <vol>|send <args>]"
-                exit 1
-                ;;
-            esac
-          '';
-        runtimeInputs = [
-          pkgs.quickshell
-          pkgs.qt6.qtmultimedia
-        ];
-      };
-
-      packages.qs-notify = inputs.wrappers.lib.makeWrapper {
-        inherit pkgs;
-        package = pkgs.writeShellScriptBin "qs-notify" ''
-          # Send a notification with optional ding sound
-          # Usage: qs-notify [options] <summary> [body]
-          #
-          # Options:
-          #   -d, --ding         Play ding sound with notification
-          #   -u, --urgency U    Set urgency (low, normal, critical)
-          #   -i, --icon ICON    Set notification icon
-          #   -a, --app NAME     Set app name
-          #   -t, --timeout MS   Set timeout in milliseconds
-          #
-          # Examples:
-          #   qs-notify "Hello" "World"
-          #   qs-notify --ding "Alert" "Something happened"
-          #   qs-notify -u critical -d "Error" "Critical error occurred"
-
-          DING=false
-          URGENCY="normal"
-          ICON=""
-          APP_NAME=""
-          TIMEOUT=""
-          SUMMARY=""
-          BODY=""
-
-          while [[ $# -gt 0 ]]; do
-            case $1 in
-              -d|--ding)
-                DING=true
-                shift
-                ;;
-              -u|--urgency)
-                URGENCY="$2"
-                shift 2
-                ;;
-              -i|--icon)
-                ICON="$2"
-                shift 2
-                ;;
-              -a|--app)
-                APP_NAME="$2"
-                shift 2
-                ;;
-              -t|--timeout)
-                TIMEOUT="$2"
-                shift 2
-                ;;
-              *)
-                if [ -z "$SUMMARY" ]; then
-                  SUMMARY="$1"
-                else
-                  BODY="$1"
-                fi
-                shift
-                ;;
-            esac
-          done
-
-          if [ -z "$SUMMARY" ]; then
-            echo "Usage: qs-notify [options] <summary> [body]"
-            exit 1
-          fi
-
-          # Play ding first if requested (so it plays immediately)
-          if [ "$DING" = true ]; then
-            qs-notifications ding 2>/dev/null &
-          fi
-
-          # Send notification via Quickshell IPC (bypasses D-Bus, works from systemd)
-          # Format: "summary|body|urgency|appName"
-          # Escape pipe characters in summary/body to avoid breaking the format
-          ESCAPED_SUMMARY="''${SUMMARY//|/¦}"
-          ESCAPED_BODY="''${BODY//|/¦}"
-          ESCAPED_APP="''${APP_NAME:-qs-notify}"
-          ESCAPED_APP="''${ESCAPED_APP//|/¦}"
-
-          qs-notifications send "$ESCAPED_SUMMARY|$ESCAPED_BODY|$URGENCY|$ESCAPED_APP"
-        '';
-        runtimeInputs = [
-          self'.packages.qs-notifications
         ];
       };
 

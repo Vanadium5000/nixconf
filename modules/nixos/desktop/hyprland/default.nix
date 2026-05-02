@@ -19,15 +19,15 @@
             attrs = {
               general = {
                 ignore_dbus_inhibit = false;
-                lock_cmd = "pidof hyprlock || hyprlock"; # avoid starting multiple hyprlock instances.
-                before_sleep_cmd = "loginctl lock-session"; # lock before suspend.
+                lock_cmd = "dms ipc call lock lock"; # DMS owns lock state after shell migration.
+                before_sleep_cmd = "dms ipc call lock lock"; # lock before suspend through the active shell.
                 after_sleep_cmd = "hyprctl dispatch dpms on"; # to avoid having to press a key twice to turn on the display.
               };
 
               listener = [
                 {
                   timeout = 120;
-                  on-timeout = "pidof hyprlock || hyprlock"; # avoid starting multiple hyprlock instances.
+                  on-timeout = "dms ipc call lock lock"; # use the DMS lock surface instead of hyprlock.
                 }
 
                 {

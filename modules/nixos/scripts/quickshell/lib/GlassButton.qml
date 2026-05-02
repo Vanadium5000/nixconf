@@ -1,7 +1,7 @@
 /*
  * GlassButton.qml - Interactive Glass Button Component
  *
- * A reusable button component implementing the Liquid Glass design language.
+ * A reusable translucent button component for retained Quickshell utilities.
  * Supports:
  * - Text, Icon (name or source), or Emoji content
  * - Hover, pressed, and active states with smooth transitions

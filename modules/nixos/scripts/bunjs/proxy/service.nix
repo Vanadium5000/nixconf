@@ -110,13 +110,11 @@
               pkgs.findutils
               pkgs.dante
               pkgs.sing-box
-              # Notification tools for IPC-based notifications
-              self.packages.${pkgs.stdenv.hostPlatform.system}.qs-notify
-              self.packages.${pkgs.stdenv.hostPlatform.system}.qs-notifications
-              pkgs.quickshell
+              # Standard notification tool; DMS owns the notification daemon.
+              pkgs.libnotify
             ];
 
-            # UID 1000 is standard for first user; XDG_RUNTIME_DIR for Quickshell IPC
+            # UID 1000 is standard for first user; notify-send needs the user bus.
             commonEnv = {
               VPN_DIR = cfg.vpnDir;
               VPN_PROXY_PORT = toString cfg.port;
@@ -124,8 +122,8 @@
               VPN_PROXY_BIND_ADDRESS = cfg.bindAddress;
               VPN_PROXY_IDLE_TIMEOUT = toString cfg.idleTimeout;
               VPN_PROXY_RANDOM_ROTATION = toString cfg.randomRotation;
-              # Quickshell IPC requires XDG_RUNTIME_DIR to find the socket
               XDG_RUNTIME_DIR = "/run/user/1000";
+              DBUS_SESSION_BUS_ADDRESS = "unix:path=/run/user/1000/bus";
             };
 
             commonServiceConfig = {

@@ -87,11 +87,6 @@ let
         "hypridle"
         "enable"
       ];
-      hyprsunset = [
-        "services"
-        "hyprsunset"
-        "enable"
-      ];
       mitmproxy = [
         "services"
         "mitmproxy"
@@ -114,13 +109,7 @@ let
       ];
     };
 
-    programs = {
-      hyprlock = [
-        "programs"
-        "hyprlock"
-        "enable"
-      ];
-    };
+    programs = { };
   };
 
   mkHostMatrix = hostConfig: {
@@ -154,7 +143,6 @@ in
         dankmemershell = self.nixosModules.dankmemershell;
         hyprland = self.nixosModules.hyprland;
         hyprland-support = self.nixosModules.hyprland-support;
-        hyprsunset = self.nixosModules.hyprsunset;
         obs = self.nixosModules.obs;
         qt = self.nixosModules.qt;
         syncthing = self.nixosModules.syncthing;

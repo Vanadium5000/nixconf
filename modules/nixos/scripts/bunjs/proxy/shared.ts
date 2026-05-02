@@ -136,31 +136,14 @@ async function resolveFirewallDestination(host: string): Promise<string> {
 // ============================================================================
 
 /**
- * Send a desktop notification via qs-notify (Quickshell notification center)
- *
- * Uses qs-notify which communicates via Quickshell's IPC socket, allowing
- * notifications from systemd services that lack D-Bus session access.
- * Falls back to notify-send if qs-notify unavailable, then silently continues
- * if both fail (e.g., no graphical session).
+ * Send a desktop notification through the active notification daemon.
+ * Falls back to debug logging when no graphical session bus is available.
  */
 export async function notify(
   title: string,
   message: string,
   urgency: "low" | "normal" | "critical" = "normal",
 ): Promise<void> {
-  // Try qs-notify first (works from systemd services via Quickshell IPC)
-  try {
-    const qsResult = await spawn({
-      cmd: ["qs-notify", "-u", urgency, "-a", "VPN Proxy", title, message],
-      stdout: "ignore",
-      stderr: "ignore",
-    }).exited;
-    if (qsResult === 0) return;
-  } catch {
-    // qs-notify not available, try fallback
-  }
-
-  // Fallback to notify-send (requires D-Bus session access)
   try {
     await spawn({
       cmd: ["notify-send", "-u", urgency, "-a", "VPN Proxy", title, message],
@@ -168,7 +151,6 @@ export async function notify(
       stderr: "ignore",
     }).exited;
   } catch {
-    // Both methods failed, log instead and continue silently
     log("DEBUG", `[notify] ${title}: ${message}`);
   }
 }

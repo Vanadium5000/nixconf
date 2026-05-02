@@ -126,8 +126,8 @@ async function notifyEnd(mode: "work" | "break" | "longbreak") {
     mode === "work"
       ? "Work session finished!"
       : mode === "longbreak"
-      ? "Long break finished!"
-      : "Break finished!";
+        ? "Long break finished!"
+        : "Break finished!";
   const quote =
     mode === "work" ? await fetchQuote() : "Time to get back to work!";
 
@@ -156,7 +156,7 @@ function printHelp() {
 Usage: pomodoro [command] [options]
 
 Commands:
-  status              Show current timer status (default, outputs JSON for Waybar)
+  status              Show current timer status (default, outputs JSON for shell widgets)
   toggle              Toggle pause/resume timer
   start               Start the timer
   pause               Pause the timer
@@ -179,7 +179,7 @@ Examples:
   pomodoro info            # Show current status
   pomodoro skip            # Skip to next phase
   
-For Waybar integration, use the default 'status' command.
+For shell widget integration, use the default 'status' command.
 `);
 }
 
@@ -247,8 +247,8 @@ switch (command) {
       state.mode === "work"
         ? "Work"
         : state.mode === "longbreak"
-        ? "Long Break"
-        : "Break";
+          ? "Long Break"
+          : "Break";
     console.log(`
 Pomodoro Timer Status
 ━━━━━━━━━━━━━━━━━━━━━
@@ -315,7 +315,7 @@ Configuration:
 
   case "status":
   default:
-    // Output JSON for Waybar
+    // Output JSON for shell widgets
     break;
 }
 
@@ -328,8 +328,8 @@ const maxTime =
   state.mode === "work"
     ? config.workTime
     : state.mode === "longbreak"
-    ? config.longBreakTime
-    : config.breakTime;
+      ? config.longBreakTime
+      : config.breakTime;
 const percentage = 1 - state.timeLeft / maxTime;
 
 console.log(
@@ -338,9 +338,9 @@ console.log(
     tooltip: `Mode: ${
       state.mode
     }\nStatus: ${statusText}\nTime Left: ${formatTime(
-      state.timeLeft
+      state.timeLeft,
     )}\nSessions: ${state.sessionsCompleted}`,
     class: state.mode,
     percentage: percentage,
-  })
+  }),
 );

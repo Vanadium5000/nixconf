@@ -18,7 +18,7 @@ PanelWindow {
         left: true
     }
     
-    margins.bottom: 80 // Above waybar
+    margins.bottom: 80 // Keep above bottom shell surfaces.
     margins.left: Math.round((Screen.width - implicitWidth) / 2)
     
     implicitWidth: 600

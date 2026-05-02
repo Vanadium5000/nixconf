@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-// synced-lyrics.ts - Synced lyrics fetcher and display for waybar/quickshell
+// synced-lyrics.ts - Synced lyrics fetcher and display for shell widgets/overlays
 import { $ } from "bun";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
@@ -33,7 +33,7 @@ interface LyricsData {
   plainText?: string;
 }
 
-interface WaybarOutput {
+interface LyricsWidgetOutput {
   text: string;
   tooltip: string;
   class: string;
@@ -146,14 +146,14 @@ function parseArgs(): CliOptions {
 synced-lyrics - Display synced lyrics for currently playing music
 
 Commands:
-  watch           Continuous output for waybar (default)
+  watch           Continuous output for shell widgets (default)
   current         Print current lyric line once
   show            Show lyrics overlay
   hide            Hide lyrics overlay  
   toggle          Toggle lyrics overlay
 
 Options:
-  --json, -j      Output JSON for waybar
+  --json, -j      Output JSON for shell widgets
   --progress, -p  Show progress/timestamp
   --lines N, -l N Number of lines to display (default: 3)
   --length N      Max line length before truncation (default: 0, disabled)
@@ -256,7 +256,7 @@ async function fetchFromLrclib(
   title: string,
   artist: string,
   album: string,
-  duration: number
+  duration: number,
 ): Promise<LyricsData | null> {
   const headers = { "User-Agent": USER_AGENT };
 
@@ -329,7 +329,7 @@ async function fetchFromLrclib(
       const extractedArtist = parts[0]!.trim();
       const extractedTitle = parts.slice(1).join(" - ").trim();
       const normExtTitle = normalizeTitle(extractedTitle);
-      
+
       try {
         const params = new URLSearchParams({
           track_name: normExtTitle,
@@ -337,7 +337,9 @@ async function fetchFromLrclib(
           duration: duration.toString(),
         });
 
-        const response = await fetch(`${LRCLIB_API}/get?${params}`, { headers });
+        const response = await fetch(`${LRCLIB_API}/get?${params}`, {
+          headers,
+        });
 
         if (response.ok) {
           const data = (await response.json()) as any;
@@ -364,7 +366,7 @@ async function fetchFromLrclib(
     const query = `${normArtist} ${normTitle}`;
     const response = await fetch(
       `${LRCLIB_API}/search?q=${encodeURIComponent(query)}`,
-      { headers }
+      { headers },
     );
 
     if (response.ok) {
@@ -422,7 +424,7 @@ function parseLrc(lrcText: string): LyricLine[] {
 function getCurrentLines(
   lyrics: LyricsData,
   position: number,
-  numLines: number
+  numLines: number,
 ): { current: string; upcoming: string[]; index: number } {
   if (!lyrics.synced || lyrics.lines.length === 0) {
     return { current: "", upcoming: [], index: -1 };
@@ -462,7 +464,7 @@ function getCacheKey(metadata: TrackMetadata): string {
 }
 
 async function getCachedLyrics(
-  metadata: TrackMetadata
+  metadata: TrackMetadata,
 ): Promise<LyricsData | null> {
   try {
     const cacheFile = join(CACHE_DIR, getCacheKey(metadata));
@@ -478,7 +480,7 @@ async function getCachedLyrics(
 
 async function cacheLyrics(
   metadata: TrackMetadata,
-  lyrics: LyricsData
+  lyrics: LyricsData,
 ): Promise<void> {
   try {
     await mkdir(CACHE_DIR, { recursive: true });
@@ -502,11 +504,11 @@ function formatProgress(position: number, duration: number): string {
   return `[${formatTime(position)}/${formatTime(duration)}]`;
 }
 
-function formatWaybarOutput(
+function formatLyricsWidgetOutput(
   metadata: TrackMetadata | null,
   lyrics: LyricsData | null,
-  options: CliOptions
-): WaybarOutput {
+  options: CliOptions,
+): LyricsWidgetOutput {
   if (!metadata) {
     return {
       text: "",
@@ -516,7 +518,7 @@ function formatWaybarOutput(
     };
   }
 
-    const { current, upcoming } = lyrics?.synced
+  const { current, upcoming } = lyrics?.synced
     ? getCurrentLines(lyrics, metadata.position, options.lines)
     : { current: "", upcoming: [] };
 
@@ -524,7 +526,7 @@ function formatWaybarOutput(
   // If synced lyrics exist but we're in a gap, show ♪
   const fallbackText = lyrics?.synced ? "♪" : metadata.title;
   let text = truncate(current || fallbackText, options.length);
-  
+
   if (options.progress && metadata.duration > 0) {
     text = `${formatProgress(metadata.position, metadata.duration)} ${text}`;
   }
@@ -532,7 +534,7 @@ function formatWaybarOutput(
   // Build tooltip with context
   let tooltip = `<b>${truncate(metadata.title, options.length)}</b>\n${truncate(
     metadata.artist,
-    options.length
+    options.length,
   )}`;
   if (metadata.album)
     tooltip += `\n<i>${truncate(metadata.album, options.length)}</i>`;
@@ -562,7 +564,7 @@ function formatWaybarOutput(
       : "paused";
 
   return {
-    text: text, // Waybar already handles truncation if configured, but we respect our length opt
+    text: text, // Widgets may truncate text, but we still respect the requested length.
     tooltip,
     class: statusClass,
     alt: metadata.status.toLowerCase(),
@@ -572,7 +574,7 @@ function formatWaybarOutput(
 // --- Overlay Control ---
 async function controlOverlay(
   action: "show" | "hide" | "toggle",
-  options: CliOptions
+  options: CliOptions,
 ): Promise<void> {
   try {
     // Pass options as environment variables to the wrapper
@@ -618,7 +620,7 @@ async function watchMode(options: CliOptions): Promise<void> {
               metadata.title,
               metadata.artist,
               metadata.album,
-              metadata.duration
+              metadata.duration,
             );
 
             if (currentLyrics) {
@@ -632,14 +634,18 @@ async function watchMode(options: CliOptions): Promise<void> {
       }
 
       if (options.json) {
-        const output = formatWaybarOutput(metadata, currentLyrics, options);
+        const output = formatLyricsWidgetOutput(
+          metadata,
+          currentLyrics,
+          options,
+        );
         console.log(JSON.stringify(output));
       } else {
         if (metadata && currentLyrics?.synced) {
           const { current } = getCurrentLines(
             currentLyrics,
             metadata.position,
-            1
+            1,
           );
           console.log(truncate(current || "♪", options.length));
         } else {
@@ -657,7 +663,7 @@ async function watchMode(options: CliOptions): Promise<void> {
             tooltip: "Error",
             class: "error",
             alt: "error",
-          })
+          }),
         );
       }
     }
@@ -678,7 +684,7 @@ async function currentMode(options: CliOptions): Promise<void> {
           tooltip: "No player",
           class: "stopped",
           alt: "stopped",
-        })
+        }),
       );
     }
     return;
@@ -691,7 +697,7 @@ async function currentMode(options: CliOptions): Promise<void> {
       metadata.title,
       metadata.artist,
       metadata.album,
-      metadata.duration
+      metadata.duration,
     );
 
     if (lyrics) {
@@ -700,14 +706,14 @@ async function currentMode(options: CliOptions): Promise<void> {
   }
 
   if (options.json) {
-    const output = formatWaybarOutput(metadata, lyrics, options);
+    const output = formatLyricsWidgetOutput(metadata, lyrics, options);
     console.log(JSON.stringify(output));
   } else {
     if (lyrics?.synced) {
       const { current, upcoming } = getCurrentLines(
         lyrics,
         metadata.position,
-        options.lines
+        options.lines,
       );
       console.log(truncate(current, options.length));
       for (const line of upcoming) {

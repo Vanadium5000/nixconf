@@ -34,59 +34,6 @@ let
   };
 
   # ===========================================================================
-  # Apple Liquid Glass UI Theme
-  # Official dark mode values from iOS 26 / macOS Tahoe (WWDC25)
-  # Used for shell UI components (menus, panels, overlays)
-  # ===========================================================================
-  liquidGlass = {
-    # Colors - Apple Dark Mode System Colors
-    background = "rgba(15, 15, 23, 0.78)"; # Translucent dark glass
-    backgroundSolid = "#1C1C1E"; # Solid fallback
-    accent = "#0A84FF"; # iOS system blue (dark mode)
-    accentAlt = "#64D2FF"; # iOS system cyan (dark mode)
-
-    # Text hierarchy (Apple HIG)
-    textPrimary = "#FFFFFF";
-    textSecondary = "#EBEBF5";
-    textTertiary = "rgba(235, 235, 245, 0.3)";
-
-    # Separators
-    separator = "rgba(84, 84, 88, 0.65)";
-    separatorOpaque = "#38383A";
-
-    # Glass material properties
-    highlightOpacity = 0.15; # Top specular reflection
-    innerStrokeOpacity = 0.06; # Cut-glass edge effect
-    borderOpacity = 0.28; # Accent border visibility
-    borderWidth = 1;
-
-    # Shadow (Apple design tokens)
-    shadowOpacity = 0.45;
-    shadowRadius = 20;
-    shadowOffsetY = 6;
-
-    # Backdrop blur
-    blurRadius = 40;
-
-    # Layout tokens
-    cornerRadius = 22; # Large panels
-    cornerRadiusSmall = 12; # Buttons, items
-    padding = 14;
-    itemSpacing = 10;
-
-    # Typography
-    fontFamily = "JetBrainsMono Nerd Font";
-    fontSizeSmall = 11;
-    fontSizeMedium = 14;
-    fontSizeLarge = 17;
-    fontSizeTitle = 22;
-
-    # Animation
-    animationDuration = 150; # ms
-    animationDurationSlow = 250; # ms
-  };
-
-  # ===========================================================================
   # General Theme Settings
   # ===========================================================================
   theme = {
@@ -99,9 +46,6 @@ let
     border-size = 1;
     font-size = 11;
     system.font-size = 11;
-
-    # Liquid Glass reference (for modules that need it)
-    liquid = liquidGlass;
   };
 
   # ===========================================================================
@@ -182,7 +126,6 @@ in
       colorsRgba
       colorsRgbaValues
       theme
-      liquidGlass
       ;
   };
 }

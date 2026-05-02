@@ -1830,7 +1830,7 @@ function App() {
               VPN <span className="text-accent not-italic">Proxy</span> Manager
             </h1>
             <div className="flex items-center gap-3 text-[10px] uppercase tracking-widest font-bold text-muted-foreground">
-              <span>Liquid Glass Interface</span>
+              <span>Desktop Interface</span>
               <span className="chip">Active</span>
             </div>
           </div>

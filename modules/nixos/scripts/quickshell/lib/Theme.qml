@@ -1,12 +1,11 @@
 /*
- * Theme.qml - Apple Liquid Glass Design System Theme
+ * Theme.qml - Retained Quickshell Utility Theme
  *
- * This singleton provides design tokens for implementing Apple's Liquid Glass
- * visual language (iOS 26 / macOS Tahoe) in Quickshell applications.
+ * This singleton provides design tokens for retained Quickshell applications.
  *
  * The theme is split into two sections:
  * 1. App Theme (colors) - Cyberpunk Electric Dark palette for terminal/apps
- * 2. Glass Theme (glass) - Official Apple Liquid Glass UI values
+ * 2. Glass Theme (glass) - translucent utility UI values
  *
  * Usage:
  *   import "./lib"
@@ -61,13 +60,12 @@ QtObject {
     }
 
     // =========================================================================
-    // LIQUID GLASS UI THEME - Official Apple Dark Mode Values
-    // Based on WWDC25 specifications and iOS 26 Human Interface Guidelines
+    // TRANSLUCENT UTILITY UI THEME
     // =========================================================================
 
     readonly property QtObject glass: QtObject {
         // ---------------------------------------------------------------------
-        // Colors - Apple Dark Mode Liquid Glass
+        // Colors - dark translucent utility surfaces
         // ---------------------------------------------------------------------
 
         // Primary glass background (translucent dark material)

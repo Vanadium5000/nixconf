@@ -5,7 +5,7 @@
  * Usage:
  *   dictation toggle           - Start/Stop live dictation daemon
  *   dictation run              - Run daemon directly (internal)
- *   dictation status           - Output JSON status for waybar
+ *   dictation status           - Output JSON status for shell widgets
  *   dictation source           - Output JSON for overlay (internal)
  *   dictation transcribe <file> - Transcribe media file
  *   dictation --help           - Show help
@@ -1500,7 +1500,7 @@ COMMANDS:
   toggle              Start/Stop live dictation
   select-device       Select input device via rofi
   run                 Run daemon (internal)
-  status              JSON status for waybar
+  status              JSON status for shell widgets
   source              JSON for overlay (internal)
   transcribe <file>   Transcribe media file
   help                Show this help

@@ -158,7 +158,8 @@
               hyprctl hyprpaper preload "$wallPath"
               hyprctl hyprpaper wallpaper ",$wallPath"
 
-              # For qs-dmenu & hyprlock wallpaper
+              # Keep the selected wallpaper path shared between qs-dmenu previews
+              # and Hyprpaper's declarative config.
               cp -f "$wallPath" ~/wallpaper/.current_wallpaper
               exit 0
             fi
@@ -328,7 +329,7 @@
           else
               mkdir -p "$(dirname "$PID_FILE")"
               # Use exec to replace the shell process with systemd-inhibit
-              (exec $SYSTEMD_INHIBIT --what=handle-lid-switch --who=waybar-lid --why="Lid close suspend inhibited" --mode=block $SLEEP infinity) &
+              (exec $SYSTEMD_INHIBIT --what=handle-lid-switch --who=dms-lid --why="Lid close suspend inhibited" --mode=block $SLEEP infinity) &
               INHIBIT_PID=$!
               echo $INHIBIT_PID > "$PID_FILE"
               $NOTIFY_SEND "Lid Inhibit" "Suspend inhibitator on lid close enabled"

@@ -13,10 +13,21 @@
 
       # Per-host package exclusions
       # Add package names (matching pname or derivation name) to exclude from self.packages
+      dmsDesktopPackageExclusions = [
+        # DankMaterialShell replaces these shell surfaces on graphical hosts.
+        "pomodoro-for-waybar"
+        "qs-dock"
+        "qs-launcher"
+        "qs-notifications"
+        "qs-notify"
+        "qs-powermenu"
+        "waybar"
+      ];
       hostPackageExclusions = {
-        macbook = [
-          "sora-watermark-cleaner"
+        legion5i = dmsDesktopPackageExclusions;
+        macbook = dmsDesktopPackageExclusions ++ [
           "personalive"
+          "sora-watermark-cleaner"
         ];
         main_vps = [
           "antigravity-manager"
@@ -26,8 +37,14 @@
           "niri-screen-time"
           "personalive"
           "pomodoro-for-waybar"
+          "qs-dock"
+          "qs-launcher"
+          "qs-notifications"
+          "qs-notify"
+          "qs-powermenu"
           "sideloader"
           "sora-watermark-cleaner"
+          "waybar"
           "waydroid-total-spoof"
         ];
         # Example: Add more hosts as needed

@@ -28,7 +28,7 @@ Item {
     // But Quickshell is the process. If we kill the old one, we are the NEW one.
     // So we effectively replace it.
     // To support "Toggle" (Open -> Close), the *trigger* (keybind) usually handles logic?
-    // No, if the keybind just runs `qs-launcher`:
+    // No, if a keybind just runs this wrapper:
     //   1. First run: Starts.
     //   2. Second run: Detects old one, kills it. Then... WE should exit too?
     //      If we replace it, we just restart the launcher (resetting state).

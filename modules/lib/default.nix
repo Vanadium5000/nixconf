@@ -16,5 +16,9 @@
 
     # Generator functions for various config formats
     generators = import ./_internal/generators.nix { inherit lib; };
+
+    # Nixpkgs overlay helpers keep duplicated package overrides in one place
+    # while callers preserve their own NixOS or flake-parts evaluation policy.
+    nixpkgs = import ./_internal/nixpkgs.nix { inherit lib; };
   };
 }

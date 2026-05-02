@@ -682,9 +682,9 @@ The proxy system sends desktop notifications for important events:
 | VPN connection failed | Error details with namespace info                 |
 | Random VPN rotation   | New VPN name (if `VPN_PROXY_NOTIFY_ROTATION=1`)   |
 
-**Implementation:** Notifications use Quickshell's IPC system (`qs-notify`)
-which works from systemd services without D-Bus session access. This is more
-reliable than `notify-send` in headless/service contexts.
+**Implementation:** Notifications use `notify-send` against the user's D-Bus
+session when a graphical session is available. Headless/service contexts fall
+back to debug logging so proxy behavior never depends on the desktop shell.
 
 ## Troubleshooting
 
