@@ -46,37 +46,15 @@
           ];
         };
         overlays = [
-          (final: prev: {
-            customPackages = self.packages.${system};
-            unstable = import inputs.nixpkgs-unstable {
-              inherit system;
+          (self.lib.nixpkgs.mkSharedOverlay {
+            inherit inputs self system;
+            extraPythonOverrides = _python-final: python-prev: {
+              mcp = python-prev.mcp.overridePythonAttrs (_old: {
+                # Disable flaky SSE/HTTP server tests (ClosedResourceError, server startup timeouts)
+                # that fail in the Nix sandbox due to async race conditions.
+                doCheck = false;
+              });
             };
-            nur = import inputs.nur {
-              nurpkgs = prev;
-              pkgs = prev;
-            };
-            pythonPackagesExtensions = prev.pythonPackagesExtensions ++ [
-              (python-final: python-prev: {
-                tenacity = python-prev.tenacity.overridePythonAttrs (old: {
-                  # Disable flaky tests (AssertionError: 4 not less than 1.1)
-                  # Fixes build failures when system is under load
-                  doCheck = false;
-                });
-                mcp = python-prev.mcp.overridePythonAttrs (old: {
-                  # Disable flaky SSE/HTTP server tests (ClosedResourceError, server startup timeouts)
-                  # that fail in the Nix sandbox due to async race conditions
-                  doCheck = false;
-                });
-                trezor = python-prev.trezor.overridePythonAttrs (old: {
-                  nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ python-final.pythonRelaxDepsHook ];
-
-                  # Trezor 0.20.0 tightened wheel metadata to keyring>=25.7.0, but nixpkgs still
-                  # ships 25.6.0 here. Relax the lower bound locally so electrum-ltc keeps building
-                  # until nixpkgs catches up. Source: trezor-firmware/python/pyproject.toml.
-                  pythonRelaxDeps = (old.pythonRelaxDeps or [ ]) ++ [ "keyring" ];
-                });
-              })
-            ];
           })
           inputs.nix4vscode.overlays.default
         ];
