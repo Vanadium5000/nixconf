@@ -10,13 +10,13 @@ let
 in
 pkgs.stdenv.mkDerivation {
   pname = "daisyui-mcp";
-  version = "1.1.0-unstable-2026-03-08";
+  version = "1.1.0-unstable-2026-04-30";
 
   src = pkgs.fetchFromGitHub {
     owner = "birdseyevue";
     repo = "daisyui-mcp";
-    rev = "a1d74e4f2a86124c6e43cb596d73010600beb858";
-    hash = "sha256-25y5jSRRWre2g0UaZlp3e5OO9Ma90l2mTt7CQ0TMBus=";
+    rev = "cc651b1ffc0ab9d9fdf3e24d9db9e87bef6b01cc";
+    hash = "sha256-yIr73D5MR45KhfCN+dE+IxkF+ZaXu/0VKRmXnuXOlsU=";
   };
 
   buildInputs = [
