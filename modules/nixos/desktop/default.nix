@@ -26,6 +26,7 @@
         self.nixosModules.hyprland
         self.nixosModules.hyprland-support
         self.nixosModules.hyprsunset
+        self.nixosModules.dankmemershell
         self.nixosModules.tuigreet
 
         self.nixosModules.obs

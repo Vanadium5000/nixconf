@@ -85,6 +85,13 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    # DankMaterialShell upstream NixOS module and package.
+    # Source: https://danklinux.com/docs/dankmaterialshell/nixos
+    dms = {
+      url = "github:AvengeMedia/DankMaterialShell/stable";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     # Dokploy NixOS module for self-hosted deployment orchestration.
     # Follow the main nixpkgs input so option defaults stay in the same package universe.
     nix-dokploy = {

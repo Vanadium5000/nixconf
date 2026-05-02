@@ -151,6 +151,7 @@ in
         audio = self.nixosModules.audio;
         bluetooth = self.nixosModules.bluetooth;
         firefox = self.nixosModules.firefox;
+        dankmemershell = self.nixosModules.dankmemershell;
         hyprland = self.nixosModules.hyprland;
         hyprland-support = self.nixosModules.hyprland-support;
         hyprsunset = self.nixosModules.hyprsunset;
