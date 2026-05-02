@@ -155,8 +155,7 @@
           "z /var/lib/private 0700 root root -"
         ];
 
-        # Ensure ephemeral root is reset on every boot, not only resume.
-        boot.initrd.postDeviceCommands = lib.mkAfter ''
+        boot.initrd.postResumeCommands = lib.mkAfter ''
           mkdir /btrfs_tmp
           mount /dev/${cfg.volumeGroup}/root /btrfs_tmp
           if [[ -e /btrfs_tmp/root ]]; then
