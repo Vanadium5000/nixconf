@@ -302,12 +302,15 @@ pkgs.writeShellApplication {
 
     # Create a temporary expression to expose packages for nix-update
     cat > packages.nix <<EOF
-    { pkgs ? import <nixpkgs> {} }:
+    { pkgs ? import <nixpkgs> {}, unstable ? import <nixpkgs-unstable> {} }:
     {
       $(for pkg in "''${PACKAGES[@]}"; do
         if [ "$pkg" == "cliproxyapi" ]; then
-          # Supported: Go package with special buildGoModule override
-          echo " $pkg = pkgs.callPackage ./$pkg.nix { unstable = pkgs // { buildGo126Module = pkgs.buildGoModule or pkgs.buildGo123Module; }; };"
+          # Use the real unstable package set because CLIProxyAPI 6.10.x requires
+          # Go >= 1.26 during vendorHash prefetch; a fake override falls back to
+          # stable buildGoModule and reproduces the nix-update failure. Source:
+          # modules/_pkgs/cliproxyapi.nix and upstream go.mod.
+          echo " $pkg = pkgs.callPackage ./$pkg.nix { inherit unstable; };"
         elif [ "$pkg" == "cake-wallet-flatpak" ]; then
           # Supported: versioned GitHub release asset for upstream Flatpak bundle
           echo " $pkg = pkgs.callPackage ./$pkg.nix {};"
@@ -345,8 +348,9 @@ pkgs.writeShellApplication {
     }
     EOF
 
-        # Set NIX_PATH so <nixpkgs> can be resolved
-        export NIX_PATH=nixpkgs=${pkgs.path}
+        # Set NIX_PATH so the generated packages.nix can resolve the stable set
+        # and the real unstable set used by Go packages that need newer toolchains.
+        export NIX_PATH=nixpkgs=${pkgs.path}:nixpkgs-unstable=${pkgs.unstable.path}
 
         notify "Updating ''${#PACKAGES[@]} packages..."
 
