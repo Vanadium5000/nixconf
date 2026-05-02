@@ -53,7 +53,7 @@
                   if [[ ''${#cmd_display} -gt 50 ]]; then
                     cmd_display="''${cmd_display:0:47}..."
                   fi
-                  notify-send "Task Completed" "$cmd_display\nDuration: $elapsed seconds" -i utilities-terminal
+                  ${pkgs.libnotify}/bin/notify-send "Task Completed" "$cmd_display\nDuration: $elapsed seconds" -i utilities-terminal
                 fi
                 unset command_start_time
               fi
