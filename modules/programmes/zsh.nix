@@ -247,6 +247,74 @@
             # Utils
             alias ports="sudo ss -ltnup"
 
+            function killport() {
+              if [[ $# -ne 1 || ! $1 == <1-65535> ]]; then
+                print -u2 "usage: killport {port}"
+                return 2
+              fi
+
+              local port=$1
+              local pids
+              pids=($(${pkgs.lsof}/bin/lsof -t -nP -iTCP:"$port" -sTCP:LISTEN 2>/dev/null))
+
+              if (( ''${#pids[@]} == 0 )); then
+                print "No TCP listener found on port $port"
+                return 1
+              fi
+
+              # SIGTERM keeps this helper safe for everyday dev servers; use kill -9 manually if a process ignores it.
+              kill "''${pids[@]}"
+              print "Killed PID(s) on port $port: ''${(j: :)pids}"
+            }
+
+            function loc() {
+              local target=''${1:-.}
+              if [[ ! -d $target ]]; then
+                print -u2 "usage: loc [directory]"
+                return 2
+              fi
+
+              local file ext line_count rows total_files=0 total_lines=0
+              typeset -A files_by_ext lines_by_ext
+
+              while IFS= read -r -d $'\0' file; do
+                ${pkgs.gnugrep}/bin/grep -Iq . "$file" 2>/dev/null || continue
+
+                ext=''${file:e}
+                [[ -n $ext ]] || ext="(none)"
+
+                line_count=$(${pkgs.coreutils}/bin/wc -l < "$file")
+                line_count=''${line_count//[[:space:]]/}
+
+                (( files_by_ext[$ext] += 1 ))
+                (( lines_by_ext[$ext] += line_count ))
+                (( total_files += 1 ))
+                (( total_lines += line_count ))
+              done < <(${pkgs.findutils}/bin/find "$target" -path '*/.git' -prune -o -type f -print0)
+
+              if (( total_files == 0 )); then
+                print "No text files found in $target"
+                return 0
+              fi
+
+              print "Lines of code by extension in $target"
+              printf '%-16s %10s %10s\n' "Extension" "Files" "Lines"
+              printf '%-16s %10s %10s\n' "─────────" "─────" "─────"
+
+              for ext in ''${(k)files_by_ext}; do
+                rows+="''${lines_by_ext[$ext]}\t''${files_by_ext[$ext]}\t$ext\n"
+              done
+
+              printf '%b' "$rows" \
+                | ${pkgs.coreutils}/bin/sort -nr -k1,1 \
+                | while IFS=$'\t' read -r line_count file_count ext; do
+                    printf '%-16s %10d %10d\n' "$ext" "$file_count" "$line_count"
+                  done
+
+              printf '%-16s %10s %10s\n' "─────────" "─────" "─────"
+              printf '%-16s %10d %10d\n' "Total" "$total_files" "$total_lines"
+            }
+
             # Better defaults with colors
             alias ls="ls --color=auto"
             alias ll="ls -lah --color=auto"
@@ -305,6 +373,10 @@
           fzf
           fd
           bat
+          lsof # killport uses terse PID output instead of parsing ss columns.
+          coreutils # loc uses wc/sort for raw line totals grouped by extension.
+          findutils # loc walks the current tree while pruning .git.
+          gnugrep # loc skips binary files before counting physical lines.
           file
           libnotify # For notifications
           kitty # For icat image preview
