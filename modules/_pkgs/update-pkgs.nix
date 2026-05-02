@@ -338,9 +338,6 @@ pkgs.writeShellApplication {
         elif [ "$pkg" == "snitch" ]; then
           # Skip: TUI network inspector with custom build process
           echo " # $pkg = pkgs.callPackage ./$pkg.nix {}; # skipped - custom build process (manual update)"
-        elif [ "$pkg" == "sora-watermark-cleaner" ]; then
-          # Skip: AI model with pre-fetched weights and CUDA dependencies
-          echo " # $pkg = pkgs.callPackage ./$pkg.nix {}; # skipped - AI model with pre-fetched weights (manual update)"
         else
           echo " $pkg = pkgs.callPackage ./$pkg.nix {};"
         fi
@@ -431,12 +428,6 @@ pkgs.writeShellApplication {
       "snitch")
         # Skip: TUI network inspector with custom build process (manual update required)
         echo " Skipping snitch (manual update required - custom build process)"
-        SKIPPED+=("$pkg")
-        ;;
-
-      "sora-watermark-cleaner")
-        # Skip: AI model with pre-fetched weights and CUDA dependencies (manual update required)
-        echo " Skipping sora-watermark-cleaner (manual update required - AI model with pre-fetched weights)"
         SKIPPED+=("$pkg")
         ;;
 

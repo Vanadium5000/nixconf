@@ -109,6 +109,8 @@
 
       # Add overlays
       nixpkgs.overlays = [
+        # Keep this helper parameterized because NixOS hosts must pass final.config
+        # into unstable, while flake-parts intentionally keeps its own pkgs import policy.
         (
           final: prev:
           (self.lib.nixpkgs.mkSharedOverlay {
@@ -118,23 +120,26 @@
             final
             prev
         )
-        (final: prev: {
-          # waydroid-nftables = prev.waydroid-nftables.overrideAttrs (_old: {
-          #   # HACK: Temporary multi-instance override from taksan's fork until upstream merges.
-          #   # Undo by deleting this override once https://github.com/waydroid/waydroid/pull/1990 lands.
-          #   # Clear inherited nixpkgs patches because this fork's source layout no longer matches
-          #   # the 1.5.4 revert patch context, which otherwise breaks evaluation during patchPhase.
-          #   src = prev.fetchFromGitHub {
-          #     owner = "taksan";
-          #     repo = "waydroid";
-          #     rev = "bcd79d5fc522fdac514fae1a06efd5f1d4e0d545"; # feat/multi-instance @ 2025-07-29
-          #     hash = "sha256-F0++vTKbzOU/Fp2IE9hDZVswNpOVduj4/Z32ALLDI/Q=";
-          #   };
-          #   patches = [ ];
-          # });
-        })
         inputs.nix4vscode.overlays.default
       ];
+
+      # Historical Waydroid override kept with its overlay wrapper so `prev` is in scope
+      # if the temporary multi-instance fork needs to be revived.
+      # (final: prev: {
+      #   waydroid-nftables = prev.waydroid-nftables.overrideAttrs (_old: {
+      #     # HACK: Temporary multi-instance override from taksan's fork until upstream merges.
+      #     # Undo by deleting this override once https://github.com/waydroid/waydroid/pull/1990 lands.
+      #     # Clear inherited nixpkgs patches because this fork's source layout no longer matches
+      #     # the 1.5.4 revert patch context, which otherwise breaks evaluation during patchPhase.
+      #     src = prev.fetchFromGitHub {
+      #       owner = "taksan";
+      #       repo = "waydroid";
+      #       rev = "bcd79d5fc522fdac514fae1a06efd5f1d4e0d545"; # feat/multi-instance @ 2025-07-29
+      #       hash = "sha256-F0++vTKbzOU/Fp2IE9hDZVswNpOVduj4/Z32ALLDI/Q=";
+      #     };
+      #     patches = [ ];
+      #   });
+      # })
 
       environment.systemPackages = with pkgs; [
         # Nix tooling
