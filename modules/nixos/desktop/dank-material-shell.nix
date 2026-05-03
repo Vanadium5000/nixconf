@@ -15,27 +15,15 @@
       selfpkgs = self.packages.${pkgs.stdenv.hostPlatform.system};
       inherit (self) colors;
 
-      # DMS Nix installs enabled plugins from source directories under
-      # /etc/xdg/quickshell/dms-plugins; generating this source lets the QML
-      # call store paths instead of depending on the user service PATH. Source:
-      # https://github.com/AvengeMedia/DankMaterialShell/blob/eb5afcdc40ea5446c27e18552ff4a19f9daf9484/distro/nix/common.nix#L17-L19
-      toggleLidInhibitPluginJson = pkgs.writeText "toggle-lid-inhibit-plugin.json" (
-        builtins.readFile ./dank-material-shell/toggle-lid-inhibit/plugin.json
-      );
-      toggleLidInhibitPluginQml = pkgs.writeText "ToggleLidInhibitWidget.qml" (
+      dmsPluginDir = ".config/DankMaterialShell/plugins/toggleLidInhibit";
+      toggleLidInhibitPluginQml =
         builtins.replaceStrings
           [ "__LID_STATUS__" "__TOGGLE_LID_INHIBIT__" ]
           [
             "${lib.getExe selfpkgs.lid-status}"
             "${lib.getExe selfpkgs.toggle-lid-inhibit}"
           ]
-          (builtins.readFile ./dank-material-shell/toggle-lid-inhibit/ToggleLidInhibitWidget.qml)
-      );
-      toggleLidInhibitPluginSrc = pkgs.runCommandLocal "toggle-lid-inhibit-plugin-src" { } ''
-        mkdir -p "$out"
-        cp "${toggleLidInhibitPluginJson}" "$out/plugin.json"
-        cp "${toggleLidInhibitPluginQml}" "$out/ToggleLidInhibitWidget.qml"
-      '';
+          (builtins.readFile ./dank-material-shell/toggle-lid-inhibit/ToggleLidInhibitWidget.qml);
       dmsConfigPersistence = self.lib.persistence.mkPersistent {
         method = "bind";
         inherit user;
@@ -150,10 +138,6 @@
             enable = true;
             target = graphicalSessionTarget;
           };
-          plugins.toggleLidInhibit = {
-            enable = true;
-            src = toggleLidInhibitPluginSrc;
-          };
           enableSystemMonitoring = true;
           enableDynamicTheming = true;
           enableAudioWavelength = true;
@@ -183,7 +167,18 @@
         # that required file keeps previews optional while making the palette
         # reproducible from modules/theme.nix. Source:
         # https://github.com/AvengeMedia/DankMaterialShell/blob/eb5afcdc40ea5446c27e18552ff4a19f9daf9484/docs/CUSTOM_THEMES.md#theme-structure
-        hjem.users.${user}.files.${dmsThemeFile}.text = builtins.toJSON dmsTheme;
+        hjem.users.${user}.files = {
+          ${dmsThemeFile}.text = builtins.toJSON dmsTheme;
+
+          # DMS scans user plugins from ~/.config/DankMaterialShell/plugins and
+          # gives them priority over /etc/xdg system plugins. Installing this
+          # local widget there matches user-installed plugins and avoids stale
+          # system-plugin component caches. Source:
+          # https://github.com/AvengeMedia/DankMaterialShell/blob/eb5afcdc40ea5446c27e18552ff4a19f9daf9484/quickshell/Services/PluginService.qml#L21-L29
+          "${dmsPluginDir}/plugin.json".text =
+            builtins.readFile ./dank-material-shell/toggle-lid-inhibit/plugin.json;
+          "${dmsPluginDir}/ToggleLidInhibitWidget.qml".text = toggleLidInhibitPluginQml;
+        };
 
         # Mirror the upstream user unit locally so installing `dms-shell` cannot
         # be mistaken for a runnable shell service if upstream wiring changes.

@@ -90,27 +90,31 @@ PluginComponent {
     }
 
     horizontalBarPill: Component {
-        Row {
-            spacing: Theme.spacingXS
+        Item {
+            implicitWidth: icon.width
+            implicitHeight: root.widgetThickness
 
             DankIcon {
+                id: icon
                 name: root.statusIcon
                 size: Theme.barIconSize(root.barThickness, -4)
                 color: root.isActive ? Theme.primary : Theme.widgetIconColor
-                anchors.verticalCenter: parent.verticalCenter
+                anchors.centerIn: parent
             }
         }
     }
 
     verticalBarPill: Component {
-        Column {
-            spacing: 1
+        Item {
+            implicitWidth: root.widgetThickness
+            implicitHeight: icon.height
 
             DankIcon {
+                id: icon
                 name: root.statusIcon
                 size: Theme.barIconSize(root.barThickness)
                 color: root.isActive ? Theme.primary : Theme.widgetIconColor
-                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.centerIn: parent
             }
         }
     }
