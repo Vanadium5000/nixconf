@@ -1,4 +1,4 @@
-{ inputs, ... }:
+{ inputs, self, ... }:
 {
   flake.nixosModules.dankmemershell =
     {
@@ -10,6 +10,30 @@
     let
       cfg = config.preferences.dankMaterialShell;
       dmsProgram = config.programs.dank-material-shell;
+      user = config.preferences.user.username;
+      homeDirectory = config.preferences.paths.homeDirectory;
+      dmsConfigPersistence = self.lib.persistence.mkPersistent {
+        method = "bind";
+        inherit user;
+        fileName = "DankMaterialShell";
+        targetFile = "${homeDirectory}/.config/DankMaterialShell";
+        isDirectory = true;
+      };
+      hyprDmsPersistence = self.lib.persistence.mkPersistent {
+        method = "bind";
+        inherit user;
+        fileName = "hypr-dms";
+        targetFile = "${homeDirectory}/.config/hypr/dms";
+        isDirectory = true;
+      };
+      hyprDmsFragments = [
+        "colors.conf"
+        "outputs.conf"
+        "layout.conf"
+        "cursor.conf"
+        "binds.conf"
+        "windowrules.conf"
+      ];
 
       # DMS is a graphical user-session shell, not a system daemon; upstream
       # wires it to this target from its NixOS module. Source:
@@ -53,6 +77,25 @@
           enableAudioWavelength = true;
           enableClipboardPaste = true;
         };
+
+        # DMS stores editable shell settings and Hyprland fragments under
+        # ~/.config; bind them into Shared/Data like opencode so UI changes
+        # survive the impermanent root. Source:
+        # https://github.com/AvengeMedia/DankMaterialShell/blob/eb5afcdc40ea5446c27e18552ff4a19f9daf9484/core/internal/config/deployer.go#L562-L567
+        system.activationScripts.dank-material-shell-persistence = {
+          text =
+            dmsConfigPersistence.activationScript
+            + hyprDmsPersistence.activationScript
+            + ''
+              HYPR_DMS_DIR="${homeDirectory}/.config/hypr/dms"
+              mkdir -p "$HYPR_DMS_DIR"
+              ${lib.concatMapStringsSep "\n" (fragment: ''touch "$HYPR_DMS_DIR/${fragment}"'') hyprDmsFragments}
+              chown -R ${user}:users "$HYPR_DMS_DIR"
+            '';
+          deps = [ "users" ];
+        };
+
+        fileSystems = dmsConfigPersistence.fileSystems // hyprDmsPersistence.fileSystems;
 
         # Mirror the upstream user unit locally so installing `dms-shell` cannot
         # be mistaken for a runnable shell service if upstream wiring changes.

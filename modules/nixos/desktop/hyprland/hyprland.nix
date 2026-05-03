@@ -455,8 +455,9 @@
         ];
     in
     {
-      # Persist nwg-displays diplay settings
-      impermanence.home.cache.files = [
+      # Persist user-edited display/workspace files as durable config, not cache,
+      # because DMS and nwg-displays both expect Hyprland to source them at login.
+      impermanence.home.files = [
         ".config/hypr/monitors.conf"
         ".config/hypr/workspaces.conf"
       ];
@@ -500,6 +501,18 @@
         source = [
           "~/.config/hypr/monitors.conf"
           "~/.config/hypr/workspaces.conf"
+
+          # DMS writes Hyprland fragments under ./dms and expects explicit
+          # source entries; Hyprland sources files/globs, not bare directories.
+          # Sources:
+          # https://github.com/AvengeMedia/DankMaterialShell/blob/eb5afcdc40ea5446c27e18552ff4a19f9daf9484/core/internal/config/embedded/hyprland.conf#L117-L121
+          # https://wiki.hyprland.org/Configuring/Keywords/#sourcing-multi-file
+          "./dms/colors.conf"
+          "./dms/outputs.conf"
+          "./dms/layout.conf"
+          "./dms/cursor.conf"
+          "./dms/binds.conf"
+          "./dms/windowrules.conf"
         ];
 
         general = {
@@ -714,9 +727,8 @@
           "CLUTTER_BACKEND,wayland"
           "GSK_RENDERER,vulkan" # "ngl" | "vulkan"
 
-          # Use Adwaita for a standard white cursor with a dark outline; this is
-          # easier to track than Oxygen's aqua pointer while leaving Qt's Oxygen
-          # widget styling in modules/nixos/desktop/qt.nix untouched.
+          # Use Adwaita for a standard white cursor with a dark outline; DMS can
+          # still override cursor behavior through ./dms/cursor.conf above.
           "XCURSOR_THEME,Adwaita"
           "XCURSOR_SIZE,16"
 
