@@ -117,6 +117,9 @@
           dbus.packages = [
             pkgs.kdePackages.kded
             pkgs.kdePackages.plasma-workspace
+            # Expose KDE Connect's DBus activation file so kdeconnectd can start
+            # on demand outside Plasma. Ref: share/dbus-1/services/org.kde.kdeconnect.service
+            config.programs.kdeconnect.package
           ];
 
           # Battery tool, required by hyprpanel
@@ -129,6 +132,21 @@
           udisks2.enable = true;
           # Enable usbmuxd service for iOS devices
           usbmuxd.enable = true;
+        };
+
+        # Start the non-Plasma indicator as a user service; Hyprland does not
+        # process the package's XDG autostart desktop entry itself.
+        # Ref: share/applications/org.kde.kdeconnect.nonplasma.desktop
+        systemd.user.services.kdeconnect-indicator = {
+          description = "KDE Connect Indicator";
+          wantedBy = [ "graphical-session.target" ];
+          partOf = [ "graphical-session.target" ];
+          after = [ "graphical-session.target" ];
+
+          serviceConfig = {
+            ExecStart = "${config.programs.kdeconnect.package}/bin/kdeconnect-indicator";
+            Restart = "on-failure";
+          };
         };
 
         # Generic command-line automation tool (macro/autoclicker)

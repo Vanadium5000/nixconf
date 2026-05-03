@@ -20,8 +20,18 @@
       altMod = "ALT";
       terminal = self.packages.${pkgs.stdenv.hostPlatform.system}.terminal;
       systemSettings = config.preferences.system;
+      user = config.preferences.user.username;
+      homeDirectory = config.preferences.paths.homeDirectory;
 
       makeScript = script: builtins.toString (pkgs.writeScriptBin "script" script) + "/bin/script";
+      hyprDmsFragments = [
+        "colors.conf"
+        "outputs.conf"
+        "layout.conf"
+        "cursor.conf"
+        "binds.conf"
+        "windowrules.conf"
+      ];
 
       closeConfirmWindowSeconds = 20;
 
@@ -462,6 +472,38 @@
         ".config/hypr/workspaces.conf"
       ];
 
+      # Hyprland treats missing `source` targets as config errors, while
+      # impermanence persists these editable files only after they exist. Create
+      # empty placeholders without overwriting user/nwg-displays changes.
+      # Source list below in this file; Hyprland source behavior:
+      # https://wiki.hyprland.org/Configuring/Keywords/#sourcing-multi-file
+      system.activationScripts.hyprland-source-placeholders = {
+        text = ''
+          HYPR_DIR="${homeDirectory}/.config/hypr"
+          HYPR_DMS_DIR="$HYPR_DIR/dms"
+          mkdir -p "$HYPR_DMS_DIR"
+          touch "$HYPR_DIR/monitors.conf" "$HYPR_DIR/workspaces.conf"
+          ${lib.concatMapStringsSep "
+          " (
+            fragment: ''touch "$HYPR_DMS_DIR/${fragment}"''
+          ) hyprDmsFragments}
+          chown -R ${user}:users "$HYPR_DIR"
+        '';
+        deps = [ "users" ];
+      };
+
+      # Create the same placeholders during normal boot, before the user session
+      # reads Hyprland's generated config. Source entries are below in this file.
+      systemd.tmpfiles.rules = [
+        "d ${homeDirectory}/.config/hypr 0755 ${user} users -"
+        "f ${homeDirectory}/.config/hypr/monitors.conf 0644 ${user} users -"
+        "f ${homeDirectory}/.config/hypr/workspaces.conf 0644 ${user} users -"
+        "d ${homeDirectory}/.config/hypr/dms 0755 ${user} users -"
+      ]
+      ++ builtins.map (
+        fragment: "f ${homeDirectory}/.config/hypr/dms/${fragment} 0644 ${user} users -"
+      ) hyprDmsFragments;
+
       # Pesist the .current_wallpaper in wallpaper
       impermanence.home.cache.directories = [
         "wallpaper"
@@ -502,17 +544,18 @@
           "~/.config/hypr/monitors.conf"
           "~/.config/hypr/workspaces.conf"
 
-          # DMS writes Hyprland fragments under ./dms and expects explicit
-          # source entries; Hyprland sources files/globs, not bare directories.
+          # DMS writes Hyprland fragments under ~/.config/hypr/dms. Use absolute
+          # home paths because this generated Hyprland config lives in /nix/store,
+          # so relative ./dms sources resolve against the store file instead.
           # Sources:
           # https://github.com/AvengeMedia/DankMaterialShell/blob/eb5afcdc40ea5446c27e18552ff4a19f9daf9484/core/internal/config/embedded/hyprland.conf#L117-L121
           # https://wiki.hyprland.org/Configuring/Keywords/#sourcing-multi-file
-          "./dms/colors.conf"
-          "./dms/outputs.conf"
-          "./dms/layout.conf"
-          "./dms/cursor.conf"
-          "./dms/binds.conf"
-          "./dms/windowrules.conf"
+          "~/.config/hypr/dms/colors.conf"
+          "~/.config/hypr/dms/outputs.conf"
+          "~/.config/hypr/dms/layout.conf"
+          "~/.config/hypr/dms/cursor.conf"
+          "~/.config/hypr/dms/binds.conf"
+          "~/.config/hypr/dms/windowrules.conf"
         ];
 
         general = {
