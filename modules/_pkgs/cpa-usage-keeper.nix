@@ -4,7 +4,6 @@
   buildNpmPackage,
   fetchFromGitHub,
   pkg-config,
-  nodejs_22,
 }:
 
 let

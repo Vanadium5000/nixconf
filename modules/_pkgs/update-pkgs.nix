@@ -329,6 +329,11 @@ pkgs.writeShellApplication {
         elif [ "$pkg" == "playwright-cli" ]; then
           # Skip: NPM-based package with Playwright browser bundle dependencies
           echo " # $pkg = pkgs.callPackage ./$pkg.nix {}; # skipped - NPM package with browser bundles (manual update)"
+        elif [ "$pkg" == "cpa-usage-keeper" ]; then
+          # Skip: Go backend plus Vite frontend need coordinated src, vendorHash,
+          # and npmDepsHash updates; nix-update only handles part of that safely.
+          # Source: modules/_pkgs/cpa-usage-keeper.nix and upstream Dockerfile.
+          echo " # $pkg = pkgs.callPackage ./$pkg.nix {}; # skipped - Go+frontend hashes require manual update"
         elif [ "$pkg" == "quickshell-docs-markdown" ]; then
           # Skip: Multi-source Rust package with pinned git deps (manual update required)
           echo " # $pkg = pkgs.callPackage ./$pkg.nix {}; # skipped - multi-source Rust with pinned deps (manual update)"
@@ -410,6 +415,14 @@ pkgs.writeShellApplication {
       "playwright-cli")
         # Skip: NPM-based package with browser bundle dependencies (manual update required)
         echo " Skipping playwright-cli (manual update required - NPM with browser bundles)"
+        SKIPPED+=("$pkg")
+        ;;
+
+      "cpa-usage-keeper")
+        # Skip: Go backend plus Vite frontend require updating src hash,
+        # vendorHash, and npmDepsHash together; partial nix-update bumps would
+        # leave the package stale or broken.
+        echo " Skipping cpa-usage-keeper (manual update required - Go+frontend hashes)"
         SKIPPED+=("$pkg")
         ;;
 

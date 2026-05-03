@@ -86,7 +86,8 @@
               if [ -f "$OVERRIDES_FILE" ] && [ -s "$OVERRIDES_FILE" ]; then
                 IMAGE_MODEL="$(${pkgs.jq}/bin/jq -r --slurpfile overrides "$OVERRIDES_FILE" '
                   first(
-                    ((.providers.cliproxyapi.models // {}) * ($overrides[0] // {}))
+                    (.providers.cliproxyapi.models // {}) as $models
+                    | $models * (($overrides[0] // {}) | with_entries(select($models[.key] != null)))
                     | to_entries[]
                     | select(((.value.modalities.output // []) | index("image")) != null)
                     | "cliproxyapi/\(.key)"
@@ -334,7 +335,8 @@
 
           if [ -f "$OVERRIDES_FILE" ] && [ -s "$OVERRIDES_FILE" ]; then
             $JQ -cS --slurpfile overrides "$OVERRIDES_FILE" '
-              ((.providers.cliproxyapi.models // {}) * ($overrides[0] // {}))
+              (.providers.cliproxyapi.models // {}) as $models
+              | $models * (($overrides[0] // {}) | with_entries(select($models[.key] != null)))
             ' "$MODELS_FILE"
           else
             $JQ -cS '(.providers.cliproxyapi.models // {})' "$MODELS_FILE"
@@ -350,7 +352,8 @@
 
           if [ -f "$OVERRIDES_FILE" ] && [ -s "$OVERRIDES_FILE" ]; then
             $JQ -r --arg provider "$provider" --arg model_id "$model_id" --slurpfile overrides "$OVERRIDES_FILE" "
-              (((.providers[\$provider].models // {}) * (\$overrides[0] // {}))[\$model_id] // {})
+              (.providers[\$provider].models // {}) as \$models
+              | ((\$models * ((\$overrides[0] // {}) | with_entries(select(\$models[.key] != null))))[\$model_id] // {})
               | ''${jq_expr}
             " "$MODELS_FILE"
           else
@@ -359,6 +362,19 @@
               | ''${jq_expr}
             " "$MODELS_FILE"
           fi
+        }
+
+        get_model_variant_names() {
+          local provider="$1"
+          local model_id="$2"
+
+          get_effective_model_field "$provider" "$model_id" '
+            if (.variants // {}) != {} then
+              .variants | keys
+            else
+              .reasoning_effort // []
+            end
+          '
         }
 
         ensure_state_file() {
@@ -594,8 +610,6 @@
               get_id as $id
               | (.supportedInputModalities // [] | map(ascii_downcase)) as $input_modalities
               | (.supportedOutputModalities // [] | map(ascii_downcase)) as $output_modalities
-              # Models that require explicit reasoning_effort levels (no "auto" support)
-              | (if $id == "kimi-k2.5" or ($id | test("kimi-k2.5")) then ["low", "medium", "high"] else null end) as $reasoning_efforts
               | {
                   key: $id,
                   value: (
@@ -604,7 +618,6 @@
                     }
                     + (if .inputTokenLimit != null then { context: .inputTokenLimit } else {} end)
                     + (if .outputTokenLimit != null then { output: .outputTokenLimit } else {} end)
-                    + (if $reasoning_efforts != null then { reasoning_effort: $reasoning_efforts } else {} end)
                     +
                       (if (($input_modalities | length) > 0) or (($output_modalities | length) > 0) then
                         {
@@ -622,7 +635,7 @@
             {
               providers: {
                 "cliproxyapi": {
-                  npm: "@ai-sdk/anthropic",
+                  npm: "@ai-sdk/openai",
                   name: "CliProxyApi",
                   baseUrl: "http://127.0.0.1:8317/v1",
                   models: ([.models[] | to_opencode] | sort_by(.key) | from_entries)
@@ -715,7 +728,8 @@
         model_picker_lines() {
           if [ -f "$OVERRIDES_FILE" ] && [ -s "$OVERRIDES_FILE" ]; then
             $JQ -r --slurpfile overrides "$OVERRIDES_FILE" '
-              ((.providers.cliproxyapi.models // {}) * ($overrides[0] // {}))
+              (.providers.cliproxyapi.models // {}) as $models
+              | $models * (($overrides[0] // {}) | with_entries(select($models[.key] != null)))
               | to_entries
               | .[]
               | "cliproxyapi/\(.key)\tcliproxyapi: \(.value.name) (\(.key))"
@@ -763,7 +777,7 @@
           local provider="''${new_model%%/*}"
           local model_id="''${new_model#*/}"
           local efforts
-          efforts=$(get_effective_model_field "$provider" "$model_id" '.reasoning_effort // empty')
+          efforts=$(get_model_variant_names "$provider" "$model_id")
 
           local selected_effort=""
           if [ -n "$efforts" ]; then
@@ -987,7 +1001,7 @@
           local provider="''${target_model%%/*}"
           local model_id="''${target_model#*/}"
           local efforts
-          efforts=$(get_effective_model_field "$provider" "$model_id" '.reasoning_effort // empty')
+          efforts=$(get_model_variant_names "$provider" "$model_id")
 
           local selected_effort=""
           if [ -n "$efforts" ]; then

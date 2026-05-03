@@ -1,8 +1,8 @@
 { self, lib, ... }:
 let
   publicBaseDomain = self.secrets.PUBLIC_BASE_DOMAIN;
-  # Path to the dynamic model cache
-  # This file is updated by 'opencode-models sync' in the repo
+  # Keep the synced cache repo-owned so model metadata can be reviewed before
+  # it becomes part of the generated OpenCode config.
   modelsFile = ./models.json;
   capabilityOverridesFile = ./_model-capability-overrides.json;
   capabilityOverrides =
@@ -25,7 +25,10 @@ let
     data;
 
   unifiedProvider = {
-    npm = "@ai-sdk/openai-compatible";
+    # OpenCode documents @ai-sdk/openai for /v1/responses-backed models; GPT-5.x
+    # reasoning quality depends on Responses semantics rather than chat-only
+    # compatibility. Source: https://opencode.ai/docs/providers/
+    npm = "@ai-sdk/openai";
     name = "CliProxyApi";
     options = {
       baseURL = "https://cliproxyapi.${publicBaseDomain}/v1";
@@ -40,8 +43,11 @@ let
     models =
       let
         baseModels = dynamicData.providers.cliproxyapi.models or { };
-        # Only keep overrides for models that exist in the base (to avoid phantom models)
-        filteredOverrides = lib.filterAttrs (modelId: _: baseModels ? modelId) capabilityOverrides;
+        # Only keep overrides for real synced model IDs; `? modelId` would check
+        # for a literal attr named "modelId", so use hasAttr for dynamic keys.
+        filteredOverrides = lib.filterAttrs (
+          modelId: _: builtins.hasAttr modelId baseModels
+        ) capabilityOverrides;
       in
       lib.recursiveUpdate baseModels filteredOverrides;
   };
@@ -61,13 +67,14 @@ let
               output = model.output or model.limit.output;
             });
         in
-        (
-          {
-            inherit (model) name;
-          }
-          // (if model ? modalities then { inherit (model) modalities; } else { })
-          // (lib.optionalAttrs (limit != { }) { inherit limit; })
-        )
+        # Preserve OpenCode model schema fields from overrides (`reasoning`,
+        # `options`, `variants`, `tool_call`, etc.) while normalising the old
+        # flat token fields returned by earlier sync output into `limit`.
+        (builtins.removeAttrs model [
+          "context"
+          "output"
+        ])
+        // (lib.optionalAttrs (limit != { }) { inherit limit; })
       ) unifiedProvider.models;
     };
   };

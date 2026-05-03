@@ -1,7 +1,7 @@
 {
   "providers": {
     "cliproxyapi": {
-      "npm": "@ai-sdk/anthropic",
+      "npm": "@ai-sdk/openai",
       "name": "CliProxyApi",
       "baseUrl": "http://127.0.0.1:8317/v1",
       "models": {

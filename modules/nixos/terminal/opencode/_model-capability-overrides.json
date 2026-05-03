@@ -77,27 +77,178 @@
     }
   },
   "gpt-5.2": {
+    "reasoning": true,
+    "tool_call": true,
     "modalities": {
       "input": ["text", "image"],
       "output": ["text"]
+    },
+    "options": {
+      "reasoningEffort": "medium",
+      "textVerbosity": "low",
+      "reasoningSummary": "auto",
+      "include": ["reasoning.encrypted_content"],
+      "forceReasoning": true
+    },
+    "variants": {
+      "low": {
+        "reasoningEffort": "low",
+        "textVerbosity": "low",
+        "reasoningSummary": "auto",
+        "include": ["reasoning.encrypted_content"]
+      },
+      "medium": {
+        "reasoningEffort": "medium",
+        "textVerbosity": "low",
+        "reasoningSummary": "auto",
+        "include": ["reasoning.encrypted_content"]
+      },
+      "high": {
+        "reasoningEffort": "high",
+        "textVerbosity": "low",
+        "reasoningSummary": "auto",
+        "include": ["reasoning.encrypted_content"]
+      }
     }
   },
   "gpt-5.3-codex": {
+    "reasoning": true,
+    "tool_call": true,
     "modalities": {
       "input": ["text", "image"],
       "output": ["text"]
+    },
+    "options": {
+      "reasoningEffort": "medium",
+      "textVerbosity": "low",
+      "reasoningSummary": "auto",
+      "include": ["reasoning.encrypted_content"],
+      "forceReasoning": true
+    },
+    "variants": {
+      "low": {
+        "reasoningEffort": "low",
+        "textVerbosity": "low",
+        "reasoningSummary": "auto",
+        "include": ["reasoning.encrypted_content"]
+      },
+      "medium": {
+        "reasoningEffort": "medium",
+        "textVerbosity": "low",
+        "reasoningSummary": "auto",
+        "include": ["reasoning.encrypted_content"]
+      },
+      "high": {
+        "reasoningEffort": "high",
+        "textVerbosity": "low",
+        "reasoningSummary": "auto",
+        "include": ["reasoning.encrypted_content"]
+      }
     }
   },
   "gpt-5.4": {
+    "reasoning": true,
+    "tool_call": true,
     "modalities": {
       "input": ["text", "image"],
       "output": ["text"]
+    },
+    "options": {
+      "reasoningEffort": "medium",
+      "textVerbosity": "low",
+      "reasoningSummary": "auto",
+      "include": ["reasoning.encrypted_content"],
+      "forceReasoning": true
+    },
+    "variants": {
+      "low": {
+        "reasoningEffort": "low",
+        "textVerbosity": "low",
+        "reasoningSummary": "auto",
+        "include": ["reasoning.encrypted_content"]
+      },
+      "medium": {
+        "reasoningEffort": "medium",
+        "textVerbosity": "low",
+        "reasoningSummary": "auto",
+        "include": ["reasoning.encrypted_content"]
+      },
+      "high": {
+        "reasoningEffort": "high",
+        "textVerbosity": "low",
+        "reasoningSummary": "auto",
+        "include": ["reasoning.encrypted_content"]
+      }
     }
   },
   "gpt-5.4-mini": {
+    "reasoning": true,
+    "tool_call": true,
     "modalities": {
       "input": ["text", "image"],
       "output": ["text"]
+    },
+    "options": {
+      "reasoningEffort": "medium",
+      "textVerbosity": "low",
+      "reasoningSummary": "auto",
+      "include": ["reasoning.encrypted_content"],
+      "forceReasoning": true
+    },
+    "variants": {
+      "low": {
+        "reasoningEffort": "low",
+        "textVerbosity": "low",
+        "reasoningSummary": "auto",
+        "include": ["reasoning.encrypted_content"]
+      },
+      "medium": {
+        "reasoningEffort": "medium",
+        "textVerbosity": "low",
+        "reasoningSummary": "auto",
+        "include": ["reasoning.encrypted_content"]
+      },
+      "high": {
+        "reasoningEffort": "high",
+        "textVerbosity": "low",
+        "reasoningSummary": "auto",
+        "include": ["reasoning.encrypted_content"]
+      }
+    }
+  },
+  "gpt-5.5": {
+    "reasoning": true,
+    "tool_call": true,
+    "modalities": {
+      "input": ["text", "image"],
+      "output": ["text"]
+    },
+    "options": {
+      "reasoningEffort": "medium",
+      "textVerbosity": "low",
+      "reasoningSummary": "auto",
+      "include": ["reasoning.encrypted_content"],
+      "forceReasoning": true
+    },
+    "variants": {
+      "low": {
+        "reasoningEffort": "low",
+        "textVerbosity": "low",
+        "reasoningSummary": "auto",
+        "include": ["reasoning.encrypted_content"]
+      },
+      "medium": {
+        "reasoningEffort": "medium",
+        "textVerbosity": "low",
+        "reasoningSummary": "auto",
+        "include": ["reasoning.encrypted_content"]
+      },
+      "high": {
+        "reasoningEffort": "high",
+        "textVerbosity": "low",
+        "reasoningSummary": "auto",
+        "include": ["reasoning.encrypted_content"]
+      }
     }
   },
   "gpt-image-2": {
@@ -107,9 +258,24 @@
     }
   },
   "moonshotai/kimi-k2.5": {
+    "reasoning": true,
     "modalities": {
       "input": ["text", "image", "video", "pdf"],
       "output": ["text"]
+    },
+    "options": {
+      "thinking": {
+        "type": "enabled",
+        "budgetTokens": 16000
+      }
+    },
+    "variants": {
+      "high": {
+        "thinking": {
+          "type": "enabled",
+          "budgetTokens": 16000
+        }
+      }
     }
   }
 }

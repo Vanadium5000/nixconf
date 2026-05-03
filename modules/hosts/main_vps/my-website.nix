@@ -40,6 +40,7 @@
       mitmproxyDomain = mkHostname "mitmproxy";
       vpnDomain = mkHostname "vpn";
       cliproxyapiDomain = mkHostname "cliproxyapi";
+      cpaUsageKeeperDomain = mkHostname "cpa-usage";
       dokployDomain = mkHostname "dokploy";
       mongoDomain = mkHostname "mongo";
       wildcardDomainPattern = lib.replaceStrings [ "." ] [ "\\." ] publicBaseDomain;
@@ -185,6 +186,10 @@
                 rule = "Host(`${vpnDomain}`)";
                 service = "vpn";
               };
+              cpa-usage-keeper = mkProtectedServiceRouter {
+                rule = "Host(`${cpaUsageKeeperDomain}`)";
+                service = "cpa-usage-keeper";
+              };
               cliproxyapi = {
                 rule = "Host(`${cliproxyapiDomain}`)";
                 service = "cliproxyapi";
@@ -221,6 +226,7 @@
               mitmproxy = mkDirectService 8083;
               vpn = mkDirectService 10802;
               cliproxyapi = mkDirectService 8317;
+              cpa-usage-keeper = mkDirectService 8080;
               mongo = mkDirectService 41275;
               dokploy-traefik.loadBalancer.servers = [
                 {

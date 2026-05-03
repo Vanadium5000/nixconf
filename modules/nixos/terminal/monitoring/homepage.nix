@@ -131,6 +131,13 @@
                   };
                 }
                 {
+                  "CPA Usage Keeper" = {
+                    icon = "mdi-chart-line";
+                    href = mkPublicUrl "cpa-usage" "";
+                    description = "Persistent CLIProxyAPI usage analytics";
+                  };
+                }
+                {
                   "Dokploy" = {
                     icon = "mdi-docker";
                     href = mkPublicUrl "dokploy" "";
