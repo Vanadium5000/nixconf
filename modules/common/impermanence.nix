@@ -147,12 +147,13 @@
           };
         };
 
-        # DynamicUser services such as ollama and ntfy-sh keep their writable state under
-        # /var/lib/private. On an impermanent root, that parent may be recreated with the
-        # default 0755 mode during activation, which makes systemd refuse StateDirectory.
-        # Force the secure parent mode every boot and every switch so DynamicUser services start.
+        # DynamicUser services such as ollama keep writable state under /var/lib/private.
+        # Use tmpfiles type "d" so an impermanent root creates the parent as 0700 instead
+        # of relying on type "z", which only adjusts paths that already exist. This keeps
+        # the parent secure without persisting every DynamicUser private state directory.
+        # Source: https://www.freedesktop.org/software/systemd/man/latest/tmpfiles.d.html
         systemd.tmpfiles.rules = [
-          "z /var/lib/private 0700 root root -"
+          "d /var/lib/private 0700 root root -"
         ];
 
         boot.initrd.postResumeCommands = lib.mkAfter ''

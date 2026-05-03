@@ -16,6 +16,10 @@
         ;
       cfg = config.services.cliproxyapi;
 
+      optionalManagementEnv = lib.optional (
+        cfg.managementKey != null
+      ) "MANAGEMENT_PASSWORD=${cfg.managementKey}";
+
       defaultConfig = pkgs.writeText "cliproxyapi-default-config.yaml" ''
         # CLIProxyAPI configuration — edit freely, not managed by Nix after initial creation
         # Changes are hot-reloaded without restart
@@ -72,6 +76,12 @@
           default = true;
           description = "Whether to open the CLIProxyAPI port in the firewall";
         };
+
+        managementKey = mkOption {
+          type = types.nullOr types.str;
+          default = null;
+          description = "Plain management key exposed to CLIProxyAPI through MANAGEMENT_PASSWORD";
+        };
       };
 
       config = mkIf cfg.enable {
@@ -119,10 +129,13 @@
             StateDirectory = "cliproxyapi";
             WorkingDirectory = "/var/lib/cliproxyapi";
 
-            # HOME fallback for any home-relative paths
+            # MANAGEMENT_PASSWORD is accepted by upstream as a runtime-only
+            # management key, avoiding dependence on a mutable config.yaml hash.
+            # Source: https://github.com/router-for-me/CLIProxyAPI/blob/v6.10.1/internal/api/handlers/management/handler.go
             Environment = [
               "HOME=/var/lib/cliproxyapi"
-            ];
+            ]
+            ++ optionalManagementEnv;
 
             # Sandbox — strict isolation, data confined to state dir
             ProtectSystem = "strict";

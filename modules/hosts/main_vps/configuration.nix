@@ -131,6 +131,11 @@
       services.cliproxyapi = {
         enable = true;
         host = "127.0.0.1"; # Secure: bind localhost only
+        # CPA Usage Keeper authenticates to CLIProxyAPI management endpoints;
+        # inject the same secret into CPA so stale mutable config.yaml hashes
+        # cannot make keeper fall back to the removed legacy export route.
+        # Source: https://github.com/router-for-me/CLIProxyAPI/blob/v6.10.1/internal/api/handlers/management/handler.go
+        managementKey = self.secrets.CLIPROXYAPI_KEY;
         openFirewall = false; # Secure: close public port
       };
 
@@ -145,6 +150,12 @@
         # cpa-usage-keeper calls CLIProxyAPI management endpoints, so reuse the
         # same management secret instead of maintaining a second equivalent key.
         cpaManagementKey = self.secrets.CLIPROXYAPI_KEY;
+        # CLIProxyAPI v6.10.x no longer exposes the legacy usage export route;
+        # cpa-usage-keeper v1.3.2 can instead read the management RESP queue on
+        # the same 8317 listener derived from cpaBaseUrl.
+        # Sources: https://github.com/router-for-me/CLIProxyAPI/tree/v6.10.1
+        # https://github.com/Willxup/cpa-usage-keeper/blob/v1.3.2/.env.example
+        usageSyncMode = "redis";
         # Existing shared Traefik auth protects the public subdomain, avoiding a
         # second in-app login whose sessions are lost on service restart.
         # Source: https://github.com/Willxup/cpa-usage-keeper/blob/v1.3.2/README.md
