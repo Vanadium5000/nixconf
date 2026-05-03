@@ -65,6 +65,7 @@
           # npm installs before the skill can open a browser.
           # Ref: .agents/skills/playwright-cli/SKILL.md
           selfpkgs.playwright-cli
+          selfpkgs.patchright
           # Playwright on NixOS uses nixpkgs-provided browser bundles instead of
           # upstream downloads so Chromium stays runnable under the Nix dynamic
           # linker model. Ref: https://wiki.nixos.org/wiki/Playwright
