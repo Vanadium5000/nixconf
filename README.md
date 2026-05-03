@@ -361,24 +361,25 @@ for BunJS development details.
 
 All packages in `modules/_pkgs/` are auto-exposed via `self.packages`:
 
-| Package                    | Description                             |
-| -------------------------- | --------------------------------------- |
-| `antigravity-manager`      | Antigravity Tools manager (RPM wrapped) |
-| `aptos-fonts`              | Microsoft Aptos font family             |
-| `cliproxyapi`              | CLI Proxy API tool (Go)                 |
-| `daisyui-mcp`              | DaisyUI MCP server (Python/fastmcp)     |
-| `dogecoin`                 | Dogecoin wallet CLI                     |
-| `iloader`                  | iOS device management (AppImage)        |
-| `niri-screen-time`         | Screen time tracker (Go, Wayland)       |
-| `personalive`              | Real-time portrait animation (CUDA)     |
-| `powerpoint-mcp`           | PowerPoint MCP server (Python)          |
-| `quickshell-docs-markdown` | Quickshell docs as Markdown (Rust)      |
-| `sideloader`               | iOS app sideloading tool                |
-| `snitch`                   | TUI network connection inspector        |
-| `sora-watermark-cleaner`   | AI video watermark remover (CUDA)       |
-| `update-pkgs`              | Auto-updater for `_pkgs/` (nix-update)  |
-| `waydroid-script`          | Waydroid add-on installer helper        |
-| `waydroid-total-spoof`     | Waydroid device identity spoofing       |
+| Package                    | Description                              |
+| -------------------------- | ---------------------------------------- |
+| `antigravity-manager`      | Antigravity Tools manager (RPM wrapped)  |
+| `aptos-fonts`              | Microsoft Aptos font family              |
+| `cliproxyapi`              | CLI Proxy API tool (Go)                  |
+| `daisyui-mcp`              | DaisyUI MCP server (Python/fastmcp)      |
+| `dogecoin`                 | Dogecoin wallet CLI                      |
+| `iloader`                  | iOS device management (AppImage)         |
+| `niri-screen-time`         | Screen time tracker (Go, Wayland)        |
+| `patchright`               | Patched Playwright automation            |
+| `personalive`              | Real-time portrait animation (CUDA)      |
+| `powerpoint-mcp`           | PowerPoint MCP server (Python)           |
+| `quickshell-docs-markdown` | Quickshell docs as Markdown (Rust)       |
+| `sideloader`               | iOS app sideloading tool                 |
+| `snitch`                   | TUI network connection inspector         |
+| `sora-watermark-cleaner`   | AI video watermark remover (CUDA)        |
+| `update-pkgs`              | Auto-updater for `_pkgs/` (nix-update)   |
+| `waydroid-script`          | Waydroid add-on installer helper         |
+| `waydroid-total-spoof`     | Waydroid device identity spoofing        |
 
 ---
 

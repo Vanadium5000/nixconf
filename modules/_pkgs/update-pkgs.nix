@@ -329,6 +329,11 @@ pkgs.writeShellApplication {
         elif [ "$pkg" == "playwright-cli" ]; then
           # Skip: NPM-based package with Playwright browser bundle dependencies
           echo " # $pkg = pkgs.callPackage ./$pkg.nix {}; # skipped - NPM package with browser bundles (manual update)"
+        elif [ "$pkg" == "patchright" ]; then
+          # Skip: npm package whose CLI and patchright-core versions must stay in
+          # lockstep; nix-update can miss npmDepsHash and driver-version coupling.
+          # Source: modules/_pkgs/patchright.nix and https://registry.npmjs.org/patchright/latest.
+          echo " # $pkg = pkgs.callPackage ./$pkg.nix {}; # skipped - NPM package with coupled patchright-core dependency (manual update)"
         elif [ "$pkg" == "cpa-usage-keeper" ]; then
           # Skip: Go backend plus Vite frontend need coordinated src, vendorHash,
           # and npmDepsHash updates; nix-update only handles part of that safely.
@@ -415,6 +420,15 @@ pkgs.writeShellApplication {
       "playwright-cli")
         # Skip: NPM-based package with browser bundle dependencies (manual update required)
         echo " Skipping playwright-cli (manual update required - NPM with browser bundles)"
+        SKIPPED+=("$pkg")
+        ;;
+
+      "patchright")
+        # Skip: npm package whose CLI and patchright-core versions must stay in
+        # lockstep; npm releases can also lead GitHub driver releases, so version
+        # discovery needs manual validation before refreshing hashes.
+        # Source: modules/_pkgs/patchright.nix and https://registry.npmjs.org/patchright/latest.
+        echo " Skipping patchright (manual update required - NPM with coupled patchright-core dependency)"
         SKIPPED+=("$pkg")
         ;;
 
