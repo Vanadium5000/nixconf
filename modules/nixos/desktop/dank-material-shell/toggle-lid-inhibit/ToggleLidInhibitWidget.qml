@@ -15,7 +15,7 @@ PluginComponent {
     readonly property string statusCommand: "__LID_STATUS__"
     readonly property string toggleCommand: "__TOGGLE_LID_INHIBIT__"
 
-    readonly property string statusLabel: root.isBusy ? "..." : (root.isActive ? "On" : "Off")
+    readonly property string statusIcon: root.isBusy ? "hourglass_empty" : (root.isActive ? "lock_open" : "lock")
 
     pillClickAction: () => root.toggleLidInhibit()
 
@@ -94,16 +94,9 @@ PluginComponent {
             spacing: Theme.spacingXS
 
             DankIcon {
-                name: root.isActive ? "lock_open" : "lock"
+                name: root.statusIcon
                 size: Theme.barIconSize(root.barThickness, -4)
                 color: root.isActive ? Theme.primary : Theme.widgetIconColor
-                anchors.verticalCenter: parent.verticalCenter
-            }
-
-            StyledText {
-                text: root.statusLabel
-                font.pixelSize: Theme.barTextSize(root.barThickness, root.barConfig?.fontScale)
-                color: root.isActive ? Theme.primary : Theme.widgetTextColor
                 anchors.verticalCenter: parent.verticalCenter
             }
         }
@@ -114,16 +107,9 @@ PluginComponent {
             spacing: 1
 
             DankIcon {
-                name: root.isActive ? "lock_open" : "lock"
+                name: root.statusIcon
                 size: Theme.barIconSize(root.barThickness)
                 color: root.isActive ? Theme.primary : Theme.widgetIconColor
-                anchors.horizontalCenter: parent.horizontalCenter
-            }
-
-            StyledText {
-                text: root.statusLabel
-                font.pixelSize: Theme.barTextSize(root.barThickness, root.barConfig?.fontScale)
-                color: root.isActive ? Theme.primary : Theme.widgetTextColor
                 anchors.horizontalCenter: parent.horizontalCenter
             }
         }
