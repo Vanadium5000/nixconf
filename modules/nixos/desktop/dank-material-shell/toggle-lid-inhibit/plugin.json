@@ -1,0 +1,12 @@
+{
+  "id": "toggleLidInhibit",
+  "name": "Lid Inhibit",
+  "description": "Show and toggle suspend-on-lid-close inhibition",
+  "version": "0.1.0",
+  "author": "nixconf",
+  "type": "widget",
+  "capabilities": ["dankbar-widget"],
+  "icon": "lock",
+  "component": "./ToggleLidInhibitWidget.qml",
+  "permissions": ["process"]
+}

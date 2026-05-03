@@ -12,7 +12,30 @@
       dmsProgram = config.programs.dank-material-shell;
       user = config.preferences.user.username;
       homeDirectory = config.preferences.paths.homeDirectory;
+      selfpkgs = self.packages.${pkgs.stdenv.hostPlatform.system};
       inherit (self) colors;
+
+      # DMS Nix installs enabled plugins from source directories under
+      # /etc/xdg/quickshell/dms-plugins; generating this source lets the QML
+      # call store paths instead of depending on the user service PATH. Source:
+      # https://github.com/AvengeMedia/DankMaterialShell/blob/eb5afcdc40ea5446c27e18552ff4a19f9daf9484/distro/nix/common.nix#L17-L19
+      toggleLidInhibitPluginJson = pkgs.writeText "toggle-lid-inhibit-plugin.json" (
+        builtins.readFile ./dank-material-shell/toggle-lid-inhibit/plugin.json
+      );
+      toggleLidInhibitPluginQml = pkgs.writeText "ToggleLidInhibitWidget.qml" (
+        builtins.replaceStrings
+          [ "__LID_STATUS__" "__TOGGLE_LID_INHIBIT__" ]
+          [
+            "${lib.getExe selfpkgs.lid-status}"
+            "${lib.getExe selfpkgs.toggle-lid-inhibit}"
+          ]
+          (builtins.readFile ./dank-material-shell/toggle-lid-inhibit/ToggleLidInhibitWidget.qml)
+      );
+      toggleLidInhibitPluginSrc = pkgs.runCommandLocal "toggle-lid-inhibit-plugin-src" { } ''
+        mkdir -p "$out"
+        cp "${toggleLidInhibitPluginJson}" "$out/plugin.json"
+        cp "${toggleLidInhibitPluginQml}" "$out/ToggleLidInhibitWidget.qml"
+      '';
       dmsConfigPersistence = self.lib.persistence.mkPersistent {
         method = "bind";
         inherit user;
@@ -126,6 +149,10 @@
           systemd = {
             enable = true;
             target = graphicalSessionTarget;
+          };
+          plugins.toggleLidInhibit = {
+            enable = true;
+            src = toggleLidInhibitPluginSrc;
           };
           enableSystemMonitoring = true;
           enableDynamicTheming = true;
