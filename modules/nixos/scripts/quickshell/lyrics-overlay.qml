@@ -7,7 +7,7 @@
  * Features:
  * - Karaoke-style line highlighting
  * - Upcoming lines preview
- * - Mouse interaction (Left: Close, Right: Play/Pause)
+ * - Compact click-through card surface
  * - Configurable positioning (Top/Bottom/Center)
  */
 
@@ -17,7 +17,7 @@ import Quickshell
 import Quickshell.Wayland
 import Quickshell.Io
 import QtQuick
-import QtQuick.Layouts
+import Qt5Compat.GraphicalEffects
 import "./lib"
 
 PanelWindow {
@@ -29,6 +29,7 @@ PanelWindow {
     }
 
     WlrLayershell.layer: WlrLayer.Overlay
+    WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
 
     // --- Configuration ---
     // Read from environment variables with sensible defaults
@@ -41,6 +42,12 @@ PanelWindow {
     property bool showShadow: (Quickshell.env("LYRICS_SHADOW") ?? "true") === "true"
     property int lineSpacing: parseInt(Quickshell.env("LYRICS_SPACING") ?? "8")
     property int maxLineLength: parseInt(Quickshell.env("LYRICS_LENGTH") ?? "0")
+    property int cardMaxWidth: 520 // Keeps the lyrics card compact so it does not dominate the desktop.
+    property int cardInset: 24 // Small gutters prevent edge-to-edge coverage on wide monitors.
+    property int cardRadius: 20
+    property int edgeOffset: 56 // Sits above the dock/shelf without floating too far from the player.
+    property int cardPadding: 14
+    property int availableWidth: Math.max(0, (screen ? screen.width : root.cardMaxWidth) - root.cardInset * 2)
 
     // --- State ---
     property string currentLine: ""
@@ -49,146 +56,154 @@ PanelWindow {
     property bool isPlaying: false
 
     // --- Window Layout ---
-    implicitWidth: screen ? screen.width : 1920
-    implicitHeight: contentColumn.implicitHeight + 60
+    implicitWidth: Math.min(root.availableWidth, root.cardMaxWidth)
+    implicitHeight: contentColumn.implicitHeight + root.cardPadding * 2
     color: "transparent"
-    
-    // Don't reserve space, let windows go under
-    exclusiveZone: 0
+
+    // Keep the overlay decorative only; it should not reserve space or grab focus.
+    exclusiveZone: -1
     exclusionMode: ExclusionMode.Ignore
 
     // Dynamic anchoring based on configuration
     anchors.left: true
-    anchors.right: true
     anchors.bottom: root.positionMode === "bottom"
-    anchors.top: root.positionMode === "top"
+    anchors.top: root.positionMode !== "bottom"
 
     margins {
-        bottom: root.positionMode === "bottom" ? 80 : 0
-        top: root.positionMode === "top" ? 80 : 0
+        left: screen ? Math.max(0, Math.round((screen.width - implicitWidth) / 2)) : 0
+        top: root.positionMode === "bottom"
+            ? 0
+            : root.positionMode === "top"
+                ? root.edgeOffset
+                : screen ? Math.max(0, Math.round((screen.height - implicitHeight) / 2)) : root.edgeOffset
+        bottom: root.positionMode === "bottom" ? root.edgeOffset : 0
     }
 
-    // Allow click-through except on text (uses empty region mask)
-    mask: Region {}
-
-    // Background gradient for readability (subtle)
-    Rectangle {
+    // Compact card keeps the visible surface bounded to the lyric content.
+    Item {
+        id: contentCard
         anchors.fill: parent
-        gradient: Gradient {
-            GradientStop {
-                position: 0.0
-                color: root.positionMode === "top" ? "#40000000" : "transparent"
-            }
-            GradientStop {
-                position: 0.5
-                color: "#20000000"
-            }
-            GradientStop {
-                position: 1.0
-                color: root.positionMode === "bottom" ? "#40000000" : "transparent"
-            }
+        implicitHeight: contentColumn.implicitHeight + root.cardPadding * 2
+
+        Rectangle {
+            id: cardBackground
+            anchors.fill: parent
+            radius: root.cardRadius
+            color: Theme.glass.backgroundColor
+            border.width: 1
+            border.color: Theme.rgba(Theme.glass.accentColor, 0.18)
+            clip: true
         }
-    }
 
-    // Main content
-    ColumnLayout {
-        id: contentColumn
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.bottom: root.positionMode === "bottom" ? parent.bottom : undefined
-        anchors.top: root.positionMode === "top" ? parent.top : undefined
-        anchors.verticalCenter: root.positionMode === "center" ? parent.verticalCenter : undefined
-        anchors.bottomMargin: 20
-        anchors.topMargin: 20
-        spacing: root.lineSpacing
-        width: parent.width * 0.8
+        Rectangle {
+            anchors {
+                left: parent.left
+                right: parent.right
+                top: parent.top
+                margins: 1
+            }
+            height: 1
+            radius: 0
+            color: Theme.rgba(Theme.glass.accentColor, 0.16)
+        }
 
-        // Current lyric line (highlighted)
-        Text {
-            id: currentText
-            Layout.fillWidth: true
-            Layout.alignment: Qt.AlignHCenter
-            horizontalAlignment: Text.AlignHCenter
+        DropShadow {
+            anchors.fill: cardBackground
+            source: cardBackground
+            visible: root.showShadow
+            z: -1
+            horizontalOffset: 0
+            verticalOffset: 8
+            radius: 14
+            samples: 25
+            color: Qt.rgba(0, 0, 0, 0.35)
+        }
 
-            text: root.currentLine || "♪"
-            color: root.textColor
-            opacity: root.currentLine ? root.textOpacity : 0.5
+        Column {
+            id: contentColumn
+            anchors {
+                fill: parent
+                margins: root.cardPadding
+            }
+            spacing: Math.max(4, root.lineSpacing - 2)
 
-            font.family: root.fontFamily
-            font.pixelSize: root.fontSize
-            font.weight: Font.Bold
+            Text {
+                id: currentText
+                width: parent.width
+                horizontalAlignment: Text.AlignHCenter
+                text: root.currentLine || "♪"
+                color: root.textColor
+                opacity: root.currentLine ? root.textOpacity : 0.5
+                font.family: root.fontFamily
+                font.pixelSize: root.fontSize
+                font.weight: Font.Bold
+                style: root.showShadow ? Text.Outline : Text.Normal
+                styleColor: "#80000000"
+                wrapMode: Text.WordWrap
+                maximumLineCount: 2
+                elide: Text.ElideRight
 
-            style: root.showShadow ? Text.Outline : Text.Normal
-            styleColor: "#80000000"
-
-            wrapMode: Text.WordWrap
-
-            Behavior on text {
-                SequentialAnimation {
-                    PropertyAnimation {
-                        target: currentText
-                        property: "opacity"
-                        to: 0
-                        duration: 150
+                Behavior on text {
+                    SequentialAnimation {
+                        PropertyAnimation {
+                            target: currentText
+                            property: "opacity"
+                            to: 0
+                            duration: 150
+                        }
+                        PropertyAction {
+                            target: currentText
+                            property: "text"
+                        }
+                        PropertyAnimation {
+                            target: currentText
+                            property: "opacity"
+                            to: root.currentLine ? root.textOpacity : 0.5
+                            duration: 150
+                        }
                     }
-                    PropertyAction {
-                        target: currentText
-                        property: "text"
-                    }
-                    PropertyAnimation {
-                        target: currentText
-                        property: "opacity"
-                        to: root.textOpacity
-                        duration: 150
-                    }
+                }
+            }
+
+            Repeater {
+                model: root.upcomingLines
+
+                delegate: Text {
+                    required property int index
+                    required property var modelData
+
+                    width: parent.width
+                    horizontalAlignment: Text.AlignHCenter
+                    text: modelData
+                    color: root.textColor
+                    opacity: Math.max(0.2, root.textOpacity * (0.58 - index * 0.12))
+                    font.family: root.fontFamily
+                    font.pixelSize: Math.max(16, Math.round(root.fontSize * 0.72))
+                    font.weight: Font.Medium
+                    style: root.showShadow ? Text.Outline : Text.Normal
+                    styleColor: "#60000000"
+                    wrapMode: Text.WordWrap
+                    maximumLineCount: 2
+                    elide: Text.ElideRight
                 }
             }
         }
 
-        // Upcoming lines (dimmer)
-        Repeater {
-            model: root.upcomingLines
+        MouseArea {
+            anchors.fill: parent
+            acceptedButtons: Qt.LeftButton | Qt.RightButton
 
-            delegate: Text {
-                required property int index
-                required property var modelData
+            onClicked: function (mouse) {
+                if (mouse.button === Qt.RightButton) {
+                    playerctlProcess.running = true
+                    return
+                }
 
-                Layout.fillWidth: true
-                Layout.alignment: Qt.AlignHCenter
-                horizontalAlignment: Text.AlignHCenter
-
-                text: modelData
-                color: root.textColor
-                opacity: root.textOpacity * (0.6 - index * 0.15)
-
-                font.family: root.fontFamily
-                font.pixelSize: root.fontSize * 0.85
-                font.weight: Font.Medium
-
-                style: root.showShadow ? Text.Outline : Text.Normal
-                styleColor: "#60000000"
-
-                wrapMode: Text.WordWrap
+                Qt.quit()
             }
         }
     }
 
-    // Mouse interaction area (invisible overlay)
-    MouseArea {
-        anchors.fill: parent
-        acceptedButtons: Qt.LeftButton | Qt.RightButton
-
-        onClicked: function (mouse) {
-            if (mouse.button === Qt.RightButton) {
-                // Right click: pause/play
-                playerctlProcess.running = true;
-            } else {
-                // Left click: toggle overlay (close it)
-                Qt.quit();
-            }
-        }
-    }
-
-    // Process to run playerctl for pause/play
     Process {
         id: playerctlProcess
         command: ["playerctl", "play-pause"]

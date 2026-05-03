@@ -162,7 +162,7 @@ Key Hyprland bindings call DMS through IPC rather than starting replaced tools:
 | `SUPER+L`       | `dms ipc call lock lock`             |
 | `SUPER+X`       | `dms ipc call powermenu toggle`      |
 | `SUPER+I`       | `dms ipc call inhibit toggle`        |
-| `SUPER+SHIFT+L` | `toggle-lyrics-overlay`              |
+| `SUPER+Y`       | `toggle-lyrics-overlay`              |
 
 The DMS module pins `programs.dank-material-shell.dgop.package` to
 `pkgs.unstable.dgop` because upstream DMS expects the newer `dgop` package
@@ -289,22 +289,22 @@ DankMaterialShell replaced the old `qs-launcher`, `qs-dock`,
 `qs-notifications`, `qs-notify`, and `qs-powermenu` shell surfaces. The
 remaining scripts stay available until they are explicitly migrated.
 
-| Script                  | Purpose                                 | Keybind         |
-| ----------------------- | --------------------------------------- | --------------- |
-| `qs-dmenu`              | Universal fuzzy menu (rofi replacement) | —               |
-| `qs-emoji`              | Emoji picker (emojilib)                 | —               |
-| `qs-nerd`               | Nerd Font glyph picker                  | —               |
-| `qs-vpn`                | VPN selector + proxy link copy          | —               |
-| `qs-keybinds`           | Keybind help overlay                    | —               |
-| `qs-askpass`            | Password prompt (`SUDO_ASKPASS`)        | —               |
-| `qs-wallpaper`          | Wallpaper picker with grid preview      | —               |
-| `qs-tools`              | Utility menu (crosshair, autoclicker)   | —               |
-| `qs-passmenu`           | Password store browser + autotype       | —               |
-| `qs-checklist`          | Daily checklist/todo manager            | —               |
-| `qs-music-search`       | YouTube music search + download         | —               |
-| `qs-music-local`        | Local music library browser             | —               |
-| `toggle-crosshair`      | On-screen crosshair overlay             | —               |
-| `toggle-lyrics-overlay` | Synced lyrics floating overlay          | `SUPER+SHIFT+L` |
+| Script                  | Purpose                                 | Keybind   |
+| ----------------------- | --------------------------------------- | --------- |
+| `qs-dmenu`              | Universal fuzzy menu (rofi replacement) | —         |
+| `qs-emoji`              | Emoji picker (emojilib)                 | —         |
+| `qs-nerd`               | Nerd Font glyph picker                  | —         |
+| `qs-vpn`                | VPN selector + proxy link copy          | —         |
+| `qs-keybinds`           | Keybind help overlay                    | —         |
+| `qs-askpass`            | Password prompt (`SUDO_ASKPASS`)        | —         |
+| `qs-wallpaper`          | Wallpaper picker with grid preview      | —         |
+| `qs-tools`              | Utility menu (crosshair, autoclicker)   | —         |
+| `qs-passmenu`           | Password store browser + autotype       | —         |
+| `qs-checklist`          | Daily checklist/todo manager            | —         |
+| `qs-music-search`       | YouTube music search + download         | —         |
+| `qs-music-local`        | Local music library browser             | —         |
+| `toggle-crosshair`      | On-screen crosshair overlay             | —         |
+| `toggle-lyrics-overlay` | Synced lyrics floating overlay          | `SUPER+Y` |
 
 ### BunJS/TypeScript Scripts
 
