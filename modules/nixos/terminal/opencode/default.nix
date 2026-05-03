@@ -107,7 +107,7 @@
                   ) // empty
                 ' "$MODELS_FILE")"
               else
-                IMAGE_MODEL="$(${pkgs.jq}/bin/jq -r '
+                export IMAGE_MODEL="$(${pkgs.jq}/bin/jq -r '
                   first(
                     (.providers.cliproxyapi.models // {})
                     | to_entries[]
@@ -117,7 +117,7 @@
                 ' "$MODELS_FILE")"
               fi
 
-              exec ${pkgs.bun}/bin/bun ${../../../nixos/scripts/bunjs/mcp/image-gen.ts}
+              exec ${inputs.self.packages.${pkgs.stdenv.hostPlatform.system}.image-gen-mcp}/bin/image-gen-mcp
             '')
           ];
           enabled = true;

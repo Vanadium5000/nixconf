@@ -20,6 +20,7 @@ bun run --cwd modules/nixos/scripts/bunjs build:web-ui
 bunx tsc -p modules/nixos/scripts/bunjs/tsconfig.json --noEmit
 ```
 
-This workspace packages the Bun/TypeScript utilities consumed by the flake and
-keeps `node_modules` discoverable for LSPs on machines that only have a fresh
-checkout plus a root-level package install.
+The packaged Nix outputs do not read `node_modules` from your checkout.
+Dependency-bearing scripts are bundled or built from the committed lockfiles in
+the sandbox, while a local `bun install` remains useful for editor tooling and
+interactive development on fresh clones.

@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-import { chromium, type Page } from "playwright";
+import { chromium, type Page } from "playwright-core";
 
 const DEFAULT_URL = "https://duckduckgo.com";
 
@@ -67,9 +67,10 @@ async function gotoWithRetry(
       // Use domcontentloaded to handle slow proxies that might take a while to finish loading all assets
       await page.goto(url, { timeout, waitUntil: "domcontentloaded" });
       return;
-    } catch (error: any) {
+    } catch (error) {
       attempt++;
-      const errorMessage = error.message || "";
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       const isNetworkChanged = errorMessage.includes(
         "net::ERR_NETWORK_CHANGED",
       );
