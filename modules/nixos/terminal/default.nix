@@ -78,6 +78,7 @@
 
         # Server services (disabled by default, enable per-host)
         self.nixosModules.cliproxyapi
+        self.nixosModules.cpa-usage-keeper
         self.nixosModules.services-auth-gateway
       ];
 

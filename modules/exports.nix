@@ -72,6 +72,11 @@ let
         "cliproxyapi"
         "enable"
       ];
+      cpa-usage-keeper = [
+        "services"
+        "cpa-usage-keeper"
+        "enable"
+      ];
       dokploy = [
         "services"
         "dokploy"
@@ -153,6 +158,7 @@ in
 
       services = {
         cliproxyapi = self.nixosModules.cliproxyapi;
+        cpa-usage-keeper = self.nixosModules.cpa-usage-keeper;
         services-auth-gateway = self.nixosModules.services-auth-gateway;
         dev = self.nixosModules.dev;
         homepage-monitor = self.nixosModules.homepage-monitor;
