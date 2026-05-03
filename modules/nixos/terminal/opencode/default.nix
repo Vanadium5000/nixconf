@@ -1333,7 +1333,17 @@
           permissions = "0600";
         };
 
+        # OpenCode documents plural `skills/`, but current config docs also
+        # support singular names for compatibility; install both from one repo
+        # source so mixed client versions can discover these global skills.
+        # Sources: https://opencode.ai/docs/skills/ and https://opencode.ai/docs/config/
         ".config/opencode/skills" = {
+          source = ./skill;
+          type = "copy";
+          permissions = "0755";
+        };
+
+        ".config/opencode/skill" = {
           source = ./skill;
           type = "copy";
           permissions = "0755";

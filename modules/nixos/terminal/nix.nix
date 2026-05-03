@@ -20,6 +20,21 @@
         ];
         package = pkgs.lix;
 
+        # Weekly cleanup keeps store growth bounded; 14d preserves a small rollback buffer.
+        # See https://search.nixos.org/options?query=nix.gc.options
+        gc = {
+          automatic = true;
+          dates = "weekly";
+          options = "--delete-older-than 14d";
+        };
+
+        # Weekly optimisation re-links duplicate store paths after cleanup.
+        # See https://search.nixos.org/options?query=nix.optimise.dates
+        optimise = {
+          automatic = true;
+          dates = [ "weekly" ];
+        };
+
         # Opinionated: disable channels
         channel.enable = false;
 
