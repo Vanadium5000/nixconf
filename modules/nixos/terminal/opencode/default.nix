@@ -86,8 +86,21 @@
               if [ -f "$OVERRIDES_FILE" ] && [ -s "$OVERRIDES_FILE" ]; then
                 IMAGE_MODEL="$(${pkgs.jq}/bin/jq -r --slurpfile overrides "$OVERRIDES_FILE" '
                   first(
+                    def normalize_model:
+                      . as $model
+                      | ($model | del(.context, .output))
+                        + (if (($model.context // null) != null) or (($model.output // null) != null) then
+                            {
+                              limit: (($model.limit // {})
+                                + (if (($model.context // null) != null) then { context: $model.context } else {} end)
+                                + (if (($model.output // null) != null) then { output: $model.output } else {} end))
+                            }
+                          else
+                            {}
+                          end);
                     (.providers.cliproxyapi.models // {}) as $models
                     | $models * (($overrides[0] // {}) | with_entries(select($models[.key] != null)))
+                    | map_values(normalize_model)
                     | to_entries[]
                     | select(((.value.modalities.output // []) | index("image")) != null)
                     | "cliproxyapi/\(.key)"
@@ -335,11 +348,38 @@
 
           if [ -f "$OVERRIDES_FILE" ] && [ -s "$OVERRIDES_FILE" ]; then
             $JQ -cS --slurpfile overrides "$OVERRIDES_FILE" '
+              def normalize_model:
+                . as $model
+                | ($model | del(.context, .output))
+                  + (if (($model.context // null) != null) or (($model.output // null) != null) then
+                      {
+                        limit: (($model.limit // {})
+                          + (if (($model.context // null) != null) then { context: $model.context } else {} end)
+                          + (if (($model.output // null) != null) then { output: $model.output } else {} end))
+                      }
+                    else
+                      {}
+                    end);
               (.providers.cliproxyapi.models // {}) as $models
               | $models * (($overrides[0] // {}) | with_entries(select($models[.key] != null)))
+              | map_values(normalize_model)
             ' "$MODELS_FILE"
           else
-            $JQ -cS '(.providers.cliproxyapi.models // {})' "$MODELS_FILE"
+            $JQ -cS '
+              def normalize_model:
+                . as $model
+                | ($model | del(.context, .output))
+                  + (if (($model.context // null) != null) or (($model.output // null) != null) then
+                      {
+                        limit: (($model.limit // {})
+                          + (if (($model.context // null) != null) then { context: $model.context } else {} end)
+                          + (if (($model.output // null) != null) then { output: $model.output } else {} end))
+                      }
+                    else
+                      {}
+                    end);
+              (.providers.cliproxyapi.models // {}) | map_values(normalize_model)
+            ' "$MODELS_FILE"
           fi
         }
 
@@ -352,13 +392,39 @@
 
           if [ -f "$OVERRIDES_FILE" ] && [ -s "$OVERRIDES_FILE" ]; then
             $JQ -r --arg provider "$provider" --arg model_id "$model_id" --slurpfile overrides "$OVERRIDES_FILE" "
+              def normalize_model:
+                . as \$model
+                | (\$model | del(.context, .output))
+                  + (if ((\$model.context // null) != null) or ((\$model.output // null) != null) then
+                      {
+                        limit: ((\$model.limit // {})
+                          + (if ((\$model.context // null) != null) then { context: \$model.context } else {} end)
+                          + (if ((\$model.output // null) != null) then { output: \$model.output } else {} end))
+                      }
+                    else
+                      {}
+                    end);
               (.providers[\$provider].models // {}) as \$models
               | ((\$models * ((\$overrides[0] // {}) | with_entries(select(\$models[.key] != null))))[\$model_id] // {})
+              | normalize_model
               | ''${jq_expr}
             " "$MODELS_FILE"
           else
             $JQ -r --arg provider "$provider" --arg model_id "$model_id" "
+              def normalize_model:
+                . as \$model
+                | (\$model | del(.context, .output))
+                  + (if ((\$model.context // null) != null) or ((\$model.output // null) != null) then
+                      {
+                        limit: ((\$model.limit // {})
+                          + (if ((\$model.context // null) != null) then { context: \$model.context } else {} end)
+                          + (if ((\$model.output // null) != null) then { output: \$model.output } else {} end))
+                      }
+                    else
+                      {}
+                    end);
               (.providers[\$provider].models[\$model_id] // {})
+              | normalize_model
               | ''${jq_expr}
             " "$MODELS_FILE"
           fi
@@ -728,8 +794,21 @@
         model_picker_lines() {
           if [ -f "$OVERRIDES_FILE" ] && [ -s "$OVERRIDES_FILE" ]; then
             $JQ -r --slurpfile overrides "$OVERRIDES_FILE" '
+              def normalize_model:
+                . as $model
+                | ($model | del(.context, .output))
+                  + (if (($model.context // null) != null) or (($model.output // null) != null) then
+                      {
+                        limit: (($model.limit // {})
+                          + (if (($model.context // null) != null) then { context: $model.context } else {} end)
+                          + (if (($model.output // null) != null) then { output: $model.output } else {} end))
+                      }
+                    else
+                      {}
+                    end);
               (.providers.cliproxyapi.models // {}) as $models
               | $models * (($overrides[0] // {}) | with_entries(select($models[.key] != null)))
+              | map_values(normalize_model)
               | to_entries
               | .[]
               | "cliproxyapi/\(.key)\tcliproxyapi: \(.value.name) (\(.key))"

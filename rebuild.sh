@@ -120,7 +120,6 @@ declare -A SECRETS_MAP=(
     ["MONGODB_PASSWORD"]="system/mongodb_password"
     ["MONGO_EXPRESS_PASSWORD"]="system/mongo_express_password"
     ["CLIPROXYAPI_KEY"]="system/cliproxyapi-key"
-    ["CPA_MANAGEMENT_KEY"]="system/cpa-management-key"
     ["EXA_API_KEY"]="system/exa-api-key"
     ["MITMPROXY_CA_KEY"]="system/mitmproxy-ca-key"
     ["MITMPROXY_CA_CERT"]="system/mitmproxy-ca-cert"

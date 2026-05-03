@@ -142,7 +142,9 @@
         # Source: https://github.com/Willxup/cpa-usage-keeper/releases/tag/v1.3.2
         workDir = "/var/lib/cpa-usage-keeper";
         cpaBaseUrl = "http://127.0.0.1:8317";
-        cpaManagementKey = self.secrets.CPA_MANAGEMENT_KEY;
+        # cpa-usage-keeper calls CLIProxyAPI management endpoints, so reuse the
+        # same management secret instead of maintaining a second equivalent key.
+        cpaManagementKey = self.secrets.CLIPROXYAPI_KEY;
         # Existing shared Traefik auth protects the public subdomain, avoiding a
         # second in-app login whose sessions are lost on service restart.
         # Source: https://github.com/Willxup/cpa-usage-keeper/blob/v1.3.2/README.md

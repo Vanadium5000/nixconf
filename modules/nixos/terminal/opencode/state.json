@@ -1,12 +1,36 @@
 {
   "categories": {
-    "artistry": "cliproxyapi/gpt-5.4-mini",
-    "deep": "cliproxyapi/gpt-5.5",
-    "quick": "cliproxyapi/gpt-5.4-mini",
-    "ultrabrain": "cliproxyapi/gpt-5.5",
-    "unspecified-high": "cliproxyapi/gpt-5.5",
-    "unspecified-low": "cliproxyapi/gpt-5.4-mini",
-    "visual-engineering": "cliproxyapi/gpt-5.4-mini",
-    "writing": "cliproxyapi/gpt-5.4-mini"
+    "artistry": {
+      "model": "cliproxyapi/gpt-5.4-mini",
+      "reasoningEffort": "medium"
+    },
+    "deep": {
+      "model": "cliproxyapi/gpt-5.5",
+      "reasoningEffort": "high"
+    },
+    "quick": {
+      "model": "cliproxyapi/gpt-5.4-mini",
+      "reasoningEffort": "medium"
+    },
+    "ultrabrain": {
+      "model": "cliproxyapi/gpt-5.5",
+      "reasoningEffort": "high"
+    },
+    "unspecified-high": {
+      "model": "cliproxyapi/gpt-5.5",
+      "reasoningEffort": "high"
+    },
+    "unspecified-low": {
+      "model": "cliproxyapi/gpt-5.4-mini",
+      "reasoningEffort": "medium"
+    },
+    "visual-engineering": {
+      "model": "cliproxyapi/gpt-5.4-mini",
+      "reasoningEffort": "medium"
+    },
+    "writing": {
+      "model": "cliproxyapi/gpt-5.4-mini",
+      "reasoningEffort": "medium"
+    }
   }
 }
