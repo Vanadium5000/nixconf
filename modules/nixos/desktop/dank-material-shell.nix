@@ -12,6 +12,7 @@
       dmsProgram = config.programs.dank-material-shell;
       user = config.preferences.user.username;
       homeDirectory = config.preferences.paths.homeDirectory;
+      inherit (self) colors;
       dmsConfigPersistence = self.lib.persistence.mkPersistent {
         method = "bind";
         inherit user;
@@ -34,6 +35,60 @@
         "binds.conf"
         "windowrules.conf"
       ];
+      dmsThemeId = "nixCyberpunkElectricDark";
+      dmsThemeFile = ".config/DankMaterialShell/themes/${dmsThemeId}/theme.json";
+      dmsTheme = {
+        id = dmsThemeId;
+        name = "Nix Cyberpunk Electric Dark";
+        version = "1.0.0";
+        author = "nixconf";
+        description = "Declarative DMS theme generated from modules/theme.nix.";
+        sourceDir = dmsThemeId;
+        dark = {
+          name = "Nix Cyberpunk Electric Dark";
+          primary = colors.accent;
+          primaryText = colors.background;
+          primaryContainer = colors.base02;
+          secondary = colors.accent-alt;
+          surface = colors.background-alt;
+          surfaceText = colors.foreground;
+          surfaceVariant = colors.base02;
+          surfaceVariantText = colors.foreground-alt;
+          surfaceTint = colors.accent;
+          background = colors.background;
+          backgroundText = colors.foreground-alt;
+          outline = colors.border-color;
+          surfaceContainer = colors.base01;
+          surfaceContainerHigh = colors.base02;
+          surfaceContainerHighest = colors.base03;
+          error = colors.base08;
+          warning = colors.base0A;
+          info = colors.base0C;
+          matugen_type = "scheme-monochrome";
+        };
+        light = {
+          name = "Nix Cyberpunk Electric Light";
+          primary = colors.accent;
+          primaryText = colors.base07;
+          primaryContainer = colors.base06;
+          secondary = colors.accent-alt;
+          surface = colors.base07;
+          surfaceText = colors.base00;
+          surfaceVariant = colors.base06;
+          surfaceVariantText = colors.base01;
+          surfaceTint = colors.accent;
+          background = colors.base07;
+          backgroundText = colors.base00;
+          outline = colors.border-color-inactive;
+          surfaceContainer = colors.base06;
+          surfaceContainerHigh = colors.base05;
+          surfaceContainerHighest = colors.base04;
+          error = colors.base08;
+          warning = colors.base09;
+          info = colors.base0D;
+          matugen_type = "scheme-monochrome";
+        };
+      };
 
       # DMS is a graphical user-session shell, not a system daemon; upstream
       # wires it to this target from its NixOS module. Source:
@@ -96,6 +151,12 @@
         };
 
         fileSystems = dmsConfigPersistence.fileSystems // hyprDmsPersistence.fileSystems;
+
+        # DMS registry themes are loaded from <theme>/theme.json; generating only
+        # that required file keeps previews optional while making the palette
+        # reproducible from modules/theme.nix. Source:
+        # https://github.com/AvengeMedia/DankMaterialShell/blob/eb5afcdc40ea5446c27e18552ff4a19f9daf9484/docs/CUSTOM_THEMES.md#theme-structure
+        hjem.users.${user}.files.${dmsThemeFile}.text = builtins.toJSON dmsTheme;
 
         # Mirror the upstream user unit locally so installing `dms-shell` cannot
         # be mistaken for a runnable shell service if upstream wiring changes.

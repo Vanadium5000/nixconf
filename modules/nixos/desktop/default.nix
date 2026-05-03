@@ -48,6 +48,11 @@
         # Enable Localsend, a utility to share data with local devices
         programs.localsend.enable = true;
 
+        # KDE Connect handles phone/laptop pairing on graphical hosts; the NixOS
+        # module also opens the documented TCP/UDP 1714-1764 LAN range.
+        # Ref: https://github.com/NixOS/nixpkgs/blob/d6ef71b2868bd85bbf92e733b03286a9f097dc7a/nixos/modules/programs/kdeconnect.nix#L29-L38
+        programs.kdeconnect.enable = true;
+
         environment.systemPackages = [
           selfpkgs.terminal
         ]
