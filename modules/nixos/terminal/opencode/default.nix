@@ -26,6 +26,22 @@
       categoriesConfig = import ./_categories.nix { inherit lib; };
       opencode = pkgs.unstable.opencode;
 
+      # OpenCode scans `~/.config/opencode/skills/<name>/SKILL.md`, and Hjem's
+      # `copy` mode is file-only, so install each skill file explicitly rather
+      # than handing it a directory source.
+      # Sources: https://opencode.ai/docs/skills/ and
+      # https://github.com/feel-co/hjem/blob/ab977051adce0bf9f7c1032327e72f0febda6f7b/manifest/v3.cue#L16-L19
+      opencodeSkillFiles = builtins.listToAttrs (
+        map (skillName: {
+          name = ".config/opencode/skills/${skillName}/SKILL.md";
+          value = {
+            source = ./skill + "/${skillName}/SKILL.md";
+            type = "copy";
+            permissions = "0644";
+          };
+        }) (lib.attrNames (lib.filterAttrs (_: type: type == "directory") (builtins.readDir ./skill)))
+      );
+
       # state.json is repo-owned so model/category choices survive wrapper runs
       # and can be reviewed/committed like any other configuration change.
       stateFile = ./state.json;
@@ -1333,22 +1349,6 @@
           permissions = "0600";
         };
 
-        # OpenCode documents plural `skills/`, but current config docs also
-        # support singular names for compatibility; install both from one repo
-        # source so mixed client versions can discover these global skills.
-        # Sources: https://opencode.ai/docs/skills/ and https://opencode.ai/docs/config/
-        ".config/opencode/skills" = {
-          source = ./skill;
-          type = "copy";
-          permissions = "0755";
-        };
-
-        ".config/opencode/skill" = {
-          source = ./skill;
-          type = "copy";
-          permissions = "0755";
-        };
-
         ".config/opencode/command" = {
           source = ./command;
           type = "copy";
@@ -1378,6 +1378,7 @@
           type = "copy";
           permissions = "0644";
         };
-      };
+      }
+      // opencodeSkillFiles;
     };
 }

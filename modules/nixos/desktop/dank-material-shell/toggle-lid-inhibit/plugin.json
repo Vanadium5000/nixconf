@@ -6,7 +6,6 @@
   "author": "nixconf",
   "type": "widget",
   "capabilities": ["dankbar-widget"],
-  "icon": "lock",
   "component": "./ToggleLidInhibitWidget.qml",
   "permissions": ["process"]
 }
