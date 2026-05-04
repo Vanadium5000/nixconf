@@ -58,6 +58,7 @@
           backlightDevice = "acpi_video0";
           keyboardBacklightDevice = "apple::kbd_backlight";
         };
+        obsidian.enable = true;
       };
 
       # Plymouth

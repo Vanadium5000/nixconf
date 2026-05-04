@@ -56,6 +56,7 @@
           keyboardBacklightDevice = "platform::kbd_backlight";
         };
         obs.enable = true;
+        obsidian.enable = true;
       };
 
       # Plymouth

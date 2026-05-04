@@ -58,6 +58,11 @@ let
         "obs"
         "enable"
       ];
+      obsidian = [
+        "preferences"
+        "obsidian"
+        "enable"
+      ];
       tlp = [
         "preferences"
         "hardware"
@@ -149,6 +154,7 @@ in
         hyprland = self.nixosModules.hyprland;
         hyprland-support = self.nixosModules.hyprland-support;
         obs = self.nixosModules.obs;
+        obsidian = self.nixosModules.obsidian;
         qt = self.nixosModules.qt;
         syncthing = self.nixosModules.syncthing;
         tlp = self.nixosModules.tlp;

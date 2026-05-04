@@ -29,6 +29,7 @@
         self.nixosModules.tuigreet
 
         self.nixosModules.obs
+        self.nixosModules.obsidian
 
         self.nixosModules.qt
       ];
