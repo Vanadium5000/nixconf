@@ -4,6 +4,7 @@
     {
       config,
       lib,
+      pkgs,
       ...
     }:
     let
@@ -18,7 +19,8 @@
       cfg = config.preferences.obsidian;
       user = config.preferences.user.username;
       flatpakAppId = "md.obsidian.Obsidian";
-      snippetName = cfg.theme.snippetName;
+      themeName = cfg.theme.name;
+      themeDirectory = cfg.theme.directory;
       vaultPath = "${config.preferences.paths.homeDirectory}/${cfg.vaultDirectory}";
 
       inherit (self) colors colorsNoHash theme;
@@ -26,18 +28,26 @@
       appearanceConfig = {
         accentColor = colors.accent;
         baseFontSize = theme.font-size;
-        enabledCssSnippets = [ snippetName ];
+        cssTheme = themeName;
+        enabledCssSnippets = [ ];
         theme = "system";
+      };
+
+      themeManifest = {
+        name = themeName;
+        version = "1.0.0";
+        minAppVersion = "1.1.0";
+        author = "nixconf";
       };
 
       themeCss = ''
         /**
-         * @name nixconf base16
+         * @name ${themeName}
          * @description Generated from modules/theme.nix so Obsidian follows the same palette as the desktop.
          * @source https://github.com/Vanadium5000/nixos-config/blob/cabf2c1c6a36beea003eee1e93f0472f4d98c023/home-manager/desktop/obsidian/templates/obsidian.mustache
          */
 
-        :root {
+        body {
           --base00: #${colorsNoHash.base00};
           --base01: #${colorsNoHash.base01};
           --base02: #${colorsNoHash.base02};
@@ -147,14 +157,20 @@
         };
 
         theme = {
-          enable = mkEnableOption "the generated nixconf Obsidian CSS snippet" // {
+          enable = mkEnableOption "the generated nixconf Obsidian theme" // {
             default = true;
           };
 
-          snippetName = mkOption {
+          name = mkOption {
             type = types.str;
-            default = "nixconf-base16";
-            description = "Name of the generated CSS snippet enabled in the primary vault.";
+            default = "Nixconf Base16";
+            description = "Name of the generated theme installed and selected in the primary vault.";
+          };
+
+          directory = mkOption {
+            type = types.str;
+            default = "Nixconf Base16";
+            description = "Directory name for the generated theme under .obsidian/themes.";
           };
         };
       };
@@ -166,7 +182,28 @@
           # Flathub app ID instead of relying on the unfree nixpkgs Electron app.
           # Source: https://github.com/Vanadium5000/nixos-config/blob/cabf2c1c6a36beea003eee1e93f0472f4d98c023/home-manager/desktop/obsidian/default.nix#L13-L15
           packages = [ flatpakAppId ];
+
+          # Electron's safeStorage talks to the Freedesktop Secret Service when
+          # launched with gnome-libsecret below; granting only that bus name keeps
+          # the sandbox narrower than exposing the whole session bus.
+          # Source: https://github.com/flatpak/flatpak/blob/17cb1135cb854f41ff8cac3757fc62daf410c44c/doc/flatpak-override.xml#L428-L435
+          overrides.${flatpakAppId}."Session Bus Policy"."org.freedesktop.secrets" = "talk";
         };
+
+        environment.systemPackages = with pkgs; [
+          # Obsidian 1.11+ requires a Linux secret backend for encrypted sync
+          # credentials; installing the service and libsecret keeps this feature
+          # self-contained instead of relying on VSCodium/Hyprland side effects.
+          # Source: https://obsidian.md/changelog/2026-01-20-desktop-v1.11.5/
+          gnome-keyring
+          libsecret
+          seahorse
+        ];
+
+        # GNOME Keyring provides the org.freedesktop.secrets service that Electron
+        # can use through libsecret for Obsidian's encrypted credential storage.
+        # Source: https://github.com/GNOME/gnome-keyring/blob/947a85a29db0684546ceca95e7d539d5a9e15616/README#L1-L10
+        services.gnome.gnome-keyring.enable = true;
 
         xdg.mime = {
           enable = true;
@@ -190,14 +227,34 @@
               ts = 0;
             };
           };
+
+          # Flathub documents this Electron flag for Obsidian's Linux encrypted
+          # storage path; without it Obsidian can ignore the available libsecret
+          # backend and show "Encryption not available".
+          # Source: https://github.com/flathub/md.obsidian.Obsidian/blob/2584d163bdd95ab0e094006c8837a7aa5087569d/README.md#L18-L30
+          ".var/app/${flatpakAppId}/config/obsidian/user-flags.conf".text = ''
+            --password-store=gnome-libsecret
+          '';
         }
         // optionalAttrs cfg.theme.enable {
-          # The upstream reference enables a generated Base16 CSS snippet via
-          # .obsidian/appearance.json; doing the same here ties notes to
-          # modules/theme.nix rather than mutable in-app theme choices.
-          # Source: https://github.com/Vanadium5000/nixos-config/blob/cabf2c1c6a36beea003eee1e93f0472f4d98c023/home-manager/desktop/obsidian/theme.nix#L20-L33
-          "${cfg.vaultDirectory}/.obsidian/appearance.json".text = builtins.toJSON appearanceConfig;
-          "${cfg.vaultDirectory}/.obsidian/snippets/${snippetName}.css".text = themeCss;
+          # Obsidian discovers full app themes from .obsidian/themes/<name> with
+          # manifest.json and theme.css. Hjem's default symlinks can be hidden by
+          # Electron file watchers, so copy the files like a manually installed
+          # Obsidianite theme instead of linking them from the Nix store.
+          # Source: https://github.com/obsidianmd/obsidian-developer-docs/blob/2ed97bd04e82773d81eac967382819431da3b098/en/Themes/App%20themes/Build%20a%20theme.md#L20-L25
+          "${cfg.vaultDirectory}/.obsidian/appearance.json" = {
+            type = "copy";
+            clobber = false;
+            text = builtins.toJSON appearanceConfig;
+          };
+          "${cfg.vaultDirectory}/.obsidian/themes/${themeDirectory}/manifest.json" = {
+            type = "copy";
+            text = builtins.toJSON themeManifest;
+          };
+          "${cfg.vaultDirectory}/.obsidian/themes/${themeDirectory}/theme.css" = {
+            type = "copy";
+            text = themeCss;
+          };
         };
 
         # Shared is already persisted by modules/common/impermanence.nix, so the
