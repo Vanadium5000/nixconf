@@ -77,7 +77,10 @@
           }
         ];
       };
-      wildcardUnauthenticatedHosts = [ ];
+      wildcardUnauthenticatedHosts = [
+        # Baikal already has application auth; shared browser auth breaks DAV clients.
+        "baikal.${publicBaseDomain}"
+      ];
       wildcardUnauthenticatedRouters = builtins.listToAttrs (
         map (hostname: {
           name = "wildcard-${lib.replaceStrings [ "." "*" ] [ "-" "wildcard" ] hostname}";
