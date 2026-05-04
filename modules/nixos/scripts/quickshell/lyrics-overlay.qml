@@ -59,6 +59,14 @@ PanelWindow {
     property int cardX: 0
     property int cardY: 0
     property bool geometryInitialized: false
+    property bool moveDragActive: false
+    property bool resizeDragActive: false
+    property real dragPressX: 0
+    property real dragPressY: 0
+    property int dragStartX: 0
+    property int dragStartY: 0
+    property int dragStartWidth: 0
+    property int dragStartHeight: 0
     readonly property int maxCardWidth: Math.max(root.minCardWidth, root.screenWidth() - root.cardInset * 2)
     readonly property int maxCardHeight: Math.max(root.minCardHeight, root.screenHeight() - root.cardInset * 2)
 
@@ -72,14 +80,50 @@ PanelWindow {
         return Math.max(minValue, Math.min(maxValue, value))
     }
 
-    function syncMoveDrag() {
-        root.cardX = root.clamp(Math.round(moveDragProxy.x), 0, Math.max(0, stage.width - root.cardWidth))
-        root.cardY = root.clamp(Math.round(moveDragProxy.y), 0, Math.max(0, stage.height - root.cardHeight))
+    function beginMoveDrag(source, mouse) {
+        var point = source.mapToItem(stage, mouse.x, mouse.y)
+        root.moveDragActive = true
+        root.dragPressX = point.x
+        root.dragPressY = point.y
+        root.dragStartX = root.cardX
+        root.dragStartY = root.cardY
     }
 
-    function syncResizeDrag() {
-        root.cardWidth = root.clamp(Math.round(resizeDragProxy.x - root.cardX), root.effectiveMinCardWidth(), Math.max(root.effectiveMinCardWidth(), stage.width - root.cardX))
-        root.cardHeight = root.clamp(Math.round(resizeDragProxy.y - root.cardY), root.effectiveMinCardHeight(), Math.max(root.effectiveMinCardHeight(), stage.height - root.cardY))
+    function updateMoveDrag(source, mouse) {
+        if (!root.moveDragActive) {
+            return
+        }
+
+        var point = source.mapToItem(stage, mouse.x, mouse.y)
+        root.cardX = root.clamp(root.dragStartX + Math.round(point.x - root.dragPressX), 0, Math.max(0, stage.width - root.cardWidth))
+        root.cardY = root.clamp(root.dragStartY + Math.round(point.y - root.dragPressY), 0, Math.max(0, stage.height - root.cardHeight))
+    }
+
+    function endMoveDrag() {
+        root.moveDragActive = false
+    }
+
+    function beginResizeDrag(source, mouse) {
+        var point = source.mapToItem(stage, mouse.x, mouse.y)
+        root.resizeDragActive = true
+        root.dragPressX = point.x
+        root.dragPressY = point.y
+        root.dragStartWidth = root.cardWidth
+        root.dragStartHeight = root.cardHeight
+    }
+
+    function updateResizeDrag(source, mouse) {
+        if (!root.resizeDragActive) {
+            return
+        }
+
+        var point = source.mapToItem(stage, mouse.x, mouse.y)
+        root.cardWidth = root.clamp(root.dragStartWidth + Math.round(point.x - root.dragPressX), root.effectiveMinCardWidth(), Math.max(root.effectiveMinCardWidth(), stage.width - root.cardX))
+        root.cardHeight = root.clamp(root.dragStartHeight + Math.round(point.y - root.dragPressY), root.effectiveMinCardHeight(), Math.max(root.effectiveMinCardHeight(), stage.height - root.cardY))
+    }
+
+    function endResizeDrag() {
+        root.resizeDragActive = false
     }
 
     function screenWidth() {
@@ -154,15 +198,16 @@ PanelWindow {
     exclusionMode: ExclusionMode.Ignore
 
     // Compose the mask from explicit controls so normal mode only intercepts the
-    // drag handle and edit pill; edit mode expands to the full card per the
+    // drag handle and edit pill. Active drags temporarily widen the mask so fast
+    // pointer motion keeps delivering events per the
     // Quickshell QsWindow.mask docs: https://quickshell.org/docs/master/types/Quickshell/QsWindow#mask
     mask: Region {
         Region {
-            item: root.editMode ? surface : normalDragHandle
+            item: (root.moveDragActive || root.resizeDragActive) ? stage : (root.editMode ? surface : normalDragHandle)
         }
 
         Region {
-            item: root.editMode ? null : editButton
+            item: (root.editMode || root.moveDragActive || root.resizeDragActive) ? null : editButton
         }
     }
 
@@ -174,20 +219,6 @@ PanelWindow {
     Item {
         id: stage
         anchors.fill: parent
-
-        Item {
-            id: moveDragProxy
-            visible: false
-            onXChanged: root.syncMoveDrag()
-            onYChanged: root.syncMoveDrag()
-        }
-
-        Item {
-            id: resizeDragProxy
-            visible: false
-            onXChanged: root.syncResizeDrag()
-            onYChanged: root.syncResizeDrag()
-        }
 
         Item {
             id: surface
@@ -254,23 +285,18 @@ PanelWindow {
                 }
 
                 MouseArea {
+                    id: normalDragArea
                     anchors.fill: parent
                     acceptedButtons: Qt.LeftButton
                     cursorShape: Qt.SizeAllCursor
                     preventStealing: true
                     visible: !root.editMode
                     enabled: !root.editMode
-                    drag.target: moveDragProxy
-                    drag.axis: Drag.XAndYAxis
 
-                    onPressed: function () {
-                        moveDragProxy.x = root.cardX
-                        moveDragProxy.y = root.cardY
-                        drag.minimumX = 0
-                        drag.maximumX = Math.max(0, stage.width - root.cardWidth)
-                        drag.minimumY = 0
-                        drag.maximumY = Math.max(0, stage.height - root.cardHeight)
-                    }
+                    onPressed: function (mouse) { root.beginMoveDrag(normalDragArea, mouse) }
+                    onPositionChanged: function (mouse) { root.updateMoveDrag(normalDragArea, mouse) }
+                    onReleased: root.endMoveDrag()
+                    onCanceled: root.endMoveDrag()
                 }
             }
 
@@ -397,6 +423,7 @@ PanelWindow {
                 }
 
                         MouseArea {
+                            id: editHeaderDragArea
                             anchors.fill: parent
                             acceptedButtons: Qt.LeftButton
                             cursorShape: Qt.SizeAllCursor
@@ -404,17 +431,11 @@ PanelWindow {
                             visible: root.editMode
                             enabled: root.editMode
                             z: 0
-                            drag.target: moveDragProxy
-                            drag.axis: Drag.XAndYAxis
 
-                            onPressed: function () {
-                                moveDragProxy.x = root.cardX
-                                moveDragProxy.y = root.cardY
-                                drag.minimumX = 0
-                                drag.maximumX = Math.max(0, stage.width - root.cardWidth)
-                                drag.minimumY = 0
-                                drag.maximumY = Math.max(0, stage.height - root.cardHeight)
-                            }
+                            onPressed: function (mouse) { root.beginMoveDrag(editHeaderDragArea, mouse) }
+                            onPositionChanged: function (mouse) { root.updateMoveDrag(editHeaderDragArea, mouse) }
+                            onReleased: root.endMoveDrag()
+                            onCanceled: root.endMoveDrag()
                         }
                 }
 
@@ -513,23 +534,18 @@ PanelWindow {
                     }
 
                     MouseArea {
+                        id: resizeDragArea
                         anchors.fill: parent
                         acceptedButtons: Qt.LeftButton
                         cursorShape: Qt.SizeFDiagCursor
                         preventStealing: true
                         visible: root.editMode
                         enabled: root.editMode
-                        drag.target: resizeDragProxy
-                        drag.axis: Drag.XAndYAxis
 
-                        onPressed: function () {
-                            resizeDragProxy.x = root.cardX + root.cardWidth
-                            resizeDragProxy.y = root.cardY + root.cardHeight
-                            drag.minimumX = root.cardX + root.effectiveMinCardWidth()
-                            drag.maximumX = stage.width
-                            drag.minimumY = root.cardY + root.effectiveMinCardHeight()
-                            drag.maximumY = stage.height
-                        }
+                        onPressed: function (mouse) { root.beginResizeDrag(resizeDragArea, mouse) }
+                        onPositionChanged: function (mouse) { root.updateResizeDrag(resizeDragArea, mouse) }
+                        onReleased: root.endResizeDrag()
+                        onCanceled: root.endResizeDrag()
                     }
                 }
             }

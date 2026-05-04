@@ -122,7 +122,7 @@
         inherit pkgs;
         package =
           let
-            wallpapers = inputs.self.packages.${pkgs.stdenv.hostPlatform.system}.wallpapers;
+            wallpapers = self'.packages.wallpapers;
             wallpaperSources = {
               "Nixy Wallpapers" = "${wallpapers}/wallpapers/nixy/";
               "Nixos Artwork" = "${wallpapers}/wallpapers/nixos/";

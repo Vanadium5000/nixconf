@@ -171,6 +171,7 @@ stdenvNoCC.mkDerivation {
   meta = {
     description = "Curated wallpaper collection assembled from pinned raw upstream images";
     homepage = "https://github.com/Vanadium5000/nixconf";
+    license = lib.licenses.unfreeRedistributable;
     platforms = lib.platforms.all;
   };
 }
