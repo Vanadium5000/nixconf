@@ -32,11 +32,28 @@
       environment.variables = {
         QT_QPA_PLATFORM = "wayland";
         QT_QPA_PLATFORMTHEME = "hyprqt6engine";
+
         # Help Oxygen style detect proper environment
         KDE_FULL_SESSION = "true";
         KDE_SESSION_VERSION = "6";
         # Force the color scheme path in case the engine fails to apply it from config
         KDE_COLOR_SCHEME_PATH = "${pkgs.kdePackages.breeze}/share/color-schemes/BreezeDark.colors";
+
+        # Icon-related
+        QT_ICON_THEME = "oxygen"; # Extra insurance
+        ICON_THEME = "oxygen"; # Sometimes helps
+
+        # XDG / icon cache help
+        XDG_ICON_DIRS = "/run/current-system/sw/share/icons";
+      };
+
+      # Icon consistency
+      gtk = {
+        enable = true;
+        iconTheme = {
+          name = "oxygen"; # or whatever you prefer
+          package = pkgs.kdePackages.oxygen-icons;
+        };
       };
 
       environment.systemPackages = with pkgs; [
@@ -44,6 +61,10 @@
         kdePackages.oxygen-icons
         kdePackages.breeze # Required for BreezeDark.colors
         inputs.hyprqt6engine.packages.${pkgs.stdenv.hostPlatform.system}.default
+
+        # Icon Fallbacks
+        hicolor-icon-theme
+        adwaita-icon-theme
       ];
 
       hjem.users.${user} = {

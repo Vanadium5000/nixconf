@@ -278,7 +278,16 @@
         xdg.portal = {
           enable = true;
           extraPortals = [ pkgs.kdePackages.xdg-desktop-portal-kde ];
-          config.common.default = "hyprland";
+          # Prefer the KDE portal for file pickers so apps get a Qt/Dolphin-style
+          # chooser; GTK covers generic portal APIs, and Hyprland remains the
+          # compositor-specific fallback. Ref: generated portals.conf.
+          config.common = {
+            default = [
+              "gtk"
+              "hyprland"
+            ];
+            "org.freedesktop.impl.portal.FileChooser" = "kde";
+          };
           xdgOpenUsePortal = true;
         };
 
