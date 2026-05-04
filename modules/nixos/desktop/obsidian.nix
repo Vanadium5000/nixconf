@@ -1,4 +1,4 @@
-{ inputs, self, ... }:
+{ self, ... }:
 {
   flake.nixosModules.obsidian =
     {
@@ -18,10 +18,18 @@
 
       cfg = config.preferences.obsidian;
       user = config.preferences.user.username;
-      flatpakAppId = "md.obsidian.Obsidian";
       themeName = cfg.theme.name;
       themeDirectory = cfg.theme.directory;
       vaultPath = "${config.preferences.paths.homeDirectory}/${cfg.vaultDirectory}";
+
+      # Obsidian 1.11+ needs Electron safeStorage backed by libsecret, and
+      # nixpkgs exposes commandLineArgs directly on the wrapper used for the
+      # native `obsidian` binary.
+      # Source: https://obsidian.md/changelog/2026-01-20-desktop-v1.11.5/
+      # Source: nixpkgs pkgs/by-name/ob/obsidian/package.nix#L11-L84
+      obsidianPackage = pkgs.obsidian.override {
+        commandLineArgs = "--password-store=gnome-libsecret";
+      };
 
       inherit (self) colors colorsNoHash theme;
 
@@ -145,8 +153,6 @@
       '';
     in
     {
-      imports = [ inputs.nix-flatpak.nixosModules.nix-flatpak ];
-
       options.preferences.obsidian = {
         enable = mkEnableOption "Obsidian";
 
@@ -176,28 +182,15 @@
       };
 
       config = mkIf cfg.enable {
-        services.flatpak = {
-          enable = true;
-          # Keep Obsidian aligned with the referenced setup, which installs the
-          # Flathub app ID instead of relying on the unfree nixpkgs Electron app.
-          # Source: https://github.com/Vanadium5000/nixos-config/blob/cabf2c1c6a36beea003eee1e93f0472f4d98c023/home-manager/desktop/obsidian/default.nix#L13-L15
-          packages = [ flatpakAppId ];
+        environment.systemPackages = [
+          obsidianPackage
 
-          # Electron's safeStorage talks to the Freedesktop Secret Service when
-          # launched with gnome-libsecret below; granting only that bus name keeps
-          # the sandbox narrower than exposing the whole session bus.
-          # Source: https://github.com/flatpak/flatpak/blob/17cb1135cb854f41ff8cac3757fc62daf410c44c/doc/flatpak-override.xml#L428-L435
-          overrides.${flatpakAppId}."Session Bus Policy"."org.freedesktop.secrets" = "talk";
-        };
-
-        environment.systemPackages = with pkgs; [
-          # Obsidian 1.11+ requires a Linux secret backend for encrypted sync
-          # credentials; installing the service and libsecret keeps this feature
-          # self-contained instead of relying on VSCodium/Hyprland side effects.
+          # Keep the libsecret stack explicit so Obsidian Sync's encrypted
+          # credentials do not depend on unrelated Electron apps being present.
           # Source: https://obsidian.md/changelog/2026-01-20-desktop-v1.11.5/
-          gnome-keyring
-          libsecret
-          seahorse
+          pkgs.gnome-keyring
+          pkgs.libsecret
+          pkgs.seahorse
         ];
 
         # GNOME Keyring provides the org.freedesktop.secrets service that Electron
@@ -207,34 +200,41 @@
 
         xdg.mime = {
           enable = true;
-          # Obsidian desktop files register the URI scheme used by obsidian://
-          # links; setting it declaratively keeps note links working on fresh
-          # graphical hosts after Flatpak exports are added to XDG_DATA_DIRS.
-          defaultApplications."x-scheme-handler/obsidian" = [ "${flatpakAppId}.desktop" ];
+          # nixpkgs installs obsidian.desktop with the obsidian:// MIME handler;
+          # declaring it keeps note links deterministic on fresh graphical hosts.
+          # Source: nixpkgs pkgs/by-name/ob/obsidian/package.nix#L50-L57
+          defaultApplications."x-scheme-handler/obsidian" = [ "obsidian.desktop" ];
         };
 
+        # Obsidian is unfree; keep this local to the feature instead of widening
+        # the repo's global allowUnfree policy.
+        # Source: nixpkgs pkgs/by-name/ob/obsidian/package.nix#L17-L22
+        preferences.allowedUnfree = [ "obsidian" ];
+
+        # Native Obsidian stores mutable Electron profile state under
+        # ~/.config/obsidian, including Chromium Preferences and per-window JSON
+        # files where zoom/window state is written. Persist the profile rather
+        # than managing those files, otherwise an impermanent root forgets zoom
+        # on every boot and package migrations start from a fresh app profile.
+        # Source: https://github.com/bezata/kObsidian/blob/main/docs/ENVIRONMENT.md#obsidianjson-paths-per-os
+        impermanence.home.directories = [ ".config/obsidian" ];
+
         hjem.users.${user}.files = {
-          # Flatpak scopes app config under ~/.var/app/<app-id>; managing the
-          # registry makes Shared/Vault the primary vault without a first-run
-          # click path. The schema is Obsidian-internal, so keep only the stable
-          # path/open fields plus a deterministic timestamp for one Nix-managed
-          # vault entry.
+          # Native Linux Obsidian reads its vault registry from ~/.config/obsidian;
+          # seed only the stable path/open fields so first launch opens Shared/Vault
+          # without taking ownership of mutable profile files such as Preferences.
           # Source: https://github.com/bezata/kObsidian/blob/main/docs/ENVIRONMENT.md#obsidianjson-paths-per-os
-          ".var/app/${flatpakAppId}/config/obsidian/obsidian.json".text = builtins.toJSON {
-            vaults.nixconf-primary = {
-              path = vaultPath;
-              open = true;
-              ts = 0;
+          ".config/obsidian/obsidian.json" = {
+            type = "copy";
+            clobber = false;
+            text = builtins.toJSON {
+              vaults.nixconf-primary = {
+                path = vaultPath;
+                open = true;
+                ts = 0;
+              };
             };
           };
-
-          # Flathub documents this Electron flag for Obsidian's Linux encrypted
-          # storage path; without it Obsidian can ignore the available libsecret
-          # backend and show "Encryption not available".
-          # Source: https://github.com/flathub/md.obsidian.Obsidian/blob/2584d163bdd95ab0e094006c8837a7aa5087569d/README.md#L18-L30
-          ".var/app/${flatpakAppId}/config/obsidian/user-flags.conf".text = ''
-            --password-store=gnome-libsecret
-          '';
         }
         // optionalAttrs cfg.theme.enable {
           # Obsidian discovers full app themes from .obsidian/themes/<name> with
