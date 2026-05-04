@@ -68,16 +68,6 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # Wallpaper collections
-    nixos-artwork = {
-      url = "github:nixos/nixos-artwork";
-      flake = false;
-    };
-    nixy-wallpapers = {
-      url = "github:anotherhadi/nixy-wallpapers";
-      flake = false;
-    };
-
     # HyprQt6Engine
     # TODO: Switch to hyprqt6engine when it is added to nixpkgs
     hyprqt6engine = {

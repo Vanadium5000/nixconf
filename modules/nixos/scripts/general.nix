@@ -122,13 +122,12 @@
         inherit pkgs;
         package =
           let
+            wallpapers = inputs.self.packages.${pkgs.stdenv.hostPlatform.system}.wallpapers;
             wallpaperSources = {
-              "Nixy Wallpapers" = "${
-                inputs.self.packages.${pkgs.stdenv.hostPlatform.system}.nixy-wallpapers
-              }/wallpapers/";
-              "Nixos Artwork" = "${
-                inputs.self.packages.${pkgs.stdenv.hostPlatform.system}.nixos-wallpapers
-              }/wallpapers/";
+              "Nixy Wallpapers" = "${wallpapers}/wallpapers/nixy/";
+              "Nixos Artwork" = "${wallpapers}/wallpapers/nixos/";
+              "ItsTerm1n4l Wallpapers" = "${wallpapers}/wallpapers/itsterm1n4l/";
+              "Ahwxorg Wallpapers" = "${wallpapers}/wallpapers/ahwxorg/";
             };
           in
           pkgs.writeShellScriptBin "qs-wallpaper" ''
@@ -262,46 +261,6 @@
           hyprctl hyprpaper preload "$result"
           hyprctl hyprpaper wallpaper ",$result"
           cp -f "$result" ~/wallpaper/.current_wallpaper # For rofi wallpaper
-        '';
-      };
-
-      packages.nixos-wallpapers = pkgs.stdenv.mkDerivation {
-        name = "nixos-wallpapers";
-        src = inputs.nixos-artwork;
-
-        sparseCheckout = [
-          "wallpapers"
-        ];
-
-        # Overwrite normal build phase
-        buildPhase = ''
-          runHook preBuild
-          runHook postBuild
-        '';
-
-        installPhase = ''
-          mkdir -p $out
-          cp -r wallpapers $out/
-        '';
-      };
-
-      packages.nixy-wallpapers = pkgs.stdenv.mkDerivation {
-        name = "nixy-wallpapers";
-        src = inputs.nixy-wallpapers;
-
-        sparseCheckout = [
-          "wallpapers"
-        ];
-
-        # Overwrite normal build phase
-        buildPhase = ''
-          runHook preBuild
-          runHook postBuild
-        '';
-
-        installPhase = ''
-          mkdir -p $out
-          cp -r wallpapers $out/
         '';
       };
 

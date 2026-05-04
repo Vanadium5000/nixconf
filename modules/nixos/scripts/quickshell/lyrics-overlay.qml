@@ -49,6 +49,9 @@ PanelWindow {
     property int controlGap: 8
     property int controlHeight: 20
     property int resizeGripSize: 18
+    property int normalDragHandleWidth: 44
+    property int normalDragHandleHeight: 14
+    property int editResizeHitSize: 52 // Bigger hit area makes corner resizing easier without a larger visible grip.
     property int minCardWidth: 320
     property int minCardHeight: 136
     property int cardWidth: parseInt(Quickshell.env("LYRICS_CARD_WIDTH") ?? "520")
@@ -67,6 +70,16 @@ PanelWindow {
 
     function clamp(value, minValue, maxValue) {
         return Math.max(minValue, Math.min(maxValue, value))
+    }
+
+    function syncMoveDrag() {
+        root.cardX = root.clamp(Math.round(moveDragProxy.x), 0, Math.max(0, stage.width - root.cardWidth))
+        root.cardY = root.clamp(Math.round(moveDragProxy.y), 0, Math.max(0, stage.height - root.cardHeight))
+    }
+
+    function syncResizeDrag() {
+        root.cardWidth = root.clamp(Math.round(resizeDragProxy.x - root.cardX), root.effectiveMinCardWidth(), Math.max(root.effectiveMinCardWidth(), stage.width - root.cardX))
+        root.cardHeight = root.clamp(Math.round(resizeDragProxy.y - root.cardY), root.effectiveMinCardHeight(), Math.max(root.effectiveMinCardHeight(), stage.height - root.cardY))
     }
 
     function screenWidth() {
@@ -140,11 +153,17 @@ PanelWindow {
     exclusiveZone: -1
     exclusionMode: ExclusionMode.Ignore
 
-    // A zero-sized mask keeps normal mode click-through like crosshair.qml and
-    // autoclicker.qml; edit mode expands it per Quickshell QsWindow.mask docs:
-    // https://quickshell.org/docs/master/types/Quickshell/QsWindow#mask
+    // Compose the mask from explicit controls so normal mode only intercepts the
+    // drag handle and edit pill; edit mode expands to the full card per the
+    // Quickshell QsWindow.mask docs: https://quickshell.org/docs/master/types/Quickshell/QsWindow#mask
     mask: Region {
-        item: inputMaskTarget
+        Region {
+            item: root.editMode ? surface : normalDragHandle
+        }
+
+        Region {
+            item: root.editMode ? null : editButton
+        }
     }
 
     anchors.left: true
@@ -157,11 +176,17 @@ PanelWindow {
         anchors.fill: parent
 
         Item {
-            id: inputMaskTarget
-            x: root.editMode ? surface.x : surface.x + editButton.x
-            y: root.editMode ? surface.y : surface.y + editButton.y
-            width: root.editMode ? surface.width : editButton.width
-            height: root.editMode ? surface.height : editButton.height
+            id: moveDragProxy
+            visible: false
+            onXChanged: root.syncMoveDrag()
+            onYChanged: root.syncMoveDrag()
+        }
+
+        Item {
+            id: resizeDragProxy
+            visible: false
+            onXChanged: root.syncResizeDrag()
+            onYChanged: root.syncResizeDrag()
         }
 
         Item {
@@ -207,6 +232,45 @@ PanelWindow {
                     acceptedButtons: Qt.LeftButton
                     cursorShape: Qt.PointingHandCursor
                     onClicked: root.setEditMode(true)
+                }
+            }
+
+            Item {
+                id: normalDragHandle
+                visible: !root.editMode
+                z: 18
+                width: root.normalDragHandleWidth
+                height: root.normalDragHandleHeight
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.top: parent.top
+                anchors.topMargin: 8
+
+                Rectangle {
+                    anchors.centerIn: parent
+                    width: 32
+                    height: 4
+                    radius: 2
+                    color: Theme.rgba(root.textColor, 0.22)
+                }
+
+                MouseArea {
+                    anchors.fill: parent
+                    acceptedButtons: Qt.LeftButton
+                    cursorShape: Qt.SizeAllCursor
+                    preventStealing: true
+                    visible: !root.editMode
+                    enabled: !root.editMode
+                    drag.target: moveDragProxy
+                    drag.axis: Drag.XAndYAxis
+
+                    onPressed: function () {
+                        moveDragProxy.x = root.cardX
+                        moveDragProxy.y = root.cardY
+                        drag.minimumX = 0
+                        drag.maximumX = Math.max(0, stage.width - root.cardWidth)
+                        drag.minimumY = 0
+                        drag.maximumY = Math.max(0, stage.height - root.cardHeight)
+                    }
                 }
             }
 
@@ -332,38 +396,26 @@ PanelWindow {
                     }
                 }
 
-                    MouseArea {
-                        anchors.fill: parent
-                        acceptedButtons: Qt.LeftButton
-                        cursorShape: Qt.SizeAllCursor
-                        preventStealing: true
-                        visible: root.editMode
-                        enabled: root.editMode
-                        z: 0
+                        MouseArea {
+                            anchors.fill: parent
+                            acceptedButtons: Qt.LeftButton
+                            cursorShape: Qt.SizeAllCursor
+                            preventStealing: true
+                            visible: root.editMode
+                            enabled: root.editMode
+                            z: 0
+                            drag.target: moveDragProxy
+                            drag.axis: Drag.XAndYAxis
 
-                        property real pressX: 0
-                        property real pressY: 0
-                        property int startCardX: 0
-                        property int startCardY: 0
-
-                        onPressed: function (mouse) {
-                            var point = mapToItem(stage, mouse.x, mouse.y)
-                            pressX = point.x
-                            pressY = point.y
-                            startCardX = root.cardX
-                            startCardY = root.cardY
-                        }
-
-                        onPositionChanged: function (mouse) {
-                            if (!pressed) {
-                                return
+                            onPressed: function () {
+                                moveDragProxy.x = root.cardX
+                                moveDragProxy.y = root.cardY
+                                drag.minimumX = 0
+                                drag.maximumX = Math.max(0, stage.width - root.cardWidth)
+                                drag.minimumY = 0
+                                drag.maximumY = Math.max(0, stage.height - root.cardHeight)
                             }
-
-                            var point = mapToItem(stage, mouse.x, mouse.y)
-                            root.cardX = root.clamp(startCardX + Math.round(point.x - pressX), 0, Math.max(0, stage.width - root.cardWidth))
-                            root.cardY = root.clamp(startCardY + Math.round(point.y - pressY), 0, Math.max(0, stage.height - root.cardHeight))
                         }
-                    }
                 }
 
                 Column {
@@ -433,24 +485,32 @@ PanelWindow {
                 }
 
                 }
-                Rectangle {
-                    id: resizeGrip
+                Item {
+                    id: resizeHitArea
                     visible: root.editMode
-                    width: root.resizeGripSize
-                    height: root.resizeGripSize
+                    width: root.editResizeHitSize
+                    height: root.editResizeHitSize
                     anchors.right: parent.right
                     anchors.bottom: parent.bottom
-                    color: Theme.rgba(Theme.foreground, 0.10)
-                    radius: 8
 
-                Text {
-                    anchors.centerIn: parent
-                    text: "[]"
-                    color: root.textColor
-                    opacity: 0.9
-                    font.family: root.fontFamily
-                    font.pixelSize: 12
-                }
+                    Rectangle {
+                        id: resizeGrip
+                        width: root.resizeGripSize
+                        height: root.resizeGripSize
+                        anchors.right: parent.right
+                        anchors.bottom: parent.bottom
+                        color: Theme.rgba(Theme.foreground, 0.10)
+                        radius: 8
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: "[]"
+                            color: root.textColor
+                            opacity: 0.9
+                            font.family: root.fontFamily
+                            font.pixelSize: 12
+                        }
+                    }
 
                     MouseArea {
                         anchors.fill: parent
@@ -459,28 +519,16 @@ PanelWindow {
                         preventStealing: true
                         visible: root.editMode
                         enabled: root.editMode
+                        drag.target: resizeDragProxy
+                        drag.axis: Drag.XAndYAxis
 
-                        property real pressX: 0
-                        property real pressY: 0
-                        property int startWidth: 0
-                        property int startHeight: 0
-
-                        onPressed: function (mouse) {
-                            var point = mapToItem(stage, mouse.x, mouse.y)
-                            pressX = point.x
-                            pressY = point.y
-                            startWidth = root.cardWidth
-                            startHeight = root.cardHeight
-                        }
-
-                        onPositionChanged: function (mouse) {
-                            if (!pressed) {
-                                return
-                            }
-
-                            var point = mapToItem(stage, mouse.x, mouse.y)
-                            root.cardWidth = root.clamp(startWidth + Math.round(point.x - pressX), root.effectiveMinCardWidth(), Math.max(root.effectiveMinCardWidth(), stage.width - root.cardX))
-                            root.cardHeight = root.clamp(startHeight + Math.round(point.y - pressY), root.effectiveMinCardHeight(), Math.max(root.effectiveMinCardHeight(), stage.height - root.cardY))
+                        onPressed: function () {
+                            resizeDragProxy.x = root.cardX + root.cardWidth
+                            resizeDragProxy.y = root.cardY + root.cardHeight
+                            drag.minimumX = root.cardX + root.effectiveMinCardWidth()
+                            drag.maximumX = stage.width
+                            drag.minimumY = root.cardY + root.effectiveMinCardHeight()
+                            drag.maximumY = stage.height
                         }
                     }
                 }
