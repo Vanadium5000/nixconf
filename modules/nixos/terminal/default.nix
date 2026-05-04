@@ -165,6 +165,9 @@
           # Add all packages exported by the Flake
           lib.attrValues filteredFlakePackages
           ++ (with pkgs; [
+            parted
+            exfatprogs
+
             whisper-cpp
             wtype
             monero-cli

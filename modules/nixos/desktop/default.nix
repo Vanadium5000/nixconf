@@ -81,7 +81,10 @@
           kdePackages.ark # Archive Manager
           kdePackages.okular # Document Viewer
           kdePackages.gwenview # Image Viewer
+
+          # KDE / Qt System Administration
           kdePackages.plasma-systemmonitor # System Monitor GUI
+          kdePackages.partitionmanager
 
           libreoffice-qt6 # Office suite (GUI only)
           onlyoffice-desktopeditors # Office suite 2
@@ -119,6 +122,11 @@
           dbus.packages = [
             pkgs.kdePackages.kded
             pkgs.kdePackages.plasma-workspace
+            # Plasma System Monitor queries org.kde.ksystemstats1 over DBus;
+            # ksystemstats ships the activator, libksysguard ships the DBus
+            # interface/helper bits. Ref: ksystemstats share/dbus-1/services.
+            pkgs.kdePackages.ksystemstats
+            pkgs.kdePackages.libksysguard
             # Expose KDE Connect's DBus activation file so kdeconnectd can start
             # on demand outside Plasma. Ref: share/dbus-1/services/org.kde.kdeconnect.service
             config.programs.kdeconnect.package
@@ -151,6 +159,41 @@
           };
         };
 
+        # Outside a full Plasma session, start ksystemstats via user systemd so
+        # Plasma System Monitor can claim org.kde.ksystemstats1 and be DBus
+        # activated reliably. Ref: ksystemstats share/systemd/user service.
+        systemd.user.services.plasma-ksystemstats = {
+          description = "Track hardware statistics";
+          wantedBy = [ "graphical-session.target" ];
+          partOf = [ "graphical-session.target" ];
+
+          serviceConfig = {
+            ExecStart = "${pkgs.kdePackages.ksystemstats}/bin/ksystemstats";
+            BusName = "org.kde.ksystemstats1";
+            Slice = "background.slice";
+          };
+        };
+
+        security.wrappers = {
+          # Nixpkgs patches ksystemstats to call this wrapper path for Intel
+          # hardware counters. Ref: nixos/modules/services/desktop-managers/plasma6.nix.
+          ksystemstats_intel_helper = {
+            owner = "root";
+            group = "root";
+            capabilities = "cap_perfmon+ep";
+            source = "${pkgs.kdePackages.ksystemstats}/libexec/ksystemstats_intel_helper";
+          };
+
+          # Nixpkgs patches libksysguard to call this wrapper path for network
+          # sensor access. Ref: nixos/modules/services/desktop-managers/plasma6.nix.
+          ksgrd_network_helper = {
+            owner = "root";
+            group = "root";
+            capabilities = "cap_net_raw+ep";
+            source = "${pkgs.kdePackages.libksysguard}/libexec/ksysguard/ksgrd_network_helper";
+          };
+        };
+
         # Generic command-line automation tool (macro/autoclicker)
         programs.ydotool = {
           # Whether to enable ydotoold system service and ydotool for members of programs.ydotool.group
@@ -165,6 +208,13 @@
         };
 
         # XDG Integration
+        # Enable the NixOS XDG generators so non-Plasma sessions still expose
+        # desktop files, icons, autostart entries, and terminal handlers.
+        # Ref: nixos/options xdg.{autostart,icons,menus,terminal-exec}.enable
+        xdg.autostart.enable = true;
+        xdg.icons.enable = true;
+        xdg.menus.enable = true;
+        xdg.terminal-exec.enable = true;
         xdg.mime.enable = true;
         xdg.mime.defaultApplications = {
           # Keep LibreWolf as the human-facing default browser even though
