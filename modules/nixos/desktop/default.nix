@@ -90,6 +90,13 @@
           onlyoffice-desktopeditors # Office suite 2
 
           # KDE Frameworks & System Utilities
+          # Plasma System Monitor sensor faces import QuickCharts, and Kirigami
+          # needs Plasma/QQC2 style plugins outside a full Plasma session.
+          # Ref: nixos/modules/services/desktop-managers/plasma6.nix.
+          kdePackages.kquickcharts
+          kdePackages.libplasma
+          kdePackages.qqc2-breeze-style
+          kdePackages.qqc2-desktop-style
           kdePackages.ksystemstats # Core system statistics provider
           kdePackages.libksysguard # System monitoring library
           kdePackages.kactivitymanagerd # Runtime requirement for KDE apps
