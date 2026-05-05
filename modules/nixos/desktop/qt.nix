@@ -9,6 +9,25 @@
     }:
     let
       inherit (self) colorsRgbaValues theme;
+      hyprqt6enginePackage =
+        inputs.hyprqt6engine.packages.${pkgs.stdenv.hostPlatform.system}.default.overrideAttrs
+          (old: {
+            buildInputs = old.buildInputs ++ [
+              # hyprqt6engine only enables .colors palette support when KF6
+              # KConfig/KColorScheme targets exist at build time. Source:
+              # /nix/store/1fy0i6lzasn8vc7q0yksv983j286bgqn-source/common/CMakeLists.txt:11
+              pkgs.kdePackages.kconfig
+              pkgs.kdePackages.kcolorscheme
+
+              # Optional build targets let hyprqt6engine integrate KDE icons and set
+              # Qt Quick Controls' desktop style itself when a QWidget app starts.
+              # Source: /nix/store/1fy0i6lzasn8vc7q0yksv983j286bgqn-source/hyprqtplugin/CMakeLists.txt:13
+              pkgs.kdePackages.kiconthemes
+              pkgs.qt6Packages.qtdeclarative
+            ];
+          });
+      kdeColorSchemeId = "NixCyberpunkElectricDark";
+      kdeColorSchemeName = "Nix Cyberpunk Electric Dark";
 
       rgb =
         name:
@@ -159,8 +178,8 @@
         ForegroundVisited=${rgb "base0E"}
 
         [General]
-        ColorScheme=NixCyberpunkElectricDark
-        Name=Nix Cyberpunk Electric Dark
+        ColorScheme=${kdeColorSchemeId}
+        Name=${kdeColorSchemeName}
         shadeSortColumn=true
 
         [KDE]
@@ -194,13 +213,31 @@
           menus_have_icons = true;
         };
       };
+
+      # KDE/Kirigami apps read palette selection from kdeglobals, not from Qt
+      # Quick Controls style alone. The generated scheme is also published below
+      # in the standard XDG color-schemes directory used by KDE theme packages.
+      # Sources:
+      # - /tmp/plasma-systemmonitor.trace:10942
+      # - /nix/store/fm3z9r7r90yh8l7ai6cn6gsrp6h27ira-source/pkgs/by-name/cy/cyberpunk-neon/package.nix:39
+      kdeGlobals = lib.generators.toINI { } {
+        General = {
+          ColorScheme = kdeColorSchemeId;
+          Name = kdeColorSchemeName;
+        };
+      };
     in
     {
       qt.enable = true;
 
-      environment.variables = {
+      environment.sessionVariables = {
         QT_QPA_PLATFORM = "wayland";
         QT_QPA_PLATFORMTHEME = "hyprqt6engine";
+
+        # Kirigami defaults to Qt Quick Controls' Fusion style outside Plasma;
+        # selecting KDE's desktop style lets it match the installed plugin.
+        # Source: https://invent.kde.org/frameworks/qqc2-desktop-style/-/blob/master/README.md
+        QT_QUICK_CONTROLS_STYLE = "org.kde.desktop";
 
         # Assumption: Oxygen is a KDE style, so these markers keep KDE code paths
         # active outside Plasma rather than falling back to generic integration.
@@ -208,10 +245,16 @@
         KDE_SESSION_VERSION = "6";
       };
 
+      # Add the package's Qt root as a profile-relative suffix so NixOS still
+      # appends its generated lib/qt-6/plugins entries. Sources:
+      # - /nix/store/fm3z9r7r90yh8l7ai6cn6gsrp6h27ira-source/nixos/modules/config/qt.nix:220
+      # - /home/matrix/.local/share/opencode/tool-output/tool_df57a1f13001uFteU5BjvMikVt
+      environment.profileRelativeSessionVariables.QT_PLUGIN_PATH = [ "/lib/qt-6" ];
+
       environment.systemPackages = with pkgs; [
         kdePackages.oxygen
         kdePackages.oxygen-icons
-        inputs.hyprqt6engine.packages.${pkgs.stdenv.hostPlatform.system}.default
+        hyprqt6enginePackage
 
         # Freedesktop fallbacks keep Qt icon lookup working when Oxygen lacks an
         # application/action name. Source: https://doc.qt.io/qt-6/qicon.html#fromTheme
@@ -220,7 +263,11 @@
       ];
 
       hjem.users.${user} = {
-        files.".config/hypr/hyprqt6engine.conf".text = hyprqt6engineConf;
+        files = {
+          ".config/hypr/hyprqt6engine.conf".text = hyprqt6engineConf;
+          ".config/kdeglobals".text = kdeGlobals;
+          ".local/share/color-schemes/${kdeColorSchemeId}.colors".source = hyprqt6engineColorScheme;
+        };
       };
     };
 }
