@@ -145,6 +145,10 @@
         # OmniRoute defaults to port 20128 for both dashboard and /v1 API.
         # Source: https://github.com/diegosouzapw/OmniRoute/blob/v3.7.9/docs/ENVIRONMENT.md
         port = 20128;
+        # Keep the bootstrap password in persisted runtime state instead of
+        # interpolating self.secrets into the generated systemd unit/Nix store.
+        # Source: modules/nixos/terminal/omniroute.nix initialPasswordFile.
+        initialPasswordFile = "/var/lib/omniroute/initial-password";
         openFirewall = false; # Traefik is the only public entrypoint.
       };
 

@@ -62,6 +62,12 @@
           description = "Whether OmniRoute should mark dashboard auth cookies as HTTPS-only";
         };
 
+        initialPasswordFile = mkOption {
+          type = types.nullOr types.str;
+          default = null;
+          description = "Runtime file containing the initial dashboard password for first bootstrap";
+        };
+
         requireApiKey = mkOption {
           type = types.bool;
           default = false;
@@ -142,14 +148,37 @@
             # Generate once so sessions and encrypted provider records survive
             # restarts while avoiding secret material in the Nix store.
             if [ ! -f ${lib.escapeShellArg envFile} ]; then
-                          cat > ${lib.escapeShellArg envFile} <<EOF
-            INITIAL_PASSWORD=$(${pkgs.openssl}/bin/openssl rand -base64 24)
+              ${
+                if cfg.initialPasswordFile != null then
+                  ''
+                    # Read the password from persistent runtime state instead of
+                    # interpolating self.secrets into the unit, which would copy it
+                    # into the Nix store. Source: systemd.exec(5) EnvironmentFile
+                    # loads KEY=VALUE files at service start: https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#EnvironmentFile=
+                    initial_password_file=${lib.escapeShellArg cfg.initialPasswordFile}
+                    if [ ! -r "$initial_password_file" ]; then
+                      echo "Configured OmniRoute initialPasswordFile is not readable: $initial_password_file" >&2
+                      exit 1
+                    fi
+                    IFS= read -r initial_password < "$initial_password_file" || true
+                    if [ -z "$initial_password" ]; then
+                      echo "Configured OmniRoute initialPasswordFile is empty: $initial_password_file" >&2
+                      exit 1
+                    fi
+                  ''
+                else
+                  ''
+                    initial_password=$(${pkgs.openssl}/bin/openssl rand -base64 24)
+                  ''
+              }
+              cat > ${lib.escapeShellArg envFile} <<EOF
+            INITIAL_PASSWORD=$initial_password
             JWT_SECRET=$(${pkgs.openssl}/bin/openssl rand -base64 48)
             API_KEY_SECRET=$(${pkgs.openssl}/bin/openssl rand -hex 32)
             EOF
-                        fi
+            fi
 
-                        chmod 600 ${lib.escapeShellArg envFile}
+            chmod 600 ${lib.escapeShellArg envFile}
           '';
         };
 
