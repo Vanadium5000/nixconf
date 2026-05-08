@@ -192,6 +192,16 @@
           serviceConfig = {
             ExecStart = lib.mkDefault "${lib.getExe dmsProgram.package} run --session";
             Restart = lib.mkDefault "on-failure";
+            # DMS-spawned apps need the same KDE/Qt markers as the compositor
+            # session, or Kirigami can ignore kdeglobals and stay on Breeze.
+            # Source: /tmp/plasma-systemmonitor-live-theme.trace
+            Environment = [
+              "QT_QPA_PLATFORM=wayland"
+              "QT_QPA_PLATFORMTHEME=hyprqt6engine"
+              "QT_QUICK_CONTROLS_STYLE=org.kde.desktop"
+              "KDE_FULL_SESSION=true"
+              "KDE_SESSION_VERSION=6"
+            ];
           };
         };
       };

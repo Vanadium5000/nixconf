@@ -763,6 +763,13 @@
           "QT_AUTO_SCREEN_SCALE_FACTOR,1" # enables automatic scaling
           "QT_WAYLAND_DISABLE_WINDOWDECORATION,1"
           "QT_QPA_PLATFORM,wayland"
+          # These keep Hyprland children on the same KDE/Qt path as kdeglobals
+          # so Kirigami apps do not fall back to light Breeze outside Plasma.
+          # Source: /tmp/plasma-systemmonitor-live-theme.trace
+          "QT_QPA_PLATFORMTHEME,hyprqt6engine"
+          "QT_QUICK_CONTROLS_STYLE,org.kde.desktop"
+          "KDE_FULL_SESSION,true"
+          "KDE_SESSION_VERSION,6"
           "WLR_BACKEND,vulkan"
           "WLR_RENDERER,vulkan"
           "WLR_NO_HARDWARE_CURSORS,1"

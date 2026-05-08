@@ -40,7 +40,7 @@
       # one keeps Qt palettes tied directly to modules/theme.nix. Sources:
       # - https://github.com/hyprwm/hyprqt6engine/blob/main/common/common.cpp
       # - https://github.com/hyprwm/hyprqt6engine/blob/main/hyprqtplugin/PlatformTheme.cpp
-      hyprqt6engineColorScheme = pkgs.writeText "nixconf-hyprqt6engine.colors" ''
+      kdeColorSchemeText = ''
         # KDE color schemes use the same KColorScheme section layout as Breeze.
         # Keeping that structure lets Qt/KDE apps and hyprqt6engine consume the
         # generated palette directly. Sources:
@@ -185,6 +185,12 @@
         [KDE]
         contrast=4
 
+        # KF6 selects the active scheme through UiSettings/ColorScheme, while
+        # General/ColorScheme is ignored for that purpose. Source:
+        # https://github.com/KDE/kcolorscheme/blob/8ca396afd9ee592b18c705236db6c376804817af/src/kcolorschememanager.cpp#L181-L214
+        [UiSettings]
+        ColorScheme=${kdeColorSchemeId}
+
         [WM]
         activeBackground=${rgb "base01"}
         activeBlend=${rgb "base07"}
@@ -193,6 +199,7 @@
         inactiveBlend=${rgb "base05"}
         inactiveForeground=${rgb "base05"}
       '';
+      hyprqt6engineColorScheme = pkgs.writeText "nixconf-hyprqt6engine.colors" kdeColorSchemeText;
 
       user = config.preferences.user.username;
 
@@ -214,18 +221,11 @@
         };
       };
 
-      # KDE/Kirigami apps read palette selection from kdeglobals, not from Qt
-      # Quick Controls style alone. The generated scheme is also published below
-      # in the standard XDG color-schemes directory used by KDE theme packages.
-      # Sources:
-      # - /tmp/plasma-systemmonitor.trace:10942
-      # - /nix/store/fm3z9r7r90yh8l7ai6cn6gsrp6h27ira-source/pkgs/by-name/cy/cyberpunk-neon/package.nix:39
-      kdeGlobals = lib.generators.toINI { } {
-        General = {
-          ColorScheme = kdeColorSchemeId;
-          Name = kdeColorSchemeName;
-        };
-      };
+      # KDE/Kirigami apps read palette selection from kdeglobals, so reuse the
+      # full generated scheme here instead of only writing [General]. Trace:
+      # /tmp/plasma-systemmonitor-live-theme.trace. The same file stays published
+      # below in XDG color-schemes for discovery/UI use.
+      kdeGlobals = kdeColorSchemeText;
     in
     {
       qt.enable = true;
