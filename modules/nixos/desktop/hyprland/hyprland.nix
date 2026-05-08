@@ -90,6 +90,7 @@
 
           cleanup_freeze() {
             kill "$freeze_pid" 2>/dev/null || true
+            wait "$freeze_pid" 2>/dev/null || true
           }
           trap cleanup_freeze EXIT
 
@@ -97,6 +98,37 @@
           # slurp takes pointer focus.
           # Source: https://github.com/hyprwm/contrib/blob/main/grimblast/grimblast
           sleep 0.2
+
+          ${command}
+        '';
+
+      frozenSlurpScript =
+        command:
+        makeScript ''
+          #!${pkgs.bash}/bin/bash
+          set -euo pipefail
+
+          # Hyprpicker only needs to cover the interactive selection step. Kill
+          # it before opening slower post-processing UIs like Swappy, otherwise
+          # the frozen preview can remain above the finished screenshot result.
+          # Source: https://github.com/hyprwm/hyprpicker/blob/main/src/main.cpp
+          ${getExe pkgs.hyprpicker} -r -z >/dev/null 2>&1 &
+          freeze_pid=$!
+
+          cleanup_freeze() {
+            kill "$freeze_pid" 2>/dev/null || true
+            wait "$freeze_pid" 2>/dev/null || true
+          }
+          trap cleanup_freeze EXIT
+
+          # Grimblast uses the same 0.2s wait so the frozen layer maps before
+          # slurp takes pointer focus.
+          # Source: https://github.com/hyprwm/contrib/blob/main/grimblast/grimblast
+          sleep 0.2
+
+          selection="$(${getExe pkgs.slurp} -d)"
+          cleanup_freeze
+          trap - EXIT
 
           ${command}
         '';
@@ -260,7 +292,7 @@
             "Capture"
           )
           (kb "${mod},S"
-            "exec, ${frozenSelectionScript ''${getExe pkgs.grim} -g "$(${getExe pkgs.slurp} -d)" - | ${getExe pkgs.swappy} -f -''}"
+            "exec, ${frozenSlurpScript ''${getExe pkgs.grim} -g "$selection" - | ${getExe pkgs.swappy} -f -''}"
             "Screenshot area (edit with Swappy)"
             "Capture"
           )
@@ -278,7 +310,7 @@
             key = "${shiftMod},S";
             exec =
               "exec, "
-              + (frozenSelectionScript ''${getExe pkgs.grim} -g "$(${getExe pkgs.slurp} -d)" - | ${getExe pkgs.tesseract} - - | ${pkgs.wl-clipboard}/bin/wl-copy --type text/plain && text=$( ${pkgs.wl-clipboard}/bin/wl-paste) && if [ ''${#text} -le 120 ]; then ${getExe pkgs.libnotify} "OCR Result" "$text"; else ${getExe pkgs.libnotify} "OCR Result" "''${text:0:100}...''${text: -20}"; fi'');
+              + (frozenSlurpScript ''${getExe pkgs.grim} -g "$selection" - | ${getExe pkgs.tesseract} - - | ${pkgs.wl-clipboard}/bin/wl-copy --type text/plain && text=$( ${pkgs.wl-clipboard}/bin/wl-paste) && if [ ''${#text} -le 120 ]; then ${getExe pkgs.libnotify} "OCR Result" "$text"; else ${getExe pkgs.libnotify} "OCR Result" "''${text:0:100}...''${text: -20}"; fi'');
             description = "OCR screenshot to clipboard";
             category = "Capture";
           }
@@ -286,7 +318,7 @@
             key = "${altMod},S";
             exec =
               "exec, "
-              + (frozenSelectionScript ''${getExe pkgs.grim} -g "$(${getExe pkgs.slurp} -d)" - | ${pkgs.zbar}/bin/zbarimg - | sed 's/^QR-Code:[[:space:]]*//' | ${pkgs.wl-clipboard}/bin/wl-copy --type text/plain && text=$( ${pkgs.wl-clipboard}/bin/wl-paste) && if [ ''${#text} -le 120 ]; then ${getExe pkgs.libnotify} "ZBAR SCAN Result" "$text"; else ${getExe pkgs.libnotify} "ZBAR SCAN Result" "''${text:0:100}...''${text: -20}"; fi'');
+              + (frozenSlurpScript ''${getExe pkgs.grim} -g "$selection" - | ${pkgs.zbar}/bin/zbarimg - | sed 's/^QR-Code:[[:space:]]*//' | ${pkgs.wl-clipboard}/bin/wl-copy --type text/plain && text=$( ${pkgs.wl-clipboard}/bin/wl-paste) && if [ ''${#text} -le 120 ]; then ${getExe pkgs.libnotify} "ZBAR SCAN Result" "$text"; else ${getExe pkgs.libnotify} "ZBAR SCAN Result" "''${text:0:100}...''${text: -20}"; fi'');
             description = "QR code scan to clipboard";
             category = "Capture";
           }
