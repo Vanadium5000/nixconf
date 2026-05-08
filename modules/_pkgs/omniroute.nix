@@ -4,12 +4,19 @@
   fetchurl,
   autoPatchelfHook,
   makeWrapper,
+  node-gyp,
   nodejs,
   openssl,
+  pkg-config,
+  python3,
   zlib,
 }:
 
 let
+  betterSqlite3Src = fetchurl {
+    url = "https://registry.npmjs.org/better-sqlite3/-/better-sqlite3-12.9.0.tgz";
+    hash = "sha256-rQ4pZQFAxJ0DNbHTVllqqBZvErdY9BiphEYTDjJ48lA=";
+  };
   wreqJsSrc = fetchurl {
     url = "https://registry.npmjs.org/wreq-js/-/wreq-js-2.3.0.tgz";
     hash = "sha256-teKDtunTnMqR2+GOoPNJqdjln+gjkFh4iHBa5853B+s=";
@@ -32,6 +39,10 @@ stdenv.mkDerivation (finalAttrs: {
   nativeBuildInputs = [
     autoPatchelfHook
     makeWrapper
+    node-gyp
+    nodejs
+    pkg-config
+    python3
   ];
 
   buildInputs = [
@@ -66,6 +77,20 @@ stdenv.mkDerivation (finalAttrs: {
     rm -rf "$out/lib/omniroute/app/node_modules/wreq-js"
     mkdir -p "$out/lib/omniroute/app/node_modules/wreq-js"
     tar -xzf ${wreqJsSrc} -C "$out/lib/omniroute/app/node_modules/wreq-js" --strip-components=1
+
+    # The standalone tarball also prunes better-sqlite3 to JS shims, but the
+    # dashboard opens SQLite during batch polling and needs the native binding.
+    # Source: https://www.npmjs.com/package/better-sqlite3/v/12.9.0;
+    # the VPS journal shows bindings probing build/Release/better_sqlite3.node.
+    rm -rf "$out/lib/omniroute/app/node_modules/better-sqlite3"
+    mkdir -p "$out/lib/omniroute/app/node_modules/better-sqlite3"
+    tar -xzf ${betterSqlite3Src} -C "$out/lib/omniroute/app/node_modules/better-sqlite3" --strip-components=1
+
+    pushd "$out/lib/omniroute/app/node_modules/better-sqlite3" >/dev/null
+    HOME="$TMPDIR" npm_config_nodedir=${nodejs} node-gyp rebuild --release
+    popd >/dev/null
+
+    test -f "$out/lib/omniroute/app/node_modules/better-sqlite3/build/Release/better_sqlite3.node"
 
     # The published tarball vendors runtime dependencies under app/node_modules,
     # while package-root helper scripts still resolve imports from ../node_modules

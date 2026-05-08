@@ -75,6 +75,32 @@
         ) >/dev/null 2>&1 < /dev/null &
       '';
 
+      frozenSelectionScript =
+        command:
+        makeScript ''
+          #!${pkgs.bash}/bin/bash
+          set -euo pipefail
+
+          # Hyprpicker's preview freezes the screen for picking; `-r` also
+          # freezes inactive outputs and `-z` hides the zoom lens so slurp gets
+          # a plain selection surface.
+          # Source: https://github.com/hyprwm/hyprpicker/blob/main/src/main.cpp
+          ${getExe pkgs.hyprpicker} -r -z >/dev/null 2>&1 &
+          freeze_pid=$!
+
+          cleanup_freeze() {
+            kill "$freeze_pid" 2>/dev/null || true
+          }
+          trap cleanup_freeze EXIT
+
+          # Grimblast uses the same 0.2s wait so the frozen layer maps before
+          # slurp takes pointer focus.
+          # Source: https://github.com/hyprwm/contrib/blob/main/grimblast/grimblast
+          sleep 0.2
+
+          ${command}
+        '';
+
       # ═══════════════════════════════════════════════════════════════════
       # UNIFIED KEYBIND DEFINITIONS - Single source of truth
       # Each keybind has: key (hyprland format), exec, description, category
@@ -225,11 +251,16 @@
 
         # ── Capture ──
         capture = [
-          (kb "${mod},PRINT" "exec, screenshot area" "Screenshot area (save)" "Capture")
+          (kb "${mod},PRINT" "exec, ${frozenSelectionScript "screenshot area"}" "Screenshot area (save)"
+            "Capture"
+          )
           (kb ",PRINT" "exec, screenshot monitor" "Screenshot monitor (save)" "Capture")
-          (kb "${shiftMod},PRINT" "exec, screenshot area toText" "Screenshot to text (OCR)" "Capture")
+          (kb "${shiftMod},PRINT" "exec, ${frozenSelectionScript "screenshot area toText"}"
+            "Screenshot to text (OCR)"
+            "Capture"
+          )
           (kb "${mod},S"
-            ''exec, ${getExe pkgs.grim} -g "$(${getExe pkgs.slurp} -d)" - | ${getExe pkgs.swappy} -f -''
+            "exec, ${frozenSelectionScript ''${getExe pkgs.grim} -g "$(${getExe pkgs.slurp} -d)" - | ${getExe pkgs.swappy} -f -''}"
             "Screenshot area (edit with Swappy)"
             "Capture"
           )
@@ -247,7 +278,7 @@
             key = "${shiftMod},S";
             exec =
               "exec, "
-              + (makeScript ''${getExe pkgs.grim} -g "$(${getExe pkgs.slurp} -d)" - | ${getExe pkgs.tesseract} - - | ${pkgs.wl-clipboard}/bin/wl-copy --type text/plain && text=$( ${pkgs.wl-clipboard}/bin/wl-paste) && if [ ''${#text} -le 120 ]; then ${getExe pkgs.libnotify} "OCR Result" "$text"; else ${getExe pkgs.libnotify} "OCR Result" "''${text:0:100}...''${text: -20}"; fi'');
+              + (frozenSelectionScript ''${getExe pkgs.grim} -g "$(${getExe pkgs.slurp} -d)" - | ${getExe pkgs.tesseract} - - | ${pkgs.wl-clipboard}/bin/wl-copy --type text/plain && text=$( ${pkgs.wl-clipboard}/bin/wl-paste) && if [ ''${#text} -le 120 ]; then ${getExe pkgs.libnotify} "OCR Result" "$text"; else ${getExe pkgs.libnotify} "OCR Result" "''${text:0:100}...''${text: -20}"; fi'');
             description = "OCR screenshot to clipboard";
             category = "Capture";
           }
@@ -255,7 +286,7 @@
             key = "${altMod},S";
             exec =
               "exec, "
-              + (makeScript ''${getExe pkgs.grim} -g "$(${getExe pkgs.slurp} -d)" - | ${pkgs.zbar}/bin/zbarimg - | sed 's/^QR-Code:[[:space:]]*//' | ${pkgs.wl-clipboard}/bin/wl-copy --type text/plain && text=$( ${pkgs.wl-clipboard}/bin/wl-paste) && if [ ''${#text} -le 120 ]; then ${getExe pkgs.libnotify} "ZBAR SCAN Result" "$text"; else ${getExe pkgs.libnotify} "ZBAR SCAN Result" "''${text:0:100}...''${text: -20}"; fi'');
+              + (frozenSelectionScript ''${getExe pkgs.grim} -g "$(${getExe pkgs.slurp} -d)" - | ${pkgs.zbar}/bin/zbarimg - | sed 's/^QR-Code:[[:space:]]*//' | ${pkgs.wl-clipboard}/bin/wl-copy --type text/plain && text=$( ${pkgs.wl-clipboard}/bin/wl-paste) && if [ ''${#text} -le 120 ]; then ${getExe pkgs.libnotify} "ZBAR SCAN Result" "$text"; else ${getExe pkgs.libnotify} "ZBAR SCAN Result" "''${text:0:100}...''${text: -20}"; fi'');
             description = "QR code scan to clipboard";
             category = "Capture";
           }
