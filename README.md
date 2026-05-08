@@ -370,6 +370,7 @@ All packages in `modules/_pkgs/` are auto-exposed via `self.packages`:
 | `dogecoin`                 | Dogecoin wallet CLI                     |
 | `iloader`                  | iOS device management (AppImage)        |
 | `niri-screen-time`         | Screen time tracker (Go, Wayland)       |
+| `omniroute`                | OpenAI-compatible AI gateway            |
 | `patchright`               | Patched Playwright automation           |
 | `personalive`              | Real-time portrait animation (CUDA)     |
 | `powerpoint-mcp`           | PowerPoint MCP server (Python)          |
@@ -421,8 +422,8 @@ profile toggles plus feature/service toggles.
 - `preferences.hardware.tlp.enable` - laptop power tuning module
 - `preferences.obs.enable` - OBS Studio feature toggle
 - `services.*.enable` - daemon-style modules such as `cliproxyapi`,
-  `dokploy`, `vpn-proxy`, `netdata-monitor`, `homepage-monitor`, and
-  `mitmproxy`
+  `omniroute`, `dokploy`, `vpn-proxy`, `netdata-monitor`,
+  `homepage-monitor`, and `mitmproxy`
 
 This keeps hosts thin: import the reusable modules you need, then switch
 features and services on or off in one place. Profiles are still regular NixOS

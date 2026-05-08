@@ -40,6 +40,7 @@
       mitmproxyDomain = mkHostname "mitmproxy";
       vpnDomain = mkHostname "vpn";
       cliproxyapiDomain = mkHostname "cliproxyapi";
+      omnirouteDomain = mkHostname "omniroute";
       cpaUsageKeeperDomain = mkHostname "cpa-usage";
       dokployDomain = mkHostname "dokploy";
       mongoDomain = mkHostname "mongo";
@@ -50,6 +51,7 @@
       servicesAuthCookieDomain = ".${publicBaseDomain}";
       authGatewayBaseUrl = "http://127.0.0.1:${toString servicesAuthGatewayPort}";
       traefikDokployUpstream = "http://127.0.0.1:81";
+      omniroutePublicBaseUrl = "https://${omnirouteDomain}";
       acmeCertName = publicBaseDomain;
       acmeCertDirectory = config.security.acme.certs.${acmeCertName}.directory;
       # lego's IONOS provider reads a raw API key from the referenced file.
@@ -105,6 +107,12 @@
         defaultRedirect = "https://${apexDomain}/";
         password = servicesAuthPassword;
         signingKey = servicesAuthSigningKey;
+      };
+
+      services.omniroute = {
+        publicBaseUrl = omniroutePublicBaseUrl;
+        authCookieSecure = true;
+        requireApiKey = true;
       };
 
       # Run mongo-express in a container (isolated & easy)
@@ -199,6 +207,15 @@
                 entryPoints = [ "websecure" ];
                 tls = { };
               };
+              omniroute = {
+                # API clients cannot pass the browser forward-auth cookie, so
+                # expose OmniRoute directly and rely on its dashboard/API auth.
+                # Source: https://github.com/diegosouzapw/OmniRoute/blob/v3.7.9/docs/ENVIRONMENT.md
+                rule = "Host(`${omnirouteDomain}`)";
+                service = "omniroute";
+                entryPoints = [ "websecure" ];
+                tls = { };
+              };
               dokploy = {
                 rule = "Host(`${dokployDomain}`)";
                 service = "dokploy-traefik";
@@ -229,6 +246,7 @@
               mitmproxy = mkDirectService 8083;
               vpn = mkDirectService 10802;
               cliproxyapi = mkDirectService 8317;
+              omniroute = mkDirectService 20128;
               cpa-usage-keeper = mkDirectService 8080;
               mongo = mkDirectService 41275;
               dokploy-traefik.loadBalancer.servers = [

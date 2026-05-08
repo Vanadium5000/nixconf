@@ -131,6 +131,13 @@
                   };
                 }
                 {
+                  "OmniRoute" = {
+                    icon = "mdi-routes";
+                    href = mkPublicUrl "omniroute" "";
+                    description = "OpenAI-compatible AI gateway";
+                  };
+                }
+                {
                   "CPA Usage Keeper" = {
                     icon = "mdi-chart-line";
                     href = mkPublicUrl "cpa-usage" "";

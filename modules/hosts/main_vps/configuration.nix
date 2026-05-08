@@ -139,6 +139,15 @@
         openFirewall = false; # Secure: close public port
       };
 
+      services.omniroute = {
+        enable = true;
+        host = "127.0.0.1"; # Traefik terminates TLS and is the only public listener.
+        # OmniRoute defaults to port 20128 for both dashboard and /v1 API.
+        # Source: https://github.com/diegosouzapw/OmniRoute/blob/v3.7.9/docs/ENVIRONMENT.md
+        port = 20128;
+        openFirewall = false; # Traefik is the only public entrypoint.
+      };
+
       services.cpa-usage-keeper = {
         enable = true;
         openFirewall = false; # Traefik is the only public entrypoint for this dashboard.

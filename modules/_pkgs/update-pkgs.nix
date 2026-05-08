@@ -334,6 +334,10 @@ pkgs.writeShellApplication {
           # lockstep; nix-update can miss npmDepsHash and driver-version coupling.
           # Source: modules/_pkgs/patchright.nix and https://registry.npmjs.org/patchright/latest.
           echo " # $pkg = pkgs.callPackage ./$pkg.nix {}; # skipped - NPM package with coupled patchright-core dependency (manual update)"
+        elif [ "$pkg" == "omniroute" ]; then
+          # Skip: npm standalone app includes native Node modules that need a
+          # smoke test after version/hash bumps. Source: modules/_pkgs/omniroute.nix.
+          echo " # $pkg = pkgs.callPackage ./$pkg.nix {}; # skipped - NPM standalone app with native modules (manual update)"
         elif [ "$pkg" == "cpa-usage-keeper" ]; then
           # Skip: Go backend plus Vite frontend need coordinated src, vendorHash,
           # and npmDepsHash updates; nix-update only handles part of that safely.
@@ -429,6 +433,14 @@ pkgs.writeShellApplication {
         # discovery needs manual validation before refreshing hashes.
         # Source: modules/_pkgs/patchright.nix and https://registry.npmjs.org/patchright/latest.
         echo " Skipping patchright (manual update required - NPM with coupled patchright-core dependency)"
+        SKIPPED+=("$pkg")
+        ;;
+
+      "omniroute")
+        # Skip: packaged from the npm standalone app, whose bundled native Node
+        # modules must be smoke-tested after any upstream version bump.
+        # Source: modules/_pkgs/omniroute.nix and https://www.npmjs.com/package/omniroute/v/3.7.9
+        echo " Skipping omniroute (manual update required - NPM standalone app with native modules)"
         SKIPPED+=("$pkg")
         ;;
 

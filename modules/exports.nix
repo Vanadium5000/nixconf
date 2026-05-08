@@ -82,6 +82,11 @@ let
         "cpa-usage-keeper"
         "enable"
       ];
+      omniroute = [
+        "services"
+        "omniroute"
+        "enable"
+      ];
       dokploy = [
         "services"
         "dokploy"
@@ -165,6 +170,7 @@ in
       services = {
         cliproxyapi = self.nixosModules.cliproxyapi;
         cpa-usage-keeper = self.nixosModules.cpa-usage-keeper;
+        omniroute = self.nixosModules.omniroute;
         services-auth-gateway = self.nixosModules.services-auth-gateway;
         dev = self.nixosModules.dev;
         homepage-monitor = self.nixosModules.homepage-monitor;
