@@ -214,6 +214,19 @@
           };
         };
 
+        # Browser persistence
+        # Keep profile/settings in normal persistence because cookies, extensions,
+        # and preferences are user state; cache remains in the cache tier so
+        # regenerated Chromium data stays out of backups.
+        # Refs: modules/common/impermanence.nix home/cache split;
+        # modules/_pkgs/brave-origin/make-brave.nix mainProgram = "brave-origin".
+        impermanence.home.directories = [
+          ".config/BraveSoftware/Brave-Origin-Nightly"
+        ];
+        impermanence.home.cache.directories = [
+          ".cache/BraveSoftware/Brave-Origin-Nightly"
+        ];
+
         # XDG Integration
         # Enable the NixOS XDG generators so non-Plasma sessions still expose
         # desktop files, icons, autostart entries, and terminal handlers.
@@ -224,14 +237,15 @@
         xdg.terminal-exec.enable = true;
         xdg.mime.enable = true;
         xdg.mime.defaultApplications = {
-          # Keep LibreWolf as the human-facing default browser even though
-          # Playwright gets its own Chromium bundle for automation.
-          "text/html" = [ "librewolf.desktop" ];
-          "application/xhtml+xml" = [ "librewolf.desktop" ];
-          "x-scheme-handler/http" = [ "librewolf.desktop" ];
-          "x-scheme-handler/https" = [ "librewolf.desktop" ];
-          "x-scheme-handler/about" = [ "librewolf.desktop" ];
-          "x-scheme-handler/unknown" = [ "librewolf.desktop" ];
+          # Use the visible Brave Origin desktop entry as the human-facing
+          # browser handler; package output also ships a NoDisplay-style app ID.
+          # Ref: modules/_pkgs/brave-origin/make-brave.nix package desktop files.
+          "text/html" = [ "brave-origin-nightly.desktop" ];
+          "application/xhtml+xml" = [ "brave-origin-nightly.desktop" ];
+          "x-scheme-handler/http" = [ "brave-origin-nightly.desktop" ];
+          "x-scheme-handler/https" = [ "brave-origin-nightly.desktop" ];
+          "x-scheme-handler/about" = [ "brave-origin-nightly.desktop" ];
+          "x-scheme-handler/unknown" = [ "brave-origin-nightly.desktop" ];
         };
 
         # Dolphin requires applications.menu to discover apps.
