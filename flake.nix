@@ -107,6 +107,7 @@
     extra-substituters = [
       # Project/CDN caches are incomplete; query them only after official misses.
       # Sources: https://cachix.org/ https://cache.numtide.com/ https://cache.nixos.org/nix-cache-info
+      "https://aseipp-nix-cache.global.ssl.fastly.net?priority=20"
       "https://cache.nixos.org?priority=40"
       "https://cache.nixos-cuda.org?priority=45"
       "https://nix-community.cachix.org?priority=50"
