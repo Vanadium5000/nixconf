@@ -53,8 +53,12 @@
             "@wheel"
           ];
 
-          # Speed
-          http-connections = 128; # default is only 25(!) – signifficant speedup
+          # Fan out around slow CDN connections; timeouts are seconds.
+          # Source: https://nixos.org/manual/nix/stable/command-ref/conf-file#conf-http-connections
+          http-connections = 256;
+          max-substitution-jobs = 96;
+          connect-timeout = 5;
+          stalled-download-timeout = 30;
         };
       };
       programs.nix-ld.enable = true;

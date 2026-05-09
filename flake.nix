@@ -92,24 +92,26 @@
 
   nixConfig = {
     # Substituters
-    # Lower priority wins; cache.nixos.org is the full-coverage priority-40 fallback.
+    # Lower priority wins; keep partial caches after cache.nixos.org (40) so they only rescue misses.
     # Keep rebuilding from source when a third-party cache is flaky instead of
     # turning a transient DNS outage into a hard failure.
     fallback = true;
-    # Fail fast on dead caches so healthy substituters or local builds take over.
-    connect-timeout = 10;
-    # Fan out substitutions around per-connection CDN throttles; keep below http-connections.
-    # Source: https://nixos.org/manual/nix/stable/command-ref/conf-file#conf-max-substitution-jobs
-    http-connections = 128;
-    max-substitution-jobs = 64;
+    # Fail fast on dead/stalled caches so healthy substituters or local builds take over; seconds.
+    # Source: https://nixos.org/manual/nix/stable/command-ref/conf-file#conf-connect-timeout
+    connect-timeout = 5;
+    stalled-download-timeout = 30;
+    # Rebuild-time fan-out for slow CDN paths; persisted in modules/nixos/terminal/nix.nix.
+    # Source: https://nixos.org/manual/nix/stable/command-ref/conf-file#conf-http-connections
+    http-connections = 256;
+    max-substitution-jobs = 96;
     extra-substituters = [
-      # Prefer reputable CDN/project caches when they own a path; do not front the
-      # full cache with single-node mirrors. Sources: https://cachix.org/ https://cache.numtide.com/
-      "https://nix-community.cachix.org?priority=30"
-      "https://hyprland.cachix.org?priority=31" # Hyprland
-      "https://cache.numtide.com?priority=32"
-      "https://cache.nixos-cuda.org?priority=33"
-      "https://cache.soopy.moe?priority=34" # Apple T2
+      # Project/CDN caches are incomplete; query them only after official misses.
+      # Sources: https://cachix.org/ https://cache.numtide.com/ https://cache.nixos.org/nix-cache-info
+      "https://cache.nixos-cuda.org?priority=45"
+      "https://nix-community.cachix.org?priority=50"
+      "https://hyprland.cachix.org?priority=51" # Hyprland
+      "https://cache.numtide.com?priority=52"
+      "https://cache.soopy.moe?priority=53" # Apple T2
     ];
     extra-trusted-public-keys = [
       "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
