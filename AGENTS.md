@@ -5,7 +5,7 @@
 ## 🛠️ Coding Standards
 
 - **Modularisation**: One file per module. Use `import-tree`. Expose clean `options.preferences` instead of hardcoding.
-- **Commenting**: Explain **WHY**, not what. Document units (e.g. `timeout = 3000; # 3s`), rationale, and edge cases. Preserve existing comments.
+- **Commenting**: Keep one dense comment near the setting: why, units/edge case, and source link/path. Preserve existing rationale; avoid prose blocks.
 - **DRY**: Use `self.lib` for reusable functions and `config.preferences` for shared values.
 - **Formatting**: Use `nixfmt-rfc-style` (2-space indent). Do NOT use alejandra.
 
@@ -14,6 +14,7 @@
 - **Impermanence**: Root is wiped on boot. Persist critical data (config, keys) in `impermanence.nixos.directories` and caches (Ollama, browser) in `.cache` paths.
 - **Secrets**: Auto-injected by `rebuild.sh` from `pass` into `secrets.nix`. Access via `self.secrets.NAME`. Never commit `secrets.nix`.
 - **Nix Evaluation**: Always use `path:.#` (not `.#`) to include untracked/dirty files.
+- **Binary Caches**: Do not prioritize China-hosted or low-trust mirrors. Prefer official `cache.nixos.org` plus reputable CDN/project caches; verify `.narinfo` hit/miss and one large NAR before changing priorities.
 - **Wayland Clipboard**: Always use `wl-copy --type text/plain` when piping stdin.
 
 ## 🏠 Server Services (public server host)

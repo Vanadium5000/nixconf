@@ -92,25 +92,31 @@
 
   nixConfig = {
     # Substituters
-    # NOTE: ?priority={num} specificies the priority of the substituter
-    # Lower means more priority - cache.nixos.org defaults to 40 priority so it is unchanged
+    # Lower priority wins; cache.nixos.org is the full-coverage priority-40 fallback.
     # Keep rebuilding from source when a third-party cache is flaky instead of
     # turning a transient DNS outage into a hard failure.
     fallback = true;
     # Fail fast on dead caches so healthy substituters or local builds take over.
     connect-timeout = 10;
+    # Fan out substitutions around per-connection CDN throttles; keep below http-connections.
+    # Source: https://nixos.org/manual/nix/stable/command-ref/conf-file#conf-max-substitution-jobs
+    http-connections = 128;
+    max-substitution-jobs = 64;
     extra-substituters = [
-      "https://cache.nixos.org?priority=1"
-      "https://cache.nixos-cuda.org?priority=2"
-      "https://nix-community.cachix.org?priority=4"
-      "https://hyprland.cachix.org?priority=5" # Hyprland
-      "https://cache.soopy.moe?priority=6" # Apple T2
+      # Prefer reputable CDN/project caches when they own a path; do not front the
+      # full cache with single-node mirrors. Sources: https://cachix.org/ https://cache.numtide.com/
+      "https://nix-community.cachix.org?priority=30"
+      "https://hyprland.cachix.org?priority=31" # Hyprland
+      "https://cache.numtide.com?priority=32"
+      "https://cache.nixos-cuda.org?priority=33"
+      "https://cache.soopy.moe?priority=34" # Apple T2
     ];
     extra-trusted-public-keys = [
       "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
       "cache.nixos-cuda.org:74DUi4Ye579gUqzH4ziL9IyiJBlDpMRn9MBN8oNan9M="
       "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
       "hyprland.cachix.org-1:a7pgxzMz7+chwVL3/pzj6jIBMioiJM7ypFP8PwtkuGc=" # Hyprland
+      "niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g="
       "cache.soopy.moe-1:0RZVsQeR+GOh0VQI9rvnHz55nVXkFardDqfm4+afjPo=" # Apple T2
     ];
   };
