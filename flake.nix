@@ -96,10 +96,10 @@
     # Keep rebuilding from source when a third-party cache is flaky instead of
     # turning a transient DNS outage into a hard failure.
     fallback = true;
-    # Fail fast on dead/stalled caches so healthy substituters or local builds take over; seconds.
+    # DNS/CDN resolution can exceed 5s on flaky links; 15s avoids false cache misses without hanging indefinitely.
     # Source: https://nixos.org/manual/nix/stable/command-ref/conf-file#conf-connect-timeout
-    connect-timeout = 5;
-    stalled-download-timeout = 30;
+    connect-timeout = 15;
+    stalled-download-timeout = 300;
     # Rebuild-time fan-out for slow CDN paths; persisted in modules/nixos/terminal/nix.nix.
     # Source: https://nixos.org/manual/nix/stable/command-ref/conf-file#conf-http-connections
     http-connections = 256;
@@ -107,6 +107,7 @@
     extra-substituters = [
       # Project/CDN caches are incomplete; query them only after official misses.
       # Sources: https://cachix.org/ https://cache.numtide.com/ https://cache.nixos.org/nix-cache-info
+      "https://cache.nixos.org?priority=40"
       "https://cache.nixos-cuda.org?priority=45"
       "https://nix-community.cachix.org?priority=50"
       "https://hyprland.cachix.org?priority=51" # Hyprland
