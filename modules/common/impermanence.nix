@@ -79,6 +79,10 @@
           "/persist/system" = {
             enable = true; # NB: Defaults to true, not needed
             hideMounts = true;
+            # GIO refuses trashing on hidden bind mounts unless x-gvfs-trash is
+            # present; impermanence maps this option to that mount flag.
+            # Source: https://github.com/nix-community/impermanence#persistent
+            allowTrash = true;
             directories = [
               "/var/log"
               "/var/lib/bluetooth"
@@ -133,6 +137,10 @@
           "/persist/cache" = {
             enable = true; # NB: Defaults to true, not needed
             hideMounts = true;
+            # Cache-backed user dirs are still visible to GUI apps, so allow
+            # VSCodium/Dolphin/GIO clients to send their files to Trash too.
+            # Source: https://github.com/nix-community/impermanence#persistent
+            allowTrash = true;
 
             directories = cfg.nixos.cache.directories;
             files = cfg.nixos.cache.files;
