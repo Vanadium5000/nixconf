@@ -902,11 +902,13 @@
           printf '%s\n' "$selection" | cut -f1
         }
 
-        # Searchable model picker using gum filter
+        # Keep this single-select so pressing Enter selects the highlighted category.
+        # Gum multi-select (`--no-limit`) requires tab/ctrl-space before Enter:
+        # https://github.com/charmbracelet/gum#choose
         choose_categories() {
           local selected
           if ! selected=$($JQ -r '.categories | to_entries[] | "\(.key)\t\(.value.label) [\(.key)] (\(.value.description))"' "$METADATA_FILE" \
-            | $GUM choose --no-limit --header "$(get_menu_text categoryMultiHeader)" --cursor="▶ " --selected.foreground="212" --cursor.foreground="212"); then
+            | $GUM choose --header "$(get_menu_text categoryHeader)" --cursor="▶ " --selected.foreground="212" --cursor.foreground="212"); then
             return 0
           fi
 
@@ -915,24 +917,22 @@
           fi
 
           local new_model
-          new_model=$(pick_model_id "$(get_menu_text modelHeaderMultiple)") || return 0
+          local category_id
+          local category_label
+          IFS=$'\t' read -r category_id category_label <<< "$selected"
+          if [ -z "$category_id" ]; then
+            return 0
+          fi
+
+          new_model=$(pick_model_id "$(get_menu_text modelHeaderPrefix) $category_label") || return 0
 
           local provider="''${new_model%%/*}"
           local model_id="''${new_model#*/}"
           local selected_effort=""
           selected_effort=$(pick_reasoning_effort "$provider" "$model_id") || return 0
 
-          local category_ids=()
-          while IFS=$'\t' read -r category_id _; do
-            [ -n "$category_id" ] && category_ids+=("$category_id")
-          done <<< "$selected"
-
-          if [ "''${#category_ids[@]}" -eq 0 ]; then
-            return 0
-          fi
-
-          update_multiple_groups_state "$new_model" "$selected_effort" "''${category_ids[@]}"
-          $GUM style --foreground 212 "✅ Updated ''${#category_ids[@]} categories to $new_model (effort: ''${selected_effort:-auto})"
+          update_group_state "$category_id" "$new_model" "$selected_effort"
+          $GUM style --foreground 212 "✅ Updated $category_id to $new_model (effort: ''${selected_effort:-auto})"
         }
 
         preset_summary() {
@@ -1173,7 +1173,18 @@
           local categories_summary
           categories_summary=$(
             while IFS=$'\t' read -r label category_id; do
-              printf -- '- %s: %s\n' "$label" "$(get_group_model "$category_id")"
+              local model
+              local effort
+              local detail=""
+
+              model=$(get_group_model "$category_id")
+              effort=$(get_group_reasoning_effort "$category_id")
+
+              if [ -n "$effort" ]; then
+                detail=" (effort: $effort)"
+              fi
+
+              printf -- '- %s: %s%s\n' "$label" "$model" "$detail"
             done < <($JQ -r '.categories | to_entries[] | "\(.value.label)\t\(.key)"' "$METADATA_FILE")
           )
 
