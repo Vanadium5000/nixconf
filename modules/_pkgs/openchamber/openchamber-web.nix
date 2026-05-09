@@ -8,7 +8,7 @@
 }:
 
 let
-  version = "1.9.10";
+  version = "1.10.4";
 in
 buildNpmPackage (finalAttrs: {
   pname = "openchamber-web";
@@ -19,7 +19,7 @@ buildNpmPackage (finalAttrs: {
   # Ref: https://registry.npmjs.org/@openchamber/web/-/web-${version}.tgz
   src = fetchurl {
     url = "https://registry.npmjs.org/@openchamber/web/-/web-${version}.tgz";
-    hash = "sha256-WEdzdNDoPsmzjBZc12ep169LDegqMSTMN5bnOfeZ+Yw=";
+    hash = "sha256-xD5T2MvHhsrZTusBwHMKNJQe7CuQHXREZCDI45sKXTk=";
   };
 
   # Copy a pinned lockfile into the release tarball because upstream ships a

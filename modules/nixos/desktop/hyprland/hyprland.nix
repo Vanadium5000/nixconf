@@ -102,24 +102,35 @@
           ${command}
         '';
 
-      frozenSlurpScript =
+      frozenScreenshotScript =
         command:
         makeScript ''
           #!${pkgs.bash}/bin/bash
           set -euo pipefail
 
-          # Hyprpicker only needs to cover the interactive selection step. Kill
-          # it before opening slower post-processing UIs like Swappy, otherwise
-          # the frozen preview can remain above the finished screenshot result.
+          # Keep Hyprpicker alive until grim captures the selected region, then
+          # close it before slower post-processing UIs like Swappy are opened.
           # Source: https://github.com/hyprwm/hyprpicker/blob/main/src/main.cpp
           ${getExe pkgs.hyprpicker} -r -z >/dev/null 2>&1 &
           freeze_pid=$!
+          screenshot_file=""
 
           cleanup_freeze() {
             kill "$freeze_pid" 2>/dev/null || true
             wait "$freeze_pid" 2>/dev/null || true
           }
-          trap cleanup_freeze EXIT
+
+          cleanup_screenshot() {
+            if [ -n "$screenshot_file" ]; then
+              rm -f "$screenshot_file"
+            fi
+          }
+
+          cleanup_all() {
+            cleanup_freeze
+            cleanup_screenshot
+          }
+          trap cleanup_all EXIT
 
           # Grimblast uses the same 0.2s wait so the frozen layer maps before
           # slurp takes pointer focus.
@@ -127,8 +138,10 @@
           sleep 0.2
 
           selection="$(${getExe pkgs.slurp} -d)"
+          screenshot_file="$(${pkgs.coreutils}/bin/mktemp --suffix=.png)"
+          ${getExe pkgs.grim} -g "$selection" "$screenshot_file"
           cleanup_freeze
-          trap - EXIT
+          trap cleanup_screenshot EXIT
 
           ${command}
         '';
@@ -291,8 +304,7 @@
             "Screenshot to text (OCR)"
             "Capture"
           )
-          (kb "${mod},S"
-            "exec, ${frozenSlurpScript ''${getExe pkgs.grim} -g "$selection" - | ${getExe pkgs.swappy} -f -''}"
+          (kb "${mod},S" "exec, ${frozenScreenshotScript ''${getExe pkgs.swappy} -f "$screenshot_file"''}"
             "Screenshot area (edit with Swappy)"
             "Capture"
           )
@@ -310,7 +322,7 @@
             key = "${shiftMod},S";
             exec =
               "exec, "
-              + (frozenSlurpScript ''${getExe pkgs.grim} -g "$selection" - | ${getExe pkgs.tesseract} - - | ${pkgs.wl-clipboard}/bin/wl-copy --type text/plain && text=$( ${pkgs.wl-clipboard}/bin/wl-paste) && if [ ''${#text} -le 120 ]; then ${getExe pkgs.libnotify} "OCR Result" "$text"; else ${getExe pkgs.libnotify} "OCR Result" "''${text:0:100}...''${text: -20}"; fi'');
+              + (frozenScreenshotScript ''${getExe pkgs.tesseract} "$screenshot_file" - | ${pkgs.wl-clipboard}/bin/wl-copy --type text/plain && text=$( ${pkgs.wl-clipboard}/bin/wl-paste) && if [ ''${#text} -le 120 ]; then ${getExe pkgs.libnotify} "OCR Result" "$text"; else ${getExe pkgs.libnotify} "OCR Result" "''${text:0:100}...''${text: -20}"; fi'');
             description = "OCR screenshot to clipboard";
             category = "Capture";
           }
@@ -318,7 +330,7 @@
             key = "${altMod},S";
             exec =
               "exec, "
-              + (frozenSlurpScript ''${getExe pkgs.grim} -g "$selection" - | ${pkgs.zbar}/bin/zbarimg - | sed 's/^QR-Code:[[:space:]]*//' | ${pkgs.wl-clipboard}/bin/wl-copy --type text/plain && text=$( ${pkgs.wl-clipboard}/bin/wl-paste) && if [ ''${#text} -le 120 ]; then ${getExe pkgs.libnotify} "ZBAR SCAN Result" "$text"; else ${getExe pkgs.libnotify} "ZBAR SCAN Result" "''${text:0:100}...''${text: -20}"; fi'');
+              + (frozenScreenshotScript ''${pkgs.zbar}/bin/zbarimg "$screenshot_file" | sed 's/^QR-Code:[[:space:]]*//' | ${pkgs.wl-clipboard}/bin/wl-copy --type text/plain && text=$( ${pkgs.wl-clipboard}/bin/wl-paste) && if [ ''${#text} -le 120 ]; then ${getExe pkgs.libnotify} "ZBAR SCAN Result" "$text"; else ${getExe pkgs.libnotify} "ZBAR SCAN Result" "''${text:0:100}...''${text: -20}"; fi'');
             description = "QR code scan to clipboard";
             category = "Capture";
           }
