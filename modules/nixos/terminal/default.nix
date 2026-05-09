@@ -28,6 +28,9 @@
           "sora-watermark-cleaner"
           "waydroid-total-spoof"
         ];
+        legion5i = [
+          "personalive" # Temporary - due to it not working
+        ];
         # Example: Add more hosts as needed
         # server_host = [ "some-gui-package" ];
       };

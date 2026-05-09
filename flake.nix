@@ -107,20 +107,19 @@
     extra-substituters = [
       # Project/CDN caches are incomplete; query them only after official misses.
       # Sources: https://cachix.org/ https://cache.numtide.com/ https://cache.nixos.org/nix-cache-info
-      "https://aseipp-nix-cache.global.ssl.fastly.net?priority=20"
+      "https://cache.numtide.com?priority=20"
       "https://cache.nixos.org?priority=40"
       "https://cache.nixos-cuda.org?priority=45"
       "https://nix-community.cachix.org?priority=50"
       "https://hyprland.cachix.org?priority=51" # Hyprland
-      "https://cache.numtide.com?priority=52"
       "https://cache.soopy.moe?priority=53" # Apple T2
     ];
     extra-trusted-public-keys = [
+      "niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g="
       "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
       "cache.nixos-cuda.org:74DUi4Ye579gUqzH4ziL9IyiJBlDpMRn9MBN8oNan9M="
       "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
       "hyprland.cachix.org-1:a7pgxzMz7+chwVL3/pzj6jIBMioiJM7ypFP8PwtkuGc=" # Hyprland
-      "niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g="
       "cache.soopy.moe-1:0RZVsQeR+GOh0VQI9rvnHz55nVXkFardDqfm4+afjPo=" # Apple T2
     ];
   };
