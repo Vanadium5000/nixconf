@@ -19,6 +19,7 @@
         main_vps = [
           "antigravity-manager"
           "aptos-fonts"
+          "brave-origin" # GUI browser; terminal hosts install all flake packages.
           "iloader"
           "powerpoint-mcp"
           "niri-screen-time"

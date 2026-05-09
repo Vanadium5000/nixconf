@@ -311,6 +311,12 @@ pkgs.writeShellApplication {
           # stable buildGoModule and reproduces the nix-update failure. Source:
           # modules/_pkgs/cliproxyapi.nix and upstream go.mod.
           echo " $pkg = pkgs.callPackage ./$pkg.nix { inherit unstable; };"
+        elif [ "$pkg" == "brave-origin" ]; then
+          # Supported via custom updater because Brave Origin versions are valid
+          # only when the expected prerelease .deb exists and all platform hashes
+          # are refreshed together. Source: modules/_pkgs/brave-origin/update.sh
+          # and upstream WitteShadovv/nixpkgs pkgs/by-name/br/brave-origin.
+          echo " $pkg = pkgs.callPackage ./$pkg.nix {};"
         elif [ "$pkg" == "cake-wallet-flatpak" ]; then
           # Supported: versioned GitHub release asset for upstream Flatpak bundle
           echo " $pkg = pkgs.callPackage ./$pkg.nix {};"
@@ -375,6 +381,20 @@ pkgs.writeShellApplication {
           
       # Per-package update strategies
       case "$pkg" in
+      "brave-origin")
+        # Custom updater selects the latest prerelease only when the expected
+        # brave-origin-nightly_<version>_amd64.deb asset exists, then rewrites
+        # platform hashes as one matrix. Source: modules/_pkgs/brave-origin/update.sh
+        # and upstream WitteShadovv/nixpkgs pkgs/by-name/br/brave-origin/update.sh.
+        set +e
+        if ./brave-origin/update.sh; then
+          UPDATED+=("$pkg")
+        else
+          FAILED+=("$pkg")
+        fi
+        set -e
+        ;;
+
       "aptos-fonts")
         # Skip: static font CDN URL (manual update required)
         echo " Skipping aptos-fonts (manual update required - static font CDN)"
