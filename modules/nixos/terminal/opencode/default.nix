@@ -459,6 +459,39 @@
           '
         }
 
+        pick_reasoning_effort() {
+          local provider="$1"
+          local model_id="$2"
+          local efforts
+          local effort_options
+          local selected_effort
+
+          if ! efforts=$(get_model_variant_names "$provider" "$model_id"); then
+            printf '%s\n' ""
+            return 0
+          fi
+
+          if ! effort_options=$(printf '%s\n' "$efforts" | $JQ -r 'if type == "array" then .[] else empty end'); then
+            printf '%s\n' ""
+            return 0
+          fi
+
+          if [ -z "$effort_options" ]; then
+            printf '%s\n' ""
+            return 0
+          fi
+
+          if ! selected_effort=$(printf '%s\n' "$effort_options" | $GUM choose --header "$(get_menu_text reasoningEffortHeader)"); then
+            return 1
+          fi
+
+          if [ -z "$selected_effort" ]; then
+            return 1
+          fi
+
+          printf '%s\n' "$selected_effort"
+        }
+
         ensure_state_file() {
           ensure_repo_state_files
           if [ ! -f "$STATE_FILE" ] || [ ! -s "$STATE_FILE" ]; then
@@ -845,8 +878,22 @@
 
         pick_model_id() {
           local header="$1"
+          local lines
           local selection
-          selection=$(model_picker_lines | $GUM filter --placeholder "Search models..." --header "$header")
+
+          if ! lines=$(model_picker_lines); then
+            $GUM style --foreground 196 "Error: Failed to load model list"
+            return 1
+          fi
+
+          if [ -z "$lines" ]; then
+            $GUM style --foreground 214 "No models available. Use '$(get_menu_text syncAction)' first."
+            return 1
+          fi
+
+          if ! selection=$(printf '%s\n' "$lines" | $GUM filter --placeholder "Search models..." --header "$header"); then
+            return 1
+          fi
 
           if [ -z "$selection" ]; then
             return 1
@@ -858,31 +905,22 @@
         # Searchable model picker using gum filter
         choose_categories() {
           local selected
-          selected=$($JQ -r '.categories | to_entries[] | "\(.key)\t\(.value.label) [\(.key)] (\(.value.description))"' "$METADATA_FILE" \
-            | $GUM choose --no-limit --header "$(get_menu_text categoryMultiHeader)" --cursor="▶ " --selected.foreground="212" --cursor.foreground="212")
+          if ! selected=$($JQ -r '.categories | to_entries[] | "\(.key)\t\(.value.label) [\(.key)] (\(.value.description))"' "$METADATA_FILE" \
+            | $GUM choose --no-limit --header "$(get_menu_text categoryMultiHeader)" --cursor="▶ " --selected.foreground="212" --cursor.foreground="212"); then
+            return 0
+          fi
 
           if [ -z "$selected" ]; then
-            return 1
+            return 0
           fi
 
           local new_model
-          new_model=$(pick_model_id "$(get_menu_text modelHeaderMultiple)") || return 1
+          new_model=$(pick_model_id "$(get_menu_text modelHeaderMultiple)") || return 0
 
-          # Check for reasoning effort
           local provider="''${new_model%%/*}"
           local model_id="''${new_model#*/}"
-          local efforts
-          efforts=$(get_model_variant_names "$provider" "$model_id")
-
           local selected_effort=""
-          if [ -n "$efforts" ]; then
-            local effort_options
-            effort_options=$(echo "$efforts" | $JQ -r '.[]')
-            selected_effort=$(echo "$effort_options" | $GUM choose --header "$(get_menu_text reasoningEffortHeader)")
-            if [ -z "$selected_effort" ]; then
-              return 1
-            fi
-          fi
+          selected_effort=$(pick_reasoning_effort "$provider" "$model_id") || return 0
 
           local category_ids=()
           while IFS=$'\t' read -r category_id _; do
@@ -890,7 +928,7 @@
           done <<< "$selected"
 
           if [ "''${#category_ids[@]}" -eq 0 ]; then
-            return 1
+            return 0
           fi
 
           update_multiple_groups_state "$new_model" "$selected_effort" "''${category_ids[@]}"
@@ -1030,21 +1068,25 @@
         preset_manager() {
           while true; do
             local selection
-            selection=$(preset_lines | $GUM filter --placeholder "$(get_menu_text presetManagerHeader)" --header "$(get_menu_text presetManagerHeader)")
+            if ! selection=$(preset_lines | $GUM filter --placeholder "$(get_menu_text presetManagerHeader)" --header "$(get_menu_text presetManagerHeader)"); then
+              return 0
+            fi
             if [ -z "$selection" ]; then
-              return 1
+              return 0
             fi
 
             local preset_name
             preset_name=$(printf '%s\n' "$selection" | cut -f1)
 
             local action
-            action=$($GUM choose \
+            if ! action=$($GUM choose \
               "Use" \
               "Edit" \
               "Delete" \
               "Back" \
-              --header "$(get_menu_text presetActionHeader): $preset_name")
+              --header "$(get_menu_text presetActionHeader): $preset_name"); then
+              return 0
+            fi
 
             case "$action" in
               Use) apply_preset "$preset_name" ;;
@@ -1081,32 +1123,23 @@
           fi
 
           local source_selection
-          source_selection=$(printf '%s\n' "$source_options" | $GUM filter --header "$(get_menu_text replaceSourceHeader)" --placeholder "Search current category models...")
+          if ! source_selection=$(printf '%s\n' "$source_options" | $GUM filter --header "$(get_menu_text replaceSourceHeader)" --placeholder "Search current category models..."); then
+            return 0
+          fi
           if [ -z "$source_selection" ]; then
-            return 1
+            return 0
           fi
 
           local source_model
           source_model=$(printf '%s\n' "$source_selection" | cut -f1)
 
           local target_model
-          target_model=$(pick_model_id "$(get_menu_text replaceTargetHeader)") || return 1
+          target_model=$(pick_model_id "$(get_menu_text replaceTargetHeader)") || return 0
 
-          # Check for reasoning effort
           local provider="''${target_model%%/*}"
           local model_id="''${target_model#*/}"
-          local efforts
-          efforts=$(get_model_variant_names "$provider" "$model_id")
-
           local selected_effort=""
-          if [ -n "$efforts" ]; then
-            local effort_options
-            effort_options=$(echo "$efforts" | $JQ -r '.[]')
-            selected_effort=$(echo "$effort_options" | $GUM choose --header "$(get_menu_text reasoningEffortHeader)")
-            if [ -z "$selected_effort" ]; then
-              return 1
-            fi
-          fi
+          selected_effort=$(pick_reasoning_effort "$provider" "$model_id") || return 0
 
           local matched_categories=()
           local total_matched=0
@@ -1151,15 +1184,18 @@
 
         init_project() {
           local choice
-          choice=$($GUM choose ${
+          if ! choice=$($GUM choose ${
             lib.concatStringsSep " " (map (n: ''"${n}"'') (lib.attrNames mcpTemplates))
-          } --header "📦 Select Project Template (initializes in $PWD)" --cursor="▶ " --selected.foreground="212" --cursor.foreground="212")
+          } --header "📦 Select Project Template (initializes in $PWD)" --cursor="▶ " --selected.foreground="212" --cursor.foreground="212"); then
+            echo "Operation cancelled."
+            return 0
+          fi
 
-          if [ -z "$choice" ]; then echo "Operation cancelled."; return 1; fi
+          if [ -z "$choice" ]; then echo "Operation cancelled."; return 0; fi
 
           if [ -f "$LOCAL_JSONC_FILE" ] || [ -f "$PWD/.opencode/config.json" ]; then
             if ! $GUM confirm "This will overwrite your existing opencode.jsonc. Continue?"; then
-              echo "Operation cancelled."; return 1
+              echo "Operation cancelled."; return 0
             fi
           fi
 
@@ -1175,42 +1211,47 @@
         }
 
         tui_menu() {
-          local context_msg="Context: Global"
-          if [ -f "$LOCAL_JSONC_FILE" ]; then context_msg="Context: Local Project ($LOCAL_JSONC_FILE)"; fi
+          while true; do
+            local context_msg="Context: Global"
+            if [ -f "$LOCAL_JSONC_FILE" ]; then context_msg="Context: Local Project ($LOCAL_JSONC_FILE)"; fi
 
-          sync_config_from_state
-          rebuild_runtime_configs >/dev/null 2>&1 || true
+            sync_config_from_state
+            rebuild_runtime_configs >/dev/null 2>&1 || true
 
-          local sync_warning=""
-          if [ ! -f "$MODELS_FILE" ] || [ ! -s "$MODELS_FILE" ]; then
-            sync_warning=" (⚠️ Models list empty, please sync!)"
-          fi
+            local sync_warning=""
+            if [ ! -f "$MODELS_FILE" ] || [ ! -s "$MODELS_FILE" ]; then
+              sync_warning=" (⚠️ Models list empty, please sync!)"
+            fi
 
-          local action
-          action=$($GUM choose \
-            "$(get_menu_text syncAction)$sync_warning" \
-            "$(get_menu_text syncConfigAction)" \
-            "$(get_menu_text changeCategoriesAction)" \
-            "$(get_menu_text replaceModelAction)" \
-            "$(get_menu_text presetSaveAction)" \
-            "$(get_menu_text presetManageAction)" \
-            "$(get_menu_text initAction)" \
-            "$(get_menu_text exitAction)" \
-            --header "$(get_menu_text title)
+            local action
+            if ! action=$($GUM choose \
+              "$(get_menu_text syncAction)$sync_warning" \
+              "$(get_menu_text syncConfigAction)" \
+              "$(get_menu_text changeCategoriesAction)" \
+              "$(get_menu_text replaceModelAction)" \
+              "$(get_menu_text presetSaveAction)" \
+              "$(get_menu_text presetManageAction)" \
+              "$(get_menu_text initAction)" \
+              "$(get_menu_text exitAction)" \
+              --header "$(get_menu_text title)
         $context_msg
 
-        $(render_state_summary)" --cursor="▶ " --selected.foreground="212" --cursor.foreground="212")
+        $(render_state_summary)" --cursor="▶ " --selected.foreground="212" --cursor.foreground="212"); then
+              return 0
+            fi
 
-          case "$action" in
-            "$(get_menu_text syncAction)"*) sync_models ;;
-            "$(get_menu_text syncConfigAction)") sync_config_from_state ;;
-            "$(get_menu_text changeCategoriesAction)") choose_categories ;;
-            "$(get_menu_text replaceModelAction)") replace_model_across_categories ;;
-            "$(get_menu_text presetSaveAction)") save_preset ;;
-            "$(get_menu_text presetManageAction)") preset_manager ;;
-            "$(get_menu_text initAction)") init_project ;;
-            *) exit 0 ;;
-          esac
+            case "$action" in
+              "$(get_menu_text syncAction)"*) sync_models || true ;;
+              "$(get_menu_text syncConfigAction)") sync_config_from_state || true ;;
+              "$(get_menu_text changeCategoriesAction)") choose_categories || true ;;
+              "$(get_menu_text replaceModelAction)") replace_model_across_categories || true ;;
+              "$(get_menu_text presetSaveAction)") save_preset || true ;;
+              "$(get_menu_text presetManageAction)") preset_manager || true ;;
+              "$(get_menu_text initAction)") init_project || true ;;
+              "$(get_menu_text exitAction)") return 0 ;;
+              *) return 0 ;;
+            esac
+          done
         }
 
         if [ $# -eq 0 ]; then tui_menu; exit 0; fi
