@@ -145,7 +145,7 @@
       baseConfig = {
         "$schema" = "https://opencode.ai/config.json";
         plugin = pluginsConfig.plugins;
-        small_model = "opencode/gpt-5-nano";
+        small_model = "cliproxyapi/kilo-auto/free";
         autoupdate = false;
         share = "disabled";
         permission = {

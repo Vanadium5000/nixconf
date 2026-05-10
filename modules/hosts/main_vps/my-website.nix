@@ -36,7 +36,7 @@
       authDomain = mkHostname "auth";
       openclawDomain = mkHostname "openclaw";
       dashboardDomain = mkHostname "dashboard";
-      netdataDomain = mkHostname "netdata";
+      cockpitDomain = mkHostname "cockpit";
       mitmproxyDomain = mkHostname "mitmproxy";
       vpnDomain = mkHostname "vpn";
       cliproxyapiDomain = mkHostname "cliproxyapi";
@@ -115,6 +115,19 @@
         requireApiKey = true;
       };
 
+      services.cockpit = {
+        enable = true;
+        port = 9090;
+        openFirewall = false;
+        allowed-origins = [ "https://${cockpitDomain}" ];
+        settings.WebService = {
+          # Traefik terminates public TLS; Cockpit trusts this header only for the proxied localhost path.
+          # Source: https://cockpit-project.org/guide/latest/cockpit.conf.5.html#_webservice
+          ProtocolHeader = "X-Forwarded-Proto";
+          LoginTo = false;
+        };
+      };
+
       # Run mongo-express in a container (isolated & easy)
       virtualisation.oci-containers.containers.mongo-express = {
         autoStart = true;
@@ -185,9 +198,9 @@
                 rule = "Host(`${dashboardDomain}`)";
                 service = "dashboard";
               };
-              netdata = mkProtectedServiceRouter {
-                rule = "Host(`${netdataDomain}`)";
-                service = "netdata";
+              cockpit = mkProtectedServiceRouter {
+                rule = "Host(`${cockpitDomain}`)";
+                service = "cockpit";
               };
               mitmproxy = mkProtectedServiceRouter {
                 rule = "Host(`${mitmproxyDomain}`)";
@@ -242,7 +255,7 @@
             services = {
               services-auth-gateway = mkDirectService servicesAuthGatewayPort;
               dashboard = mkDirectService 8082;
-              netdata = mkDirectService 19999;
+              cockpit = mkDirectService config.services.cockpit.port;
               mitmproxy = mkDirectService 8083;
               vpn = mkDirectService 10802;
               cliproxyapi = mkDirectService 8317;

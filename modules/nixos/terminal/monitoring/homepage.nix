@@ -102,14 +102,10 @@
             {
               "Monitoring" = [
                 {
-                  "Netdata — VPS" = {
-                    icon = "netdata";
-                    href = mkPublicUrl "netdata" "";
-                    description = "Real-time system metrics (server host)";
-                    widget = {
-                      type = "netdata";
-                      url = "http://127.0.0.1:19999";
-                    };
+                  "Cockpit — VPS" = {
+                    icon = "mdi-monitor-dashboard";
+                    href = mkPublicUrl "cockpit" "";
+                    description = "Systemd services, logs, and host actions";
                   };
                 }
                 {

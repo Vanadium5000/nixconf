@@ -247,6 +247,23 @@
             # Utils
             alias ports="sudo ss -ltnup"
 
+            function unlock-host() {
+              if [[ $# -lt 1 || $# -gt 2 ]]; then
+                print -u2 "usage: unlock-host <host> [port]"
+                return 2
+              fi
+
+              local host="$1"
+              local port="''${2:-2222}"
+
+              # The initrd unlock SSH daemon is separate from normal post-boot
+              # sshd, so connect as root on the stage-1 port declared in
+              # modules/hosts/main_vps/remote-unlock.nix.
+              ssh -p "$port" root@"$host"
+            }
+
+            alias unlock-device="unlock-host"
+
             function killport() {
               if [[ $# -ne 1 || ! $1 == <1-65535> ]]; then
                 print -u2 "usage: killport {port}"

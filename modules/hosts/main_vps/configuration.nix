@@ -198,10 +198,6 @@
       systemd.services.ntfy-sh.serviceConfig.DynamicUser = lib.mkForce false;
       services.unison-sync.enable = true;
 
-      # System monitoring — real-time metrics with persistent history
-      services.netdata-monitor.enable = true;
-      preferences.allowedUnfree = [ "netdata" ];
-
       # Fleet dashboard portal — accessible via Tailscale at http://main-vps:8082
       services.homepage-monitor.enable = true;
 
