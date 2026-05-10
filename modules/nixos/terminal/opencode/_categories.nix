@@ -263,9 +263,54 @@ let
         # "context7"
         # "grep_app"
       ];
+      # Built-in skills are resolved on demand via the skill tool, so leaving the
+      # Source: https://opencode.ai/docs/skills/
       # Keep Playwright repo-owned so built-in skill lifecycle does not compete
       # with per-repository setup managed outside the shared host config.
       disabled_skills = [ "playwright" ];
+
+      team_mode = {
+        # Team mode is opt-in upstream; enable it so `team_*` tools are present
+        # after restart while keeping official 4/8 worker limits.
+        # Source: https://github.com/code-yeongyu/oh-my-openagent/blob/dev/docs/guide/team-mode.md
+        enabled = true;
+        tmux_visualization = true;
+        max_parallel_members = 4;
+        max_members = 8;
+      };
+      background_task = {
+        providerConcurrency = {
+          # Codex-family GPT workers route through OpenAI-compatible model IDs;
+          # cap that provider without over-throttling normal parallel fan-out.
+          # Sources: ./models.json and https://raw.githubusercontent.com/code-yeongyu/oh-my-openagent/dev/assets/oh-my-opencode.schema.json
+          openai = 6;
+        };
+        modelConcurrency = {
+          # Include local GPT-5/Codex-family IDs present in both capability patches
+          # and synced metadata, including non-`codex` suffixed Codex aliases.
+          # Sources: ./_model-local-patches.json and ./models.json.
+          "gpt-5.2" = 4;
+          "gpt-5.3-codex" = 4;
+          "gpt-5.4" = 4;
+          "openai/gpt-5" = 4;
+          "openai/gpt-5-chat" = 4;
+          "openai/gpt-5-codex" = 4;
+          "openai/gpt-5-pro" = 4;
+          "openai/gpt-5.1" = 4;
+          "openai/gpt-5.1-chat" = 4;
+          "openai/gpt-5.1-codex" = 4;
+          "openai/gpt-5.2" = 4;
+          "openai/gpt-5.2-chat" = 4;
+          "openai/gpt-5.2-codex" = 4;
+          "openai/gpt-5.2-pro" = 4;
+          "openai/gpt-5.3-chat" = 4;
+          "openai/gpt-5.3-codex" = 4;
+          "openai/gpt-5.4" = 4;
+          "openai/gpt-5.4-pro" = 4;
+          "openai/gpt-5.5" = 4;
+          "openai/gpt-5.5-pro" = 4;
+        };
+      };
       tmux = {
         enabled = true;
         layout = "main-vertical";
