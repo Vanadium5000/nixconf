@@ -16,42 +16,42 @@ let
     "visual-engineering" = {
       label = "Visual Engineering";
       description = "Frontend, UI/UX, styling, and visual interaction work";
-      defaultModel = "cliproxyapi/gemini-3.1-pro-high";
+      defaultModel = "omniroute/gemini-3.1-pro-high";
     };
     ultrabrain = {
       label = "Ultrabrain";
       description = "Hard logic, architecture, and deep debugging tasks";
-      defaultModel = "cliproxyapi/gpt-5.4";
+      defaultModel = "omniroute/gpt-5.4";
     };
     deep = {
       label = "Deep";
       description = "General implementation and autonomous end-to-end execution";
-      defaultModel = "cliproxyapi/gpt-5.3-codex";
+      defaultModel = "omniroute/gpt-5.3-codex";
     };
     artistry = {
       label = "Artistry";
       description = "Creative, non-conventional problem solving";
-      defaultModel = "cliproxyapi/gemini-3.1-pro-high";
+      defaultModel = "omniroute/gemini-3.1-pro-high";
     };
     quick = {
       label = "Quick";
       description = "Trivial low-effort changes and routine updates";
-      defaultModel = "cliproxyapi/gemini-3-flash";
+      defaultModel = "omniroute/gemini-3-flash";
     };
     writing = {
       label = "Writing";
       description = "Writing and communication upstream agents";
-      defaultModel = "cliproxyapi/gemini-3-flash";
+      defaultModel = "omniroute/gemini-3-flash";
     };
     "unspecified-low" = {
       label = "Unspecified (Low)";
       description = "Fallback category for low-effort uncategorized work";
-      defaultModel = "cliproxyapi/gemini-3-flash";
+      defaultModel = "omniroute/gemini-3-flash";
     };
     "unspecified-high" = {
       label = "Unspecified (High)";
       description = "Fallback category for high-effort uncategorized work";
-      defaultModel = "cliproxyapi/gpt-5.4";
+      defaultModel = "omniroute/gpt-5.4";
     };
   };
 
@@ -64,7 +64,7 @@ let
       data = if isValid then builtins.fromJSON content else { };
 
       # Helper to extract full category config from either string or object format
-      # Handles: "cliproxyapi/model" or { model = "cliproxyapi/model"; reasoningEffort = "high" }
+      # Handles: "omniroute/model" or { model = "omniroute/model"; reasoningEffort = "high" }
       # Returns full object to preserve reasoningEffort, not just the model string
       extractModel =
         raw:

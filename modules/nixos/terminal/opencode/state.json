@@ -1,35 +1,20 @@
 {
   "categories": {
-    "artistry": {
-      "model": "cliproxyapi/gpt-5.5",
-      "reasoningEffort": "high"
-    },
-    "deep": {
-      "model": "cliproxyapi/gpt-5.5",
-      "reasoningEffort": "high"
-    },
+    "artistry": "omniroute/gpt-5.5-high",
+    "deep": "omniroute/gpt-5.5-high",
     "quick": {
-      "model": "cliproxyapi/gpt-5.4-mini",
+      "model": "omniroute/gpt-5.4-mini",
       "reasoningEffort": "medium"
     },
-    "ultrabrain": {
-      "model": "cliproxyapi/gpt-5.5",
-      "reasoningEffort": "high"
-    },
-    "unspecified-high": {
-      "model": "cliproxyapi/gpt-5.5",
-      "reasoningEffort": "high"
-    },
+    "ultrabrain": "omniroute/gpt-5.5-high",
+    "unspecified-high": "omniroute/gpt-5.5-high",
     "unspecified-low": {
-      "model": "cliproxyapi/gpt-5.4-mini",
+      "model": "omniroute/gpt-5.4-mini",
       "reasoningEffort": "medium"
     },
-    "visual-engineering": {
-      "model": "cliproxyapi/gpt-5.5",
-      "reasoningEffort": "high"
-    },
+    "visual-engineering": "omniroute/gpt-5.5-high",
     "writing": {
-      "model": "cliproxyapi/gpt-5.4-mini",
+      "model": "omniroute/gpt-5.4-mini",
       "reasoningEffort": "medium"
     }
   }

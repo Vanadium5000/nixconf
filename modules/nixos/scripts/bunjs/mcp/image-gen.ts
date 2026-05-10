@@ -19,7 +19,7 @@ server.registerTool(
       outputPath: z
         .string()
         .describe(
-          "The absolute path where the image should be saved (e.g., /home/matrix/Downloads/image.png).",
+          "The absolute path where the image should be saved (e.g., /home/matrix/Downloads/image.png)."
         ),
       model: z
         .string()
@@ -28,40 +28,45 @@ server.registerTool(
   },
   async ({ prompt, outputPath, model }) => {
     try {
-      const apiKey = process.env.CLIPROXYAPI_KEY;
+      const apiKey = process.env.OMNIROUTE_OPENCODE_API_KEY;
       if (!apiKey) {
-        throw new Error("CLIPROXYAPI_KEY environment variable is not set.");
+        throw new Error(
+          "OMNIROUTE_OPENCODE_API_KEY environment variable is not set."
+        );
       }
 
-      const cliproxyApiBaseUrl = process.env.CLIPROXYAPI_BASE_URL;
-      if (!cliproxyApiBaseUrl) {
+      const omnirouteApiBaseUrl = process.env.OMNIROUTE_OPENCODE_API_KEY;
+      if (!omnirouteApiBaseUrl) {
         throw new Error(
-          "CLIPROXYAPI_BASE_URL environment variable is not set.",
+          "OMNIROUTE_OPENCODE_API_KEY environment variable is not set."
         );
       }
 
       const targetModel = model || process.env.IMAGE_MODEL;
       if (!targetModel) {
         throw new Error(
-          "No image model specified and IMAGE_MODEL env var is not set.",
+          "No image model specified and IMAGE_MODEL env var is not set."
         );
       }
 
       // We use the same proxy OpenCode uses
-      const response = await fetch(`${cliproxyApiBaseUrl}/images/generations`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          prompt,
-          model: targetModel.split("/").pop(), // Extract model ID from provider/model format
-          n: 1,
-          size: "1024x1024",
-          response_format: "b64_json",
-        }),
-      });
+      const response = await fetch(
+        `${omnirouteApiBaseUrl}/images/generations`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            prompt,
+            model: targetModel.split("/").pop(), // Extract model ID from provider/model format
+            n: 1,
+            size: "1024x1024",
+            response_format: "b64_json",
+          }),
+        }
+      );
 
       if (!response.ok) {
         const error = await response.text();
@@ -93,7 +98,7 @@ server.registerTool(
         isError: true,
       };
     }
-  },
+  }
 );
 
 const transport = new StdioServerTransport();

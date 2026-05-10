@@ -1,36 +1,1461 @@
 {
   "providers": {
-    "cliproxyapi": {
+    "omniroute": {
       "npm": "@ai-sdk/openai",
-      "name": "CliProxyApi",
+      "name": "omniroute",
       "baseUrl": "http://127.0.0.1:8317/v1",
       "models": {
-        "codex-auto-review": {
-          "name": "Codex Auto Review"
+        "01-ai/yi-large": {
+          "name": "nvidia/01-ai/yi-large"
+        },
+        "abacusai/dracarys-llama-3.1-70b-instruct": {
+          "name": "nvidia/abacusai/dracarys-llama-3.1-70b-instruct"
+        },
+        "adept/fuyu-8b": {
+          "name": "nvidia/adept/fuyu-8b"
+        },
+        "ai21/jamba-large-1.7": {
+          "name": "kilo-gateway/ai21/jamba-large-1.7"
+        },
+        "ai21labs/jamba-1.5-large-instruct": {
+          "name": "nvidia/ai21labs/jamba-1.5-large-instruct"
+        },
+        "aion-labs/aion-1.0": {
+          "name": "kilo-gateway/aion-labs/aion-1.0"
+        },
+        "aion-labs/aion-1.0-mini": {
+          "name": "kilo-gateway/aion-labs/aion-1.0-mini"
+        },
+        "aion-labs/aion-2.0": {
+          "name": "kilo-gateway/aion-labs/aion-2.0"
+        },
+        "aion-labs/aion-rp-llama-3.1-8b": {
+          "name": "kilo-gateway/aion-labs/aion-rp-llama-3.1-8b"
+        },
+        "aisingapore/sea-lion-7b-instruct": {
+          "name": "nvidia/aisingapore/sea-lion-7b-instruct"
+        },
+        "alfredpros/codellama-7b-instruct-solidity": {
+          "name": "kilo-gateway/alfredpros/codellama-7b-instruct-solidity"
+        },
+        "alibaba/tongyi-deepresearch-30b-a3b": {
+          "name": "kilo-gateway/alibaba/tongyi-deepresearch-30b-a3b"
+        },
+        "allenai/olmo-3-32b-think": {
+          "name": "kilo-gateway/allenai/olmo-3-32b-think"
+        },
+        "alpindale/goliath-120b": {
+          "name": "kilo-gateway/alpindale/goliath-120b"
+        },
+        "amazon/nova-2-lite-v1": {
+          "name": "kilo-gateway/amazon/nova-2-lite-v1"
+        },
+        "amazon/nova-lite-v1": {
+          "name": "kilo-gateway/amazon/nova-lite-v1"
+        },
+        "amazon/nova-micro-v1": {
+          "name": "kilo-gateway/amazon/nova-micro-v1"
+        },
+        "amazon/nova-premier-v1": {
+          "name": "kilo-gateway/amazon/nova-premier-v1"
+        },
+        "amazon/nova-pro-v1": {
+          "name": "kilo-gateway/amazon/nova-pro-v1"
+        },
+        "anthracite-org/magnum-v4-72b": {
+          "name": "kilo-gateway/anthracite-org/magnum-v4-72b"
+        },
+        "anthropic/claude-3-haiku": {
+          "name": "kilo-gateway/anthropic/claude-3-haiku"
+        },
+        "anthropic/claude-3.5-haiku": {
+          "name": "kilo-gateway/anthropic/claude-3.5-haiku"
+        },
+        "anthropic/claude-3.7-sonnet": {
+          "name": "kilo-gateway/anthropic/claude-3.7-sonnet"
+        },
+        "anthropic/claude-3.7-sonnet:thinking": {
+          "name": "kilo-gateway/anthropic/claude-3.7-sonnet:thinking"
+        },
+        "anthropic/claude-haiku-4.5": {
+          "name": "kilo-gateway/anthropic/claude-haiku-4.5"
+        },
+        "anthropic/claude-opus-4": {
+          "name": "kilo-gateway/anthropic/claude-opus-4"
+        },
+        "anthropic/claude-opus-4.1": {
+          "name": "kilo-gateway/anthropic/claude-opus-4.1"
+        },
+        "anthropic/claude-opus-4.5": {
+          "name": "kilo-gateway/anthropic/claude-opus-4.5"
+        },
+        "anthropic/claude-opus-4.6": {
+          "name": "kilo-gateway/anthropic/claude-opus-4.6"
+        },
+        "anthropic/claude-opus-4.6-fast": {
+          "name": "kilo-gateway/anthropic/claude-opus-4.6-fast"
+        },
+        "anthropic/claude-opus-4.7": {
+          "name": "kilo-gateway/anthropic/claude-opus-4.7"
+        },
+        "anthropic/claude-sonnet-4": {
+          "name": "kilo-gateway/anthropic/claude-sonnet-4"
+        },
+        "anthropic/claude-sonnet-4.5": {
+          "name": "kilo-gateway/anthropic/claude-sonnet-4.5"
+        },
+        "anthropic/claude-sonnet-4.6": {
+          "name": "kilo-gateway/anthropic/claude-sonnet-4.6"
+        },
+        "arcee-ai/coder-large": {
+          "name": "kilo-gateway/arcee-ai/coder-large"
+        },
+        "arcee-ai/maestro-reasoning": {
+          "name": "kilo-gateway/arcee-ai/maestro-reasoning"
+        },
+        "arcee-ai/spotlight": {
+          "name": "kilo-gateway/arcee-ai/spotlight"
+        },
+        "arcee-ai/trinity-large-preview": {
+          "name": "kilo-gateway/arcee-ai/trinity-large-preview"
+        },
+        "arcee-ai/trinity-large-preview:free": {
+          "name": "kilo-gateway/arcee-ai/trinity-large-preview:free"
+        },
+        "arcee-ai/trinity-large-thinking": {
+          "name": "kilo-gateway/arcee-ai/trinity-large-thinking"
+        },
+        "arcee-ai/trinity-mini": {
+          "name": "kilo-gateway/arcee-ai/trinity-mini"
+        },
+        "arcee-ai/virtuoso-large": {
+          "name": "kilo-gateway/arcee-ai/virtuoso-large"
+        },
+        "baai/bge-m3": {
+          "name": "nvidia/baai/bge-m3"
+        },
+        "baidu/cobuddy:free": {
+          "name": "kilo-gateway/baidu/cobuddy:free"
+        },
+        "baidu/ernie-4.5-21b-a3b": {
+          "name": "kilo-gateway/baidu/ernie-4.5-21b-a3b"
+        },
+        "baidu/ernie-4.5-21b-a3b-thinking": {
+          "name": "kilo-gateway/baidu/ernie-4.5-21b-a3b-thinking"
+        },
+        "baidu/ernie-4.5-300b-a47b": {
+          "name": "kilo-gateway/baidu/ernie-4.5-300b-a47b"
+        },
+        "baidu/ernie-4.5-vl-28b-a3b": {
+          "name": "kilo-gateway/baidu/ernie-4.5-vl-28b-a3b"
+        },
+        "baidu/ernie-4.5-vl-424b-a47b": {
+          "name": "kilo-gateway/baidu/ernie-4.5-vl-424b-a47b"
+        },
+        "baidu/qianfan-ocr-fast:free": {
+          "name": "kilo-gateway/baidu/qianfan-ocr-fast:free"
+        },
+        "bigcode/starcoder2-15b": {
+          "name": "nvidia/bigcode/starcoder2-15b"
+        },
+        "bytedance-seed/seed-1.6": {
+          "name": "kilo-gateway/bytedance-seed/seed-1.6"
+        },
+        "bytedance-seed/seed-1.6-flash": {
+          "name": "kilo-gateway/bytedance-seed/seed-1.6-flash"
+        },
+        "bytedance-seed/seed-2.0-lite": {
+          "name": "kilo-gateway/bytedance-seed/seed-2.0-lite"
+        },
+        "bytedance-seed/seed-2.0-mini": {
+          "name": "kilo-gateway/bytedance-seed/seed-2.0-mini"
+        },
+        "bytedance/seed-oss-36b-instruct": {
+          "name": "nvidia/bytedance/seed-oss-36b-instruct"
+        },
+        "bytedance/ui-tars-1.5-7b": {
+          "name": "kilo-gateway/bytedance/ui-tars-1.5-7b"
+        },
+        "cohere/command-a": {
+          "name": "kilo-gateway/cohere/command-a"
+        },
+        "cohere/command-r-08-2024": {
+          "name": "kilo-gateway/cohere/command-r-08-2024"
+        },
+        "cohere/command-r-plus-08-2024": {
+          "name": "kilo-gateway/cohere/command-r-plus-08-2024"
+        },
+        "cohere/command-r7b-12-2024": {
+          "name": "kilo-gateway/cohere/command-r7b-12-2024"
+        },
+        "databricks/dbrx-instruct": {
+          "name": "nvidia/databricks/dbrx-instruct"
+        },
+        "deepcogito/cogito-v2.1-671b": {
+          "name": "kilo-gateway/deepcogito/cogito-v2.1-671b"
+        },
+        "deepseek-ai/deepseek-coder-6.7b-instruct": {
+          "name": "nvidia/deepseek-ai/deepseek-coder-6.7b-instruct"
+        },
+        "deepseek-ai/deepseek-v4-flash": {
+          "name": "nvidia/deepseek-ai/deepseek-v4-flash"
+        },
+        "deepseek-ai/deepseek-v4-pro": {
+          "name": "nvidia/deepseek-ai/deepseek-v4-pro"
+        },
+        "deepseek/deepseek-chat": {
+          "name": "kilo-gateway/deepseek/deepseek-chat"
+        },
+        "deepseek/deepseek-chat-v3-0324": {
+          "name": "kilo-gateway/deepseek/deepseek-chat-v3-0324"
+        },
+        "deepseek/deepseek-chat-v3.1": {
+          "name": "kilo-gateway/deepseek/deepseek-chat-v3.1"
+        },
+        "deepseek/deepseek-r1": {
+          "name": "kilo-gateway/deepseek/deepseek-r1"
+        },
+        "deepseek/deepseek-r1-0528": {
+          "name": "kilo-gateway/deepseek/deepseek-r1-0528"
+        },
+        "deepseek/deepseek-r1-distill-llama-70b": {
+          "name": "kilo-gateway/deepseek/deepseek-r1-distill-llama-70b"
+        },
+        "deepseek/deepseek-r1-distill-qwen-32b": {
+          "name": "kilo-gateway/deepseek/deepseek-r1-distill-qwen-32b"
+        },
+        "deepseek/deepseek-v3.1-terminus": {
+          "name": "kilo-gateway/deepseek/deepseek-v3.1-terminus"
+        },
+        "deepseek/deepseek-v3.2": {
+          "name": "kilo-gateway/deepseek/deepseek-v3.2"
+        },
+        "deepseek/deepseek-v3.2-exp": {
+          "name": "kilo-gateway/deepseek/deepseek-v3.2-exp"
+        },
+        "deepseek/deepseek-v3.2-speciale": {
+          "name": "kilo-gateway/deepseek/deepseek-v3.2-speciale"
+        },
+        "deepseek/deepseek-v4-flash": {
+          "name": "kilo-gateway/deepseek/deepseek-v4-flash"
+        },
+        "deepseek/deepseek-v4-pro": {
+          "name": "kilo-gateway/deepseek/deepseek-v4-pro"
+        },
+        "essentialai/rnj-1-instruct": {
+          "name": "kilo-gateway/essentialai/rnj-1-instruct"
+        },
+        "fastpitch": {
+          "name": "nvidia/fastpitch"
+        },
+        "google/codegemma-1.1-7b": {
+          "name": "nvidia/google/codegemma-1.1-7b"
+        },
+        "google/codegemma-7b": {
+          "name": "nvidia/google/codegemma-7b"
+        },
+        "google/deplot": {
+          "name": "nvidia/google/deplot"
+        },
+        "google/gemini-2.0-flash-001": {
+          "name": "kilo-gateway/google/gemini-2.0-flash-001"
+        },
+        "google/gemini-2.0-flash-lite-001": {
+          "name": "kilo-gateway/google/gemini-2.0-flash-lite-001"
+        },
+        "google/gemini-2.5-flash": {
+          "name": "kilo-gateway/google/gemini-2.5-flash"
+        },
+        "google/gemini-2.5-flash-image": {
+          "name": "kilo-gateway/google/gemini-2.5-flash-image"
+        },
+        "google/gemini-2.5-flash-lite": {
+          "name": "kilo-gateway/google/gemini-2.5-flash-lite"
+        },
+        "google/gemini-2.5-flash-lite-preview-09-2025": {
+          "name": "kilo-gateway/google/gemini-2.5-flash-lite-preview-09-2025"
+        },
+        "google/gemini-2.5-pro": {
+          "name": "kilo-gateway/google/gemini-2.5-pro"
+        },
+        "google/gemini-2.5-pro-preview": {
+          "name": "kilo-gateway/google/gemini-2.5-pro-preview"
+        },
+        "google/gemini-2.5-pro-preview-05-06": {
+          "name": "kilo-gateway/google/gemini-2.5-pro-preview-05-06"
+        },
+        "google/gemini-3-flash-preview": {
+          "name": "kilo-gateway/google/gemini-3-flash-preview"
+        },
+        "google/gemini-3-pro-image-preview": {
+          "name": "kilo-gateway/google/gemini-3-pro-image-preview"
+        },
+        "google/gemini-3.1-flash-image-preview": {
+          "name": "kilo-gateway/google/gemini-3.1-flash-image-preview"
+        },
+        "google/gemini-3.1-flash-lite": {
+          "name": "kilo-gateway/google/gemini-3.1-flash-lite"
+        },
+        "google/gemini-3.1-flash-lite-preview": {
+          "name": "kilo-gateway/google/gemini-3.1-flash-lite-preview"
+        },
+        "google/gemini-3.1-pro-preview": {
+          "name": "kilo-gateway/google/gemini-3.1-pro-preview"
+        },
+        "google/gemini-3.1-pro-preview-customtools": {
+          "name": "kilo-gateway/google/gemini-3.1-pro-preview-customtools"
+        },
+        "google/gemma-2-27b-it": {
+          "name": "kilo-gateway/google/gemma-2-27b-it"
+        },
+        "google/gemma-2-2b-it": {
+          "name": "nvidia/google/gemma-2-2b-it"
+        },
+        "google/gemma-2b": {
+          "name": "nvidia/google/gemma-2b"
+        },
+        "google/gemma-3-12b-it": {
+          "name": "nvidia/google/gemma-3-12b-it"
+        },
+        "google/gemma-3-27b-it": {
+          "name": "nvidia/google/gemma-3-27b-it"
+        },
+        "google/gemma-3-4b-it": {
+          "name": "nvidia/google/gemma-3-4b-it"
+        },
+        "google/gemma-3n-e2b-it": {
+          "name": "nvidia/google/gemma-3n-e2b-it"
+        },
+        "google/gemma-3n-e4b-it": {
+          "name": "nvidia/google/gemma-3n-e4b-it"
+        },
+        "google/gemma-4-26b-a4b-it": {
+          "name": "kilo-gateway/google/gemma-4-26b-a4b-it"
+        },
+        "google/gemma-4-31b-it": {
+          "name": "kilo-gateway/google/gemma-4-31b-it"
+        },
+        "google/lyria-3-clip-preview": {
+          "name": "kilo-gateway/google/lyria-3-clip-preview"
+        },
+        "google/lyria-3-pro-preview": {
+          "name": "kilo-gateway/google/lyria-3-pro-preview"
+        },
+        "google/recurrentgemma-2b": {
+          "name": "nvidia/google/recurrentgemma-2b"
         },
         "gpt-5.2": {
-          "name": "GPT 5.2"
+          "name": "codex/gpt-5.2"
         },
         "gpt-5.3-codex": {
-          "name": "GPT 5.3 Codex"
+          "name": "codex/gpt-5.3-codex"
         },
         "gpt-5.3-codex-spark": {
-          "name": "GPT 5.3 Codex Spark"
+          "name": "codex/gpt-5.3-codex-spark"
         },
         "gpt-5.4": {
-          "name": "GPT 5.4"
+          "name": "codex/gpt-5.4"
         },
         "gpt-5.4-mini": {
-          "name": "GPT 5.4 Mini"
+          "name": "codex/gpt-5.4-mini"
         },
         "gpt-5.5": {
-          "name": "GPT 5.5"
+          "name": "codex/gpt-5.5"
         },
-        "gpt-image-2": {
-          "name": "GPT Image 2"
+        "gpt-5.5-high": {
+          "name": "codex/gpt-5.5-high"
+        },
+        "gpt-5.5-low": {
+          "name": "codex/gpt-5.5-low"
+        },
+        "gpt-5.5-medium": {
+          "name": "codex/gpt-5.5-medium"
+        },
+        "gpt-5.5-xhigh": {
+          "name": "codex/gpt-5.5-xhigh"
+        },
+        "gryphe/mythomax-l2-13b": {
+          "name": "kilo-gateway/gryphe/mythomax-l2-13b"
+        },
+        "ibm-granite/granite-4.0-h-micro": {
+          "name": "kilo-gateway/ibm-granite/granite-4.0-h-micro"
+        },
+        "ibm-granite/granite-4.1-8b": {
+          "name": "kilo-gateway/ibm-granite/granite-4.1-8b"
+        },
+        "ibm/granite-3.0-3b-a800m-instruct": {
+          "name": "nvidia/ibm/granite-3.0-3b-a800m-instruct"
+        },
+        "ibm/granite-3.0-8b-instruct": {
+          "name": "nvidia/ibm/granite-3.0-8b-instruct"
+        },
+        "ibm/granite-34b-code-instruct": {
+          "name": "nvidia/ibm/granite-34b-code-instruct"
+        },
+        "ibm/granite-8b-code-instruct": {
+          "name": "nvidia/ibm/granite-8b-code-instruct"
+        },
+        "inception/mercury-2": {
+          "name": "kilo-gateway/inception/mercury-2"
+        },
+        "inclusionai/ling-2.6-1t": {
+          "name": "kilo-gateway/inclusionai/ling-2.6-1t"
+        },
+        "inclusionai/ling-2.6-flash": {
+          "name": "kilo-gateway/inclusionai/ling-2.6-flash"
+        },
+        "inclusionai/ring-2.6-1t:free": {
+          "name": "kilo-gateway/inclusionai/ring-2.6-1t:free"
+        },
+        "inflection/inflection-3-pi": {
+          "name": "kilo-gateway/inflection/inflection-3-pi"
+        },
+        "inflection/inflection-3-productivity": {
+          "name": "kilo-gateway/inflection/inflection-3-productivity"
+        },
+        "kilo-auto/balanced": {
+          "name": "kilo-gateway/kilo-auto/balanced"
         },
         "kilo-auto/free": {
-          "name": "kilo-auto/free"
+          "name": "kilo-gateway/kilo-auto/free"
+        },
+        "kilo-auto/frontier": {
+          "name": "kilo-gateway/kilo-auto/frontier"
+        },
+        "kilo-auto/small": {
+          "name": "kilo-gateway/kilo-auto/small"
+        },
+        "kwaipilot/kat-coder-pro-v2": {
+          "name": "kilo-gateway/kwaipilot/kat-coder-pro-v2"
+        },
+        "liquid/lfm-2-24b-a2b": {
+          "name": "kilo-gateway/liquid/lfm-2-24b-a2b"
+        },
+        "mancer/weaver": {
+          "name": "kilo-gateway/mancer/weaver"
+        },
+        "meta-llama/llama-3-70b-instruct": {
+          "name": "kilo-gateway/meta-llama/llama-3-70b-instruct"
+        },
+        "meta-llama/llama-3-8b-instruct": {
+          "name": "kilo-gateway/meta-llama/llama-3-8b-instruct"
+        },
+        "meta-llama/llama-3.1-70b-instruct": {
+          "name": "kilo-gateway/meta-llama/llama-3.1-70b-instruct"
+        },
+        "meta-llama/llama-3.1-8b-instruct": {
+          "name": "kilo-gateway/meta-llama/llama-3.1-8b-instruct"
+        },
+        "meta-llama/llama-3.2-11b-vision-instruct": {
+          "name": "kilo-gateway/meta-llama/llama-3.2-11b-vision-instruct"
+        },
+        "meta-llama/llama-3.2-1b-instruct": {
+          "name": "kilo-gateway/meta-llama/llama-3.2-1b-instruct"
+        },
+        "meta-llama/llama-3.2-3b-instruct": {
+          "name": "kilo-gateway/meta-llama/llama-3.2-3b-instruct"
+        },
+        "meta-llama/llama-3.3-70b-instruct": {
+          "name": "kilo-gateway/meta-llama/llama-3.3-70b-instruct"
+        },
+        "meta-llama/llama-4-maverick": {
+          "name": "kilo-gateway/meta-llama/llama-4-maverick"
+        },
+        "meta-llama/llama-4-scout": {
+          "name": "kilo-gateway/meta-llama/llama-4-scout"
+        },
+        "meta-llama/llama-guard-3-8b": {
+          "name": "kilo-gateway/meta-llama/llama-guard-3-8b"
+        },
+        "meta-llama/llama-guard-4-12b": {
+          "name": "kilo-gateway/meta-llama/llama-guard-4-12b"
+        },
+        "meta/codellama-70b": {
+          "name": "nvidia/meta/codellama-70b"
+        },
+        "meta/llama-3.1-70b-instruct": {
+          "name": "nvidia/meta/llama-3.1-70b-instruct"
+        },
+        "meta/llama-3.1-8b-instruct": {
+          "name": "nvidia/meta/llama-3.1-8b-instruct"
+        },
+        "meta/llama-3.2-11b-vision-instruct": {
+          "name": "nvidia/meta/llama-3.2-11b-vision-instruct"
+        },
+        "meta/llama-3.2-1b-instruct": {
+          "name": "nvidia/meta/llama-3.2-1b-instruct"
+        },
+        "meta/llama-3.2-3b-instruct": {
+          "name": "nvidia/meta/llama-3.2-3b-instruct"
+        },
+        "meta/llama-3.2-90b-vision-instruct": {
+          "name": "nvidia/meta/llama-3.2-90b-vision-instruct"
+        },
+        "meta/llama-3.3-70b-instruct": {
+          "name": "nvidia/meta/llama-3.3-70b-instruct"
+        },
+        "meta/llama-4-maverick-17b-128e-instruct": {
+          "name": "nvidia/meta/llama-4-maverick-17b-128e-instruct"
+        },
+        "meta/llama-guard-4-12b": {
+          "name": "nvidia/meta/llama-guard-4-12b"
+        },
+        "meta/llama2-70b": {
+          "name": "nvidia/meta/llama2-70b"
+        },
+        "microsoft/kosmos-2": {
+          "name": "nvidia/microsoft/kosmos-2"
+        },
+        "microsoft/phi-3-vision-128k-instruct": {
+          "name": "nvidia/microsoft/phi-3-vision-128k-instruct"
+        },
+        "microsoft/phi-3.5-moe-instruct": {
+          "name": "nvidia/microsoft/phi-3.5-moe-instruct"
+        },
+        "microsoft/phi-4": {
+          "name": "kilo-gateway/microsoft/phi-4"
+        },
+        "microsoft/phi-4-mini-instruct": {
+          "name": "nvidia/microsoft/phi-4-mini-instruct"
+        },
+        "microsoft/phi-4-multimodal-instruct": {
+          "name": "nvidia/microsoft/phi-4-multimodal-instruct"
+        },
+        "microsoft/wizardlm-2-8x22b": {
+          "name": "kilo-gateway/microsoft/wizardlm-2-8x22b"
+        },
+        "minimax/minimax-01": {
+          "name": "kilo-gateway/minimax/minimax-01"
+        },
+        "minimax/minimax-m1": {
+          "name": "kilo-gateway/minimax/minimax-m1"
+        },
+        "minimax/minimax-m2": {
+          "name": "kilo-gateway/minimax/minimax-m2"
+        },
+        "minimax/minimax-m2-her": {
+          "name": "kilo-gateway/minimax/minimax-m2-her"
+        },
+        "minimax/minimax-m2.1": {
+          "name": "kilo-gateway/minimax/minimax-m2.1"
+        },
+        "minimax/minimax-m2.5": {
+          "name": "kilo-gateway/minimax/minimax-m2.5"
+        },
+        "minimax/minimax-m2.5:free": {
+          "name": "kilo-gateway/minimax/minimax-m2.5:free"
+        },
+        "minimax/minimax-m2.7": {
+          "name": "kilo-gateway/minimax/minimax-m2.7"
+        },
+        "minimaxai/minimax-m2.5": {
+          "name": "nvidia/minimaxai/minimax-m2.5"
+        },
+        "minimaxai/minimax-m2.7": {
+          "name": "nvidia/minimaxai/minimax-m2.7"
+        },
+        "mistralai/codestral-22b-instruct-v0.1": {
+          "name": "nvidia/mistralai/codestral-22b-instruct-v0.1"
+        },
+        "mistralai/codestral-2508": {
+          "name": "kilo-gateway/mistralai/codestral-2508"
+        },
+        "mistralai/devstral-2-123b-instruct-2512": {
+          "name": "nvidia/mistralai/devstral-2-123b-instruct-2512"
+        },
+        "mistralai/devstral-2512": {
+          "name": "kilo-gateway/mistralai/devstral-2512"
+        },
+        "mistralai/devstral-medium": {
+          "name": "kilo-gateway/mistralai/devstral-medium"
+        },
+        "mistralai/devstral-small": {
+          "name": "kilo-gateway/mistralai/devstral-small"
+        },
+        "mistralai/magistral-small-2506": {
+          "name": "nvidia/mistralai/magistral-small-2506"
+        },
+        "mistralai/ministral-14b-2512": {
+          "name": "kilo-gateway/mistralai/ministral-14b-2512"
+        },
+        "mistralai/ministral-14b-instruct-2512": {
+          "name": "nvidia/mistralai/ministral-14b-instruct-2512"
+        },
+        "mistralai/ministral-3b-2512": {
+          "name": "kilo-gateway/mistralai/ministral-3b-2512"
+        },
+        "mistralai/ministral-8b-2512": {
+          "name": "kilo-gateway/mistralai/ministral-8b-2512"
+        },
+        "mistralai/mistral-7b-instruct-v0.1": {
+          "name": "kilo-gateway/mistralai/mistral-7b-instruct-v0.1"
+        },
+        "mistralai/mistral-7b-instruct-v0.3": {
+          "name": "nvidia/mistralai/mistral-7b-instruct-v0.3"
+        },
+        "mistralai/mistral-large": {
+          "name": "nvidia/mistralai/mistral-large"
+        },
+        "mistralai/mistral-large-2-instruct": {
+          "name": "nvidia/mistralai/mistral-large-2-instruct"
+        },
+        "mistralai/mistral-large-2407": {
+          "name": "kilo-gateway/mistralai/mistral-large-2407"
+        },
+        "mistralai/mistral-large-2411": {
+          "name": "kilo-gateway/mistralai/mistral-large-2411"
+        },
+        "mistralai/mistral-large-2512": {
+          "name": "kilo-gateway/mistralai/mistral-large-2512"
+        },
+        "mistralai/mistral-large-3-675b-instruct-2512": {
+          "name": "nvidia/mistralai/mistral-large-3-675b-instruct-2512"
+        },
+        "mistralai/mistral-medium-3": {
+          "name": "kilo-gateway/mistralai/mistral-medium-3"
+        },
+        "mistralai/mistral-medium-3-5": {
+          "name": "kilo-gateway/mistralai/mistral-medium-3-5"
+        },
+        "mistralai/mistral-medium-3-instruct": {
+          "name": "nvidia/mistralai/mistral-medium-3-instruct"
+        },
+        "mistralai/mistral-medium-3.1": {
+          "name": "kilo-gateway/mistralai/mistral-medium-3.1"
+        },
+        "mistralai/mistral-medium-3.5-128b": {
+          "name": "nvidia/mistralai/mistral-medium-3.5-128b"
+        },
+        "mistralai/mistral-nemo": {
+          "name": "kilo-gateway/mistralai/mistral-nemo"
+        },
+        "mistralai/mistral-nemotron": {
+          "name": "nvidia/mistralai/mistral-nemotron"
+        },
+        "mistralai/mistral-saba": {
+          "name": "kilo-gateway/mistralai/mistral-saba"
+        },
+        "mistralai/mistral-small-24b-instruct-2501": {
+          "name": "kilo-gateway/mistralai/mistral-small-24b-instruct-2501"
+        },
+        "mistralai/mistral-small-2603": {
+          "name": "kilo-gateway/mistralai/mistral-small-2603"
+        },
+        "mistralai/mistral-small-3.1-24b-instruct": {
+          "name": "kilo-gateway/mistralai/mistral-small-3.1-24b-instruct"
+        },
+        "mistralai/mistral-small-3.2-24b-instruct": {
+          "name": "kilo-gateway/mistralai/mistral-small-3.2-24b-instruct"
+        },
+        "mistralai/mistral-small-4-119b-2603": {
+          "name": "nvidia/mistralai/mistral-small-4-119b-2603"
+        },
+        "mistralai/mixtral-8x22b-instruct": {
+          "name": "kilo-gateway/mistralai/mixtral-8x22b-instruct"
+        },
+        "mistralai/mixtral-8x22b-instruct-v0.1": {
+          "name": "nvidia/mistralai/mixtral-8x22b-instruct-v0.1"
+        },
+        "mistralai/mixtral-8x22b-v0.1": {
+          "name": "nvidia/mistralai/mixtral-8x22b-v0.1"
+        },
+        "mistralai/mixtral-8x7b-instruct-v0.1": {
+          "name": "nvidia/mistralai/mixtral-8x7b-instruct-v0.1"
+        },
+        "mistralai/pixtral-large-2411": {
+          "name": "kilo-gateway/mistralai/pixtral-large-2411"
+        },
+        "mistralai/voxtral-small-24b-2507": {
+          "name": "kilo-gateway/mistralai/voxtral-small-24b-2507"
+        },
+        "moonshotai/kimi-k2": {
+          "name": "kilo-gateway/moonshotai/kimi-k2"
+        },
+        "moonshotai/kimi-k2-0905": {
+          "name": "kilo-gateway/moonshotai/kimi-k2-0905"
+        },
+        "moonshotai/kimi-k2-instruct": {
+          "name": "nvidia/moonshotai/kimi-k2-instruct"
+        },
+        "moonshotai/kimi-k2-thinking": {
+          "name": "nvidia/moonshotai/kimi-k2-thinking"
+        },
+        "moonshotai/kimi-k2.5": {
+          "name": "kilo-gateway/moonshotai/kimi-k2.5"
+        },
+        "moonshotai/kimi-k2.6": {
+          "name": "nvidia/moonshotai/kimi-k2.6"
+        },
+        "morph/morph-v3-fast": {
+          "name": "kilo-gateway/morph/morph-v3-fast"
+        },
+        "morph/morph-v3-large": {
+          "name": "kilo-gateway/morph/morph-v3-large"
+        },
+        "nex-agi/deepseek-v3.1-nex-n1": {
+          "name": "kilo-gateway/nex-agi/deepseek-v3.1-nex-n1"
+        },
+        "nousresearch/hermes-2-pro-llama-3-8b": {
+          "name": "kilo-gateway/nousresearch/hermes-2-pro-llama-3-8b"
+        },
+        "nousresearch/hermes-3-llama-3.1-405b": {
+          "name": "kilo-gateway/nousresearch/hermes-3-llama-3.1-405b"
+        },
+        "nousresearch/hermes-3-llama-3.1-70b": {
+          "name": "kilo-gateway/nousresearch/hermes-3-llama-3.1-70b"
+        },
+        "nousresearch/hermes-4-405b": {
+          "name": "kilo-gateway/nousresearch/hermes-4-405b"
+        },
+        "nousresearch/hermes-4-70b": {
+          "name": "kilo-gateway/nousresearch/hermes-4-70b"
+        },
+        "nv-embedqa-e5-v5": {
+          "name": "nvidia/nv-embedqa-e5-v5"
+        },
+        "nv-mistralai/mistral-nemo-12b-instruct": {
+          "name": "nvidia/nv-mistralai/mistral-nemo-12b-instruct"
+        },
+        "nv-rerankqa-mistral-4b-v3": {
+          "name": "nvidia/nv-rerankqa-mistral-4b-v3"
+        },
+        "nvidia/ai-synthetic-video-detector": {
+          "name": "nvidia/nvidia/ai-synthetic-video-detector"
+        },
+        "nvidia/cosmos-reason2-8b": {
+          "name": "nvidia/nvidia/cosmos-reason2-8b"
+        },
+        "nvidia/embed-qa-4": {
+          "name": "nvidia/nvidia/embed-qa-4"
+        },
+        "nvidia/gliner-pii": {
+          "name": "nvidia/nvidia/gliner-pii"
+        },
+        "nvidia/ising-calibration-1-35b-a3b": {
+          "name": "nvidia/nvidia/ising-calibration-1-35b-a3b"
+        },
+        "nvidia/llama-3.1-nemoguard-8b-content-safety": {
+          "name": "nvidia/nvidia/llama-3.1-nemoguard-8b-content-safety"
+        },
+        "nvidia/llama-3.1-nemoguard-8b-topic-control": {
+          "name": "nvidia/nvidia/llama-3.1-nemoguard-8b-topic-control"
+        },
+        "nvidia/llama-3.1-nemotron-51b-instruct": {
+          "name": "nvidia/nvidia/llama-3.1-nemotron-51b-instruct"
+        },
+        "nvidia/llama-3.1-nemotron-70b-instruct": {
+          "name": "nvidia/nvidia/llama-3.1-nemotron-70b-instruct"
+        },
+        "nvidia/llama-3.1-nemotron-nano-8b-v1": {
+          "name": "nvidia/nvidia/llama-3.1-nemotron-nano-8b-v1"
+        },
+        "nvidia/llama-3.1-nemotron-nano-vl-8b-v1": {
+          "name": "nvidia/nvidia/llama-3.1-nemotron-nano-vl-8b-v1"
+        },
+        "nvidia/llama-3.1-nemotron-safety-guard-8b-v3": {
+          "name": "nvidia/nvidia/llama-3.1-nemotron-safety-guard-8b-v3"
+        },
+        "nvidia/llama-3.1-nemotron-ultra-253b-v1": {
+          "name": "nvidia/nvidia/llama-3.1-nemotron-ultra-253b-v1"
+        },
+        "nvidia/llama-3.2-nemoretriever-1b-vlm-embed-v1": {
+          "name": "nvidia/nvidia/llama-3.2-nemoretriever-1b-vlm-embed-v1"
+        },
+        "nvidia/llama-3.2-nemoretriever-300m-embed-v1": {
+          "name": "nvidia/nvidia/llama-3.2-nemoretriever-300m-embed-v1"
+        },
+        "nvidia/llama-3.2-nv-embedqa-1b-v1": {
+          "name": "nvidia/nvidia/llama-3.2-nv-embedqa-1b-v1"
+        },
+        "nvidia/llama-3.2-nv-embedqa-1b-v2": {
+          "name": "nvidia/nvidia/llama-3.2-nv-embedqa-1b-v2"
+        },
+        "nvidia/llama-3.3-nemotron-super-49b-v1": {
+          "name": "nvidia/nvidia/llama-3.3-nemotron-super-49b-v1"
+        },
+        "nvidia/llama-3.3-nemotron-super-49b-v1.5": {
+          "name": "nvidia/nvidia/llama-3.3-nemotron-super-49b-v1.5"
+        },
+        "nvidia/llama-nemotron-embed-1b-v2": {
+          "name": "nvidia/nvidia/llama-nemotron-embed-1b-v2"
+        },
+        "nvidia/llama-nemotron-embed-vl-1b-v2": {
+          "name": "nvidia/nvidia/llama-nemotron-embed-vl-1b-v2"
+        },
+        "nvidia/llama3-chatqa-1.5-70b": {
+          "name": "nvidia/nvidia/llama3-chatqa-1.5-70b"
+        },
+        "nvidia/mistral-nemo-minitron-8b-8k-instruct": {
+          "name": "nvidia/nvidia/mistral-nemo-minitron-8b-8k-instruct"
+        },
+        "nvidia/nemoretriever-parse": {
+          "name": "nvidia/nvidia/nemoretriever-parse"
+        },
+        "nvidia/nemotron-3-content-safety": {
+          "name": "nvidia/nvidia/nemotron-3-content-safety"
+        },
+        "nvidia/nemotron-3-nano-30b-a3b": {
+          "name": "nvidia/nvidia/nemotron-3-nano-30b-a3b"
+        },
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning": {
+          "name": "nvidia/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning"
+        },
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free": {
+          "name": "kilo-gateway/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+        },
+        "nvidia/nemotron-3-super-120b-a12b": {
+          "name": "kilo-gateway/nvidia/nemotron-3-super-120b-a12b"
+        },
+        "nvidia/nemotron-3-super-120b-a12b:free": {
+          "name": "kilo-gateway/nvidia/nemotron-3-super-120b-a12b:free"
+        },
+        "nvidia/nemotron-4-340b-instruct": {
+          "name": "nvidia/nvidia/nemotron-4-340b-instruct"
+        },
+        "nvidia/nemotron-4-340b-reward": {
+          "name": "nvidia/nvidia/nemotron-4-340b-reward"
+        },
+        "nvidia/nemotron-content-safety-reasoning-4b": {
+          "name": "nvidia/nvidia/nemotron-content-safety-reasoning-4b"
+        },
+        "nvidia/nemotron-mini-4b-instruct": {
+          "name": "nvidia/nvidia/nemotron-mini-4b-instruct"
+        },
+        "nvidia/nemotron-nano-12b-v2-vl": {
+          "name": "nvidia/nvidia/nemotron-nano-12b-v2-vl"
+        },
+        "nvidia/nemotron-nano-3-30b-a3b": {
+          "name": "nvidia/nvidia/nemotron-nano-3-30b-a3b"
+        },
+        "nvidia/nemotron-nano-9b-v2": {
+          "name": "kilo-gateway/nvidia/nemotron-nano-9b-v2"
+        },
+        "nvidia/nemotron-parse": {
+          "name": "nvidia/nvidia/nemotron-parse"
+        },
+        "nvidia/neva-22b": {
+          "name": "nvidia/nvidia/neva-22b"
+        },
+        "nvidia/nv-embed-v1": {
+          "name": "nvidia/nvidia/nv-embed-v1"
+        },
+        "nvidia/nv-embedcode-7b-v1": {
+          "name": "nvidia/nvidia/nv-embedcode-7b-v1"
+        },
+        "nvidia/nv-embedqa-e5-v5": {
+          "name": "nvidia/nvidia/nv-embedqa-e5-v5"
+        },
+        "nvidia/nv-embedqa-mistral-7b-v2": {
+          "name": "nvidia/nvidia/nv-embedqa-mistral-7b-v2"
+        },
+        "nvidia/nvclip": {
+          "name": "nvidia/nvidia/nvclip"
+        },
+        "nvidia/nvidia-nemotron-nano-9b-v2": {
+          "name": "nvidia/nvidia/nvidia-nemotron-nano-9b-v2"
+        },
+        "nvidia/riva-translate-4b-instruct": {
+          "name": "nvidia/nvidia/riva-translate-4b-instruct"
+        },
+        "nvidia/riva-translate-4b-instruct-v1.1": {
+          "name": "nvidia/nvidia/riva-translate-4b-instruct-v1.1"
+        },
+        "openai/gpt-3.5-turbo": {
+          "name": "kilo-gateway/openai/gpt-3.5-turbo"
+        },
+        "openai/gpt-3.5-turbo-0613": {
+          "name": "kilo-gateway/openai/gpt-3.5-turbo-0613"
+        },
+        "openai/gpt-3.5-turbo-16k": {
+          "name": "kilo-gateway/openai/gpt-3.5-turbo-16k"
+        },
+        "openai/gpt-3.5-turbo-instruct": {
+          "name": "kilo-gateway/openai/gpt-3.5-turbo-instruct"
+        },
+        "openai/gpt-4": {
+          "name": "kilo-gateway/openai/gpt-4"
+        },
+        "openai/gpt-4-0314": {
+          "name": "kilo-gateway/openai/gpt-4-0314"
+        },
+        "openai/gpt-4-1106-preview": {
+          "name": "kilo-gateway/openai/gpt-4-1106-preview"
+        },
+        "openai/gpt-4-turbo": {
+          "name": "kilo-gateway/openai/gpt-4-turbo"
+        },
+        "openai/gpt-4-turbo-preview": {
+          "name": "kilo-gateway/openai/gpt-4-turbo-preview"
+        },
+        "openai/gpt-4.1": {
+          "name": "kilo-gateway/openai/gpt-4.1"
+        },
+        "openai/gpt-4.1-mini": {
+          "name": "kilo-gateway/openai/gpt-4.1-mini"
+        },
+        "openai/gpt-4.1-nano": {
+          "name": "kilo-gateway/openai/gpt-4.1-nano"
+        },
+        "openai/gpt-4o": {
+          "name": "kilo-gateway/openai/gpt-4o"
+        },
+        "openai/gpt-4o-2024-05-13": {
+          "name": "kilo-gateway/openai/gpt-4o-2024-05-13"
+        },
+        "openai/gpt-4o-2024-08-06": {
+          "name": "kilo-gateway/openai/gpt-4o-2024-08-06"
+        },
+        "openai/gpt-4o-2024-11-20": {
+          "name": "kilo-gateway/openai/gpt-4o-2024-11-20"
+        },
+        "openai/gpt-4o-audio-preview": {
+          "name": "kilo-gateway/openai/gpt-4o-audio-preview"
+        },
+        "openai/gpt-4o-mini": {
+          "name": "kilo-gateway/openai/gpt-4o-mini"
+        },
+        "openai/gpt-4o-mini-2024-07-18": {
+          "name": "kilo-gateway/openai/gpt-4o-mini-2024-07-18"
+        },
+        "openai/gpt-4o-mini-search-preview": {
+          "name": "kilo-gateway/openai/gpt-4o-mini-search-preview"
+        },
+        "openai/gpt-4o-search-preview": {
+          "name": "kilo-gateway/openai/gpt-4o-search-preview"
+        },
+        "openai/gpt-5": {
+          "name": "kilo-gateway/openai/gpt-5"
+        },
+        "openai/gpt-5-chat": {
+          "name": "kilo-gateway/openai/gpt-5-chat"
+        },
+        "openai/gpt-5-codex": {
+          "name": "kilo-gateway/openai/gpt-5-codex"
+        },
+        "openai/gpt-5-image": {
+          "name": "kilo-gateway/openai/gpt-5-image"
+        },
+        "openai/gpt-5-image-mini": {
+          "name": "kilo-gateway/openai/gpt-5-image-mini"
+        },
+        "openai/gpt-5-mini": {
+          "name": "kilo-gateway/openai/gpt-5-mini"
+        },
+        "openai/gpt-5-nano": {
+          "name": "kilo-gateway/openai/gpt-5-nano"
+        },
+        "openai/gpt-5-pro": {
+          "name": "kilo-gateway/openai/gpt-5-pro"
+        },
+        "openai/gpt-5.1": {
+          "name": "kilo-gateway/openai/gpt-5.1"
+        },
+        "openai/gpt-5.1-chat": {
+          "name": "kilo-gateway/openai/gpt-5.1-chat"
+        },
+        "openai/gpt-5.1-codex": {
+          "name": "kilo-gateway/openai/gpt-5.1-codex"
+        },
+        "openai/gpt-5.1-codex-max": {
+          "name": "kilo-gateway/openai/gpt-5.1-codex-max"
+        },
+        "openai/gpt-5.1-codex-mini": {
+          "name": "kilo-gateway/openai/gpt-5.1-codex-mini"
+        },
+        "openai/gpt-5.2": {
+          "name": "kilo-gateway/openai/gpt-5.2"
+        },
+        "openai/gpt-5.2-chat": {
+          "name": "kilo-gateway/openai/gpt-5.2-chat"
+        },
+        "openai/gpt-5.2-codex": {
+          "name": "kilo-gateway/openai/gpt-5.2-codex"
+        },
+        "openai/gpt-5.2-pro": {
+          "name": "kilo-gateway/openai/gpt-5.2-pro"
+        },
+        "openai/gpt-5.3-chat": {
+          "name": "kilo-gateway/openai/gpt-5.3-chat"
+        },
+        "openai/gpt-5.3-codex": {
+          "name": "kilo-gateway/openai/gpt-5.3-codex"
+        },
+        "openai/gpt-5.4": {
+          "name": "kilo-gateway/openai/gpt-5.4"
+        },
+        "openai/gpt-5.4-image-2": {
+          "name": "kilo-gateway/openai/gpt-5.4-image-2"
+        },
+        "openai/gpt-5.4-mini": {
+          "name": "kilo-gateway/openai/gpt-5.4-mini"
+        },
+        "openai/gpt-5.4-nano": {
+          "name": "kilo-gateway/openai/gpt-5.4-nano"
+        },
+        "openai/gpt-5.4-pro": {
+          "name": "kilo-gateway/openai/gpt-5.4-pro"
+        },
+        "openai/gpt-5.5": {
+          "name": "kilo-gateway/openai/gpt-5.5"
+        },
+        "openai/gpt-5.5-pro": {
+          "name": "kilo-gateway/openai/gpt-5.5-pro"
+        },
+        "openai/gpt-audio": {
+          "name": "kilo-gateway/openai/gpt-audio"
+        },
+        "openai/gpt-audio-mini": {
+          "name": "kilo-gateway/openai/gpt-audio-mini"
+        },
+        "openai/gpt-chat-latest": {
+          "name": "kilo-gateway/openai/gpt-chat-latest"
+        },
+        "openai/gpt-oss-120b": {
+          "name": "kilo-gateway/openai/gpt-oss-120b"
+        },
+        "openai/gpt-oss-20b": {
+          "name": "kilo-gateway/openai/gpt-oss-20b"
+        },
+        "openai/gpt-oss-safeguard-20b": {
+          "name": "kilo-gateway/openai/gpt-oss-safeguard-20b"
+        },
+        "openai/o1": {
+          "name": "kilo-gateway/openai/o1"
+        },
+        "openai/o1-pro": {
+          "name": "kilo-gateway/openai/o1-pro"
+        },
+        "openai/o3": {
+          "name": "kilo-gateway/openai/o3"
+        },
+        "openai/o3-deep-research": {
+          "name": "kilo-gateway/openai/o3-deep-research"
+        },
+        "openai/o3-mini": {
+          "name": "kilo-gateway/openai/o3-mini"
+        },
+        "openai/o3-mini-high": {
+          "name": "kilo-gateway/openai/o3-mini-high"
+        },
+        "openai/o3-pro": {
+          "name": "kilo-gateway/openai/o3-pro"
+        },
+        "openai/o4-mini": {
+          "name": "kilo-gateway/openai/o4-mini"
+        },
+        "openai/o4-mini-deep-research": {
+          "name": "kilo-gateway/openai/o4-mini-deep-research"
+        },
+        "openai/o4-mini-high": {
+          "name": "kilo-gateway/openai/o4-mini-high"
+        },
+        "openrouter/auto": {
+          "name": "kilo-gateway/openrouter/auto"
+        },
+        "openrouter/bodybuilder": {
+          "name": "kilo-gateway/openrouter/bodybuilder"
+        },
+        "openrouter/free": {
+          "name": "kilo-gateway/openrouter/free"
+        },
+        "openrouter/owl-alpha": {
+          "name": "kilo-gateway/openrouter/owl-alpha"
+        },
+        "openrouter/pareto-code": {
+          "name": "kilo-gateway/openrouter/pareto-code"
+        },
+        "parakeet-ctc-1.1b-asr": {
+          "name": "nvidia/parakeet-ctc-1.1b-asr"
+        },
+        "perplexity/sonar": {
+          "name": "kilo-gateway/perplexity/sonar"
+        },
+        "perplexity/sonar-deep-research": {
+          "name": "kilo-gateway/perplexity/sonar-deep-research"
+        },
+        "perplexity/sonar-pro": {
+          "name": "kilo-gateway/perplexity/sonar-pro"
+        },
+        "perplexity/sonar-pro-search": {
+          "name": "kilo-gateway/perplexity/sonar-pro-search"
+        },
+        "perplexity/sonar-reasoning-pro": {
+          "name": "kilo-gateway/perplexity/sonar-reasoning-pro"
+        },
+        "poolside/laguna-m.1:free": {
+          "name": "kilo-gateway/poolside/laguna-m.1:free"
+        },
+        "poolside/laguna-xs.2:free": {
+          "name": "kilo-gateway/poolside/laguna-xs.2:free"
+        },
+        "prime-intellect/intellect-3": {
+          "name": "kilo-gateway/prime-intellect/intellect-3"
+        },
+        "qwen/qwen-2.5-72b-instruct": {
+          "name": "kilo-gateway/qwen/qwen-2.5-72b-instruct"
+        },
+        "qwen/qwen-2.5-7b-instruct": {
+          "name": "kilo-gateway/qwen/qwen-2.5-7b-instruct"
+        },
+        "qwen/qwen-2.5-coder-32b-instruct": {
+          "name": "kilo-gateway/qwen/qwen-2.5-coder-32b-instruct"
+        },
+        "qwen/qwen-max": {
+          "name": "kilo-gateway/qwen/qwen-max"
+        },
+        "qwen/qwen-plus": {
+          "name": "kilo-gateway/qwen/qwen-plus"
+        },
+        "qwen/qwen-plus-2025-07-28": {
+          "name": "kilo-gateway/qwen/qwen-plus-2025-07-28"
+        },
+        "qwen/qwen-plus-2025-07-28:thinking": {
+          "name": "kilo-gateway/qwen/qwen-plus-2025-07-28:thinking"
+        },
+        "qwen/qwen-turbo": {
+          "name": "kilo-gateway/qwen/qwen-turbo"
+        },
+        "qwen/qwen-vl-max": {
+          "name": "kilo-gateway/qwen/qwen-vl-max"
+        },
+        "qwen/qwen-vl-plus": {
+          "name": "kilo-gateway/qwen/qwen-vl-plus"
+        },
+        "qwen/qwen2.5-coder-32b-instruct": {
+          "name": "nvidia/qwen/qwen2.5-coder-32b-instruct"
+        },
+        "qwen/qwen2.5-vl-72b-instruct": {
+          "name": "kilo-gateway/qwen/qwen2.5-vl-72b-instruct"
+        },
+        "qwen/qwen3-14b": {
+          "name": "kilo-gateway/qwen/qwen3-14b"
+        },
+        "qwen/qwen3-235b-a22b": {
+          "name": "kilo-gateway/qwen/qwen3-235b-a22b"
+        },
+        "qwen/qwen3-235b-a22b-2507": {
+          "name": "kilo-gateway/qwen/qwen3-235b-a22b-2507"
+        },
+        "qwen/qwen3-235b-a22b-thinking-2507": {
+          "name": "kilo-gateway/qwen/qwen3-235b-a22b-thinking-2507"
+        },
+        "qwen/qwen3-30b-a3b": {
+          "name": "kilo-gateway/qwen/qwen3-30b-a3b"
+        },
+        "qwen/qwen3-30b-a3b-instruct-2507": {
+          "name": "kilo-gateway/qwen/qwen3-30b-a3b-instruct-2507"
+        },
+        "qwen/qwen3-30b-a3b-thinking-2507": {
+          "name": "kilo-gateway/qwen/qwen3-30b-a3b-thinking-2507"
+        },
+        "qwen/qwen3-32b": {
+          "name": "kilo-gateway/qwen/qwen3-32b"
+        },
+        "qwen/qwen3-8b": {
+          "name": "kilo-gateway/qwen/qwen3-8b"
+        },
+        "qwen/qwen3-coder": {
+          "name": "kilo-gateway/qwen/qwen3-coder"
+        },
+        "qwen/qwen3-coder-30b-a3b-instruct": {
+          "name": "kilo-gateway/qwen/qwen3-coder-30b-a3b-instruct"
+        },
+        "qwen/qwen3-coder-480b-a35b-instruct": {
+          "name": "nvidia/qwen/qwen3-coder-480b-a35b-instruct"
+        },
+        "qwen/qwen3-coder-flash": {
+          "name": "kilo-gateway/qwen/qwen3-coder-flash"
+        },
+        "qwen/qwen3-coder-next": {
+          "name": "kilo-gateway/qwen/qwen3-coder-next"
+        },
+        "qwen/qwen3-coder-plus": {
+          "name": "kilo-gateway/qwen/qwen3-coder-plus"
+        },
+        "qwen/qwen3-max": {
+          "name": "kilo-gateway/qwen/qwen3-max"
+        },
+        "qwen/qwen3-max-thinking": {
+          "name": "kilo-gateway/qwen/qwen3-max-thinking"
+        },
+        "qwen/qwen3-next-80b-a3b-instruct": {
+          "name": "nvidia/qwen/qwen3-next-80b-a3b-instruct"
+        },
+        "qwen/qwen3-next-80b-a3b-thinking": {
+          "name": "nvidia/qwen/qwen3-next-80b-a3b-thinking"
+        },
+        "qwen/qwen3-vl-235b-a22b-instruct": {
+          "name": "kilo-gateway/qwen/qwen3-vl-235b-a22b-instruct"
+        },
+        "qwen/qwen3-vl-235b-a22b-thinking": {
+          "name": "kilo-gateway/qwen/qwen3-vl-235b-a22b-thinking"
+        },
+        "qwen/qwen3-vl-30b-a3b-instruct": {
+          "name": "kilo-gateway/qwen/qwen3-vl-30b-a3b-instruct"
+        },
+        "qwen/qwen3-vl-30b-a3b-thinking": {
+          "name": "kilo-gateway/qwen/qwen3-vl-30b-a3b-thinking"
+        },
+        "qwen/qwen3-vl-32b-instruct": {
+          "name": "kilo-gateway/qwen/qwen3-vl-32b-instruct"
+        },
+        "qwen/qwen3-vl-8b-instruct": {
+          "name": "kilo-gateway/qwen/qwen3-vl-8b-instruct"
+        },
+        "qwen/qwen3-vl-8b-thinking": {
+          "name": "kilo-gateway/qwen/qwen3-vl-8b-thinking"
+        },
+        "qwen/qwen3.5-122b-a10b": {
+          "name": "kilo-gateway/qwen/qwen3.5-122b-a10b"
+        },
+        "qwen/qwen3.5-27b": {
+          "name": "kilo-gateway/qwen/qwen3.5-27b"
+        },
+        "qwen/qwen3.5-35b-a3b": {
+          "name": "kilo-gateway/qwen/qwen3.5-35b-a3b"
+        },
+        "qwen/qwen3.5-397b-a17b": {
+          "name": "kilo-gateway/qwen/qwen3.5-397b-a17b"
+        },
+        "qwen/qwen3.5-9b": {
+          "name": "kilo-gateway/qwen/qwen3.5-9b"
+        },
+        "qwen/qwen3.5-flash-02-23": {
+          "name": "kilo-gateway/qwen/qwen3.5-flash-02-23"
+        },
+        "qwen/qwen3.5-plus-02-15": {
+          "name": "kilo-gateway/qwen/qwen3.5-plus-02-15"
+        },
+        "qwen/qwen3.5-plus-20260420": {
+          "name": "kilo-gateway/qwen/qwen3.5-plus-20260420"
+        },
+        "qwen/qwen3.6-27b": {
+          "name": "kilo-gateway/qwen/qwen3.6-27b"
+        },
+        "qwen/qwen3.6-35b-a3b": {
+          "name": "kilo-gateway/qwen/qwen3.6-35b-a3b"
+        },
+        "qwen/qwen3.6-flash": {
+          "name": "kilo-gateway/qwen/qwen3.6-flash"
+        },
+        "qwen/qwen3.6-max-preview": {
+          "name": "kilo-gateway/qwen/qwen3.6-max-preview"
+        },
+        "qwen/qwen3.6-plus": {
+          "name": "kilo-gateway/qwen/qwen3.6-plus"
+        },
+        "rekaai/reka-edge": {
+          "name": "kilo-gateway/rekaai/reka-edge"
+        },
+        "rekaai/reka-flash-3": {
+          "name": "kilo-gateway/rekaai/reka-flash-3"
+        },
+        "relace/relace-apply-3": {
+          "name": "kilo-gateway/relace/relace-apply-3"
+        },
+        "relace/relace-search": {
+          "name": "kilo-gateway/relace/relace-search"
+        },
+        "sao10k/l3-euryale-70b": {
+          "name": "kilo-gateway/sao10k/l3-euryale-70b"
+        },
+        "sao10k/l3-lunaris-8b": {
+          "name": "kilo-gateway/sao10k/l3-lunaris-8b"
+        },
+        "sao10k/l3.1-70b-hanami-x1": {
+          "name": "kilo-gateway/sao10k/l3.1-70b-hanami-x1"
+        },
+        "sao10k/l3.1-euryale-70b": {
+          "name": "kilo-gateway/sao10k/l3.1-euryale-70b"
+        },
+        "sao10k/l3.3-euryale-70b": {
+          "name": "kilo-gateway/sao10k/l3.3-euryale-70b"
+        },
+        "sarvamai/sarvam-m": {
+          "name": "nvidia/sarvamai/sarvam-m"
+        },
+        "snowflake/arctic-embed-l": {
+          "name": "nvidia/snowflake/arctic-embed-l"
+        },
+        "stepfun-ai/step-3.5-flash": {
+          "name": "nvidia/stepfun-ai/step-3.5-flash"
+        },
+        "stepfun/step-3.5-flash": {
+          "name": "kilo-gateway/stepfun/step-3.5-flash"
+        },
+        "stepfun/step-3.5-flash:free": {
+          "name": "kilo-gateway/stepfun/step-3.5-flash:free"
+        },
+        "stockmark/stockmark-2-100b-instruct": {
+          "name": "nvidia/stockmark/stockmark-2-100b-instruct"
+        },
+        "switchpoint/router": {
+          "name": "kilo-gateway/switchpoint/router"
+        },
+        "tacotron2": {
+          "name": "nvidia/tacotron2"
+        },
+        "tencent/hunyuan-a13b-instruct": {
+          "name": "kilo-gateway/tencent/hunyuan-a13b-instruct"
+        },
+        "tencent/hy3-preview": {
+          "name": "kilo-gateway/tencent/hy3-preview"
+        },
+        "thedrummer/cydonia-24b-v4.1": {
+          "name": "kilo-gateway/thedrummer/cydonia-24b-v4.1"
+        },
+        "thedrummer/rocinante-12b": {
+          "name": "kilo-gateway/thedrummer/rocinante-12b"
+        },
+        "thedrummer/skyfall-36b-v2": {
+          "name": "kilo-gateway/thedrummer/skyfall-36b-v2"
+        },
+        "thedrummer/unslopnemo-12b": {
+          "name": "kilo-gateway/thedrummer/unslopnemo-12b"
+        },
+        "undi95/remm-slerp-l2-13b": {
+          "name": "kilo-gateway/undi95/remm-slerp-l2-13b"
+        },
+        "upstage/solar-10.7b-instruct": {
+          "name": "nvidia/upstage/solar-10.7b-instruct"
+        },
+        "upstage/solar-pro-3": {
+          "name": "kilo-gateway/upstage/solar-pro-3"
+        },
+        "writer/palmyra-creative-122b": {
+          "name": "nvidia/writer/palmyra-creative-122b"
+        },
+        "writer/palmyra-fin-70b-32k": {
+          "name": "nvidia/writer/palmyra-fin-70b-32k"
+        },
+        "writer/palmyra-med-70b": {
+          "name": "nvidia/writer/palmyra-med-70b"
+        },
+        "writer/palmyra-med-70b-32k": {
+          "name": "nvidia/writer/palmyra-med-70b-32k"
+        },
+        "writer/palmyra-x5": {
+          "name": "kilo-gateway/writer/palmyra-x5"
+        },
+        "x-ai/grok-3": {
+          "name": "kilo-gateway/x-ai/grok-3"
+        },
+        "x-ai/grok-3-beta": {
+          "name": "kilo-gateway/x-ai/grok-3-beta"
+        },
+        "x-ai/grok-3-mini": {
+          "name": "kilo-gateway/x-ai/grok-3-mini"
+        },
+        "x-ai/grok-3-mini-beta": {
+          "name": "kilo-gateway/x-ai/grok-3-mini-beta"
+        },
+        "x-ai/grok-4": {
+          "name": "kilo-gateway/x-ai/grok-4"
+        },
+        "x-ai/grok-4-fast": {
+          "name": "kilo-gateway/x-ai/grok-4-fast"
+        },
+        "x-ai/grok-4.1-fast": {
+          "name": "kilo-gateway/x-ai/grok-4.1-fast"
+        },
+        "x-ai/grok-4.20": {
+          "name": "kilo-gateway/x-ai/grok-4.20"
+        },
+        "x-ai/grok-4.20-multi-agent": {
+          "name": "kilo-gateway/x-ai/grok-4.20-multi-agent"
+        },
+        "x-ai/grok-4.3": {
+          "name": "kilo-gateway/x-ai/grok-4.3"
+        },
+        "x-ai/grok-code-fast-1": {
+          "name": "kilo-gateway/x-ai/grok-code-fast-1"
+        },
+        "x-ai/grok-code-fast-1:optimized:free": {
+          "name": "kilo-gateway/x-ai/grok-code-fast-1:optimized:free"
+        },
+        "xiaomi/mimo-v2-flash": {
+          "name": "kilo-gateway/xiaomi/mimo-v2-flash"
+        },
+        "xiaomi/mimo-v2-omni": {
+          "name": "kilo-gateway/xiaomi/mimo-v2-omni"
+        },
+        "xiaomi/mimo-v2-pro": {
+          "name": "kilo-gateway/xiaomi/mimo-v2-pro"
+        },
+        "xiaomi/mimo-v2.5": {
+          "name": "kilo-gateway/xiaomi/mimo-v2.5"
+        },
+        "xiaomi/mimo-v2.5-pro": {
+          "name": "kilo-gateway/xiaomi/mimo-v2.5-pro"
+        },
+        "z-ai/glm-4-32b": {
+          "name": "kilo-gateway/z-ai/glm-4-32b"
+        },
+        "z-ai/glm-4.5": {
+          "name": "kilo-gateway/z-ai/glm-4.5"
+        },
+        "z-ai/glm-4.5-air": {
+          "name": "kilo-gateway/z-ai/glm-4.5-air"
+        },
+        "z-ai/glm-4.5v": {
+          "name": "kilo-gateway/z-ai/glm-4.5v"
+        },
+        "z-ai/glm-4.6": {
+          "name": "kilo-gateway/z-ai/glm-4.6"
+        },
+        "z-ai/glm-4.6v": {
+          "name": "kilo-gateway/z-ai/glm-4.6v"
+        },
+        "z-ai/glm-4.7": {
+          "name": "kilo-gateway/z-ai/glm-4.7"
+        },
+        "z-ai/glm-4.7-flash": {
+          "name": "kilo-gateway/z-ai/glm-4.7-flash"
+        },
+        "z-ai/glm-5": {
+          "name": "kilo-gateway/z-ai/glm-5"
+        },
+        "z-ai/glm-5-turbo": {
+          "name": "kilo-gateway/z-ai/glm-5-turbo"
+        },
+        "z-ai/glm-5.1": {
+          "name": "kilo-gateway/z-ai/glm-5.1"
+        },
+        "z-ai/glm-5v-turbo": {
+          "name": "kilo-gateway/z-ai/glm-5v-turbo"
+        },
+        "z-ai/glm4.7": {
+          "name": "nvidia/z-ai/glm4.7"
+        },
+        "z-ai/glm5": {
+          "name": "nvidia/z-ai/glm5"
+        },
+        "zyphra/zamba2-7b-instruct": {
+          "name": "nvidia/zyphra/zamba2-7b-instruct"
+        },
+        "~anthropic/claude-haiku-latest": {
+          "name": "kilo-gateway/~anthropic/claude-haiku-latest"
+        },
+        "~anthropic/claude-opus-latest": {
+          "name": "kilo-gateway/~anthropic/claude-opus-latest"
+        },
+        "~anthropic/claude-sonnet-latest": {
+          "name": "kilo-gateway/~anthropic/claude-sonnet-latest"
+        },
+        "~google/gemini-flash-latest": {
+          "name": "kilo-gateway/~google/gemini-flash-latest"
+        },
+        "~google/gemini-pro-latest": {
+          "name": "kilo-gateway/~google/gemini-pro-latest"
+        },
+        "~moonshotai/kimi-latest": {
+          "name": "kilo-gateway/~moonshotai/kimi-latest"
+        },
+        "~openai/gpt-latest": {
+          "name": "kilo-gateway/~openai/gpt-latest"
+        },
+        "~openai/gpt-mini-latest": {
+          "name": "kilo-gateway/~openai/gpt-mini-latest"
         }
       }
     }

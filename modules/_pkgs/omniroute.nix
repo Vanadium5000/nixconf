@@ -2,6 +2,7 @@
   lib,
   stdenv,
   fetchurl,
+  fetchFromGitHub,
   autoPatchelfHook,
   makeWrapper,
   node-gyp,
@@ -13,9 +14,16 @@
 }:
 
 let
+  version = "3.7.9";
   betterSqlite3Src = fetchurl {
     url = "https://registry.npmjs.org/better-sqlite3/-/better-sqlite3-12.9.0.tgz";
     hash = "sha256-rQ4pZQFAxJ0DNbHTVllqqBZvErdY9BiphEYTDjJ48lA=";
+  };
+  docsSrc = fetchFromGitHub {
+    owner = "diegosouzapw";
+    repo = "OmniRoute";
+    rev = "v${version}";
+    hash = "sha256-TMtMunbWNbHsjUcBCVtfMyjjdrRL10p/XdjM79RC4qA=";
   };
   wreqJsSrc = fetchurl {
     url = "https://registry.npmjs.org/wreq-js/-/wreq-js-2.3.0.tgz";
@@ -24,7 +32,7 @@ let
 in
 stdenv.mkDerivation (finalAttrs: {
   pname = "omniroute";
-  version = "3.7.9";
+  inherit version;
 
   # Use the npm tarball because it is the supported CLI install artifact and
   # already contains the Next.js standalone app that upstream publishes.
@@ -70,6 +78,13 @@ stdenv.mkDerivation (finalAttrs: {
     mkdir -p "$out/lib/omniroute" "$out/bin"
     cp -R . "$out/lib/omniroute"
     chmod +x "$out/lib/omniroute"/bin/*.mjs
+
+    # The npm tarball omits markdown docs, but the compiled Next route traces
+    # docs/*.md under app/docs and reads them via process.cwd().
+    # Sources: https://github.com/diegosouzapw/OmniRoute/blob/v${finalAttrs.version}/src/app/docs/[slug]/page.tsx
+    # and https://github.com/diegosouzapw/OmniRoute/blob/v${finalAttrs.version}/scripts/prepublish.ts
+    rm -rf "$out/lib/omniroute/app/docs"
+    cp -R ${docsSrc}/docs "$out/lib/omniroute/app/docs"
 
     # The standalone app ships a pruned wreq-js copy missing its ESM and native
     # files, while responses-ws-proxy imports it directly at runtime.

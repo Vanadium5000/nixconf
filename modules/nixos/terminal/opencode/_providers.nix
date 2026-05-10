@@ -29,10 +29,10 @@ let
     # reasoning quality depends on Responses semantics rather than chat-only
     # compatibility. Source: https://opencode.ai/docs/providers/
     npm = "@ai-sdk/openai";
-    name = "CliProxyApi";
+    name = "OmniRoute";
     options = {
-      baseURL = "https://cliproxyapi.${publicBaseDomain}/v1";
-      apiKey = self.secrets.CLIPROXYAPI_KEY;
+      baseURL = "https://omniroute.${publicBaseDomain}/v1";
+      apiKey = self.secrets.OMNIROUTE_OPENCODE_API_KEY;
     };
     # Dynamic models stay the base layer so sync_models() remains authoritative
     # when upstream metadata is accurate.
@@ -42,7 +42,7 @@ let
     # without waiting for another rebuild.
     models =
       let
-        baseModels = dynamicData.providers.cliproxyapi.models or { };
+        baseModels = dynamicData.providers.omniroute.models or { };
         # Only keep overrides for real synced model IDs; `? modelId` would check
         # for a literal attr named "modelId", so use hasAttr for dynamic keys.
         filteredOverrides = lib.filterAttrs (
@@ -54,7 +54,7 @@ let
 
   # Normalize the provider structure for OpenCode
   config = {
-    cliproxyapi = {
+    omniroute = {
       inherit (unifiedProvider) npm name options;
       models = builtins.mapAttrs (
         modelId: model:

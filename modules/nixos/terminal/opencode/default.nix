@@ -92,8 +92,8 @@
           type = "local";
           command = [
             (pkgs.writeShellScript "image-gen-mcp-wrapper" ''
-              export CLIPROXYAPI_KEY="${self.secrets.CLIPROXYAPI_KEY}"
-              export CLIPROXYAPI_BASE_URL="https://cliproxyapi.${publicBaseDomain}/v1"
+              export OMNIROUTE_OPENCODE_API_KEY="${self.secrets.OMNIROUTE_OPENCODE_API_KEY}"
+              export OMNIROUTE_BASE_URL="https://omniroute.${publicBaseDomain}/v1"
               MODELS_FILE="${configDirectory}/modules/nixos/terminal/opencode/models.json"
               OVERRIDES_FILE="${configDirectory}/modules/nixos/terminal/opencode/_model-capability-overrides.json"
 
@@ -114,21 +114,21 @@
                           else
                             {}
                           end);
-                    (.providers.cliproxyapi.models // {}) as $models
+                    (.providers.omniroute.models // {}) as $models
                     | $models * (($overrides[0] // {}) | with_entries(select($models[.key] != null)))
                     | map_values(normalize_model)
                     | to_entries[]
                     | select(((.value.modalities.output // []) | index("image")) != null)
-                    | "cliproxyapi/\(.key)"
+                    | "omniroute/\(.key)"
                   ) // empty
                 ' "$MODELS_FILE")"
               else
                 export IMAGE_MODEL="$(${pkgs.jq}/bin/jq -r '
                   first(
-                    (.providers.cliproxyapi.models // {})
+                    (.providers.omniroute.models // {})
                     | to_entries[]
                     | select(((.value.modalities.output // []) | index("image")) != null)
-                    | "cliproxyapi/\(.key)"
+                    | "omniroute/\(.key)"
                   ) // empty
                 ' "$MODELS_FILE")"
               fi
@@ -145,7 +145,7 @@
       baseConfig = {
         "$schema" = "https://opencode.ai/config.json";
         plugin = pluginsConfig.plugins;
-        small_model = "cliproxyapi/kilo-auto/free";
+        small_model = "omniroute/kilo-auto/free";
         autoupdate = false;
         share = "disabled";
         permission = {
@@ -188,7 +188,7 @@
         ];
         enabled_providers = [
           "opencode"
-          "cliproxyapi"
+          "omniroute"
         ];
         mcp = mcpConfig;
         inherit (languages) formatter lsp;
@@ -376,7 +376,7 @@
                     else
                       {}
                     end);
-              (.providers.cliproxyapi.models // {}) as $models
+              (.providers.omniroute.models // {}) as $models
               | $models * (($overrides[0] // {}) | with_entries(select($models[.key] != null)))
               | map_values(normalize_model)
             ' "$MODELS_FILE"
@@ -394,7 +394,7 @@
                     else
                       {}
                     end);
-              (.providers.cliproxyapi.models // {}) | map_values(normalize_model)
+              (.providers.omniroute.models // {}) | map_values(normalize_model)
             ' "$MODELS_FILE"
           fi
         }
@@ -582,7 +582,7 @@
           local effective_models
           local config_models
           effective_models=$(get_effective_models_json)
-          config_models=$($JQ -cS '.provider.cliproxyapi.models // {}' "$cfg_file")
+          config_models=$($JQ -cS '.provider.omniroute.models // {}' "$cfg_file")
 
           [ "$effective_models" = "$config_models" ]
         }
@@ -643,7 +643,7 @@
           local opencode_tmp
           opencode_tmp=$(mktemp)
           $JQ --argjson models "$effective_models" '
-            .provider.cliproxyapi.models = $models
+            .provider.omniroute.models = $models
           ' "$BASE_CONFIG_FILE" > "$opencode_tmp"
 
           mkdir -p "$(dirname "$GLOBAL_CONFIG_FILE")"
@@ -694,70 +694,58 @@
 
         }
 
-        # Fetch models from CliProxyApi and update models.json
+        # Fetch models from omniroute and update models.json
         sync_models() {
-          local api_key="${self.secrets.CLIPROXYAPI_KEY}"
-          local url="https://cliproxyapi.${publicBaseDomain}/v1beta/models"
-          
+          local api_key="${self.secrets.OMNIROUTE_OPENCODE_API_KEY}"
+          local url="https://omniroute.${publicBaseDomain}/v1/models"
+
           ensure_repo_state_files
 
           echo "Fetching models from $url..."
           local response
           response=$($CURL -s -H "Authorization: Bearer $api_key" "$url")
-          
-          if [ -z "$response" ] || [ "$(echo "$response" | $JQ '.models')" = "null" ]; then
+
+          # OpenAI-compatible APIs return { data: [...] }
+          if [ -z "$response" ] || [ "$(echo "$response" | $JQ '.data')" = "null" ]; then
             $GUM style --foreground 196 "Error: Failed to fetch models from API. Is the proxy running?"
             return 1
           fi
 
-          # Transform CliProxyApi response to our models.json format
+          # Transform OpenAI-compatible response to our models.json format
           # Group all models under a single unified provider
           local temp_json
           temp_json=$(mktemp)
+
           echo "$response" | $JQ '
             # Helper: get short ID (everything after the first /)
-            def get_id: .name | split("/") | if length > 1 then .[1:] | join("/") else .[0] end;
-            
+            def get_id:
+              .id
+              | split("/")
+              | if length > 1 then .[1:] | join("/") else .[0] end;
+
             # Map a model object to our internal format.
-            # Preserve incomplete upstream metadata by omitting empty or
-            # missing optional fields rather than inventing defaults.
+            # OpenAI-compatible endpoints expose less metadata than Gemini.
             def to_opencode:
               get_id as $id
-              | (.supportedInputModalities // [] | map(ascii_downcase)) as $input_modalities
-              | (.supportedOutputModalities // [] | map(ascii_downcase)) as $output_modalities
               | {
                   key: $id,
-                  value: (
-                    {
-                      name: .displayName
-                    }
-                    + (if .inputTokenLimit != null then { context: .inputTokenLimit } else {} end)
-                    + (if .outputTokenLimit != null then { output: .outputTokenLimit } else {} end)
-                    +
-                      (if (($input_modalities | length) > 0) or (($output_modalities | length) > 0) then
-                        {
-                          modalities:
-                            ((if ($input_modalities | length) > 0 then { input: $input_modalities } else {} end)
-                            + (if ($output_modalities | length) > 0 then { output: $output_modalities } else {} end))
-                        }
-                      else
-                        {}
-                      end)
-                  )
+                  value: {
+                    name: (.name // .id)
+                  }
                 };
 
             # Filter and transform models into a single provider
             {
               providers: {
-                "cliproxyapi": {
+                "omniroute": {
                   npm: "@ai-sdk/openai",
-                  name: "CliProxyApi",
+                  name: "omniroute",
                   baseUrl: "http://127.0.0.1:8317/v1",
-                  models: ([.models[] | to_opencode] | sort_by(.key) | from_entries)
+                  models: ([.data[] | to_opencode] | sort_by(.key) | from_entries)
                 }
               }
             }' > "$temp_json"
-          
+
           if [ -s "$temp_json" ]; then
             mv "$temp_json" "$MODELS_FILE"
             $GUM style --foreground 212 "✅ Successfully synced models to $MODELS_FILE"
@@ -855,12 +843,12 @@
                     else
                       {}
                     end);
-              (.providers.cliproxyapi.models // {}) as $models
+              (.providers.omniroute.models // {}) as $models
               | $models * (($overrides[0] // {}) | with_entries(select($models[.key] != null)))
               | map_values(normalize_model)
               | to_entries
               | .[]
-              | "cliproxyapi/\(.key)\tcliproxyapi: \(.value.name) (\(.key))"
+              | "omniroute/\(.key)\tomniroute: \(.value.name) (\(.key))"
             ' "$MODELS_FILE"
           else
             $JQ -r '
@@ -1345,8 +1333,8 @@
         embeddingModel = "Xenova/nomic-embed-text-v1";
         memoryProvider = "openai-chat";
         memoryModel = state.categories.deep.model;
-        memoryApiUrl = "https://cliproxyapi.${publicBaseDomain}/v1";
-        memoryApiKey = self.secrets.CLIPROXYAPI_KEY;
+        memoryApiUrl = "https://omniroute.${publicBaseDomain}/v1";
+        memoryApiKey = self.secrets.OMNIROUTE_OPENCODE_API_KEY;
         autoCaptureEnabled = true;
         webServerEnabled = true;
         webServerPort = 4747;
