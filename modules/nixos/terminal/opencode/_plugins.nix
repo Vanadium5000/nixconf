@@ -1,5 +1,6 @@
 # Plugin list for OpenCode
 # Modular setup - each plugin has a single purpose
+# "rm -rf ~/.cache/opencode/packages/" is a hacky but working way to update plugins once installed
 {
   plugins = [
     "oh-my-openagent@latest" # Upstream agent bundle; project config narrows its defaults for this repo

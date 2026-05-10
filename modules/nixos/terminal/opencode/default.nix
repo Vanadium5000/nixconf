@@ -365,13 +365,11 @@
           $JQ -cS --slurpfile patches "$PATCHES_FILE" '
             def normalize_model:
               . as $model
-              | ($model | del(.context, .output))
-                + (if (($model.context // null) != null) or (($model.output // null) != null) then
-                    {
-                      limit: (($model.limit // {})
-                        + (if (($model.context // null) != null) then { context: $model.context } else {} end)
-                        + (if (($model.output // null) != null) then { output: $model.output } else {} end))
-                    }
+              | ($model.context // $model.limit.context // null) as $context
+              | ($model.output // $model.limit.output // null) as $output
+              | ($model | del(.context, .output, .limit))
+                + (if $context != null then
+                    { limit: ({ context: $context } + (if $output != null then { output: $output } else {} end)) }
                   else
                     {}
                   end);
@@ -784,6 +782,10 @@
               | (if ($input | length) > 0 then { input: $input } else {} end)
                 + (if ($output | length) > 0 then { output: $output } else {} end);
 
+            # OpenCode model metadata treats `limit.context` as the anchor for
+            # compaction/model sizing. Source: https://opencode.ai/docs/models/
+            # OmniRoute can expose output-only defaults from provider wrappers;
+            # omit those instead of writing unusable partial `limit` objects.
             def normalized_limit:
               first_number([
                 .limit.context?, .limits.context?, .context?, .context_length?, .contextLength?,
@@ -795,8 +797,11 @@
                 .max_output_tokens?, .maxOutputTokens?, .max_completion_tokens?, .maxCompletionTokens?,
                 .top_provider.max_completion_tokens?, .topProvider.maxCompletionTokens?
               ]) as $output
-              | (if $context != null then { context: $context } else {} end)
-                + (if $output != null then { output: $output } else {} end);
+              | if $context != null then
+                  { context: $context } + (if $output != null then { output: $output } else {} end)
+                else
+                  {}
+                end;
 
             def model_metadata:
               {

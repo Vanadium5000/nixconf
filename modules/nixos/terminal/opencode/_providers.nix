@@ -4,8 +4,11 @@ let
   # models.json is the reviewed cache written by opencode-models sync. It keeps
   # upstream metadata local while the provider config uses the same model IDs.
   modelsFile = ./models.json;
-  # Local patches are reserved for repo policy that the API cannot know, such as
-  # preferred labels or OpenCode-specific options. Source data belongs in models.json.
+  # Local patches are reserved for exact model facts the sync API omits or gets
+  # wrong. Keep token limits sourced from vendor model pages because OpenCode's
+  # provider schema needs paired context/output limits and OmniRoute may expose
+  # output-only defaults. Sources: https://opencode.ai/docs/models/ and
+  # https://github.com/diegosouzapw/OmniRoute/pull/578
   localPatchesFile = ./_model-local-patches.json;
   localPatches =
     let
@@ -30,20 +33,24 @@ let
   normalizeModel =
     _modelId: model:
     let
-      limit =
-        (lib.optionalAttrs (model ? context || (model ? limit && model.limit ? context)) {
+      hasContext = model ? context || (model ? limit && model.limit ? context);
+      limit = lib.optionalAttrs hasContext (
+        {
           context = model.context or model.limit.context;
-        })
+        }
         // (lib.optionalAttrs (model ? output || (model ? limit && model.limit ? output)) {
           output = model.output or model.limit.output;
-        });
+        })
+      );
     in
-    # OpenCode accepts fields such as reasoning, reasoning_effort, tool_call,
-    # modalities, options, and variants; old flat token fields are normalized to
-    # limit for compatibility with pre-rich-sync caches.
+    # OpenCode model limits are a paired contract (`context` + optional output in
+    # this repo's normalization); output-only API defaults are dropped so the
+    # generated provider config never carries an invalid partial limit.
+    # Source: https://opencode.ai/docs/models/
     (builtins.removeAttrs model [
       "context"
       "output"
+      "limit"
     ])
     // (lib.optionalAttrs (limit != { }) { inherit limit; });
 
