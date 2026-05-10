@@ -87,7 +87,7 @@
 
         image_gen = {
           # Resolve the first image-capable model at runtime so model sync stays
-          # authoritative and repo-owned modality overrides apply immediately
+          # authoritative and repo-owned modality patches apply immediately
           # without requiring a rebuild.
           type = "local";
           command = [
@@ -95,12 +95,12 @@
               export OMNIROUTE_OPENCODE_API_KEY="${self.secrets.OMNIROUTE_OPENCODE_API_KEY}"
               export OMNIROUTE_BASE_URL="https://omniroute.${publicBaseDomain}/v1"
               MODELS_FILE="${configDirectory}/modules/nixos/terminal/opencode/models.json"
-              OVERRIDES_FILE="${configDirectory}/modules/nixos/terminal/opencode/_model-capability-overrides.json"
+              PATCHES_FILE="${configDirectory}/modules/nixos/terminal/opencode/_model-local-patches.json"
 
               # Prefer the first runtime-effective model that advertises image output.
-              # Source of truth is the repo models cache plus repo-owned JSON overrides.
-              if [ -f "$OVERRIDES_FILE" ] && [ -s "$OVERRIDES_FILE" ]; then
-                IMAGE_MODEL="$(${pkgs.jq}/bin/jq -r --slurpfile overrides "$OVERRIDES_FILE" '
+              # Source of truth is the repo models cache plus repo-owned JSON patches.
+              if [ -f "$PATCHES_FILE" ] && [ -s "$PATCHES_FILE" ]; then
+                IMAGE_MODEL="$(${pkgs.jq}/bin/jq -r --slurpfile patches "$PATCHES_FILE" '
                   first(
                     def normalize_model:
                       . as $model
@@ -115,7 +115,7 @@
                             {}
                           end);
                     (.providers.omniroute.models // {}) as $models
-                    | $models * (($overrides[0] // {}) | with_entries(select($models[.key] != null)))
+                    | $models * (($patches[0] // {}) | with_entries(select($models[.key] != null)))
                     | map_values(normalize_model)
                     | to_entries[]
                     | select(((.value.modalities.output // []) | index("image")) != null)
@@ -311,7 +311,7 @@
         cp ${./models.json} "$out/models.json"
         cp ${./state.json} "$out/state.json"
         cp ${./presets.json} "$out/presets.json"
-        cp ${./_model-capability-overrides.json} "$out/_model-capability-overrides.json"
+        cp ${./_model-local-patches.json} "$out/_model-local-patches.json"
       '';
 
       # TUI for model/profile and template switching
@@ -321,7 +321,7 @@
         MODELS_FILE="$REPO_DIR/models.json"
         STATE_FILE="$REPO_DIR/state.json"
         PRESETS_FILE="$REPO_DIR/presets.json"
-        OVERRIDES_FILE="$REPO_DIR/_model-capability-overrides.json"
+        PATCHES_FILE="$REPO_DIR/_model-local-patches.json"
         GLOBAL_CONFIG_FILE="$HOME/.config/opencode/config.json"
         GLOBAL_OMA_FILE="$HOME/.config/opencode/oh-my-opencode.jsonc"
         # Compatibility alias used by some OpenCode/Oh-My-* plugin paths.
@@ -354,49 +354,31 @@
             cp "${stateAssetsDir}/presets.json" "$PRESETS_FILE"
           fi
 
-          if [ ! -f "$OVERRIDES_FILE" ]; then
-            cp "${stateAssetsDir}/_model-capability-overrides.json" "$OVERRIDES_FILE"
+          if [ ! -f "$PATCHES_FILE" ]; then
+            cp "${stateAssetsDir}/_model-local-patches.json" "$PATCHES_FILE"
           fi
         }
 
         get_effective_models_json() {
           ensure_repo_state_files
 
-          if [ -f "$OVERRIDES_FILE" ] && [ -s "$OVERRIDES_FILE" ]; then
-            $JQ -cS --slurpfile overrides "$OVERRIDES_FILE" '
-              def normalize_model:
-                . as $model
-                | ($model | del(.context, .output))
-                  + (if (($model.context // null) != null) or (($model.output // null) != null) then
-                      {
-                        limit: (($model.limit // {})
-                          + (if (($model.context // null) != null) then { context: $model.context } else {} end)
-                          + (if (($model.output // null) != null) then { output: $model.output } else {} end))
-                      }
-                    else
-                      {}
-                    end);
-              (.providers.omniroute.models // {}) as $models
-              | $models * (($overrides[0] // {}) | with_entries(select($models[.key] != null)))
-              | map_values(normalize_model)
-            ' "$MODELS_FILE"
-          else
-            $JQ -cS '
-              def normalize_model:
-                . as $model
-                | ($model | del(.context, .output))
-                  + (if (($model.context // null) != null) or (($model.output // null) != null) then
-                      {
-                        limit: (($model.limit // {})
-                          + (if (($model.context // null) != null) then { context: $model.context } else {} end)
-                          + (if (($model.output // null) != null) then { output: $model.output } else {} end))
-                      }
-                    else
-                      {}
-                    end);
-              (.providers.omniroute.models // {}) | map_values(normalize_model)
-            ' "$MODELS_FILE"
-          fi
+          $JQ -cS --slurpfile patches "$PATCHES_FILE" '
+            def normalize_model:
+              . as $model
+              | ($model | del(.context, .output))
+                + (if (($model.context // null) != null) or (($model.output // null) != null) then
+                    {
+                      limit: (($model.limit // {})
+                        + (if (($model.context // null) != null) then { context: $model.context } else {} end)
+                        + (if (($model.output // null) != null) then { output: $model.output } else {} end))
+                    }
+                  else
+                    {}
+                  end);
+            (.providers.omniroute.models // {}) as $models
+            | $models * (($patches[0] // {}) | with_entries(select($models[.key] != null)))
+            | map_values(normalize_model)
+          ' "$MODELS_FILE"
         }
 
         get_effective_model_field() {
@@ -404,46 +386,15 @@
           local model_id="$2"
           local jq_expr="$3"
 
-          ensure_repo_state_files
-
-          if [ -f "$OVERRIDES_FILE" ] && [ -s "$OVERRIDES_FILE" ]; then
-            $JQ -r --arg provider "$provider" --arg model_id "$model_id" --slurpfile overrides "$OVERRIDES_FILE" "
-              def normalize_model:
-                . as \$model
-                | (\$model | del(.context, .output))
-                  + (if ((\$model.context // null) != null) or ((\$model.output // null) != null) then
-                      {
-                        limit: ((\$model.limit // {})
-                          + (if ((\$model.context // null) != null) then { context: \$model.context } else {} end)
-                          + (if ((\$model.output // null) != null) then { output: \$model.output } else {} end))
-                      }
-                    else
-                      {}
-                    end);
-              (.providers[\$provider].models // {}) as \$models
-              | ((\$models * ((\$overrides[0] // {}) | with_entries(select(\$models[.key] != null))))[\$model_id] // {})
-              | normalize_model
-              | ''${jq_expr}
-            " "$MODELS_FILE"
-          else
-            $JQ -r --arg provider "$provider" --arg model_id "$model_id" "
-              def normalize_model:
-                . as \$model
-                | (\$model | del(.context, .output))
-                  + (if ((\$model.context // null) != null) or ((\$model.output // null) != null) then
-                      {
-                        limit: ((\$model.limit // {})
-                          + (if ((\$model.context // null) != null) then { context: \$model.context } else {} end)
-                          + (if ((\$model.output // null) != null) then { output: \$model.output } else {} end))
-                      }
-                    else
-                      {}
-                    end);
-              (.providers[\$provider].models[\$model_id] // {})
-              | normalize_model
-              | ''${jq_expr}
-            " "$MODELS_FILE"
+          if [ "$provider" != "omniroute" ]; then
+            printf '{}\n' | $JQ -r "''${jq_expr}"
+            return
           fi
+
+          get_effective_models_json | $JQ -r --arg model_id "$model_id" "
+            (.[\$model_id] // {})
+            | ''${jq_expr}
+          "
         }
 
         get_model_variant_names() {
@@ -637,14 +588,16 @@
         rebuild_runtime_configs() {
           ensure_state_file
 
-          local effective_models
-          effective_models=$(get_effective_models_json)
+          local effective_models_file
+          effective_models_file=$(mktemp)
+          get_effective_models_json > "$effective_models_file"
 
           local opencode_tmp
           opencode_tmp=$(mktemp)
-          $JQ --argjson models "$effective_models" '
-            .provider.omniroute.models = $models
+          $JQ --slurpfile models "$effective_models_file" '
+            .provider.omniroute.models = $models[0]
           ' "$BASE_CONFIG_FILE" > "$opencode_tmp"
+          rm -f "$effective_models_file"
 
           mkdir -p "$(dirname "$GLOBAL_CONFIG_FILE")"
           mv "$opencode_tmp" "$GLOBAL_CONFIG_FILE"
@@ -694,7 +647,10 @@
 
         }
 
-        # Fetch models from omniroute and update models.json
+        # Fetch models from omniroute and update models.json.
+        # The endpoint is OpenAI-compatible but includes OmniRoute/OpenRouter-style
+        # metadata such as limits, modalities, pricing, and supported parameters.
+        # Source: https://omniroute.${publicBaseDomain}/v1/models
         sync_models() {
           local api_key="${self.secrets.OMNIROUTE_OPENCODE_API_KEY}"
           local url="https://omniroute.${publicBaseDomain}/v1/models"
@@ -702,60 +658,267 @@
           ensure_repo_state_files
 
           echo "Fetching models from $url..."
-          local response
-          response=$($CURL -s -H "Authorization: Bearer $api_key" "$url")
-
-          # OpenAI-compatible APIs return { data: [...] }
-          if [ -z "$response" ] || [ "$(echo "$response" | $JQ '.data')" = "null" ]; then
-            $GUM style --foreground 196 "Error: Failed to fetch models from API. Is the proxy running?"
-            return 1
-          fi
-
-          # Transform OpenAI-compatible response to our models.json format
-          # Group all models under a single unified provider
+          local response_file
           local temp_json
+          response_file=$(mktemp)
           temp_json=$(mktemp)
 
-          echo "$response" | $JQ '
-            # Helper: get short ID (everything after the first /)
-            def get_id:
-              .id
-              | split("/")
-              | if length > 1 then .[1:] | join("/") else .[0] end;
-
-            # Map a model object to our internal format.
-            # OpenAI-compatible endpoints expose less metadata than Gemini.
-            def to_opencode:
-              get_id as $id
-              | {
-                  key: $id,
-                  value: {
-                    name: (.name // .id)
-                  }
-                };
-
-            # Filter and transform models into a single provider
-            {
-              providers: {
-                "omniroute": {
-                  npm: "@ai-sdk/openai",
-                  name: "omniroute",
-                  baseUrl: "http://127.0.0.1:8317/v1",
-                  models: ([.data[] | to_opencode] | sort_by(.key) | from_entries)
-                }
-              }
-            }' > "$temp_json"
-
-          if [ -s "$temp_json" ]; then
-            mv "$temp_json" "$MODELS_FILE"
-            $GUM style --foreground 212 "✅ Successfully synced models to $MODELS_FILE"
-            $GUM style --foreground 212 "💡 Remember to git add the changes!"
-            rebuild_runtime_configs
-          else
-            $GUM style --foreground 196 "Error: Failed to process models. API response may be malformed."
-            rm -f "$temp_json"
+          local http_status
+          if ! http_status=$($CURL -sS -L --connect-timeout 10 --max-time 60 --retry 2 --retry-delay 1 \
+            -w '%{http_code}' -o "$response_file" \
+            -H "Authorization: Bearer $api_key" \
+            -H "Accept: application/json" \
+            "$url"); then
+            $GUM style --foreground 196 "Error: Failed to reach $url"
+            rm -f "$response_file" "$temp_json"
             return 1
           fi
+
+          case "$http_status" in
+            2*) ;;
+            *)
+              local api_error
+              api_error=$($JQ -r '.error.message // .message // .error // empty' "$response_file" 2>/dev/null || true)
+              $GUM style --foreground 196 "Error: Model API returned HTTP $http_status''${api_error:+: $api_error}"
+              rm -f "$response_file" "$temp_json"
+              return 1
+              ;;
+          esac
+
+          if ! $JQ -e '.data | type == "array" and length > 0' "$response_file" >/dev/null 2>&1; then
+            $GUM style --foreground 196 "Error: Model API response did not contain a non-empty data array"
+            rm -f "$response_file" "$temp_json"
+            return 1
+          fi
+
+          # Normalize the rich model payload into OpenCode's model schema while
+          # keeping provider metadata reviewable in models.json. Field aliases
+          # cover OpenAI-compatible, OpenRouter, and gateway-enriched responses.
+          if ! $JQ -S '
+            def number_or_null:
+              if type == "number" then .
+              elif type == "string" and test("^[0-9]+$") then tonumber
+              else null
+              end;
+
+            def first_number($values):
+              reduce $values[] as $value (null; if . != null then . else ($value | number_or_null) end);
+
+            def clean_string_array:
+              if type == "array" then
+                map(select(type == "string" and length > 0)) | unique
+              elif type == "string" and length > 0 then
+                [.] | unique
+              else
+                []
+              end;
+
+            def first_string_array($values):
+              reduce $values[] as $value ([]; if length > 0 then . else ($value | clean_string_array) end);
+
+            def optional_object($name; $value):
+              if ($value | type) == "object" and ($value | length) > 0 then { ($name): $value } else {} end;
+
+            def optional_value($name; $value):
+              if $value == null or $value == "" then {} else { ($name): $value } end;
+
+            # Strip only known upstream transport prefixes. Real model families
+            # such as anthropic/claude-* and google/gemini-* stay intact.
+            def local_model_id:
+              (.id | tostring) as $id
+              | ($id | split("/")) as $parts
+              | ["codex", "cx", "kg", "kilo-gateway", "nvidia", "omniroute", "openrouter"] as $transport_prefixes
+              | if ($parts | length) > 1 and (($transport_prefixes | index($parts[0])) != null) then
+                  $parts[1:] | join("/")
+                else
+                  $id
+                end;
+
+            def support_list:
+              first_string_array([
+                .supported_parameters?,
+                .supportedParameters?,
+                .capabilities.supported_parameters?,
+                .metadata.supported_parameters?
+              ]);
+
+            def has_any($items):
+              support_list as $supported
+              | any($items[]; . as $item | ($supported | index($item)) != null);
+
+            def reasoning_efforts:
+              first_string_array([
+                .reasoning_effort?,
+                .reasoningEffort?,
+                .supported_reasoning_efforts?,
+                .supportedReasoningEfforts?,
+                .capabilities.reasoning_effort?,
+                .capabilities.supported_reasoning_efforts?
+              ]) as $explicit
+              | if ($explicit | length) > 0 then $explicit
+                elif ((.reasoning // .supports_reasoning // .supportsReasoning // false) == true) or has_any(["reasoning", "reasoning_effort", "reasoning.summary", "reasoning.encrypted_content"]) then
+                  ["low", "medium", "high"]
+                else
+                  []
+                end;
+
+            def normalized_modalities:
+              first_string_array([
+                .modalities.input?,
+                .modalities.inputs?,
+                .input_modalities?,
+                .inputModalities?,
+                .architecture.input_modalities?,
+                .architecture.inputModalities?,
+                .capabilities.input_modalities?
+              ]) as $input
+              | first_string_array([
+                .modalities.output?,
+                .modalities.outputs?,
+                .output_modalities?,
+                .outputModalities?,
+                .architecture.output_modalities?,
+                .architecture.outputModalities?,
+                .capabilities.output_modalities?
+              ]) as $output
+              | (if ($input | length) > 0 then { input: $input } else {} end)
+                + (if ($output | length) > 0 then { output: $output } else {} end);
+
+            def normalized_limit:
+              first_number([
+                .limit.context?, .limits.context?, .context?, .context_length?, .contextLength?,
+                .context_window?, .contextWindow?, .max_context_length?, .maxContextLength?,
+                .top_provider.context_length?, .topProvider.contextLength?
+              ]) as $context
+              | first_number([
+                .limit.output?, .limits.output?, .output?, .output_tokens?, .outputTokens?,
+                .max_output_tokens?, .maxOutputTokens?, .max_completion_tokens?, .maxCompletionTokens?,
+                .top_provider.max_completion_tokens?, .topProvider.maxCompletionTokens?
+              ]) as $output
+              | (if $context != null then { context: $context } else {} end)
+                + (if $output != null then { output: $output } else {} end);
+
+            def model_metadata:
+              {
+                upstream_id: (.id | tostring)
+              }
+              + optional_value("object"; .object?)
+              + optional_value("owned_by"; .owned_by? // .ownedBy?)
+              + optional_value("created"; .created?)
+              + optional_value("description"; .description?)
+              + optional_object("pricing"; .pricing? // {})
+              + optional_object("architecture"; .architecture? // {})
+              + optional_object("top_provider"; .top_provider? // .topProvider? // {})
+              + optional_object("per_request_limits"; .per_request_limits? // .perRequestLimits? // {})
+              + (support_list as $supported | if ($supported | length) > 0 then { supported_parameters: $supported } else {} end);
+
+            def to_opencode_entry:
+              local_model_id as $key
+              | normalized_limit as $limit
+              | normalized_modalities as $modalities
+              | reasoning_efforts as $efforts
+              | support_list as $supported
+              | {
+                  key: $key,
+                  value: ({
+                    name: (.name // .display_name // .displayName // .id),
+                    metadata: model_metadata
+                  }
+                  + optional_value("id"; .id?)
+                  + (if ($limit | length) > 0 then { limit: $limit } else {} end)
+                  + (if ($modalities | length) > 0 then { modalities: $modalities } else {} end)
+                  + (if ($efforts | length) > 0 then { reasoning: true, reasoning_effort: $efforts } else {} end)
+                  + (if ((.tool_call // .toolCall // .supports_tools // .supportsTools // false) == true) or (($supported | index("tools")) != null) or (($supported | index("tool_choice")) != null) then { tool_call: true } else {} end))
+                };
+
+            def transport_priority:
+              (.value.metadata.upstream_id | split("/")[0]) as $prefix
+              | if $prefix == "codex" then 0
+                elif $prefix == "cx" then 1
+                elif $prefix == "kilo-gateway" then 2
+                elif $prefix == "kg" then 3
+                elif $prefix == "omniroute" then 4
+                elif $prefix == "openrouter" then 5
+                elif $prefix == "nvidia" then 6
+                else 7
+                end;
+
+            def collapse_duplicate_models:
+              group_by(.key)
+              | map(
+                  sort_by(transport_priority) as $group
+                  | $group[0] as $selected
+                  | ($group | map(.value.metadata.upstream_id) | unique) as $upstream_ids
+                  | $selected
+                    + (if ($upstream_ids | length) > 1 then
+                        {
+                          value: ($selected.value + {
+                            metadata: ($selected.value.metadata + {
+                              alternate_upstream_ids: ($upstream_ids | map(select(. != $selected.value.metadata.upstream_id)))
+                            })
+                          })
+                        }
+                      else
+                        {}
+                      end)
+                );
+
+            ([.data[] | select((.id? // "") != "") | to_opencode_entry] | sort_by(.key, transport_priority) | collapse_duplicate_models) as $entries
+            | {
+                providers: {
+                  omniroute: {
+                    npm: "@ai-sdk/openai",
+                    name: "omniroute",
+                    baseUrl: "https://omniroute.${publicBaseDomain}/v1",
+                    syncedAt: (now | todateiso8601),
+                    models: ($entries | from_entries)
+                  }
+                }
+              }
+          ' "$response_file" > "$temp_json"; then
+            $GUM style --foreground 196 "Error: Failed to normalize model metadata"
+            rm -f "$response_file" "$temp_json"
+            return 1
+          fi
+
+          if ! $JQ -e '.providers.omniroute.models | type == "object" and length > 0' "$temp_json" >/dev/null; then
+            $GUM style --foreground 196 "Error: Normalized model cache is empty"
+            rm -f "$response_file" "$temp_json"
+            return 1
+          fi
+
+          mv "$temp_json" "$MODELS_FILE"
+          rm -f "$response_file"
+
+          local stats
+          stats=$($JQ -r '
+            (.providers.omniroute.models // {}) as $models
+            | [
+                "models=\($models | length)",
+                "limits=\([$models[] | select(.limit.context? != null or .limit.output? != null)] | length)",
+                "reasoning=\([$models[] | select(.reasoning == true)] | length)",
+                "tools=\([$models[] | select(.tool_call == true)] | length)",
+                "image_output=\([$models[] | select(((.modalities.output // []) | index("image")) != null)] | length)"
+              ]
+            | join(", ")
+          ' "$MODELS_FILE")
+          $GUM style --foreground 212 "Successfully synced models to $MODELS_FILE ($stats)"
+
+          local missing_state_models
+          missing_state_models=$($JQ -r --slurpfile state "$STATE_FILE" '
+            (.providers.omniroute.models // {}) as $models
+            | (($state[0].categories // {}) | to_entries[] | .value | if type == "object" then .model else . end)
+            | select(type == "string" and startswith("omniroute/"))
+            | sub("^omniroute/"; "")
+            | select($models[.] == null)
+          ' "$MODELS_FILE" | sort -u)
+          if [ -n "$missing_state_models" ]; then
+            $GUM style --foreground 214 "Warning: state.json references models missing from the synced cache:"
+            printf '%s\n' "$missing_state_models"
+          fi
+
+          $GUM style --foreground 212 "Remember to git add the changes."
+          rebuild_runtime_configs
         }
 
         update_group_state() {
@@ -829,39 +992,10 @@
         }
 
         model_picker_lines() {
-          if [ -f "$OVERRIDES_FILE" ] && [ -s "$OVERRIDES_FILE" ]; then
-            $JQ -r --slurpfile overrides "$OVERRIDES_FILE" '
-              def normalize_model:
-                . as $model
-                | ($model | del(.context, .output))
-                  + (if (($model.context // null) != null) or (($model.output // null) != null) then
-                      {
-                        limit: (($model.limit // {})
-                          + (if (($model.context // null) != null) then { context: $model.context } else {} end)
-                          + (if (($model.output // null) != null) then { output: $model.output } else {} end))
-                      }
-                    else
-                      {}
-                    end);
-              (.providers.omniroute.models // {}) as $models
-              | $models * (($overrides[0] // {}) | with_entries(select($models[.key] != null)))
-              | map_values(normalize_model)
-              | to_entries
-              | .[]
-              | "omniroute/\(.key)\tomniroute: \(.value.name) (\(.key))"
-            ' "$MODELS_FILE"
-          else
-            $JQ -r '
-              .providers
-              | to_entries
-              | .[]
-              | .key as $provider
-              | .value.models
-              | to_entries
-              | .[]
-              | "\($provider)/\(.key)\t\($provider): \(.value.name) (\(.key))"
-            ' "$MODELS_FILE"
-          fi
+          get_effective_models_json | $JQ -r '
+            to_entries[]
+            | "omniroute/\(.key)\tomniroute: \(.value.name) (\(.key))"
+          '
         }
 
         pick_model_id() {
@@ -1214,8 +1348,7 @@
             local context_msg="Context: Global"
             if [ -f "$LOCAL_JSONC_FILE" ]; then context_msg="Context: Local Project ($LOCAL_JSONC_FILE)"; fi
 
-            sync_config_from_state
-            rebuild_runtime_configs >/dev/null 2>&1 || true
+            sync_config_from_state 1
 
             local sync_warning=""
             if [ ! -f "$MODELS_FILE" ] || [ ! -s "$MODELS_FILE" ]; then
