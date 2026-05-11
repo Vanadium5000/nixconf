@@ -103,6 +103,8 @@
           #pkgs.whisper-cpp # using whisper-cpp as a runtimeInput makes it not work.
           pkgs.ffmpeg
           pkgs.jq
+          pkgs.pulseaudio
+          pkgs.which
         ];
       };
 

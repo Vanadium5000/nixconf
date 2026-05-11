@@ -180,6 +180,12 @@
           (kb "${shiftMod},F" "togglefloating," "Toggle floating mode" "Windows")
           (kb "${shiftMod},C" "centerwindow" "Center floating window" "Windows")
           (kb "${mod},F" "fullscreen" "Toggle fullscreen" "Windows")
+          (kb "${shiftMod},G" "togglegroup" "Toggle tabbed window group" "Windows")
+          (kb "${mod} CTRL, G" "moveintogroup, r" "Group with right window" "Windows")
+          (kb "${mod} CTRL, backslash" "layoutmsg, preselect r" "Preselect next split right" "Windows")
+          (kb "${shiftMod},backslash" "layoutmsg, swapsplit" "Swap split orientation" "Windows")
+          (kb "${mod},Y" "pseudo" "Toggle pseudotile" "Windows")
+          (kb "${shiftMod},Y" "layoutmsg, movetoroot" "Promote window to layout root" "Windows")
           (kb "${mod},left" "movefocus, l" "Focus window left" "Windows")
           (kb "${mod},right" "movefocus, r" "Focus window right" "Windows")
           (kb "${mod},up" "movefocus, u" "Focus window up" "Windows")
@@ -188,13 +194,23 @@
           (kb "${shiftMod},right" "movewindow, r" "Move window right" "Windows")
           (kb "${shiftMod},up" "movewindow, u" "Move window up" "Windows")
           (kb "${shiftMod},down" "movewindow, d" "Move window down" "Windows")
+          (kb "${shiftMod} CTRL, left" "swapwindow, l" "Swap window left" "Windows")
+          (kb "${shiftMod} CTRL, right" "swapwindow, r" "Swap window right" "Windows")
+          (kb "${shiftMod} CTRL, up" "swapwindow, u" "Swap window up" "Windows")
+          (kb "${shiftMod} CTRL, down" "swapwindow, d" "Swap window down" "Windows")
           (kb "${mod} ALT, left" "focusmonitor, l" "Focus left monitor" "Windows")
           (kb "${mod} ALT, right" "focusmonitor, r" "Focus right monitor" "Windows")
+          (kb "${mod} ALT, up" "focusmonitor, u" "Focus upper monitor" "Windows")
+          (kb "${mod} ALT, down" "focusmonitor, d" "Focus lower monitor" "Windows")
           (kb "${shiftMod} ALT, left" "movewindow, mon:l" "Move window to left monitor" "Windows")
           (kb "${shiftMod} ALT, right" "movewindow, mon:r" "Move window to right monitor" "Windows")
+          (kb "${shiftMod} ALT, up" "movewindow, mon:u" "Move window to upper monitor" "Windows")
+          (kb "${shiftMod} ALT, down" "movewindow, mon:d" "Move window to lower monitor" "Windows")
           (kb "${mod},backslash" "togglesplit," "Toggle window split direction" "Windows")
           (kb "${mod},TAB" "cyclenext," "Focus next window" "Windows")
+          (kb "${mod},TAB" "bringactivetotop" "Raise focused floating window" "Windows")
           (kb "${shiftMod},TAB" "cyclenext, prev" "Focus previous window" "Windows")
+          (kb "${shiftMod},TAB" "bringactivetotop" "Raise focused floating window" "Windows")
         ];
 
         # ── Resize (binde - repeat) ──
@@ -276,6 +292,8 @@
         # ── Accessibility ──
         accessibility = [
           (kb "${mod},T" "exec, dictation toggle" "Toggle dictation" "Accessibility")
+          (kb "${shiftMod},T" "exec, dictation cancel" "Cancel dictation" "Accessibility")
+          (kb "${altMod},T" "exec, dictation select-device" "Select dictation microphone" "Accessibility")
           (kb "${mod},MINUS"
             ''exec, hyprctl keyword cursor:zoom_factor $(awk "BEGIN {print $(hyprctl getoption cursor:zoom_factor | grep 'float:' | awk '{print $2}') - 0.1}")''
             "Zoom out"
@@ -305,8 +323,9 @@
             "Screenshot to text (OCR)"
             "Capture"
           )
-          (kb "${mod},S" "exec, ${frozenScreenshotScript ''${getExe pkgs.swappy} -f "$screenshot_file"''}"
-            "Screenshot area (edit with Swappy)"
+          (kb "${mod},S"
+            "exec, ${frozenScreenshotScript ''mkdir -p "$HOME/Pictures/Screenshots" && ${getExe pkgs.satty} --filename "$screenshot_file" --floating-hack --copy-command "${pkgs.wl-clipboard}/bin/wl-copy" --output-filename "$HOME/Pictures/Screenshots/satty-%Y-%m-%d_%H:%M:%S.png" --actions-on-enter save-to-clipboard,exit --actions-on-escape save-to-clipboard,exit --early-exit --disable-notifications''}"
+            "Screenshot area (edit with Satty)"
             "Capture"
           )
           (kb "${mod},R"
@@ -664,7 +683,11 @@
           #pseudotile = 0 # enable pseudotiling on dwindle
           pseudotile = "yes";
           preserve_split = "yes";
-          smart_split = "no";
+          smart_split = "yes";
+          smart_resizing = "yes";
+          use_active_for_splits = true;
+          permanent_direction_override = true;
+          precise_mouse_move = true;
           special_scale_factor = 1.0;
         };
 
@@ -709,6 +732,12 @@
           # Float + suppress focus for popup surfaces only
           "float, class:^(waydroid\\.InputMethod)$"
           "nofocus, class:^(waydroid\\.InputMethod)$"
+
+          # Satty screenshot editor: keep annotations as a centered floating utility
+          # instead of letting the tiler resize/reflow the current workspace.
+          "float, class:^(satty|Satty)$"
+          "center, class:^(satty|Satty)$"
+          "size 80% 80%, class:^(satty|Satty)$"
         ];
 
         layerrule = [
@@ -802,8 +831,8 @@
                 ws = i + 1;
               in
               [
-                "${mod},code:1${toString i}, workspace, ${toString ws}"
-                "${shiftMod},code:1${toString i}, movetoworkspace, ${toString ws}"
+                "${mod},code:1${toString i}, focusworkspaceoncurrentmonitor, ${toString ws}"
+                "${shiftMod},code:1${toString i}, movetoworkspacesilent, ${toString ws}"
               ]
             ) 9
           ));
@@ -891,7 +920,7 @@
         grim
         slurp
         wf-recorder
-        swappy
+        satty
 
         networkmanagerapplet
 

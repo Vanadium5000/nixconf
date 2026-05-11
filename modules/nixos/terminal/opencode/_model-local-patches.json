@@ -1,44 +1,80 @@
 {
   "gpt-5.2": {
     "limit": {
-      "context": 400000,
-      "output": 128000
+      "context": 128000,
+      "output": 16384
     }
   },
   "gpt-5.3-codex": {
     "limit": {
-      "context": 400000,
-      "output": 128000
+      "context": 128000,
+      "output": 16384
+    }
+  },
+  "gpt-5.3-codex-spark": {
+    "limit": {
+      "context": 128000,
+      "output": 16384
     }
   },
   "gpt-5.4": {
     "limit": {
-      "context": 1050000,
-      "output": 128000
+      "context": 128000,
+      "output": 16384
     }
   },
   "gpt-5.4-mini": {
     "limit": {
-      "context": 400000,
-      "output": 128000
+      "context": 128000,
+      "output": 16384
+    }
+  },
+  "gpt-5.5": {
+    "limit": {
+      "context": 128000,
+      "output": 16384
+    }
+  },
+  "gpt-5.5-high": {
+    "limit": {
+      "context": 128000,
+      "output": 16384
+    }
+  },
+  "gpt-5.5-low": {
+    "limit": {
+      "context": 128000,
+      "output": 16384
+    }
+  },
+  "gpt-5.5-medium": {
+    "limit": {
+      "context": 128000,
+      "output": 16384
+    }
+  },
+  "gpt-5.5-xhigh": {
+    "limit": {
+      "context": 128000,
+      "output": 16384
     }
   },
   "openai/gpt-4.1": {
     "limit": {
-      "context": 1047576,
-      "output": 32768
+      "context": 128000,
+      "output": 16384
     }
   },
   "openai/gpt-4.1-mini": {
     "limit": {
-      "context": 1047576,
-      "output": 32768
+      "context": 128000,
+      "output": 16384
     }
   },
   "openai/gpt-4.1-nano": {
     "limit": {
-      "context": 1047576,
-      "output": 32768
+      "context": 128000,
+      "output": 16384
     }
   },
   "openai/gpt-4o": {
@@ -91,8 +127,8 @@
   },
   "openai/gpt-5": {
     "limit": {
-      "context": 400000,
-      "output": 128000
+      "context": 128000,
+      "output": 16384
     }
   },
   "openai/gpt-5-chat": {
@@ -103,32 +139,32 @@
   },
   "openai/gpt-5-codex": {
     "limit": {
-      "context": 400000,
-      "output": 128000
+      "context": 128000,
+      "output": 16384
     }
   },
   "openai/gpt-5-mini": {
     "limit": {
-      "context": 400000,
-      "output": 128000
+      "context": 128000,
+      "output": 16384
     }
   },
   "openai/gpt-5-nano": {
     "limit": {
-      "context": 400000,
-      "output": 128000
+      "context": 128000,
+      "output": 16384
     }
   },
   "openai/gpt-5-pro": {
     "limit": {
-      "context": 400000,
-      "output": 128000
+      "context": 128000,
+      "output": 16384
     }
   },
   "openai/gpt-5.1": {
     "limit": {
-      "context": 400000,
-      "output": 128000
+      "context": 128000,
+      "output": 16384
     }
   },
   "openai/gpt-5.1-chat": {
@@ -139,14 +175,14 @@
   },
   "openai/gpt-5.1-codex": {
     "limit": {
-      "context": 400000,
-      "output": 128000
+      "context": 128000,
+      "output": 16384
     }
   },
   "openai/gpt-5.2": {
     "limit": {
-      "context": 400000,
-      "output": 128000
+      "context": 128000,
+      "output": 16384
     }
   },
   "openai/gpt-5.2-chat": {
@@ -157,14 +193,14 @@
   },
   "openai/gpt-5.2-codex": {
     "limit": {
-      "context": 400000,
-      "output": 128000
+      "context": 128000,
+      "output": 16384
     }
   },
   "openai/gpt-5.2-pro": {
     "limit": {
-      "context": 400000,
-      "output": 128000
+      "context": 128000,
+      "output": 16384
     }
   },
   "openai/gpt-5.3-chat": {
@@ -175,44 +211,44 @@
   },
   "openai/gpt-5.3-codex": {
     "limit": {
-      "context": 400000,
-      "output": 128000
+      "context": 128000,
+      "output": 16384
     }
   },
   "openai/gpt-5.4": {
     "limit": {
-      "context": 1050000,
-      "output": 128000
+      "context": 128000,
+      "output": 16384
     }
   },
   "openai/gpt-5.4-mini": {
     "limit": {
-      "context": 400000,
-      "output": 128000
+      "context": 128000,
+      "output": 16384
     }
   },
   "openai/gpt-5.4-nano": {
     "limit": {
-      "context": 400000,
-      "output": 128000
+      "context": 128000,
+      "output": 16384
     }
   },
   "openai/gpt-5.4-pro": {
     "limit": {
-      "context": 1050000,
-      "output": 128000
+      "context": 128000,
+      "output": 16384
     }
   },
   "openai/gpt-5.5": {
     "limit": {
-      "context": 1050000,
-      "output": 128000
+      "context": 128000,
+      "output": 16384
     }
   },
   "openai/gpt-5.5-pro": {
     "limit": {
-      "context": 1050000,
-      "output": 128000
+      "context": 128000,
+      "output": 16384
     }
   },
   "openai/o3": {

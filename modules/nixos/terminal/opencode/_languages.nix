@@ -77,6 +77,7 @@ let
     marksman = "${pkgs.marksman}/bin/marksman";
     lua = "${pkgs.lua-language-server}/bin/lua-language-server";
     luau = "${pkgs.luau-lsp}/bin/luau-lsp";
+    qmlls = "${pkgs.kdePackages.qtdeclarative}/bin/qmlls";
     rust = "${pkgs.rust-analyzer}/bin/rust-analyzer";
     sql = "${pkgs.sqls}/bin/sqls";
     tailwindcss = "${pkgs.tailwindcss-language-server}/bin/tailwindcss-language-server";
@@ -384,6 +385,13 @@ let
       ];
       extensions = [ ".luau" ];
     };
+    qml = {
+      command = [
+        lspBins.qmlls
+        "-E" # Quickshell docs recommend reading QML import paths from the environment.
+      ];
+      extensions = [ ".qml" ];
+    };
     rust = {
       command = [ lspBins.rust ];
       extensions = [ ".rs" ];
@@ -437,6 +445,7 @@ in
       lua-language-server
       luau-lsp
       marksman
+      kdePackages.qtdeclarative # Provides qmlls for QML/Quickshell language-server support
       nodePackages.markdownlint-cli
       nixfmt-rfc-style
       nodePackages.prettier
