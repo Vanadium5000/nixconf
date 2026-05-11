@@ -20,6 +20,7 @@
       altMod = "ALT";
       terminal = self.packages.${pkgs.stdenv.hostPlatform.system}.terminal;
       braveOrigin = self.packages.${pkgs.stdenv.hostPlatform.system}.brave-origin;
+      qsDmenu = self.packages.${pkgs.stdenv.hostPlatform.system}.qs-dmenu;
       systemSettings = config.preferences.system;
       user = config.preferences.user.username;
       homeDirectory = config.preferences.paths.homeDirectory;
@@ -35,6 +36,244 @@
       ];
 
       closeConfirmWindowSeconds = 20;
+
+      hyprScreenshot = pkgs.writeShellScriptBin "hypr-screenshot" ''
+        #!${pkgs.bash}/bin/bash
+        set -euo pipefail
+
+        mode="''${1:-help}"
+        shift || true
+
+        state_dir="''${XDG_STATE_HOME:-$HOME/.local/state}/hypr-tools"
+        log_file="$state_dir/hypr-screenshot.log"
+        mkdir -p "$state_dir"
+        exec > >(tee -a "$log_file") 2>&1
+
+        log() { printf '[%(%Y-%m-%dT%H:%M:%S%z)T] %s\n' -1 "$*"; }
+        notify() { ${pkgs.libnotify}/bin/notify-send -a hypr-screenshot "$@" >/dev/null 2>&1 || true; }
+        die() { log "ERROR: $*"; notify "Screenshot failed" "$*"; exit 1; }
+
+        usage() {
+          cat <<'EOF'
+        Usage: hypr-screenshot COMMAND
+
+        Commands:
+          area          Select an area and save it to ~/Pictures/Screenshots
+          monitor       Save the currently focused monitor to ~/Pictures/Screenshots
+          edit          Select an area, save it to a temp file, then edit with Satty
+          ocr           Select an area and copy OCR text to the clipboard
+          qr            Select an area and copy the first decoded QR/barcode to the clipboard
+          record        Select an area and start wf-recorder into ~/Videos
+          stop-record   Stop wf-recorder cleanly
+
+        Logs: ~/.local/state/hypr-tools/hypr-screenshot.log
+        EOF
+        }
+
+        screenshot_dir="''${XDG_SCREENSHOTS_DIR:-$HOME/Pictures/Screenshots}"
+        videos_dir="''${XDG_VIDEOS_DIR:-$HOME/Videos}"
+
+        freeze_pid=""
+        cleanup_freeze() {
+          if [ -n "''${freeze_pid:-}" ]; then
+            kill "$freeze_pid" 2>/dev/null || true
+            wait "$freeze_pid" 2>/dev/null || true
+            freeze_pid=""
+          fi
+        }
+        trap cleanup_freeze EXIT
+
+        freeze_for_selection() {
+          ${getExe pkgs.hyprpicker} -r -z >/dev/null 2>&1 &
+          freeze_pid=$!
+          sleep 0.2
+        }
+
+        select_region() {
+          freeze_for_selection
+          local selection
+          selection="$(${getExe pkgs.slurp} -d)" || die "Region selection cancelled"
+          cleanup_freeze
+          [ -n "$selection" ] || die "Region selection was empty"
+          printf '%s\n' "$selection"
+        }
+
+        timestamp() { ${pkgs.coreutils}/bin/date +'%Y-%m-%d_%H-%M-%S'; }
+
+        case "$mode" in
+          area)
+            mkdir -p "$screenshot_dir"
+            selection="$(select_region)"
+            out="$screenshot_dir/screenshot-$(timestamp).png"
+            ${getExe pkgs.grim} -g "$selection" "$out"
+            notify "Screenshot saved" "$out"
+            log "saved area screenshot: $out"
+            ;;
+          monitor)
+            mkdir -p "$screenshot_dir"
+            out="$screenshot_dir/screenshot-$(timestamp).png"
+            ${getExe pkgs.grim} "$out"
+            notify "Screenshot saved" "$out"
+            log "saved monitor screenshot: $out"
+            ;;
+          edit)
+            work_dir="$(${pkgs.coreutils}/bin/mktemp -d -t hypr-satty.XXXXXXXXXX)"
+            input_file="$work_dir/input.png"
+            cleanup_edit() { rm -rf "$work_dir"; }
+            trap 'cleanup_freeze; cleanup_edit' EXIT
+
+            selection="$(select_region)"
+            ${getExe pkgs.grim} -g "$selection" "$input_file"
+
+            log "opening Satty with temp input: $input_file"
+            ${getExe pkgs.satty} \
+              --filename "$input_file" \
+              --copy-command "${pkgs.wl-clipboard}/bin/wl-copy --type image/png" \
+              --output-filename "$work_dir/satty-%Y-%m-%d_%H:%M:%S.png" \
+              --actions-on-enter save-to-clipboard,exit \
+              --actions-on-escape exit \
+              --actions-on-right-click save-to-clipboard,exit \
+              --early-exit \
+              --disable-notifications
+            ;;
+          ocr)
+            work_file="$(${pkgs.coreutils}/bin/mktemp -t hypr-ocr.XXXXXXXXXX.png)"
+            cleanup_ocr() { rm -f "$work_file"; }
+            trap 'cleanup_freeze; cleanup_ocr' EXIT
+            selection="$(select_region)"
+            ${getExe pkgs.grim} -g "$selection" "$work_file"
+            text="$(${getExe pkgs.tesseract} "$work_file" - 2>/dev/null || true)"
+            printf '%s' "$text" | ${pkgs.wl-clipboard}/bin/wl-copy --type text/plain
+            if [ ''${#text} -le 120 ]; then notify "OCR Result" "$text"; else notify "OCR Result" "''${text:0:100}...''${text: -20}"; fi
+            log "copied OCR text (''${#text} chars)"
+            ;;
+          qr)
+            work_file="$(${pkgs.coreutils}/bin/mktemp -t hypr-qr.XXXXXXXXXX.png)"
+            cleanup_qr() { rm -f "$work_file"; }
+            trap 'cleanup_freeze; cleanup_qr' EXIT
+            selection="$(select_region)"
+            ${getExe pkgs.grim} -g "$selection" "$work_file"
+            text="$(${pkgs.zbar}/bin/zbarimg --quiet "$work_file" | ${pkgs.gnused}/bin/sed 's/^QR-Code:[[:space:]]*//' | ${pkgs.coreutils}/bin/head -n1 || true)"
+            [ -n "$text" ] || die "No QR/barcode found"
+            printf '%s' "$text" | ${pkgs.wl-clipboard}/bin/wl-copy --type text/plain
+            if [ ''${#text} -le 120 ]; then notify "QR Result" "$text"; else notify "QR Result" "''${text:0:100}...''${text: -20}"; fi
+            log "copied QR/barcode result"
+            ;;
+          record)
+            mkdir -p "$videos_dir"
+            selection="$(${getExe pkgs.slurp} -d)" || die "Recording region selection cancelled"
+            [ -n "$selection" ] || die "Recording region selection was empty"
+            out="$videos_dir/rec_$(timestamp).mp4"
+            log "starting recording: $out"
+            exec ${getExe pkgs.wf-recorder} -g "$selection" -f "$out"
+            ;;
+          stop-record)
+            ${pkgs.procps}/bin/pkill -SIGINT wf-recorder || true
+            log "requested wf-recorder stop"
+            ;;
+          help|-h|--help)
+            usage
+            ;;
+          *)
+            usage >&2
+            exit 2
+            ;;
+        esac
+      '';
+
+      hyprScreenshotExe = getExe hyprScreenshot;
+
+      hyprClipboard = pkgs.writeShellScriptBin "hypr-clipboard" ''
+        #!${pkgs.bash}/bin/bash
+        set -euo pipefail
+
+        command="''${1:-history}"
+        shift || true
+
+        state_dir="''${XDG_STATE_HOME:-$HOME/.local/state}/hypr-tools"
+        log_file="$state_dir/hypr-clipboard.log"
+        mkdir -p "$state_dir"
+        exec > >(tee -a "$log_file") 2>&1
+
+        log() { printf '[%(%Y-%m-%dT%H:%M:%S%z)T] %s\n' -1 "$*"; }
+        notify() { ${pkgs.libnotify}/bin/notify-send -a hypr-clipboard "$@" >/dev/null 2>&1 || true; }
+
+        usage() {
+          cat <<'EOF'
+        Usage: hypr-clipboard [history|clear]
+
+        history  Open clipboard history with image previews and restore the selected item
+        clear    Clear cliphist history
+
+        Logs: ~/.local/state/hypr-tools/hypr-clipboard.log
+        EOF
+        }
+
+        mime_for_ext() {
+          case "$1" in
+            jpg|jpeg) printf 'image/jpeg' ;;
+            png) printf 'image/png' ;;
+            bmp) printf 'image/bmp' ;;
+            gif) printf 'image/gif' ;;
+            webp) printf 'image/webp' ;;
+            *) printf 'application/octet-stream' ;;
+          esac
+        }
+
+        case "$command" in
+          history)
+            tmp_dir="$(${pkgs.coreutils}/bin/mktemp -d -t cliphist-preview.XXXXXXXXXX)"
+            cleanup() { rm -rf "$tmp_dir"; }
+            trap cleanup EXIT
+
+            menu_file="$tmp_dir/menu"
+            ${pkgs.cliphist}/bin/cliphist list | while IFS= read -r entry; do
+              id="''${entry%%$'\t'*}"
+              preview="''${entry#*$'\t'}"
+              if [[ "$preview" =~ binary.*(png|jpg|jpeg|bmp|gif|webp) ]]; then
+                ext="''${BASH_REMATCH[1]}"
+                icon_file="$tmp_dir/$id.$ext"
+                ${pkgs.cliphist}/bin/cliphist decode <<<"$entry" >"$icon_file" 2>/dev/null || true
+                printf '%s\0icon\x1f%s\n' "$entry" "$icon_file"
+              else
+                printf '%s\n' "$entry"
+              fi
+            done > "$menu_file"
+
+            selection="$(env DMENU_ICON_SIZE=96 ${getExe qsDmenu} -p 'Clipboard' < "$menu_file")" || exit 0
+            [ -n "$selection" ] || exit 0
+
+            preview="''${selection#*$'\t'}"
+            if [[ "$preview" =~ binary.*(png|jpg|jpeg|bmp|gif|webp) ]]; then
+              ext="''${BASH_REMATCH[1]}"
+              mime="$(mime_for_ext "$ext")"
+              data_file="$tmp_dir/selection.$ext"
+              ${pkgs.cliphist}/bin/cliphist decode <<<"$selection" >"$data_file"
+              ${pkgs.wl-clipboard}/bin/wl-copy --type "$mime" < "$data_file"
+              notify "Clipboard restored" "$mime image"
+              log "restored image clipboard item as $mime"
+            else
+              ${pkgs.cliphist}/bin/cliphist decode <<<"$selection" | ${pkgs.wl-clipboard}/bin/wl-copy
+              notify "Clipboard restored" "Text/item restored"
+              log "restored non-image clipboard item"
+            fi
+            ;;
+          clear)
+            ${pkgs.cliphist}/bin/cliphist wipe
+            notify "Clipboard history cleared" "cliphist database wiped"
+            log "cleared cliphist history"
+            ;;
+          help|-h|--help)
+            usage
+            ;;
+          *)
+            usage >&2
+            exit 2
+            ;;
+        esac
+      '';
+
+      hyprClipboardExe = getExe hyprClipboard;
 
       closeActiveWindowScript = makeScript ''
         #!${pkgs.bash}/bin/bash
@@ -75,77 +314,6 @@
             "Press SUPER+Q again within ''${CONFIRM_WINDOW_SECONDS}s to close this app."
         ) >/dev/null 2>&1 < /dev/null &
       '';
-
-      frozenSelectionScript =
-        command:
-        makeScript ''
-          #!${pkgs.bash}/bin/bash
-          set -euo pipefail
-
-          # Hyprpicker's preview freezes the screen for picking; `-r` also
-          # freezes inactive outputs and `-z` hides the zoom lens so slurp gets
-          # a plain selection surface.
-          # Source: https://github.com/hyprwm/hyprpicker/blob/main/src/main.cpp
-          ${getExe pkgs.hyprpicker} -r -z >/dev/null 2>&1 &
-          freeze_pid=$!
-
-          cleanup_freeze() {
-            kill "$freeze_pid" 2>/dev/null || true
-            wait "$freeze_pid" 2>/dev/null || true
-          }
-          trap cleanup_freeze EXIT
-
-          # Grimblast uses the same 0.2s wait so the frozen layer maps before
-          # slurp takes pointer focus.
-          # Source: https://github.com/hyprwm/contrib/blob/main/grimblast/grimblast
-          sleep 0.2
-
-          ${command}
-        '';
-
-      frozenScreenshotScript =
-        command:
-        makeScript ''
-          #!${pkgs.bash}/bin/bash
-          set -euo pipefail
-
-          # Keep Hyprpicker alive until grim captures the selected region, then
-          # close it before slower post-processing UIs like Swappy are opened.
-          # Source: https://github.com/hyprwm/hyprpicker/blob/main/src/main.cpp
-          ${getExe pkgs.hyprpicker} -r -z >/dev/null 2>&1 &
-          freeze_pid=$!
-          screenshot_file=""
-
-          cleanup_freeze() {
-            kill "$freeze_pid" 2>/dev/null || true
-            wait "$freeze_pid" 2>/dev/null || true
-          }
-
-          cleanup_screenshot() {
-            if [ -n "$screenshot_file" ]; then
-              rm -f "$screenshot_file"
-            fi
-          }
-
-          cleanup_all() {
-            cleanup_freeze
-            cleanup_screenshot
-          }
-          trap cleanup_all EXIT
-
-          # Grimblast uses the same 0.2s wait so the frozen layer maps before
-          # slurp takes pointer focus.
-          # Source: https://github.com/hyprwm/contrib/blob/main/grimblast/grimblast
-          sleep 0.2
-
-          selection="$(${getExe pkgs.slurp} -d)"
-          screenshot_file="$(${pkgs.coreutils}/bin/mktemp --suffix=.png)"
-          ${getExe pkgs.grim} -g "$selection" "$screenshot_file"
-          cleanup_freeze
-          trap cleanup_screenshot EXIT
-
-          ${command}
-        '';
 
       # ═══════════════════════════════════════════════════════════════════
       # UNIFIED KEYBIND DEFINITIONS - Single source of truth
@@ -240,13 +408,7 @@
           (kb "${mod},N" "exec, ${
             getExe self.packages.${pkgs.stdenv.hostPlatform.system}.qs-nerd
           }" "Nerd font icons picker" "Menus")
-          (kb "${mod},Z"
-            "exec, ${pkgs.cliphist}/bin/cliphist list | ${
-              getExe self.packages.${pkgs.stdenv.hostPlatform.system}.qs-dmenu
-            } -p 'Clipboard' | ${pkgs.cliphist}/bin/cliphist decode | wl-copy --type text/plain"
-            "Clipboard history"
-            "Menus"
-          )
+          (kb "${mod},Z" "exec, ${hyprClipboardExe} history" "Clipboard history" "Menus")
           (kb "${mod},W" "exec, ${
             getExe self.packages.${pkgs.stdenv.hostPlatform.system}.qs-wallpaper
           }" "Wallpaper selector" "Menus")
@@ -291,9 +453,8 @@
 
         # ── Accessibility ──
         accessibility = [
-          (kb "${mod},T" "exec, dictation toggle" "Toggle dictation" "Accessibility")
-          (kb "${shiftMod},T" "exec, dictation cancel" "Cancel dictation" "Accessibility")
-          (kb "${altMod},T" "exec, dictation select-device" "Select dictation microphone" "Accessibility")
+          (kb "${mod},T" "exec, voxtype record toggle" "Toggle Voxtype" "Accessibility")
+          (kb "${shiftMod},T" "exec, voxtype record cancel" "Cancel Voxtype" "Accessibility")
           (kb "${mod},MINUS"
             ''exec, hyprctl keyword cursor:zoom_factor $(awk "BEGIN {print $(hyprctl getoption cursor:zoom_factor | grep 'float:' | awk '{print $2}') - 0.1}")''
             "Zoom out"
@@ -315,42 +476,25 @@
 
         # ── Capture ──
         capture = [
-          (kb "${mod},PRINT" "exec, ${frozenSelectionScript "screenshot area"}" "Screenshot area (save)"
-            "Capture"
-          )
-          (kb ",PRINT" "exec, screenshot monitor" "Screenshot monitor (save)" "Capture")
-          (kb "${shiftMod},PRINT" "exec, ${frozenSelectionScript "screenshot area toText"}"
-            "Screenshot to text (OCR)"
-            "Capture"
-          )
-          (kb "${mod},S"
-            "exec, ${frozenScreenshotScript ''mkdir -p "$HOME/Pictures/Screenshots" && ${getExe pkgs.satty} --filename "$screenshot_file" --floating-hack --copy-command "${pkgs.wl-clipboard}/bin/wl-copy" --output-filename "$HOME/Pictures/Screenshots/satty-%Y-%m-%d_%H:%M:%S.png" --actions-on-enter save-to-clipboard,exit --actions-on-escape save-to-clipboard,exit --early-exit --disable-notifications''}"
-            "Screenshot area (edit with Satty)"
-            "Capture"
-          )
-          (kb "${mod},R"
-            ''exec, mkdir -p ~/Videos && ${getExe pkgs.wf-recorder} -g "$(${getExe pkgs.slurp} -d)" -f ~/Videos/rec_$(date +'%Y-%m-%d_%H-%M-%S').mp4''
-            "Start video recording"
-            "Capture"
-          )
-          (kb "${shiftMod},R" "exec, pkill -SIGINT wf-recorder" "Stop video recording" "Capture")
+          (kb "${mod},PRINT" "exec, ${hyprScreenshotExe} area" "Screenshot area (save)" "Capture")
+          (kb ",PRINT" "exec, ${hyprScreenshotExe} monitor" "Screenshot monitor (save)" "Capture")
+          (kb "${shiftMod},PRINT" "exec, ${hyprScreenshotExe} ocr" "Screenshot to text (OCR)" "Capture")
+          (kb "${mod},S" "exec, ${hyprScreenshotExe} edit" "Screenshot area (edit with Satty)" "Capture")
+          (kb "${mod},R" "exec, ${hyprScreenshotExe} record" "Start video recording" "Capture")
+          (kb "${shiftMod},R" "exec, ${hyprScreenshotExe} stop-record" "Stop video recording" "Capture")
         ];
 
         # ── Capture (complex scripts) ──
         captureScripts = [
           {
             key = "${shiftMod},S";
-            exec =
-              "exec, "
-              + (frozenScreenshotScript ''${getExe pkgs.tesseract} "$screenshot_file" - | ${pkgs.wl-clipboard}/bin/wl-copy --type text/plain && text=$( ${pkgs.wl-clipboard}/bin/wl-paste) && if [ ''${#text} -le 120 ]; then ${getExe pkgs.libnotify} "OCR Result" "$text"; else ${getExe pkgs.libnotify} "OCR Result" "''${text:0:100}...''${text: -20}"; fi'');
+            exec = "exec, ${hyprScreenshotExe} ocr";
             description = "OCR screenshot to clipboard";
             category = "Capture";
           }
           {
             key = "${altMod},S";
-            exec =
-              "exec, "
-              + (frozenScreenshotScript ''${pkgs.zbar}/bin/zbarimg "$screenshot_file" | sed 's/^QR-Code:[[:space:]]*//' | ${pkgs.wl-clipboard}/bin/wl-copy --type text/plain && text=$( ${pkgs.wl-clipboard}/bin/wl-paste) && if [ ''${#text} -le 120 ]; then ${getExe pkgs.libnotify} "ZBAR SCAN Result" "$text"; else ${getExe pkgs.libnotify} "ZBAR SCAN Result" "''${text:0:100}...''${text: -20}"; fi'');
+            exec = "exec, ${hyprScreenshotExe} qr";
             description = "QR code scan to clipboard";
             category = "Capture";
           }
@@ -606,8 +750,8 @@
 
       # Autostart cliphist - a clipboard manager programme
       preferences.autostart = [
-        "wl-paste --type text --watch ${pkgs.cliphist}/bin/cliphist store" # Stores only text data
-        "wl-paste --type image --watch ${pkgs.cliphist}/bin/cliphist store" # Stores only image data
+        "${pkgs.wl-clipboard}/bin/wl-paste --type text --watch ${pkgs.cliphist}/bin/cliphist store" # Stores text with original MIME metadata.
+        "${pkgs.wl-clipboard}/bin/wl-paste --type image --watch ${pkgs.cliphist}/bin/cliphist store" # Stores images byte-for-byte for later image/png recopy.
         "${pkgs.kdePackages.polkit-kde-agent-1}/libexec/polkit-kde-authentication-agent-1"
         "${pkgs.kdePackages.kactivitymanagerd}/libexec/kactivitymanagerd"
       ];
@@ -894,6 +1038,9 @@
       environment.systemPackages = with pkgs; [
         wl-clipboard
         cliphist # Clipboard manager
+        xdg-utils # Helps cliphist/wl-clipboard infer image MIME types.
+        hyprScreenshot
+        hyprClipboard
         brightnessctl
         dconf # user-prefs
         adwaita-icon-theme # Provides the Adwaita cursor theme selected above

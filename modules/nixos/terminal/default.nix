@@ -173,7 +173,6 @@
             parted
             exfatprogs
 
-            whisper-cpp
             wtype
             monero-cli
             electrum

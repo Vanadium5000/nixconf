@@ -85,37 +85,6 @@
         '';
       };
 
-      packages.toggle-dictation-overlay = inputs.wrappers.lib.makeWrapper {
-        inherit pkgs;
-        package = pkgs.writeShellScriptBin "toggle-dictation-overlay" ''
-          # Toggle QuickShell dictation overlay
-
-          QML_FILE="${mkQml "dictation-overlay.qml" ./dictation-overlay.qml}"
-          QS_BIN="${pkgs.quickshell}/bin/qs"
-          export QML2_IMPORT_PATH="${pkgs.qt6.qt5compat}/lib/qt-6/qml:$QML2_IMPORT_PATH"
-
-          case "''${1:-toggle}" in
-            show)
-              # Kill existing instance first
-              "$QS_BIN" kill -p "$QML_FILE" 2>/dev/null || true
-              "$QS_BIN" -p "$QML_FILE" &
-              ;;
-            hide)
-              "$QS_BIN" kill -p "$QML_FILE"
-              ;;
-            *)  # toggle
-              if ! "$QS_BIN" kill -p "$QML_FILE" 2>/dev/null; then
-                "$QS_BIN" -p "$QML_FILE" &
-              fi
-              ;;
-          esac
-        '';
-        runtimeInputs = [
-          pkgs.coreutils
-          pkgs.quickshell
-        ];
-      };
-
       packages.toggle-lyrics-overlay = inputs.wrappers.lib.makeWrapper {
         inherit pkgs;
         package = pkgs.writeShellScriptBin "toggle-lyrics-overlay" ''

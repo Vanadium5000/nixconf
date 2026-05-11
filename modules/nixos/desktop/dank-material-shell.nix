@@ -15,7 +15,8 @@
       selfpkgs = self.packages.${pkgs.stdenv.hostPlatform.system};
       inherit (self) colors;
 
-      dmsPluginDir = ".config/DankMaterialShell/plugins/toggleLidInhibit";
+      toggleLidInhibitPluginDir = ".config/DankMaterialShell/plugins/toggleLidInhibit";
+      voxtypeWidgetPluginDir = ".config/DankMaterialShell/plugins/voxtypeWidget";
       toggleLidInhibitPluginQml =
         builtins.replaceStrings
           [ "__LID_STATUS__" "__TOGGLE_LID_INHIBIT__" ]
@@ -24,6 +25,16 @@
             "${lib.getExe selfpkgs.toggle-lid-inhibit}"
           ]
           (builtins.readFile ./dank-material-shell/toggle-lid-inhibit/ToggleLidInhibitWidget.qml);
+      voxtypeWidgetPluginQml =
+        builtins.replaceStrings [ "__VOXTYPE__" ] [ "${lib.getExe pkgs.unstable.voxtype}" ]
+          (builtins.readFile ./dank-material-shell/voxtype-widget/VoxtypeWidget.qml);
+      voxtypeModelsPersistence = self.lib.persistence.mkPersistent {
+        method = "bind";
+        inherit user;
+        fileName = "voxtype-models";
+        targetFile = "${homeDirectory}/.local/share/voxtype/models";
+        isDirectory = true;
+      };
       dmsConfigPersistence = self.lib.persistence.mkPersistent {
         method = "bind";
         inherit user;
@@ -46,6 +57,44 @@
         "binds.conf"
         "windowrules.conf"
       ];
+      voxtypeConfigFile = ".config/voxtype/config.toml";
+      voxtypeConfig = ''
+        state_file = "auto"
+        engine = "whisper"
+
+        [hotkey]
+        enabled = false
+        key = "SCROLLLOCK"
+        modifiers = []
+        mode = "toggle"
+
+        [audio]
+        device = "default"
+        sample_rate = 16000
+        max_duration_secs = 60
+
+        [audio.feedback]
+        enabled = false
+        theme = "default"
+        volume = 0.7
+
+        [whisper]
+        model = "base.en"
+        language = "en"
+        translate = false
+        on_demand_loading = true
+
+        [output]
+        mode = "type"
+        fallback_to_clipboard = true
+        type_delay_ms = 0
+        pre_type_delay_ms = 100
+
+        [output.notification]
+        on_recording_start = false
+        on_recording_stop = false
+        on_transcription = true
+      '';
       dmsThemeId = "nixCyberpunkElectricDark";
       dmsThemeFile = ".config/DankMaterialShell/themes/${dmsThemeId}/theme.json";
       dmsTheme = {
@@ -152,6 +201,7 @@
           text =
             dmsConfigPersistence.activationScript
             + hyprDmsPersistence.activationScript
+            + voxtypeModelsPersistence.activationScript
             + ''
               HYPR_DMS_DIR="${homeDirectory}/.config/hypr/dms"
               mkdir -p "$HYPR_DMS_DIR"
@@ -161,7 +211,12 @@
           deps = [ "users" ];
         };
 
-        fileSystems = dmsConfigPersistence.fileSystems // hyprDmsPersistence.fileSystems;
+        fileSystems =
+          dmsConfigPersistence.fileSystems
+          // hyprDmsPersistence.fileSystems
+          // voxtypeModelsPersistence.fileSystems;
+
+        environment.systemPackages = [ pkgs.unstable.voxtype ];
 
         # DMS registry themes are loaded from <theme>/theme.json; generating only
         # that required file keeps previews optional while making the palette
@@ -169,15 +224,19 @@
         # https://github.com/AvengeMedia/DankMaterialShell/blob/eb5afcdc40ea5446c27e18552ff4a19f9daf9484/docs/CUSTOM_THEMES.md#theme-structure
         hjem.users.${user}.files = {
           ${dmsThemeFile}.text = builtins.toJSON dmsTheme;
+          ${voxtypeConfigFile}.text = voxtypeConfig;
 
           # DMS scans user plugins from ~/.config/DankMaterialShell/plugins and
           # gives them priority over /etc/xdg system plugins. Installing this
           # local widget there matches user-installed plugins and avoids stale
           # system-plugin component caches. Source:
           # https://github.com/AvengeMedia/DankMaterialShell/blob/eb5afcdc40ea5446c27e18552ff4a19f9daf9484/quickshell/Services/PluginService.qml#L21-L29
-          "${dmsPluginDir}/plugin.json".text =
+          "${toggleLidInhibitPluginDir}/plugin.json".text =
             builtins.readFile ./dank-material-shell/toggle-lid-inhibit/plugin.json;
-          "${dmsPluginDir}/ToggleLidInhibitWidget.qml".text = toggleLidInhibitPluginQml;
+          "${toggleLidInhibitPluginDir}/ToggleLidInhibitWidget.qml".text = toggleLidInhibitPluginQml;
+          "${voxtypeWidgetPluginDir}/plugin.json".text =
+            builtins.readFile ./dank-material-shell/voxtype-widget/plugin.json;
+          "${voxtypeWidgetPluginDir}/VoxtypeWidget.qml".text = voxtypeWidgetPluginQml;
         };
 
         # Mirror the upstream user unit locally so installing `dms-shell` cannot
@@ -202,6 +261,23 @@
               "KDE_FULL_SESSION=true"
               "KDE_SESSION_VERSION=6"
             ];
+          };
+        };
+
+        systemd.user.services.voxtype = {
+          description = "Voxtype push-to-talk voice typing daemon";
+          wantedBy = [ graphicalSessionTarget ];
+          partOf = [ graphicalSessionTarget ];
+          after = [
+            graphicalSessionTarget
+            "pipewire.service"
+            "pipewire-pulse.service"
+          ];
+
+          serviceConfig = {
+            ExecStart = "${lib.getExe pkgs.unstable.voxtype} daemon";
+            Restart = "on-failure";
+            RestartSec = 5;
           };
         };
       };

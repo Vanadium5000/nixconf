@@ -37,7 +37,10 @@ let
         exit "$status"
   '';
 
-  # Keep timeout + notification behavior centralized so every tool fails the same way.
+  # Keep timeout + notification behavior centralized for short-lived tools.
+  # Do not use this for LSP servers: they are long-lived stdio processes, so a
+  # hard timeout kills otherwise healthy sessions and prevents diagnostics from
+  # arriving after initialization.
   wrapCommand =
     kind: name: command:
     [
@@ -91,6 +94,24 @@ let
     eslint = "${pkgs.vscode-langservers-extracted}/bin/vscode-eslint-language-server";
     yaml = "${pkgs.yaml-language-server}/bin/yaml-language-server";
   };
+
+  qmlImportPackages = [
+    pkgs.quickshell
+    pkgs.kdePackages.qtdeclarative
+    pkgs.kdePackages.qtwayland
+    pkgs.qt6.qt5compat
+  ];
+  qmlPluginPackages = [
+    pkgs.kdePackages.qtbase
+    pkgs.kdePackages.qtdeclarative
+    pkgs.kdePackages.qtwayland
+  ];
+  qmlImportPath = lib.makeSearchPath "lib/qt-6/qml" qmlImportPackages;
+  qtPluginPath = lib.makeSearchPath "lib/qt-6/plugins" qmlPluginPackages;
+  qmlImportArgs = lib.concatMap (pkg: [
+    "-I"
+    "${pkg}/lib/qt-6/qml"
+  ]) qmlImportPackages;
 
   formatterDefinitions = {
     clang-format = {
@@ -388,8 +409,19 @@ let
     qml = {
       command = [
         lspBins.qmlls
-        "-E" # Quickshell docs recommend reading QML import paths from the environment.
-      ];
+        "-E" # Read QML import paths from the environment.
+        "--ignore-settings"
+        "--no-cmake-calls"
+      ]
+      ++ qmlImportArgs;
+      env = {
+        # qmlls uses QML_IMPORT_PATH for Qt 6; QML2_IMPORT_PATH is kept for older
+        # tooling compatibility. Quickshell modules live under lib/qt-6/qml in
+        # the Nix package, while Qt plugins must also be discoverable in Nix.
+        QML_IMPORT_PATH = qmlImportPath;
+        QML2_IMPORT_PATH = qmlImportPath;
+        QT_PLUGIN_PATH = qtPluginPath;
+      };
       extensions = [ ".qml" ];
     };
     rust = {
@@ -446,6 +478,9 @@ in
       luau-lsp
       marksman
       kdePackages.qtdeclarative # Provides qmlls for QML/Quickshell language-server support
+      kdePackages.qtwayland
+      qt6.qt5compat
+      quickshell
       nodePackages.markdownlint-cli
       nixfmt-rfc-style
       nodePackages.prettier
@@ -470,5 +505,5 @@ in
 
   formatter = wrapCommands "formatter" formatterDefinitions;
 
-  lsp = wrapCommands "LSP" lspDefinitions;
+  lsp = lspDefinitions;
 }

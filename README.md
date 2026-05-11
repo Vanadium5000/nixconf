@@ -184,7 +184,7 @@ Secrets flow through `pass` (password-store) → `secrets.nix` → `self.secrets
 | -------------------------- | ---------------------------- | --------------- |
 | **Ollama**                 | Local LLM inference          | CUDA (legion5i) |
 | **PersonaLive**            | Real-time portrait animation | CUDA            |
-| **whisper-cpp**            | Speech-to-text dictation     | CPU/CUDA        |
+| **voxtype**                | Speech-to-text voice typing  | CPU/CUDA        |
 | **OpenCode**               | AI coding assistant          | —               |
 | **sora-watermark-cleaner** | AI video watermark removal   | CUDA            |
 
@@ -310,7 +310,7 @@ remaining scripts stay available until they are explicitly migrated.
 
 | Script              | Purpose                             |
 | ------------------- | ----------------------------------- |
-| `dictation`         | Voice dictation via whisper-cpp     |
+| `voxtype`           | Voice typing via Voxtype            |
 | `btrfs-backup`      | BTRFS snapshot backup TUI           |
 | `synced-lyrics`     | Fetch synced lyrics from lrclib.net |
 | `pomodoro`          | Pomodoro timer with notifications   |

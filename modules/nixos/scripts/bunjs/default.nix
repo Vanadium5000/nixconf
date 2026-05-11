@@ -88,26 +88,6 @@
       };
     in
     {
-      packages.dictation = inputs.wrappers.lib.makeWrapper {
-        inherit pkgs;
-        package = pkgs.writeShellScriptBin "dictation" ''
-          exec ${pkgs.bun}/bin/bun run ${./dictation.ts} "$@"
-        '';
-
-        runtimeInputs = [
-          self'.packages.toggle-dictation-overlay
-          pkgs.bun
-          pkgs.wtype
-          pkgs.wl-clipboard
-          pkgs.coreutils
-          #pkgs.whisper-cpp # using whisper-cpp as a runtimeInput makes it not work.
-          pkgs.ffmpeg
-          pkgs.jq
-          pkgs.pulseaudio
-          pkgs.which
-        ];
-      };
-
       packages.qs-passmenu = inputs.wrappers.lib.makeWrapper {
         inherit pkgs;
         package = pkgs.writeShellScriptBin "qs-passmenu" ''

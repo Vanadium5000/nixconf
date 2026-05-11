@@ -1,0 +1,13 @@
+{
+  "id": "voxtypeWidget",
+  "name": "Voxtype",
+  "description": "Show Voxtype state in the bar and open recording controls/details",
+  "version": "0.2.0",
+  "author": "nixconf",
+  "icon": "mic",
+  "type": "widget",
+  "capabilities": ["dankbar-widget", "command-execution"],
+  "component": "./VoxtypeWidget.qml",
+  "requires_dms": ">=1.4.0",
+  "permissions": ["process"]
+}
