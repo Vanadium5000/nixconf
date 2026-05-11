@@ -54,15 +54,24 @@
             ${getExe pkgs.grim} -g "$(${getExe pkgs.slurp} -d)" - | exec ${getExe pkgs.swappy} -f -
             ;;
           ocr)
-            ${getExe pkgs.grim} -g "$(${getExe pkgs.slurp} -d)" - \
-              | ${getExe pkgs.tesseract} - - \
-              | exec ${pkgs.wl-clipboard}/bin/wl-copy --type text/plain
+            text="$(${getExe pkgs.grim} -g "$(${getExe pkgs.slurp} -d)" - | ${getExe pkgs.tesseract} - -)"
+            printf '%s' "$text" | ${pkgs.wl-clipboard}/bin/wl-copy --type text/plain
+            if [ ''${#text} -le 120 ]; then
+              ${getExe pkgs.libnotify} "OCR Result" "$text"
+            else
+              ${getExe pkgs.libnotify} "OCR Result" "''${text:0:100}...''${text: -20}"
+            fi
             ;;
           qr)
-            ${getExe pkgs.grim} -g "$(${getExe pkgs.slurp} -d)" - \
+            text="$(${getExe pkgs.grim} -g "$(${getExe pkgs.slurp} -d)" - \
               | ${pkgs.zbar}/bin/zbarimg - \
-              | ${pkgs.gnused}/bin/sed 's/^QR-Code:[[:space:]]*//' \
-              | exec ${pkgs.wl-clipboard}/bin/wl-copy --type text/plain
+              | ${pkgs.gnused}/bin/sed 's/^QR-Code:[[:space:]]*//')"
+            printf '%s' "$text" | ${pkgs.wl-clipboard}/bin/wl-copy --type text/plain
+            if [ ''${#text} -le 120 ]; then
+              ${getExe pkgs.libnotify} "ZBAR SCAN Result" "$text"
+            else
+              ${getExe pkgs.libnotify} "ZBAR SCAN Result" "''${text:0:100}...''${text: -20}"
+            fi
             ;;
           record)
             mkdir -p ~/Videos
