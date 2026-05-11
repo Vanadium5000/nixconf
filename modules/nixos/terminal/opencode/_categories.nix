@@ -135,8 +135,8 @@ let
       presetManageAction = "Preset Manager";
       initAction = "Init Project MCPs (Current Dir)";
       exitAction = "Exit";
-      categoryHeader = "Select categories to update";
-      categoryMultiHeader = "Select one or more categories to update";
+      categoryHeader = "Select categories to update (Space to select, Enter to confirm)";
+      categoryMultiHeader = "Select one or more categories to update (Space to select, Enter to confirm)";
       modelHeaderPrefix = "Select model for";
       modelHeaderMultiple = "Select model for selected categories";
       replaceSourceHeader = "Select current model to replace";

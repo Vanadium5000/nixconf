@@ -1029,37 +1029,57 @@
           printf '%s\n' "$selection" | cut -f1
         }
 
-        # Keep this single-select so pressing Enter selects the highlighted category.
-        # Gum multi-select (`--no-limit`) requires tab/ctrl-space before Enter:
-        # https://github.com/charmbracelet/gum#choose
+        category_picker_lines() {
+          $JQ -r '.categories | to_entries[] | "\(.key)\t\(.value.label) [\(.key)] (\(.value.description))"' "$METADATA_FILE"
+        }
+
         choose_categories() {
           local selected
-          if ! selected=$($JQ -r '.categories | to_entries[] | "\(.key)\t\(.value.label) [\(.key)] (\(.value.description))"' "$METADATA_FILE" \
-            | $GUM choose --header "$(get_menu_text categoryHeader)" --cursor="▶ " --selected.foreground="212" --cursor.foreground="212"); then
+          if ! selected=$(category_picker_lines \
+            | $GUM choose \
+              --no-limit \
+              --header "$(get_menu_text categoryHeader)" \
+              --cursor="▶ " \
+              --selected.foreground="212" \
+              --cursor.foreground="212"); then
             return 0
           fi
 
           if [ -z "$selected" ]; then
+            $GUM style --foreground 214 "No categories selected. Use Space to select one or more categories, then press Enter to continue."
+            return 0
+          fi
+
+          local category_ids=()
+          local category_labels=()
+          local category_id
+          local category_label
+          while IFS=$'\t' read -r category_id category_label; do
+            if [ -n "$category_id" ]; then
+              category_ids+=("$category_id")
+              category_labels+=("$category_label")
+            fi
+          done <<< "$selected"
+
+          if [ "''${#category_ids[@]}" -eq 0 ]; then
+            $GUM style --foreground 214 "No valid categories selected. Use Space to select one or more categories, then press Enter to continue."
             return 0
           fi
 
           local new_model
-          local category_id
-          local category_label
-          IFS=$'\t' read -r category_id category_label <<< "$selected"
-          if [ -z "$category_id" ]; then
-            return 0
+          if [ "''${#category_ids[@]}" -eq 1 ]; then
+            new_model=$(pick_model_id "$(get_menu_text modelHeaderPrefix) ''${category_labels[0]}") || return 0
+          else
+            new_model=$(pick_model_id "$(get_menu_text modelHeaderMultiple) (''${#category_ids[@]} categories)") || return 0
           fi
-
-          new_model=$(pick_model_id "$(get_menu_text modelHeaderPrefix) $category_label") || return 0
 
           local provider="''${new_model%%/*}"
           local model_id="''${new_model#*/}"
           local selected_effort=""
           selected_effort=$(pick_reasoning_effort "$provider" "$model_id") || return 0
 
-          update_group_state "$category_id" "$new_model" "$selected_effort"
-          $GUM style --foreground 212 "✅ Updated $category_id to $new_model (effort: ''${selected_effort:-auto})"
+          update_multiple_groups_state "$new_model" "$selected_effort" "''${category_ids[@]}"
+          $GUM style --foreground 212 "✅ Updated ''${#category_ids[@]} categories to $new_model (effort: ''${selected_effort:-auto})"
         }
 
         preset_summary() {

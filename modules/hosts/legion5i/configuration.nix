@@ -113,7 +113,10 @@
       # HTTPS traffic analyzer — on-demand: systemctl start mitmproxy
       services.mitmproxy.enable = true;
       services.mitmproxy.trustCA = true;
-      services.cockpit.enable = true;
+      services.cockpit = {
+        enable = true;
+        allowed-origins = [ "*" ];
+      };
       services.ntfy-sh = {
         enable = true;
         settings = {

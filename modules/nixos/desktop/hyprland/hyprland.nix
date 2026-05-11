@@ -44,14 +44,8 @@
         mode="''${1:-help}"
         shift || true
 
-        state_dir="''${XDG_STATE_HOME:-$HOME/.local/state}/hypr-tools"
-        log_file="$state_dir/hypr-screenshot.log"
-        mkdir -p "$state_dir"
-        exec > >(tee -a "$log_file") 2>&1
-
-        log() { printf '[%(%Y-%m-%dT%H:%M:%S%z)T] %s\n' -1 "$*"; }
         notify() { ${pkgs.libnotify}/bin/notify-send -a hypr-screenshot "$@" >/dev/null 2>&1 || true; }
-        die() { log "ERROR: $*"; notify "Screenshot failed" "$*"; exit 1; }
+        die() { notify "Screenshot failed" "$*"; printf 'hypr-screenshot: %s\n' "$*" >&2; exit 1; }
 
         usage() {
           cat <<'EOF'
@@ -74,53 +68,8 @@
         screenshot_dir="''${XDG_SCREENSHOTS_DIR:-$HOME/Pictures/Screenshots}"
         videos_dir="''${XDG_VIDEOS_DIR:-$HOME/Videos}"
 
-        freeze_pid=""
-        cleanup_freeze() {
-          if [ -n "''${freeze_pid:-}" ]; then
-            local pid="$freeze_pid"
-            freeze_pid=""
-
-            # hyprpicker is only used as a temporary freeze layer. Never wait for
-            # it synchronously: if Hyprland/compositor teardown stalls, `wait`
-            # keeps the screenshot command blocked and the freeze visible.
-            kill "$pid" 2>/dev/null || true
-            log "released screenshot freeze pid $pid"
-
-            (
-              sleep 0.15
-              kill -TERM "$pid" 2>/dev/null || true
-              sleep 0.35
-              kill -KILL "$pid" 2>/dev/null || true
-            ) >/dev/null 2>&1 &
-
-            disown "$!" 2>/dev/null || true
-            ${pkgs.hyprland}/bin/hyprctl dispatch focuscurrentorlast >/dev/null 2>&1 || true
-          fi
-        }
-        trap cleanup_freeze EXIT
-
-        freeze_for_selection() {
-          ${getExe pkgs.hyprpicker} -r -z >/dev/null 2>&1 &
-          freeze_pid=$!
-          local pid="$freeze_pid"
-          log "started screenshot freeze pid $freeze_pid"
-          (
-            sleep 4
-            kill -TERM "$pid" 2>/dev/null || true
-            sleep 1
-            kill -KILL "$pid" 2>/dev/null || true
-          ) >/dev/null 2>&1 &
-          freeze_watchdog_pid=$!
-          disown "$freeze_watchdog_pid" 2>/dev/null || true
-          sleep 0.05
-        }
-
         select_region() {
-          freeze_for_selection
-          local selection
-          selection="$(${getExe pkgs.slurp} -d)" || die "Region selection cancelled"
-          [ -n "$selection" ] || die "Region selection was empty"
-          printf '%s\n' "$selection"
+          ${getExe pkgs.slurp} -d || die "Region selection cancelled"
         }
 
         timestamp() { ${pkgs.coreutils}/bin/date +'%Y-%m-%d_%H-%M-%S'; }
@@ -131,28 +80,23 @@
             selection="$(select_region)"
             out="$screenshot_dir/screenshot-$(timestamp).png"
             ${getExe pkgs.grim} -g "$selection" "$out"
-            cleanup_freeze
             notify "Screenshot saved" "$out"
-            log "saved area screenshot: $out"
             ;;
           monitor)
             mkdir -p "$screenshot_dir"
             out="$screenshot_dir/screenshot-$(timestamp).png"
             ${getExe pkgs.grim} "$out"
             notify "Screenshot saved" "$out"
-            log "saved monitor screenshot: $out"
             ;;
           edit)
             work_dir="$(${pkgs.coreutils}/bin/mktemp -d -t hypr-satty.XXXXXXXXXX)"
             input_file="$work_dir/input.png"
             cleanup_edit() { rm -rf "$work_dir"; }
-            trap 'cleanup_freeze; cleanup_edit' EXIT
+            trap cleanup_edit EXIT
 
             selection="$(select_region)"
             ${getExe pkgs.grim} -g "$selection" "$input_file"
-            cleanup_freeze
 
-            log "opening Satty with temp input: $input_file"
             ${getExe pkgs.satty} \
               --filename "$input_file" \
               --copy-command "${pkgs.wl-clipboard}/bin/wl-copy --type image/png" \
@@ -167,39 +111,33 @@
             work_dir="$(${pkgs.coreutils}/bin/mktemp -d -t hypr-swappy.XXXXXXXXXX)"
             input_file="$work_dir/input.png"
             cleanup_edit() { rm -rf "$work_dir"; }
-            trap 'cleanup_freeze; cleanup_edit' EXIT
+            trap cleanup_edit EXIT
 
             selection="$(select_region)"
             ${getExe pkgs.grim} -g "$selection" "$input_file"
-            cleanup_freeze
 
-            log "opening Swappy with temp input: $input_file"
             ${getExe pkgs.swappy} -f "$input_file"
             ;;
           ocr)
             work_file="$(${pkgs.coreutils}/bin/mktemp -t hypr-ocr.XXXXXXXXXX.png)"
             cleanup_ocr() { rm -f "$work_file"; }
-            trap 'cleanup_freeze; cleanup_ocr' EXIT
+            trap cleanup_ocr EXIT
             selection="$(select_region)"
             ${getExe pkgs.grim} -g "$selection" "$work_file"
-            cleanup_freeze
             text="$(${getExe pkgs.tesseract} "$work_file" - 2>/dev/null || true)"
             printf '%s' "$text" | ${pkgs.wl-clipboard}/bin/wl-copy --type text/plain
             if [ ''${#text} -le 120 ]; then notify "OCR Result" "$text"; else notify "OCR Result" "''${text:0:100}...''${text: -20}"; fi
-            log "copied OCR text (''${#text} chars)"
             ;;
           qr)
             work_file="$(${pkgs.coreutils}/bin/mktemp -t hypr-qr.XXXXXXXXXX.png)"
             cleanup_qr() { rm -f "$work_file"; }
-            trap 'cleanup_freeze; cleanup_qr' EXIT
+            trap cleanup_qr EXIT
             selection="$(select_region)"
             ${getExe pkgs.grim} -g "$selection" "$work_file"
-            cleanup_freeze
             text="$(${pkgs.zbar}/bin/zbarimg --quiet "$work_file" | ${pkgs.gnused}/bin/sed 's/^QR-Code:[[:space:]]*//' | ${pkgs.coreutils}/bin/head -n1 || true)"
             [ -n "$text" ] || die "No QR/barcode found"
             printf '%s' "$text" | ${pkgs.wl-clipboard}/bin/wl-copy --type text/plain
             if [ ''${#text} -le 120 ]; then notify "QR Result" "$text"; else notify "QR Result" "''${text:0:100}...''${text: -20}"; fi
-            log "copied QR/barcode result"
             ;;
           record)
             mkdir -p "$videos_dir"
@@ -211,7 +149,6 @@
             ;;
           stop-record)
             ${pkgs.procps}/bin/pkill -SIGINT wf-recorder || true
-            log "requested wf-recorder stop"
             ;;
           help|-h|--help)
             usage

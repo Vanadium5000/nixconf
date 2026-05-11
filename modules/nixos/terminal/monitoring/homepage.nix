@@ -179,7 +179,7 @@
                   "Cockpit — Legion 5i" = [
                     {
                       icon = "mdi-laptop";
-                      href = "http://legion5i:9090";
+                      href = "http://legion5i";
                     }
                   ];
                 }
@@ -187,7 +187,7 @@
                   "Cockpit — MacBook" = [
                     {
                       icon = "mdi-laptop";
-                      href = "http://macbook:9090";
+                      href = "http://macbook";
                     }
                   ];
                 }
