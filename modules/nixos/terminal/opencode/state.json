@@ -6,8 +6,8 @@
       "model": "omniroute/gpt-5.4-mini",
       "reasoningEffort": "medium"
     },
-    "ultrabrain": "omniroute/gpt-5.5-high",
-    "unspecified-high": "omniroute/gpt-5.5-high",
+    "ultrabrain": "omniroute/gpt-5.5-xhigh",
+    "unspecified-high": "omniroute/gpt-5.5-xhigh",
     "unspecified-low": {
       "model": "omniroute/gpt-5.4-mini",
       "reasoningEffort": "medium"

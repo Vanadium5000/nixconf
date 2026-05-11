@@ -809,7 +809,6 @@
               }
               + optional_value("object"; .object?)
               + optional_value("owned_by"; .owned_by? // .ownedBy?)
-              + optional_value("created"; .created?)
               + optional_value("description"; .description?)
               + optional_object("pricing"; .pricing? // {})
               + optional_object("architecture"; .architecture? // {})
