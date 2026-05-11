@@ -6,7 +6,7 @@
         "01-ai/yi-large": {
           "id": "nvidia/01-ai/yi-large",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/01-ai/yi-large"
@@ -16,7 +16,7 @@
         "abacusai/dracarys-llama-3.1-70b-instruct": {
           "id": "nvidia/abacusai/dracarys-llama-3.1-70b-instruct",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/abacusai/dracarys-llama-3.1-70b-instruct"
@@ -26,7 +26,7 @@
         "adept/fuyu-8b": {
           "id": "nvidia/adept/fuyu-8b",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/adept/fuyu-8b"
@@ -36,7 +36,7 @@
         "ai21labs/jamba-1.5-large-instruct": {
           "id": "nvidia/ai21labs/jamba-1.5-large-instruct",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/ai21labs/jamba-1.5-large-instruct"
@@ -46,7 +46,7 @@
         "aisingapore/sea-lion-7b-instruct": {
           "id": "nvidia/aisingapore/sea-lion-7b-instruct",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/aisingapore/sea-lion-7b-instruct"
@@ -56,7 +56,7 @@
         "baai/bge-m3": {
           "id": "nvidia/baai/bge-m3",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/baai/bge-m3"
@@ -66,7 +66,7 @@
         "bigcode/starcoder2-15b": {
           "id": "nvidia/bigcode/starcoder2-15b",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/bigcode/starcoder2-15b"
@@ -76,7 +76,7 @@
         "bytedance/seed-oss-36b-instruct": {
           "id": "nvidia/bytedance/seed-oss-36b-instruct",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/bytedance/seed-oss-36b-instruct"
@@ -86,7 +86,7 @@
         "databricks/dbrx-instruct": {
           "id": "nvidia/databricks/dbrx-instruct",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/databricks/dbrx-instruct"
@@ -96,7 +96,7 @@
         "deepseek-ai/deepseek-coder-6.7b-instruct": {
           "id": "nvidia/deepseek-ai/deepseek-coder-6.7b-instruct",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/deepseek-ai/deepseek-coder-6.7b-instruct"
@@ -106,7 +106,7 @@
         "deepseek-ai/deepseek-v4-flash": {
           "id": "nvidia/deepseek-ai/deepseek-v4-flash",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/deepseek-ai/deepseek-v4-flash"
@@ -116,7 +116,7 @@
         "deepseek-ai/deepseek-v4-pro": {
           "id": "nvidia/deepseek-ai/deepseek-v4-pro",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/deepseek-ai/deepseek-v4-pro"
@@ -126,7 +126,7 @@
         "fastpitch": {
           "id": "nvidia/fastpitch",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/fastpitch"
@@ -136,7 +136,7 @@
         "google/codegemma-1.1-7b": {
           "id": "nvidia/google/codegemma-1.1-7b",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/google/codegemma-1.1-7b"
@@ -146,7 +146,7 @@
         "google/codegemma-7b": {
           "id": "nvidia/google/codegemma-7b",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/google/codegemma-7b"
@@ -156,7 +156,7 @@
         "google/deplot": {
           "id": "nvidia/google/deplot",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/google/deplot"
@@ -166,7 +166,7 @@
         "google/gemma-2-2b-it": {
           "id": "nvidia/google/gemma-2-2b-it",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/google/gemma-2-2b-it"
@@ -176,7 +176,7 @@
         "google/gemma-2b": {
           "id": "nvidia/google/gemma-2b",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/google/gemma-2b"
@@ -186,7 +186,7 @@
         "google/gemma-3-12b-it": {
           "id": "nvidia/google/gemma-3-12b-it",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/google/gemma-3-12b-it"
@@ -196,7 +196,7 @@
         "google/gemma-3-27b-it": {
           "id": "nvidia/google/gemma-3-27b-it",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/google/gemma-3-27b-it"
@@ -206,7 +206,7 @@
         "google/gemma-3-4b-it": {
           "id": "nvidia/google/gemma-3-4b-it",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/google/gemma-3-4b-it"
@@ -216,7 +216,7 @@
         "google/gemma-3n-e2b-it": {
           "id": "nvidia/google/gemma-3n-e2b-it",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/google/gemma-3n-e2b-it"
@@ -226,7 +226,7 @@
         "google/gemma-3n-e4b-it": {
           "id": "nvidia/google/gemma-3n-e4b-it",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/google/gemma-3n-e4b-it"
@@ -236,7 +236,7 @@
         "google/gemma-4-31b-it": {
           "id": "nvidia/google/gemma-4-31b-it",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/google/gemma-4-31b-it"
@@ -255,7 +255,7 @@
         "google/recurrentgemma-2b": {
           "id": "nvidia/google/recurrentgemma-2b",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/google/recurrentgemma-2b"
@@ -272,7 +272,7 @@
             "alternate_upstream_ids": [
               "cx/gpt-5.2"
             ],
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "codex",
             "upstream_id": "codex/gpt-5.2"
@@ -289,7 +289,7 @@
             "alternate_upstream_ids": [
               "cx/gpt-5.3-codex"
             ],
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "codex",
             "upstream_id": "codex/gpt-5.3-codex"
@@ -306,7 +306,7 @@
             "alternate_upstream_ids": [
               "cx/gpt-5.3-codex-spark"
             ],
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "codex",
             "upstream_id": "codex/gpt-5.3-codex-spark"
@@ -323,7 +323,7 @@
             "alternate_upstream_ids": [
               "cx/gpt-5.4"
             ],
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "codex",
             "upstream_id": "codex/gpt-5.4"
@@ -340,7 +340,7 @@
             "alternate_upstream_ids": [
               "cx/gpt-5.4-mini"
             ],
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "codex",
             "upstream_id": "codex/gpt-5.4-mini"
@@ -354,7 +354,7 @@
             "output": 128000
           },
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "codex",
             "upstream_id": "codex/gpt-5.5"
@@ -379,7 +379,7 @@
             "alternate_upstream_ids": [
               "cx/gpt-5.5-high"
             ],
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "codex",
             "upstream_id": "codex/gpt-5.5-high"
@@ -405,7 +405,7 @@
             "alternate_upstream_ids": [
               "cx/gpt-5.5-low"
             ],
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "codex",
             "upstream_id": "codex/gpt-5.5-low"
@@ -431,7 +431,7 @@
             "alternate_upstream_ids": [
               "cx/gpt-5.5-medium"
             ],
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "codex",
             "upstream_id": "codex/gpt-5.5-medium"
@@ -457,7 +457,7 @@
             "alternate_upstream_ids": [
               "cx/gpt-5.5-xhigh"
             ],
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "codex",
             "upstream_id": "codex/gpt-5.5-xhigh"
@@ -476,7 +476,7 @@
         "ibm/granite-3.0-3b-a800m-instruct": {
           "id": "nvidia/ibm/granite-3.0-3b-a800m-instruct",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/ibm/granite-3.0-3b-a800m-instruct"
@@ -486,7 +486,7 @@
         "ibm/granite-3.0-8b-instruct": {
           "id": "nvidia/ibm/granite-3.0-8b-instruct",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/ibm/granite-3.0-8b-instruct"
@@ -496,7 +496,7 @@
         "ibm/granite-34b-code-instruct": {
           "id": "nvidia/ibm/granite-34b-code-instruct",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/ibm/granite-34b-code-instruct"
@@ -506,7 +506,7 @@
         "ibm/granite-8b-code-instruct": {
           "id": "nvidia/ibm/granite-8b-code-instruct",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/ibm/granite-8b-code-instruct"
@@ -516,7 +516,7 @@
         "meta/codellama-70b": {
           "id": "nvidia/meta/codellama-70b",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/meta/codellama-70b"
@@ -526,7 +526,7 @@
         "meta/llama-3.1-70b-instruct": {
           "id": "nvidia/meta/llama-3.1-70b-instruct",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/meta/llama-3.1-70b-instruct"
@@ -536,7 +536,7 @@
         "meta/llama-3.1-8b-instruct": {
           "id": "nvidia/meta/llama-3.1-8b-instruct",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/meta/llama-3.1-8b-instruct"
@@ -546,7 +546,7 @@
         "meta/llama-3.2-11b-vision-instruct": {
           "id": "nvidia/meta/llama-3.2-11b-vision-instruct",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/meta/llama-3.2-11b-vision-instruct"
@@ -556,7 +556,7 @@
         "meta/llama-3.2-1b-instruct": {
           "id": "nvidia/meta/llama-3.2-1b-instruct",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/meta/llama-3.2-1b-instruct"
@@ -566,7 +566,7 @@
         "meta/llama-3.2-3b-instruct": {
           "id": "nvidia/meta/llama-3.2-3b-instruct",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/meta/llama-3.2-3b-instruct"
@@ -576,7 +576,7 @@
         "meta/llama-3.2-90b-vision-instruct": {
           "id": "nvidia/meta/llama-3.2-90b-vision-instruct",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/meta/llama-3.2-90b-vision-instruct"
@@ -586,7 +586,7 @@
         "meta/llama-3.3-70b-instruct": {
           "id": "nvidia/meta/llama-3.3-70b-instruct",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/meta/llama-3.3-70b-instruct"
@@ -596,7 +596,7 @@
         "meta/llama-4-maverick-17b-128e-instruct": {
           "id": "nvidia/meta/llama-4-maverick-17b-128e-instruct",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/meta/llama-4-maverick-17b-128e-instruct"
@@ -606,7 +606,7 @@
         "meta/llama-guard-4-12b": {
           "id": "nvidia/meta/llama-guard-4-12b",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/meta/llama-guard-4-12b"
@@ -616,7 +616,7 @@
         "meta/llama2-70b": {
           "id": "nvidia/meta/llama2-70b",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/meta/llama2-70b"
@@ -626,7 +626,7 @@
         "microsoft/kosmos-2": {
           "id": "nvidia/microsoft/kosmos-2",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/microsoft/kosmos-2"
@@ -636,7 +636,7 @@
         "microsoft/phi-3-vision-128k-instruct": {
           "id": "nvidia/microsoft/phi-3-vision-128k-instruct",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/microsoft/phi-3-vision-128k-instruct"
@@ -646,7 +646,7 @@
         "microsoft/phi-3.5-moe-instruct": {
           "id": "nvidia/microsoft/phi-3.5-moe-instruct",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/microsoft/phi-3.5-moe-instruct"
@@ -656,7 +656,7 @@
         "microsoft/phi-4-mini-instruct": {
           "id": "nvidia/microsoft/phi-4-mini-instruct",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/microsoft/phi-4-mini-instruct"
@@ -666,7 +666,7 @@
         "microsoft/phi-4-multimodal-instruct": {
           "id": "nvidia/microsoft/phi-4-multimodal-instruct",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/microsoft/phi-4-multimodal-instruct"
@@ -676,7 +676,7 @@
         "minimaxai/minimax-m2.5": {
           "id": "nvidia/minimaxai/minimax-m2.5",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/minimaxai/minimax-m2.5"
@@ -686,7 +686,7 @@
         "minimaxai/minimax-m2.7": {
           "id": "nvidia/minimaxai/minimax-m2.7",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/minimaxai/minimax-m2.7"
@@ -696,7 +696,7 @@
         "mistralai/codestral-22b-instruct-v0.1": {
           "id": "nvidia/mistralai/codestral-22b-instruct-v0.1",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/mistralai/codestral-22b-instruct-v0.1"
@@ -706,7 +706,7 @@
         "mistralai/devstral-2-123b-instruct-2512": {
           "id": "nvidia/mistralai/devstral-2-123b-instruct-2512",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/mistralai/devstral-2-123b-instruct-2512"
@@ -716,7 +716,7 @@
         "mistralai/ministral-14b-instruct-2512": {
           "id": "nvidia/mistralai/ministral-14b-instruct-2512",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/mistralai/ministral-14b-instruct-2512"
@@ -726,7 +726,7 @@
         "mistralai/mistral-7b-instruct-v0.3": {
           "id": "nvidia/mistralai/mistral-7b-instruct-v0.3",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/mistralai/mistral-7b-instruct-v0.3"
@@ -736,7 +736,7 @@
         "mistralai/mistral-large": {
           "id": "nvidia/mistralai/mistral-large",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/mistralai/mistral-large"
@@ -746,7 +746,7 @@
         "mistralai/mistral-large-2-instruct": {
           "id": "nvidia/mistralai/mistral-large-2-instruct",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/mistralai/mistral-large-2-instruct"
@@ -756,7 +756,7 @@
         "mistralai/mistral-large-3-675b-instruct-2512": {
           "id": "nvidia/mistralai/mistral-large-3-675b-instruct-2512",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/mistralai/mistral-large-3-675b-instruct-2512"
@@ -766,7 +766,7 @@
         "mistralai/mistral-medium-3.5-128b": {
           "id": "nvidia/mistralai/mistral-medium-3.5-128b",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/mistralai/mistral-medium-3.5-128b"
@@ -776,7 +776,7 @@
         "mistralai/mistral-nemotron": {
           "id": "nvidia/mistralai/mistral-nemotron",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/mistralai/mistral-nemotron"
@@ -786,7 +786,7 @@
         "mistralai/mistral-small-4-119b-2603": {
           "id": "nvidia/mistralai/mistral-small-4-119b-2603",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/mistralai/mistral-small-4-119b-2603"
@@ -796,7 +796,7 @@
         "mistralai/mixtral-8x22b-instruct-v0.1": {
           "id": "nvidia/mistralai/mixtral-8x22b-instruct-v0.1",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/mistralai/mixtral-8x22b-instruct-v0.1"
@@ -806,7 +806,7 @@
         "mistralai/mixtral-8x22b-v0.1": {
           "id": "nvidia/mistralai/mixtral-8x22b-v0.1",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/mistralai/mixtral-8x22b-v0.1"
@@ -816,7 +816,7 @@
         "mistralai/mixtral-8x7b-instruct-v0.1": {
           "id": "nvidia/mistralai/mixtral-8x7b-instruct-v0.1",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/mistralai/mixtral-8x7b-instruct-v0.1"
@@ -826,7 +826,7 @@
         "moonshotai/kimi-k2-instruct": {
           "id": "nvidia/moonshotai/kimi-k2-instruct",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/moonshotai/kimi-k2-instruct"
@@ -836,7 +836,7 @@
         "moonshotai/kimi-k2-thinking": {
           "id": "nvidia/moonshotai/kimi-k2-thinking",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/moonshotai/kimi-k2-thinking"
@@ -846,7 +846,7 @@
         "moonshotai/kimi-k2.6": {
           "id": "nvidia/moonshotai/kimi-k2.6",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/moonshotai/kimi-k2.6"
@@ -856,7 +856,7 @@
         "nv-embedqa-e5-v5": {
           "id": "nvidia/nv-embedqa-e5-v5",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nv-embedqa-e5-v5"
@@ -866,7 +866,7 @@
         "nv-mistralai/mistral-nemo-12b-instruct": {
           "id": "nvidia/nv-mistralai/mistral-nemo-12b-instruct",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nv-mistralai/mistral-nemo-12b-instruct"
@@ -876,7 +876,7 @@
         "nv-rerankqa-mistral-4b-v3": {
           "id": "nvidia/nv-rerankqa-mistral-4b-v3",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nv-rerankqa-mistral-4b-v3"
@@ -886,7 +886,7 @@
         "nvidia/ai-synthetic-video-detector": {
           "id": "nvidia/nvidia/ai-synthetic-video-detector",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/ai-synthetic-video-detector"
@@ -896,7 +896,7 @@
         "nvidia/cosmos-reason2-8b": {
           "id": "nvidia/nvidia/cosmos-reason2-8b",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/cosmos-reason2-8b"
@@ -906,7 +906,7 @@
         "nvidia/embed-qa-4": {
           "id": "nvidia/nvidia/embed-qa-4",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/embed-qa-4"
@@ -916,7 +916,7 @@
         "nvidia/gliner-pii": {
           "id": "nvidia/nvidia/gliner-pii",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/gliner-pii"
@@ -926,7 +926,7 @@
         "nvidia/ising-calibration-1-35b-a3b": {
           "id": "nvidia/nvidia/ising-calibration-1-35b-a3b",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/ising-calibration-1-35b-a3b"
@@ -936,7 +936,7 @@
         "nvidia/llama-3.1-nemoguard-8b-content-safety": {
           "id": "nvidia/nvidia/llama-3.1-nemoguard-8b-content-safety",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/llama-3.1-nemoguard-8b-content-safety"
@@ -946,7 +946,7 @@
         "nvidia/llama-3.1-nemoguard-8b-topic-control": {
           "id": "nvidia/nvidia/llama-3.1-nemoguard-8b-topic-control",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/llama-3.1-nemoguard-8b-topic-control"
@@ -956,7 +956,7 @@
         "nvidia/llama-3.1-nemotron-51b-instruct": {
           "id": "nvidia/nvidia/llama-3.1-nemotron-51b-instruct",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/llama-3.1-nemotron-51b-instruct"
@@ -966,7 +966,7 @@
         "nvidia/llama-3.1-nemotron-70b-instruct": {
           "id": "nvidia/nvidia/llama-3.1-nemotron-70b-instruct",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/llama-3.1-nemotron-70b-instruct"
@@ -976,7 +976,7 @@
         "nvidia/llama-3.1-nemotron-nano-8b-v1": {
           "id": "nvidia/nvidia/llama-3.1-nemotron-nano-8b-v1",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/llama-3.1-nemotron-nano-8b-v1"
@@ -986,7 +986,7 @@
         "nvidia/llama-3.1-nemotron-nano-vl-8b-v1": {
           "id": "nvidia/nvidia/llama-3.1-nemotron-nano-vl-8b-v1",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/llama-3.1-nemotron-nano-vl-8b-v1"
@@ -996,7 +996,7 @@
         "nvidia/llama-3.1-nemotron-safety-guard-8b-v3": {
           "id": "nvidia/nvidia/llama-3.1-nemotron-safety-guard-8b-v3",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/llama-3.1-nemotron-safety-guard-8b-v3"
@@ -1006,7 +1006,7 @@
         "nvidia/llama-3.1-nemotron-ultra-253b-v1": {
           "id": "nvidia/nvidia/llama-3.1-nemotron-ultra-253b-v1",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/llama-3.1-nemotron-ultra-253b-v1"
@@ -1016,7 +1016,7 @@
         "nvidia/llama-3.2-nemoretriever-1b-vlm-embed-v1": {
           "id": "nvidia/nvidia/llama-3.2-nemoretriever-1b-vlm-embed-v1",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/llama-3.2-nemoretriever-1b-vlm-embed-v1"
@@ -1026,7 +1026,7 @@
         "nvidia/llama-3.2-nemoretriever-300m-embed-v1": {
           "id": "nvidia/nvidia/llama-3.2-nemoretriever-300m-embed-v1",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/llama-3.2-nemoretriever-300m-embed-v1"
@@ -1036,7 +1036,7 @@
         "nvidia/llama-3.2-nv-embedqa-1b-v1": {
           "id": "nvidia/nvidia/llama-3.2-nv-embedqa-1b-v1",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/llama-3.2-nv-embedqa-1b-v1"
@@ -1046,7 +1046,7 @@
         "nvidia/llama-3.2-nv-embedqa-1b-v2": {
           "id": "nvidia/nvidia/llama-3.2-nv-embedqa-1b-v2",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/llama-3.2-nv-embedqa-1b-v2"
@@ -1056,7 +1056,7 @@
         "nvidia/llama-3.3-nemotron-super-49b-v1": {
           "id": "nvidia/nvidia/llama-3.3-nemotron-super-49b-v1",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/llama-3.3-nemotron-super-49b-v1"
@@ -1066,7 +1066,7 @@
         "nvidia/llama-3.3-nemotron-super-49b-v1.5": {
           "id": "nvidia/nvidia/llama-3.3-nemotron-super-49b-v1.5",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/llama-3.3-nemotron-super-49b-v1.5"
@@ -1076,7 +1076,7 @@
         "nvidia/llama-nemotron-embed-1b-v2": {
           "id": "nvidia/nvidia/llama-nemotron-embed-1b-v2",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/llama-nemotron-embed-1b-v2"
@@ -1086,7 +1086,7 @@
         "nvidia/llama-nemotron-embed-vl-1b-v2": {
           "id": "nvidia/nvidia/llama-nemotron-embed-vl-1b-v2",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/llama-nemotron-embed-vl-1b-v2"
@@ -1096,7 +1096,7 @@
         "nvidia/llama3-chatqa-1.5-70b": {
           "id": "nvidia/nvidia/llama3-chatqa-1.5-70b",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/llama3-chatqa-1.5-70b"
@@ -1106,7 +1106,7 @@
         "nvidia/mistral-nemo-minitron-8b-8k-instruct": {
           "id": "nvidia/nvidia/mistral-nemo-minitron-8b-8k-instruct",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/mistral-nemo-minitron-8b-8k-instruct"
@@ -1116,7 +1116,7 @@
         "nvidia/nemoretriever-parse": {
           "id": "nvidia/nvidia/nemoretriever-parse",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/nemoretriever-parse"
@@ -1126,7 +1126,7 @@
         "nvidia/nemotron-3-content-safety": {
           "id": "nvidia/nvidia/nemotron-3-content-safety",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/nemotron-3-content-safety"
@@ -1136,7 +1136,7 @@
         "nvidia/nemotron-3-nano-30b-a3b": {
           "id": "nvidia/nvidia/nemotron-3-nano-30b-a3b",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/nemotron-3-nano-30b-a3b"
@@ -1146,7 +1146,7 @@
         "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning": {
           "id": "nvidia/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning"
@@ -1156,7 +1156,7 @@
         "nvidia/nemotron-3-super-120b-a12b": {
           "id": "nvidia/nvidia/nemotron-3-super-120b-a12b",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/nemotron-3-super-120b-a12b"
@@ -1166,7 +1166,7 @@
         "nvidia/nemotron-4-340b-instruct": {
           "id": "nvidia/nvidia/nemotron-4-340b-instruct",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/nemotron-4-340b-instruct"
@@ -1176,7 +1176,7 @@
         "nvidia/nemotron-4-340b-reward": {
           "id": "nvidia/nvidia/nemotron-4-340b-reward",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/nemotron-4-340b-reward"
@@ -1186,7 +1186,7 @@
         "nvidia/nemotron-content-safety-reasoning-4b": {
           "id": "nvidia/nvidia/nemotron-content-safety-reasoning-4b",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/nemotron-content-safety-reasoning-4b"
@@ -1196,7 +1196,7 @@
         "nvidia/nemotron-mini-4b-instruct": {
           "id": "nvidia/nvidia/nemotron-mini-4b-instruct",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/nemotron-mini-4b-instruct"
@@ -1206,7 +1206,7 @@
         "nvidia/nemotron-nano-12b-v2-vl": {
           "id": "nvidia/nvidia/nemotron-nano-12b-v2-vl",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/nemotron-nano-12b-v2-vl"
@@ -1216,7 +1216,7 @@
         "nvidia/nemotron-nano-3-30b-a3b": {
           "id": "nvidia/nvidia/nemotron-nano-3-30b-a3b",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/nemotron-nano-3-30b-a3b"
@@ -1226,7 +1226,7 @@
         "nvidia/nemotron-parse": {
           "id": "nvidia/nvidia/nemotron-parse",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/nemotron-parse"
@@ -1236,7 +1236,7 @@
         "nvidia/neva-22b": {
           "id": "nvidia/nvidia/neva-22b",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/neva-22b"
@@ -1246,7 +1246,7 @@
         "nvidia/nv-embed-v1": {
           "id": "nvidia/nvidia/nv-embed-v1",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/nv-embed-v1"
@@ -1256,7 +1256,7 @@
         "nvidia/nv-embedcode-7b-v1": {
           "id": "nvidia/nvidia/nv-embedcode-7b-v1",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/nv-embedcode-7b-v1"
@@ -1266,7 +1266,7 @@
         "nvidia/nv-embedqa-e5-v5": {
           "id": "nvidia/nvidia/nv-embedqa-e5-v5",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/nv-embedqa-e5-v5"
@@ -1276,7 +1276,7 @@
         "nvidia/nv-embedqa-mistral-7b-v2": {
           "id": "nvidia/nvidia/nv-embedqa-mistral-7b-v2",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/nv-embedqa-mistral-7b-v2"
@@ -1286,7 +1286,7 @@
         "nvidia/nvclip": {
           "id": "nvidia/nvidia/nvclip",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/nvclip"
@@ -1296,7 +1296,7 @@
         "nvidia/nvidia-nemotron-nano-9b-v2": {
           "id": "nvidia/nvidia/nvidia-nemotron-nano-9b-v2",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/nvidia-nemotron-nano-9b-v2"
@@ -1306,7 +1306,7 @@
         "nvidia/riva-translate-4b-instruct": {
           "id": "nvidia/nvidia/riva-translate-4b-instruct",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/riva-translate-4b-instruct"
@@ -1316,7 +1316,7 @@
         "nvidia/riva-translate-4b-instruct-v1.1": {
           "id": "nvidia/nvidia/riva-translate-4b-instruct-v1.1",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/riva-translate-4b-instruct-v1.1"
@@ -1326,7 +1326,7 @@
         "nvidia/vila": {
           "id": "nvidia/nvidia/vila",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/vila"
@@ -1336,7 +1336,7 @@
         "openai/gpt-oss-120b": {
           "id": "nvidia/openai/gpt-oss-120b",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/openai/gpt-oss-120b"
@@ -1346,7 +1346,7 @@
         "openai/gpt-oss-20b": {
           "id": "nvidia/openai/gpt-oss-20b",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/openai/gpt-oss-20b"
@@ -1356,7 +1356,7 @@
         "parakeet-ctc-1.1b-asr": {
           "id": "nvidia/parakeet-ctc-1.1b-asr",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/parakeet-ctc-1.1b-asr"
@@ -1366,7 +1366,7 @@
         "qwen/qwen2.5-coder-32b-instruct": {
           "id": "nvidia/qwen/qwen2.5-coder-32b-instruct",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/qwen/qwen2.5-coder-32b-instruct"
@@ -1376,7 +1376,7 @@
         "qwen/qwen3-coder-480b-a35b-instruct": {
           "id": "nvidia/qwen/qwen3-coder-480b-a35b-instruct",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/qwen/qwen3-coder-480b-a35b-instruct"
@@ -1386,7 +1386,7 @@
         "qwen/qwen3-next-80b-a3b-instruct": {
           "id": "nvidia/qwen/qwen3-next-80b-a3b-instruct",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/qwen/qwen3-next-80b-a3b-instruct"
@@ -1396,7 +1396,7 @@
         "qwen/qwen3-next-80b-a3b-thinking": {
           "id": "nvidia/qwen/qwen3-next-80b-a3b-thinking",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/qwen/qwen3-next-80b-a3b-thinking"
@@ -1406,7 +1406,7 @@
         "qwen/qwen3.5-122b-a10b": {
           "id": "nvidia/qwen/qwen3.5-122b-a10b",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/qwen/qwen3.5-122b-a10b"
@@ -1416,7 +1416,7 @@
         "qwen/qwen3.5-397b-a17b": {
           "id": "nvidia/qwen/qwen3.5-397b-a17b",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/qwen/qwen3.5-397b-a17b"
@@ -1426,7 +1426,7 @@
         "sarvamai/sarvam-m": {
           "id": "nvidia/sarvamai/sarvam-m",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/sarvamai/sarvam-m"
@@ -1436,7 +1436,7 @@
         "snowflake/arctic-embed-l": {
           "id": "nvidia/snowflake/arctic-embed-l",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/snowflake/arctic-embed-l"
@@ -1446,7 +1446,7 @@
         "stepfun-ai/step-3.5-flash": {
           "id": "nvidia/stepfun-ai/step-3.5-flash",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/stepfun-ai/step-3.5-flash"
@@ -1456,7 +1456,7 @@
         "stockmark/stockmark-2-100b-instruct": {
           "id": "nvidia/stockmark/stockmark-2-100b-instruct",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/stockmark/stockmark-2-100b-instruct"
@@ -1466,7 +1466,7 @@
         "tacotron2": {
           "id": "nvidia/tacotron2",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/tacotron2"
@@ -1476,7 +1476,7 @@
         "upstage/solar-10.7b-instruct": {
           "id": "nvidia/upstage/solar-10.7b-instruct",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/upstage/solar-10.7b-instruct"
@@ -1486,7 +1486,7 @@
         "writer/palmyra-creative-122b": {
           "id": "nvidia/writer/palmyra-creative-122b",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/writer/palmyra-creative-122b"
@@ -1496,7 +1496,7 @@
         "writer/palmyra-fin-70b-32k": {
           "id": "nvidia/writer/palmyra-fin-70b-32k",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/writer/palmyra-fin-70b-32k"
@@ -1506,7 +1506,7 @@
         "writer/palmyra-med-70b": {
           "id": "nvidia/writer/palmyra-med-70b",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/writer/palmyra-med-70b"
@@ -1516,7 +1516,7 @@
         "writer/palmyra-med-70b-32k": {
           "id": "nvidia/writer/palmyra-med-70b-32k",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/writer/palmyra-med-70b-32k"
@@ -1526,7 +1526,7 @@
         "z-ai/glm-5.1": {
           "id": "nvidia/z-ai/glm-5.1",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/z-ai/glm-5.1"
@@ -1536,7 +1536,7 @@
         "z-ai/glm4.7": {
           "id": "nvidia/z-ai/glm4.7",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/z-ai/glm4.7"
@@ -1546,7 +1546,7 @@
         "z-ai/glm5": {
           "id": "nvidia/z-ai/glm5",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/z-ai/glm5"
@@ -1556,7 +1556,7 @@
         "zyphra/zamba2-7b-instruct": {
           "id": "nvidia/zyphra/zamba2-7b-instruct",
           "metadata": {
-            "created": 1778515925,
+            "created": 1778516922,
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/zyphra/zamba2-7b-instruct"
@@ -1566,7 +1566,7 @@
       },
       "name": "omniroute",
       "npm": "@ai-sdk/openai",
-      "syncedAt": "2026-05-11T16:12:06Z"
+      "syncedAt": "2026-05-11T16:28:43Z"
     }
   }
 }
