@@ -157,6 +157,7 @@
             # Source: cockpit-ws(8) --local-session.
             DynamicUser = lib.mkForce false;
             User = config.preferences.user.username;
+            Environment = "XDG_DATA_DIRS=${config.services.cockpit.package}/share:/run/current-system/sw/share";
             ExecStart = lib.mkForce [
               ""
               "${config.services.cockpit.package}/libexec/cockpit-ws --local-session=${config.services.cockpit.package}/bin/cockpit-bridge --port=0"
@@ -170,6 +171,7 @@
             # Source: cockpit-ws(8) --local-session.
             DynamicUser = lib.mkForce false;
             User = config.preferences.user.username;
+            Environment = "XDG_DATA_DIRS=${config.services.cockpit.package}/share:/run/current-system/sw/share";
             ExecStart = lib.mkForce [
               ""
               "${config.services.cockpit.package}/libexec/cockpit-ws --for-tls-proxy --local-session=${config.services.cockpit.package}/bin/cockpit-bridge --port=0"
