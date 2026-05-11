@@ -73,6 +73,15 @@ Scope {
     ListModel { id: itemsModel }
     ListModel { id: filteredModel }
 
+    function resolveIconSource(iconSource) {
+        if (!iconSource) return "";
+        if (iconSource.startsWith("file://")) return iconSource;
+        if (iconSource.startsWith("/")) return "file://" + iconSource;
+
+        var resolved = Quickshell.iconPath(iconSource, "");
+        return resolved !== "" ? resolved : "";
+    }
+
     // =========================================================================
     // File Reader - Uses Quickshell.Io.Process with SplitParser
     // =========================================================================
@@ -507,12 +516,17 @@ Scope {
                                             color: delegateItem.isSelected ? Theme.glass.accentColorAlt : Theme.glass.accentColor
                                         }
 
-                                        Text {
+                                        Image {
                                             visible: (model.iconPath || "") !== ""
-                                            text: model.iconPath || ""
-                                            font.family: Theme.glass.fontFamily
-                                            font.pixelSize: 16
-                                            color: delegateItem.isSelected ? Theme.glass.accentColorAlt : Theme.glass.textSecondary
+                                            Layout.preferredWidth: root.gridIconSize
+                                            Layout.preferredHeight: Math.max(28, parent.height - 8)
+                                            Layout.alignment: Qt.AlignVCenter
+                                            source: root.resolveIconSource(model.iconPath || "")
+                                            asynchronous: true
+                                            cache: false
+                                            fillMode: Image.PreserveAspectFit
+                                            smooth: true
+                                            mipmap: true
                                         }
 
                                         Text {
@@ -610,7 +624,7 @@ Scope {
                                                     active: gridDelegate.isVisible
                                                     
                                                     sourceComponent: Image {
-                                                        source: model.iconPath ? "file://" + model.iconPath : ""
+                                                        source: root.resolveIconSource(model.iconPath || "")
                                                         asynchronous: true
                                                         cache: true
                                                         fillMode: Image.PreserveAspectCrop

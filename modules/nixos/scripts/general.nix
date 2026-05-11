@@ -316,6 +316,131 @@
           fi
         '';
       };
+
+      packages.openports = inputs.wrappers.lib.makeWrapper {
+        inherit pkgs;
+        package = pkgs.writeShellScriptBin "openports" ''
+                    #!/usr/bin/env bash
+                    set -euo pipefail
+
+                    IPTABLES="${pkgs.iptables}/bin/iptables"
+          # On NixOS, sudo is setuid via /run/wrappers. The store binary from
+          # pkgs.sudo is intentionally not setuid, so calling it directly fails.
+          SUDO="/run/wrappers/bin/sudo"
+                    AWK="${pkgs.gawk}/bin/awk"
+
+                    if [[ "''${1:-}" == "--help" || "''${1:-}" == "-h" ]]; then
+                      cat <<'EOF'
+          openports - show ports opened by the NixOS iptables firewall
+
+          Usage:
+            openports
+
+          Reads the nixos-fw chain with `sudo iptables -L nixos-fw -v -n --line-numbers`
+          and prints concise tables for explicit port openings and other NixOS firewall
+          accept rules. This only inspects current iptables state; it does not modify it.
+          EOF
+                      exit 0
+                    fi
+
+                    if ! $SUDO -v; then
+                      echo "openports: sudo authentication failed" >&2
+                      exit 1
+                    fi
+
+                    $SUDO "$IPTABLES" -L nixos-fw -v -n --line-numbers | $AWK '
+                      BEGIN {
+                        port_count = 0
+                        other_count = 0
+                      }
+
+                      NR == 1 {
+                        chain = $0
+                        next
+                      }
+
+                      /^num[[:space:]]+/ || /^[[:space:]]*$/ { next }
+
+                      $4 == "nixos-fw-accept" {
+                        line = $1
+                        pkts = $2
+                        bytes = $3
+                        proto = $5
+                        iface = $7
+                        source = $9
+                        dest = $10
+
+                        extra = ""
+                        for (i = 11; i <= NF; i++) {
+                          extra = extra (extra == "" ? "" : " ") $i
+                        }
+
+                        ports = ""
+                        if (match(extra, /(tcp|udp) dpts?:[^ ]+/)) {
+                          ports = substr(extra, RSTART, RLENGTH)
+                          sub(/^(tcp|udp) dpt:/, "", ports)
+                          sub(/^(tcp|udp) dpts:/, "", ports)
+                        } else if (match(extra, /multiport dports [^ ]+/)) {
+                          ports = substr(extra, RSTART, RLENGTH)
+                          sub(/^multiport dports /, "", ports)
+                        }
+
+                        if (ports != "") {
+                          port_count++
+                          port_line[port_count] = line
+                          port_pkts[port_count] = pkts
+                          port_bytes[port_count] = bytes
+                          port_proto[port_count] = proto
+                          port_ports[port_count] = ports
+                          port_iface[port_count] = iface
+                          port_source[port_count] = source
+                          port_dest[port_count] = dest
+                          port_extra[port_count] = extra
+                        } else {
+                          other_count++
+                          other_line[other_count] = line
+                          other_pkts[other_count] = pkts
+                          other_bytes[other_count] = bytes
+                          other_proto[other_count] = proto
+                          other_iface[other_count] = iface
+                          other_source[other_count] = source
+                          other_dest[other_count] = dest
+                          other_extra[other_count] = extra == "" ? "interface/source accept" : extra
+                        }
+                      }
+
+                      END {
+                        print chain
+                        print ""
+                        print "NixOS firewall opened ports"
+                        printf "%-4s %-5s %-13s %-10s %10s %10s %-15s %-15s %s\n", "#", "Proto", "Port(s)", "In", "Packets", "Bytes", "Source", "Dest", "Rule"
+                        printf "%-4s %-5s %-13s %-10s %10s %10s %-15s %-15s %s\n", "----", "-----", "-------------", "----------", "----------", "----------", "---------------", "---------------", "----"
+
+                        if (port_count == 0) {
+                          print "(no explicit tcp/udp port openings found in nixos-fw)"
+                        } else {
+                          for (i = 1; i <= port_count; i++) {
+                            printf "%-4s %-5s %-13s %-10s %10s %10s %-15s %-15s %s\n", port_line[i], port_proto[i], port_ports[i], port_iface[i], port_pkts[i], port_bytes[i], port_source[i], port_dest[i], port_extra[i]
+                          }
+                        }
+
+                        print ""
+                        print "Other NixOS firewall accepts (not explicit port openings)"
+                        printf "%-4s %-5s %-10s %10s %10s %-15s %-15s %s\n", "#", "Proto", "In", "Packets", "Bytes", "Source", "Dest", "Rule"
+                        printf "%-4s %-5s %-10s %10s %10s %-15s %-15s %s\n", "----", "-----", "----------", "----------", "----------", "---------------", "---------------", "----"
+
+                        if (other_count == 0) {
+                          print "(none)"
+                        } else {
+                          for (i = 1; i <= other_count; i++) {
+                            printf "%-4s %-5s %-10s %10s %10s %-15s %-15s %s\n", other_line[i], other_proto[i], other_iface[i], other_pkts[i], other_bytes[i], other_source[i], other_dest[i], other_extra[i]
+                          }
+                        }
+                      }
+                    '
+        '';
+      };
+
       packages.monero-wallet = inputs.wrappers.lib.makeWrapper {
         inherit pkgs;
         package =
