@@ -41,120 +41,38 @@
         #!${pkgs.bash}/bin/bash
         set -euo pipefail
 
-        mode="''${1:-help}"
-        shift || true
-
-        notify() { ${pkgs.libnotify}/bin/notify-send -a hypr-screenshot "$@" >/dev/null 2>&1 || true; }
-        die() { notify "Screenshot failed" "$*"; printf 'hypr-screenshot: %s\n' "$*" >&2; exit 1; }
-
-        usage() {
-          cat <<'EOF'
-        Usage: hypr-screenshot COMMAND
-
-        Commands:
-          area          Select an area and save it to ~/Pictures/Screenshots
-          monitor       Save the currently focused monitor to ~/Pictures/Screenshots
-          edit          Select an area, save it to a temp file, then edit with Satty
-          edit-swappy   Select an area, save it to a temp file, then edit with Swappy
-          ocr           Select an area and copy OCR text to the clipboard
-          qr            Select an area and copy the first decoded QR/barcode to the clipboard
-          record        Select an area and start wf-recorder into ~/Videos
-          stop-record   Stop wf-recorder cleanly
-
-        Logs: ~/.local/state/hypr-tools/hypr-screenshot.log
-        EOF
-        }
-
-        screenshot_dir="''${XDG_SCREENSHOTS_DIR:-$HOME/Pictures/Screenshots}"
-        videos_dir="''${XDG_VIDEOS_DIR:-$HOME/Videos}"
-
-        select_region() {
-          ${getExe pkgs.slurp} -d || die "Region selection cancelled"
-        }
-
-        timestamp() { ${pkgs.coreutils}/bin/date +'%Y-%m-%d_%H-%M-%S'; }
-
-        case "$mode" in
+        case "''${1:-}" in
           area)
-            mkdir -p "$screenshot_dir"
-            selection="$(select_region)"
-            out="$screenshot_dir/screenshot-$(timestamp).png"
-            ${getExe pkgs.grim} -g "$selection" "$out"
-            notify "Screenshot saved" "$out"
+            mkdir -p ~/Pictures/Screenshots
+            exec ${getExe pkgs.grimblast} save area ~/Pictures/Screenshots/screenshot_$(${pkgs.coreutils}/bin/date +'%Y-%m-%d_%H-%M-%S').png
             ;;
           monitor)
-            mkdir -p "$screenshot_dir"
-            out="$screenshot_dir/screenshot-$(timestamp).png"
-            ${getExe pkgs.grim} "$out"
-            notify "Screenshot saved" "$out"
+            mkdir -p ~/Pictures/Screenshots
+            exec ${getExe pkgs.grimblast} save output ~/Pictures/Screenshots/screenshot_$(${pkgs.coreutils}/bin/date +'%Y-%m-%d_%H-%M-%S').png
             ;;
           edit)
-            work_dir="$(${pkgs.coreutils}/bin/mktemp -d -t hypr-satty.XXXXXXXXXX)"
-            input_file="$work_dir/input.png"
-            cleanup_edit() { rm -rf "$work_dir"; }
-            trap cleanup_edit EXIT
-
-            selection="$(select_region)"
-            ${getExe pkgs.grim} -g "$selection" "$input_file"
-
-            ${getExe pkgs.satty} \
-              --filename "$input_file" \
-              --copy-command "${pkgs.wl-clipboard}/bin/wl-copy --type image/png" \
-              --output-filename "$work_dir/satty-%Y-%m-%d_%H:%M:%S.png" \
-              --actions-on-enter save-to-clipboard,exit \
-              --actions-on-escape exit \
-              --actions-on-right-click save-to-clipboard,exit \
-              --early-exit \
-              --disable-notifications
-            ;;
-          edit-swappy)
-            work_dir="$(${pkgs.coreutils}/bin/mktemp -d -t hypr-swappy.XXXXXXXXXX)"
-            input_file="$work_dir/input.png"
-            cleanup_edit() { rm -rf "$work_dir"; }
-            trap cleanup_edit EXIT
-
-            selection="$(select_region)"
-            ${getExe pkgs.grim} -g "$selection" "$input_file"
-
-            ${getExe pkgs.swappy} -f "$input_file"
+            ${getExe pkgs.grim} -g "$(${getExe pkgs.slurp} -d)" - | exec ${getExe pkgs.swappy} -f -
             ;;
           ocr)
-            work_file="$(${pkgs.coreutils}/bin/mktemp -t hypr-ocr.XXXXXXXXXX.png)"
-            cleanup_ocr() { rm -f "$work_file"; }
-            trap cleanup_ocr EXIT
-            selection="$(select_region)"
-            ${getExe pkgs.grim} -g "$selection" "$work_file"
-            text="$(${getExe pkgs.tesseract} "$work_file" - 2>/dev/null || true)"
-            printf '%s' "$text" | ${pkgs.wl-clipboard}/bin/wl-copy --type text/plain
-            if [ ''${#text} -le 120 ]; then notify "OCR Result" "$text"; else notify "OCR Result" "''${text:0:100}...''${text: -20}"; fi
+            ${getExe pkgs.grim} -g "$(${getExe pkgs.slurp} -d)" - \
+              | ${getExe pkgs.tesseract} - - \
+              | exec ${pkgs.wl-clipboard}/bin/wl-copy --type text/plain
             ;;
           qr)
-            work_file="$(${pkgs.coreutils}/bin/mktemp -t hypr-qr.XXXXXXXXXX.png)"
-            cleanup_qr() { rm -f "$work_file"; }
-            trap cleanup_qr EXIT
-            selection="$(select_region)"
-            ${getExe pkgs.grim} -g "$selection" "$work_file"
-            text="$(${pkgs.zbar}/bin/zbarimg --quiet "$work_file" | ${pkgs.gnused}/bin/sed 's/^QR-Code:[[:space:]]*//' | ${pkgs.coreutils}/bin/head -n1 || true)"
-            [ -n "$text" ] || die "No QR/barcode found"
-            printf '%s' "$text" | ${pkgs.wl-clipboard}/bin/wl-copy --type text/plain
-            if [ ''${#text} -le 120 ]; then notify "QR Result" "$text"; else notify "QR Result" "''${text:0:100}...''${text: -20}"; fi
+            ${getExe pkgs.grim} -g "$(${getExe pkgs.slurp} -d)" - \
+              | ${pkgs.zbar}/bin/zbarimg - \
+              | ${pkgs.gnused}/bin/sed 's/^QR-Code:[[:space:]]*//' \
+              | exec ${pkgs.wl-clipboard}/bin/wl-copy --type text/plain
             ;;
           record)
-            mkdir -p "$videos_dir"
-            selection="$(${getExe pkgs.slurp} -d)" || die "Recording region selection cancelled"
-            [ -n "$selection" ] || die "Recording region selection was empty"
-            out="$videos_dir/rec_$(timestamp).mp4"
-            log "starting recording: $out"
-            exec ${getExe pkgs.wf-recorder} -g "$selection" -f "$out"
+            mkdir -p ~/Videos
+            exec ${getExe pkgs.wf-recorder} -g "$(${getExe pkgs.slurp} -d)" -f ~/Videos/rec_$(${pkgs.coreutils}/bin/date +'%Y-%m-%d_%H-%M-%S').mp4
             ;;
           stop-record)
-            ${pkgs.procps}/bin/pkill -SIGINT wf-recorder || true
-            ;;
-          help|-h|--help)
-            usage
+            exec ${pkgs.procps}/bin/pkill -SIGINT wf-recorder
             ;;
           *)
-            usage >&2
+            printf 'Usage: hypr-screenshot {area|monitor|edit|ocr|qr|record|stop-record}\n' >&2
             exit 2
             ;;
         esac
@@ -458,7 +376,7 @@
           (kb "${mod},PRINT" "exec, ${hyprScreenshotExe} area" "Screenshot area (save)" "Capture")
           (kb ",PRINT" "exec, ${hyprScreenshotExe} monitor" "Screenshot monitor (save)" "Capture")
           (kb "${shiftMod},PRINT" "exec, ${hyprScreenshotExe} ocr" "Screenshot to text (OCR)" "Capture")
-          (kb "${mod},S" "exec, ${hyprScreenshotExe} edit" "Screenshot area (edit with Satty)" "Capture")
+          (kb "${mod},S" "exec, ${hyprScreenshotExe} edit" "Screenshot area (edit with Swappy)" "Capture")
           (kb "${mod},R" "exec, ${hyprScreenshotExe} record" "Start video recording" "Capture")
           (kb "${shiftMod},R" "exec, ${hyprScreenshotExe} stop-record" "Stop video recording" "Capture")
         ];
@@ -856,11 +774,6 @@
           "float, class:^(waydroid\\.InputMethod)$"
           "nofocus, class:^(waydroid\\.InputMethod)$"
 
-          # Satty screenshot editor: keep annotations as a centered floating utility
-          # instead of letting the tiler resize/reflow the current workspace.
-          "float, class:^(satty|Satty)$"
-          "center, class:^(satty|Satty)$"
-          "size 80% 80%, class:^(satty|Satty)$"
         ];
 
         layerrule = [
@@ -1044,9 +957,9 @@
 
         # Recordings
         grim
+        grimblast
         slurp
         wf-recorder
-        satty
         swappy
 
         networkmanagerapplet
