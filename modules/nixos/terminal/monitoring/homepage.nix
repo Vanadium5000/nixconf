@@ -174,6 +174,26 @@
 
           bookmarks = [
             {
+              "Fleet" = [
+                {
+                  "Cockpit — Legion 5i" = [
+                    {
+                      icon = "mdi-laptop";
+                      href = "http://legion5i:9090";
+                    }
+                  ];
+                }
+                {
+                  "Cockpit — MacBook" = [
+                    {
+                      icon = "mdi-laptop";
+                      href = "http://macbook:9090";
+                    }
+                  ];
+                }
+              ];
+            }
+            {
               "NixOS" = [
                 {
                   "Package Search" = [

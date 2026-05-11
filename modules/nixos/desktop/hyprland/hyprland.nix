@@ -61,6 +61,7 @@
           area          Select an area and save it to ~/Pictures/Screenshots
           monitor       Save the currently focused monitor to ~/Pictures/Screenshots
           edit          Select an area, save it to a temp file, then edit with Satty
+          edit-swappy   Select an area, save it to a temp file, then edit with Swappy
           ocr           Select an area and copy OCR text to the clipboard
           qr            Select an area and copy the first decoded QR/barcode to the clipboard
           record        Select an area and start wf-recorder into ~/Videos
@@ -76,9 +77,24 @@
         freeze_pid=""
         cleanup_freeze() {
           if [ -n "''${freeze_pid:-}" ]; then
-            kill "$freeze_pid" 2>/dev/null || true
-            wait "$freeze_pid" 2>/dev/null || true
+            local pid="$freeze_pid"
             freeze_pid=""
+
+            # hyprpicker is only used as a temporary freeze layer. Never wait for
+            # it synchronously: if Hyprland/compositor teardown stalls, `wait`
+            # keeps the screenshot command blocked and the freeze visible.
+            kill "$pid" 2>/dev/null || true
+            log "released screenshot freeze pid $pid"
+
+            (
+              sleep 0.15
+              kill -TERM "$pid" 2>/dev/null || true
+              sleep 0.35
+              kill -KILL "$pid" 2>/dev/null || true
+            ) >/dev/null 2>&1 &
+
+            disown "$!" 2>/dev/null || true
+            ${pkgs.hyprland}/bin/hyprctl dispatch focuscurrentorlast >/dev/null 2>&1 || true
           fi
         }
         trap cleanup_freeze EXIT
@@ -86,14 +102,23 @@
         freeze_for_selection() {
           ${getExe pkgs.hyprpicker} -r -z >/dev/null 2>&1 &
           freeze_pid=$!
-          sleep 0.2
+          local pid="$freeze_pid"
+          log "started screenshot freeze pid $freeze_pid"
+          (
+            sleep 4
+            kill -TERM "$pid" 2>/dev/null || true
+            sleep 1
+            kill -KILL "$pid" 2>/dev/null || true
+          ) >/dev/null 2>&1 &
+          freeze_watchdog_pid=$!
+          disown "$freeze_watchdog_pid" 2>/dev/null || true
+          sleep 0.05
         }
 
         select_region() {
           freeze_for_selection
           local selection
           selection="$(${getExe pkgs.slurp} -d)" || die "Region selection cancelled"
-          cleanup_freeze
           [ -n "$selection" ] || die "Region selection was empty"
           printf '%s\n' "$selection"
         }
@@ -106,6 +131,7 @@
             selection="$(select_region)"
             out="$screenshot_dir/screenshot-$(timestamp).png"
             ${getExe pkgs.grim} -g "$selection" "$out"
+            cleanup_freeze
             notify "Screenshot saved" "$out"
             log "saved area screenshot: $out"
             ;;
@@ -124,6 +150,7 @@
 
             selection="$(select_region)"
             ${getExe pkgs.grim} -g "$selection" "$input_file"
+            cleanup_freeze
 
             log "opening Satty with temp input: $input_file"
             ${getExe pkgs.satty} \
@@ -136,12 +163,26 @@
               --early-exit \
               --disable-notifications
             ;;
+          edit-swappy)
+            work_dir="$(${pkgs.coreutils}/bin/mktemp -d -t hypr-swappy.XXXXXXXXXX)"
+            input_file="$work_dir/input.png"
+            cleanup_edit() { rm -rf "$work_dir"; }
+            trap 'cleanup_freeze; cleanup_edit' EXIT
+
+            selection="$(select_region)"
+            ${getExe pkgs.grim} -g "$selection" "$input_file"
+            cleanup_freeze
+
+            log "opening Swappy with temp input: $input_file"
+            ${getExe pkgs.swappy} -f "$input_file"
+            ;;
           ocr)
             work_file="$(${pkgs.coreutils}/bin/mktemp -t hypr-ocr.XXXXXXXXXX.png)"
             cleanup_ocr() { rm -f "$work_file"; }
             trap 'cleanup_freeze; cleanup_ocr' EXIT
             selection="$(select_region)"
             ${getExe pkgs.grim} -g "$selection" "$work_file"
+            cleanup_freeze
             text="$(${getExe pkgs.tesseract} "$work_file" - 2>/dev/null || true)"
             printf '%s' "$text" | ${pkgs.wl-clipboard}/bin/wl-copy --type text/plain
             if [ ''${#text} -le 120 ]; then notify "OCR Result" "$text"; else notify "OCR Result" "''${text:0:100}...''${text: -20}"; fi
@@ -153,6 +194,7 @@
             trap 'cleanup_freeze; cleanup_qr' EXIT
             selection="$(select_region)"
             ${getExe pkgs.grim} -g "$selection" "$work_file"
+            cleanup_freeze
             text="$(${pkgs.zbar}/bin/zbarimg --quiet "$work_file" | ${pkgs.gnused}/bin/sed 's/^QR-Code:[[:space:]]*//' | ${pkgs.coreutils}/bin/head -n1 || true)"
             [ -n "$text" ] || die "No QR/barcode found"
             printf '%s' "$text" | ${pkgs.wl-clipboard}/bin/wl-copy --type text/plain
@@ -1068,6 +1110,7 @@
         slurp
         wf-recorder
         satty
+        swappy
 
         networkmanagerapplet
 
