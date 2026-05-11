@@ -167,7 +167,7 @@
               "audio"
               "video"
               "libvirtd"
-              "podman"
+              "docker"
               "ollama"
               "ydotool" # Wayland automation tool
               "pipewire"

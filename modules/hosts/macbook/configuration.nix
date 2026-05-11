@@ -145,7 +145,37 @@
       services.mitmproxy.trustCA = true;
       services.cockpit = {
         enable = true;
+        openFirewall = false;
         allowed-origins = [ "*" ];
+        settings.WebService.LoginTo = false;
+      };
+      systemd.services = {
+        "cockpit-wsinstance-http" = {
+          overrideStrategy = "asDropin";
+          serviceConfig = {
+            # Skip Cockpit's PAM login only on the service UI; the firewall remains closed and the bridge runs as the primary local user.
+            # Source: cockpit-ws(8) --local-session.
+            DynamicUser = lib.mkForce false;
+            User = config.preferences.user.username;
+            ExecStart = lib.mkForce [
+              ""
+              "${config.services.cockpit.package}/libexec/cockpit-ws --local-session=${config.services.cockpit.package}/bin/cockpit-bridge --port=0"
+            ];
+          };
+        };
+        "cockpit-wsinstance-https@" = {
+          overrideStrategy = "asDropin";
+          serviceConfig = {
+            # cockpit-tls normally dispatches browser traffic here, even for :9090; keep this in local-session too.
+            # Source: cockpit-ws(8) --local-session.
+            DynamicUser = lib.mkForce false;
+            User = config.preferences.user.username;
+            ExecStart = lib.mkForce [
+              ""
+              "${config.services.cockpit.package}/libexec/cockpit-ws --for-tls-proxy --local-session=${config.services.cockpit.package}/bin/cockpit-bridge --port=0"
+            ];
+          };
+        };
       };
       services.ntfy-sh = {
         enable = true;

@@ -49,22 +49,5 @@ in
         pkgs.openssl # encryption
       ];
 
-      # Virtualisation
-      virtualisation = {
-        podman = {
-          enable = true;
-          # Create a `docker` alias for podman, to use it as a drop-in replacement
-          dockerCompat = true;
-          # Required for containers under podman-compose to be able to talk to each other.
-          defaultNetwork.settings.dns_enabled = true;
-
-          networkSocket.openFirewall = true;
-        };
-
-        libvirtd.enable = true;
-        oci-containers.backend = "podman";
-      };
-      # Use nvidia with podman/docker - https://discourse.nixos.org/t/nvidia-docker-container-runtime-doesnt-detect-my-gpu/51336
-      hardware.nvidia-container-toolkit.enable = config.nixpkgs.config.cudaSupport;
     };
 }

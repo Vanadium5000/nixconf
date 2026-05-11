@@ -37,14 +37,7 @@
       # Disable git-sync for passwords, I don't want any important credentials on the system
       services.git-sync.enable = lib.mkForce false;
 
-      # Dokploy depends on a real Docker daemon for Swarm orchestration.
-      # Podman's CLI-compat layer is useful elsewhere in the repo, but Dokploy needs
-      # the Docker service semantics instead of only a socket-compatible alias.
-      virtualisation.docker = {
-        enable = true;
-        daemon.settings.live-restore = false;
-      };
-      virtualisation.podman.dockerCompat = lib.mkForce false;
+      # Dokploy depends on the shared real Docker daemon for Swarm orchestration.
 
       services.dokploy = {
         enable = true;

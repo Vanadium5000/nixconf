@@ -104,8 +104,8 @@
   "terminal.integrated.defaultProfile.linux": "zsh",
 
   // Container settings
-  "containers.containerCommand": "podman",
-  "containers.containerClient": "com.microsoft.visualstudio.containers.podman",
+  "containers.containerCommand": "docker",
+  "containers.containerClient": "com.microsoft.visualstudio.containers.docker",
 
   // Telemetry settings
   "telemetry.telemetryLevel": "off",

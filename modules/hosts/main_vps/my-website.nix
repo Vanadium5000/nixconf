@@ -127,6 +127,34 @@
           LoginTo = false;
         };
       };
+      systemd.services = {
+        "cockpit-wsinstance-http" = {
+          overrideStrategy = "asDropin";
+          serviceConfig = {
+            # The public cockpit subdomain stays behind services-auth-gateway; this only skips Cockpit's own PAM prompt after edge auth.
+            # Source: cockpit-ws(8) --local-session.
+            DynamicUser = lib.mkForce false;
+            User = config.preferences.user.username;
+            ExecStart = lib.mkForce [
+              ""
+              "${config.services.cockpit.package}/libexec/cockpit-ws --local-session=${config.services.cockpit.package}/bin/cockpit-bridge --port=0"
+            ];
+          };
+        };
+        "cockpit-wsinstance-https@" = {
+          overrideStrategy = "asDropin";
+          serviceConfig = {
+            # cockpit-tls/Traefik-dispatched browser traffic uses this template; edge auth remains on the subdomain.
+            # Source: cockpit-ws(8) --local-session.
+            DynamicUser = lib.mkForce false;
+            User = config.preferences.user.username;
+            ExecStart = lib.mkForce [
+              ""
+              "${config.services.cockpit.package}/libexec/cockpit-ws --for-tls-proxy --local-session=${config.services.cockpit.package}/bin/cockpit-bridge --port=0"
+            ];
+          };
+        };
+      };
 
       # Run mongo-express in a container (isolated & easy)
       virtualisation.oci-containers.containers.mongo-express = {
