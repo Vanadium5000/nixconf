@@ -55,9 +55,10 @@ let
     // (lib.optionalAttrs (limit != { }) { inherit limit; });
 
   unifiedProvider = {
-    # OpenCode documents @ai-sdk/openai for /v1/responses-backed providers.
-    # Source: https://opencode.ai/docs/providers/
-    npm = "@ai-sdk/openai";
+    # OmniRoute exposes an OpenAI-compatible chat-completions surface here; using
+    # OpenCode's Responses provider makes upstream chat chunks fail schema
+    # validation. Source: https://opencode.ai/docs/providers/
+    npm = "@ai-sdk/openai-compatible";
     name = "OmniRoute";
     options = {
       baseURL = "https://omniroute.${publicBaseDomain}/v1";

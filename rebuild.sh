@@ -127,6 +127,7 @@ declare -A SECRETS_MAP=(
     ["OMNIROUTE_INITIAL_PASSWORD"]="system/omniroute/initial-password"
     ["VPN_PROXY_API_KEY"]="system/vpn-proxy-api-key"
     ["SERVICES_AUTH_PASSWORD"]="system/services-auth-password"
+    ["MAIN_VPS_INITRD_SSH_HOST_KEY"]="system/main-vps/initrd-ssh-host-ed25519-key"
 )
 
 # Load a single secret from password-store

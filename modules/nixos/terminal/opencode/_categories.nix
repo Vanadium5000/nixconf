@@ -274,7 +274,6 @@ let
         # after restart while keeping official 4/8 worker limits.
         # Source: https://github.com/code-yeongyu/oh-my-openagent/blob/dev/docs/guide/team-mode.md
         enabled = true;
-        tmux_visualization = true;
         max_parallel_members = 4;
         max_members = 8;
       };

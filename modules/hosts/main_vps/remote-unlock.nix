@@ -1,9 +1,15 @@
+{ self, ... }:
+let
+  inherit (self) secrets;
+in
 {
   flake.nixosModules.main_vpsHost =
-    { lib, ... }:
+    { lib, pkgs, ... }:
     let
       initrdUnlockPort = 2222;
-      initrdUnlockHostKey = "/persist/system/etc/ssh/initrd/ssh_host_ed25519_key";
+      initrdUnlockHostKey = pkgs.writeText "main-vps-initrd-ssh-host-ed25519-key" (
+        secrets.MAIN_VPS_INITRD_SSH_HOST_KEY
+      );
       initrdUnlockAuthorizedKeys = [
         "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFsIUmSPfK9/ncfGjINjeI7sz+QK7wyaYJZtLhVpiU66 ssh-admin@main-vps"
       ];
@@ -33,9 +39,10 @@
           # that a connection here is for unlocking the booted generation only.
           port = initrdUnlockPort;
 
-          # This dedicated private host key must be generated on the VPS before the
-          # manual rebuild; Nix copies it into the initrd, so never reuse normal SSH
-          # host keys or commit it. Source:
+          # The initrd SSH server host key is loaded from password-store through
+          # rebuild.sh -> secrets.nix -> self.secrets, so switching does not depend
+          # on any mutable /etc/ssh or /persist key file existing on the VPS.
+          # Source:
           # https://github.com/NixOS/nixpkgs/blob/4f90e32d9c535072f0a6a9ac4599f1e78b829eab/nixos/modules/system/boot/initrd-ssh.nix#L57-L87
           hostKeys = [ initrdUnlockHostKey ];
 
@@ -45,7 +52,7 @@
         };
 
         # Drop directly into the NixOS LUKS passphrase helper after SSH login so a
-        # headless reboot needs only `ssh -p 2222 root@ionos-vps`. Source:
+        # headless reboot needs only `ssh -p 2222 root@<host>`. Source:
         # https://wiki.nixos.org/wiki/Remote_LUKS_Unlocking
         postCommands = lib.mkAfter ''
           echo 'cryptsetup-askpass' >> /root/.profile
