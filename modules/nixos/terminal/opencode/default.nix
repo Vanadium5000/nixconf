@@ -42,6 +42,43 @@
         }) (lib.attrNames (lib.filterAttrs (_: type: type == "directory") (builtins.readDir ./skill)))
       );
 
+      mattpocockSkills = pkgs.customPackages.mattpocock-skills;
+      mattpocockSkillFiles =
+        let
+          sourceRoot = "${mattpocockSkills}/share/opencode/skills";
+          listRelativeFiles =
+            dir:
+            lib.flatten (
+              lib.mapAttrsToList (
+                name: type:
+                if type == "regular" then
+                  [ name ]
+                else if type == "directory" then
+                  map (child: "${name}/${child}") (listRelativeFiles (dir + "/${name}"))
+                else
+                  [ ]
+              ) (builtins.readDir dir)
+            );
+          skillNames = lib.attrNames (
+            lib.filterAttrs (_: type: type == "directory") (builtins.readDir sourceRoot)
+          );
+        in
+        builtins.listToAttrs (
+          lib.flatten (
+            map (
+              skillName:
+              map (relativeFile: {
+                name = ".config/opencode/skills/${skillName}/${relativeFile}";
+                value = {
+                  source = sourceRoot + "/${skillName}/${relativeFile}";
+                  type = "copy";
+                  permissions = "0644";
+                };
+              }) (listRelativeFiles (sourceRoot + "/${skillName}"))
+            ) skillNames
+          )
+        );
+
       # state.json is repo-owned so model/category choices survive wrapper runs
       # and can be reviewed/committed like any other configuration change.
       stateFile = ./state.json;
@@ -205,6 +242,78 @@
           reasoningEffortHeader = "Select reasoning effort for this model";
         };
       };
+
+      # The Obsidian skill invokes this wrapper instead of a raw MCP command so
+      # each coding project is confined to ~/Vault/Projects/<slug>, never the
+      # full vault. obsidian-mcp accepts vault roots as positional arguments:
+      # https://www.npmjs.com/package/obsidian-mcp
+      # Pin 1.0.6 because its positional vault-root contract is part of this
+      # wrapper's safety boundary; update deliberately after re-verifying it.
+      opencodeObsidianProjectMcp = pkgs.writeShellScriptBin "opencode-obsidian-project-mcp" (
+        lib.concatStringsSep "\n" [
+          "set -eu"
+          ""
+          ''project_root="$PWD"''
+          ''search_dir="$PWD"''
+          ""
+          ''while [ "$search_dir" != "/" ]; do''
+          ''if [ -d "$search_dir/.git" ] || [ -f "$search_dir/.git" ]; then''
+          ''project_root="$search_dir"''
+          "    break"
+          "  fi"
+          ""
+          ''search_dir="$(${pkgs.coreutils}/bin/dirname "$search_dir")"''
+          "done"
+          ""
+          ''project_slug="$(${pkgs.coreutils}/bin/basename "$project_root")"''
+          ""
+          ''project_slug="$(printf '%s' "$project_slug" | ${pkgs.gnused}/bin/sed -E 's/[^A-Za-z0-9._-]+/-/g; s/^-+//; s/-+$//')"''
+          ""
+          ''if [ -z "$project_slug" ] || [ "$project_slug" = "." ] || [ "$project_slug" = ".." ]; then''
+          ''printf 'Could not derive a safe Obsidian project slug from %s\n' "$PWD" >&2''
+          "  exit 1"
+          "fi"
+          ""
+          ''project_vault="$HOME/Vault/Projects/$project_slug"''
+          ''if [ -L "$project_vault" ]; then''
+          ''printf 'Refusing symlinked Obsidian project vault: %s\n' "$project_vault" >&2''
+          "  exit 1"
+          "fi"
+          ""
+          ''${pkgs.coreutils}/bin/mkdir -p \''
+          ''"$project_vault/.obsidian" \''
+          ''"$project_vault/architecture" \''
+          ''"$project_vault/decisions" \''
+          ''"$project_vault/docs" \''
+          ''"$project_vault/open-questions" \''
+          ''"$project_vault/research" \''
+          ''"$project_vault/runbooks" \''
+          ''"$project_vault/session-logs"''
+          ""
+          ''if [ ! -f "$project_vault/.obsidian/app.json" ]; then''
+          ''printf '{}\n' > "$project_vault/.obsidian/app.json"''
+          "fi"
+          ""
+          ''if [ ! -f "$project_vault/_index.md" ]; then''
+          ''${pkgs.coreutils}/bin/cat > "$project_vault/_index.md" <<EOF''
+          "---"
+          "type: project-index"
+          "project: $project_slug"
+          "repo: \"$project_root\""
+          "tags:"
+          "  - project/$project_slug"
+          "  - opencode"
+          "---"
+          ""
+          "# $project_slug"
+          ""
+          "Project-scoped Obsidian workspace for OpenCode agents. Agents should keep durable project documentation, decisions, research, runbooks, and session notes under this directory only."
+          "EOF"
+          "fi"
+          ""
+          ''exec ${pkgs.nodejs}/bin/npx -y obsidian-mcp@1.0.6 "$project_vault"''
+        ]
+      );
 
       runtimeConfigDir = pkgs.runCommand "opencode-runtime-configs" { } ''
         mkdir -p $out
@@ -1424,6 +1533,7 @@
         name = "opencode-env";
         paths = languages.packages ++ [
           pkgs.libreoffice
+          opencodeObsidianProjectMcp
           pkgs.python3
           pkgs.stdenv.cc
           pkgs.gnumake
@@ -1507,6 +1617,7 @@
       environment.systemPackages = [
         opencodeWrapped
         opencodeModelSwitch
+        opencodeObsidianProjectMcp
       ]
       ++ languages.packages;
 
@@ -1576,6 +1687,7 @@
           permissions = "0644";
         };
       }
+      // mattpocockSkillFiles
       // opencodeSkillFiles;
     };
 }

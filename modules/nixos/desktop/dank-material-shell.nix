@@ -26,7 +26,15 @@
           ]
           (builtins.readFile ./dank-material-shell/toggle-lid-inhibit/ToggleLidInhibitWidget.qml);
       voxtypeWidgetPluginQml =
-        builtins.replaceStrings [ "__VOXTYPE__" ] [ "${lib.getExe pkgs.unstable.voxtype}" ]
+        builtins.replaceStrings
+          [
+            "__VOXTYPE__"
+            "__SYSTEMCTL__"
+          ]
+          [
+            "${lib.getExe pkgs.unstable.voxtype}"
+            "${pkgs.systemd}/bin/systemctl"
+          ]
           (builtins.readFile ./dank-material-shell/voxtype-widget/VoxtypeWidget.qml);
       voxtypeModelsPersistence = self.lib.persistence.mkPersistent {
         method = "bind";

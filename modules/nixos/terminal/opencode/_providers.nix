@@ -63,6 +63,10 @@ let
     options = {
       baseURL = "https://omniroute.${publicBaseDomain}/v1";
       apiKey = self.secrets.OMNIROUTE_OPENCODE_API_KEY;
+      # OmniRoute's OpenCode path should use plain chat-completions responses,
+      # not SSE chunks; this flag is consumed by the OpenAI-compatible provider
+      # options path documented at https://opencode.ai/docs/providers/.
+      disableStreaming = true;
     };
     models = builtins.mapAttrs normalizeModel (lib.recursiveUpdate baseModels filteredPatches);
   };

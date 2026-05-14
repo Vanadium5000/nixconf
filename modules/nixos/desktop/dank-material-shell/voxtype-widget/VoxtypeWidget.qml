@@ -10,6 +10,7 @@ PluginComponent {
     id: root
 
     readonly property string voxtypeCommand: "__VOXTYPE__"
+    readonly property string systemctlCommand: "__SYSTEMCTL__"
     readonly property int refreshInterval: 750
 
     property string currentState: "stopped"
@@ -17,6 +18,7 @@ PluginComponent {
     property string configSummary: "Loading configuration..."
     property string modelsSummary: "Loading models..."
     property string checkSummary: "Run a check to see setup status."
+    property string pendingRecordAction: ""
     property bool commandBusy: false
     property bool statusFailed: false
 
@@ -42,8 +44,14 @@ PluginComponent {
     }
 
     function runRecordCommand(action) {
-        if (recordProcess.running)
+        if (recordProcess.running || startDaemonProcess.running)
             return
+        if (root.isStopped || root.statusFailed) {
+            pendingRecordAction = action
+            commandBusy = true
+            startDaemonProcess.running = true
+            return
+        }
         commandBusy = true
         recordProcess.command = commandLine(["record", action])
         recordProcess.running = true
@@ -152,8 +160,45 @@ PluginComponent {
         onExited: exitCode => {
             root.commandBusy = false
             if (exitCode !== 0)
-                console.warn("VoxtypeWidget: record command failed", exitCode)
+                console.warn("VoxtypeWidget: record command failed", exitCode, recordStderr.text.trim())
             root.refreshStatus()
+        }
+
+        stderr: StdioCollector { id: recordStderr }
+    }
+
+    Process {
+        id: startDaemonProcess
+        command: [root.systemctlCommand, "--user", "start", "voxtype"]
+        running: false
+
+        onExited: exitCode => {
+            if (exitCode !== 0) {
+                root.commandBusy = false
+                root.pendingRecordAction = ""
+                console.warn("VoxtypeWidget: failed to start voxtype service", exitCode, startDaemonStderr.text.trim())
+                root.refreshStatus()
+                return
+            }
+            root.refreshStatus()
+            startAfterDaemonTimer.restart()
+        }
+
+        stderr: StdioCollector { id: startDaemonStderr }
+    }
+
+    Timer {
+        id: startAfterDaemonTimer
+        interval: 500
+        repeat: false
+        onTriggered: {
+            if (root.pendingRecordAction === "") {
+                root.commandBusy = false
+                return
+            }
+            recordProcess.command = root.commandLine(["record", root.pendingRecordAction])
+            root.pendingRecordAction = ""
+            recordProcess.running = true
         }
     }
 
@@ -241,7 +286,6 @@ PluginComponent {
     popoutContent: Component {
         Column {
             spacing: Theme.spacingM
-            implicitHeight: childrenRect.height
 
             RowLayout {
                 width: parent.width

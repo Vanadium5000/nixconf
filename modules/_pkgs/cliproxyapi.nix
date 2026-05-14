@@ -7,16 +7,16 @@
 
 unstable.buildGo126Module rec {
   pname = "cliproxyapi";
-  version = "6.10.9";
+  version = "7.0.6";
 
   src = fetchFromGitHub {
     owner = "router-for-me";
     repo = "CLIProxyAPI";
     rev = "v${version}";
-    hash = "sha256-V0cxqWTmV2mMrnNkkAXja5bzU11tG5GX1r8n7+9ES1A=";
+    hash = "sha256-KIrz5K47hFhkfVRB/mDjjnge+l4JKUGiLajw/Ur6Rxg=";
   };
 
-  vendorHash = "sha256-qvQO7c/780UWxvM/Lp/KHqcd/pFqzyJx6ILaOeZId7A=";
+  vendorHash = "sha256-AIue9XBsfsKGClRLB1DCME+36crapnOdQrEICFYG1a0=";
 
   subPackages = [ "cmd/server" ];
 

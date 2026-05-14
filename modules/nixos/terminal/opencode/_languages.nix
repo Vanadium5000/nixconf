@@ -5,7 +5,14 @@ let
   timeoutBin = "${pkgs.coreutils}/bin/timeout";
   notifySendBin = "${pkgs.libnotify}/bin/notify-send";
 
-  timeoutNotifyWrapper = pkgs.writeShellScript "opencode-timeout-notify-wrapper" ''
+  renderFailureDetails = ''
+    Name: $name
+    Binary: $bin
+    Exit status: $status
+    Command: $renderedCommand
+  '';
+
+  formatterNotifyWrapper = pkgs.writeShellScript "opencode-formatter-notify-wrapper" ''
         set -u
 
         kind="$1"
@@ -31,28 +38,62 @@ let
             "Name: $name
     Binary: $bin
     Timeout: ${toString timeoutSeconds}s
+    Exit status: $status
     Command: $renderedCommand"
+        else
+          "${notifySendBin}" \
+            -a "OpenCode" \
+            -u critical \
+            -t 0 \
+            "OpenCode ''${kind} failed" \
+            "${renderFailureDetails}"
         fi
 
         exit "$status"
   '';
 
+  lspNotifyWrapper = pkgs.writeShellScript "opencode-lsp-notify-wrapper" ''
+    set -u
+
+    kind="$1"
+    name="$2"
+    bin="$3"
+    shift 3
+
+    renderedCommand="$(printf '%q ' "$@")"
+    renderedCommand="''${renderedCommand% }"
+
+    if "$@"; then
+      exit 0
+    fi
+
+    status="$?"
+
+    "${notifySendBin}" \
+      -a "OpenCode" \
+      -u critical \
+      -t 0 \
+      "OpenCode ''${kind} exited with error" \
+      "${renderFailureDetails}"
+
+    exit "$status"
+  '';
+
   # Keep timeout + notification behavior centralized for short-lived tools.
-  # Do not use this for LSP servers: they are long-lived stdio processes, so a
-  # hard timeout kills otherwise healthy sessions and prevents diagnostics from
-  # arriving after initialization.
   wrapCommand =
-    kind: name: command:
+    wrapper: kind: name: command:
     [
-      timeoutNotifyWrapper
+      wrapper
       kind
       name
       (builtins.head command)
     ]
     ++ command;
   wrapCommands =
-    kind: definitions:
-    lib.mapAttrs (name: spec: spec // { command = wrapCommand kind name spec.command; }) definitions;
+    wrapper: kind: definitions:
+    lib.mapAttrs (
+      name: spec: spec // { command = wrapCommand wrapper kind name spec.command; }
+    ) definitions;
 
   formatterBins = {
     clang-format = "${pkgs.clang-tools}/bin/clang-format";
@@ -503,7 +544,7 @@ in
     ])
     ++ (with self.packages.${pkgs.stdenv.hostPlatform.system}; [ daisyui-mcp ]);
 
-  formatter = wrapCommands "formatter" formatterDefinitions;
+  formatter = wrapCommands formatterNotifyWrapper "formatter" formatterDefinitions;
 
-  lsp = lspDefinitions;
+  lsp = wrapCommands lspNotifyWrapper "LSP" lspDefinitions;
 }
