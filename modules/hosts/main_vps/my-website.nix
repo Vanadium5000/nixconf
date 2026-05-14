@@ -36,7 +36,7 @@
       authDomain = mkHostname "auth";
       openclawDomain = mkHostname "openclaw";
       dashboardDomain = mkHostname "dashboard";
-      cockpitDomain = mkHostname "cockpit";
+      webminDomain = mkHostname "webmin";
       mitmproxyDomain = mkHostname "mitmproxy";
       vpnDomain = mkHostname "vpn";
       cliproxyapiDomain = mkHostname "cliproxyapi";
@@ -115,47 +115,9 @@
         requireApiKey = true;
       };
 
-      services.cockpit = {
+      services.webmin = {
         enable = true;
-        port = 9090;
         openFirewall = false;
-        allowed-origins = [ "https://${cockpitDomain}" ];
-        settings.WebService = {
-          # Traefik terminates public TLS; Cockpit trusts this header only for the proxied localhost path.
-          # Source: https://cockpit-project.org/guide/latest/cockpit.conf.5.html#_webservice
-          ProtocolHeader = "X-Forwarded-Proto";
-          LoginTo = false;
-        };
-      };
-      systemd.services = {
-        "cockpit-wsinstance-http" = {
-          overrideStrategy = "asDropin";
-          serviceConfig = {
-            # The public cockpit subdomain stays behind services-auth-gateway; this only skips Cockpit's own PAM prompt after edge auth.
-            # Source: cockpit-ws(8) --local-session.
-            DynamicUser = lib.mkForce false;
-            User = config.preferences.user.username;
-            Environment = "XDG_DATA_DIRS=${config.services.cockpit.package}/share:/run/current-system/sw/share";
-            ExecStart = lib.mkForce [
-              ""
-              "${config.services.cockpit.package}/libexec/cockpit-ws --local-session=${config.services.cockpit.package}/bin/cockpit-bridge --port=0"
-            ];
-          };
-        };
-        "cockpit-wsinstance-https@" = {
-          overrideStrategy = "asDropin";
-          serviceConfig = {
-            # cockpit-tls/Traefik-dispatched browser traffic uses this template; edge auth remains on the subdomain.
-            # Source: cockpit-ws(8) --local-session.
-            DynamicUser = lib.mkForce false;
-            User = config.preferences.user.username;
-            Environment = "XDG_DATA_DIRS=${config.services.cockpit.package}/share:/run/current-system/sw/share";
-            ExecStart = lib.mkForce [
-              ""
-              "${config.services.cockpit.package}/libexec/cockpit-ws --for-tls-proxy --local-session=${config.services.cockpit.package}/bin/cockpit-bridge --port=0"
-            ];
-          };
-        };
       };
       # Run mongo-express in a container (isolated & easy)
       virtualisation.oci-containers.containers.mongo-express = {
@@ -227,9 +189,9 @@
                 rule = "Host(`${dashboardDomain}`)";
                 service = "dashboard";
               };
-              cockpit = mkProtectedServiceRouter {
-                rule = "Host(`${cockpitDomain}`)";
-                service = "cockpit";
+              webmin = mkProtectedServiceRouter {
+                rule = "Host(`${webminDomain}`)";
+                service = "webmin";
               };
               mitmproxy = mkProtectedServiceRouter {
                 rule = "Host(`${mitmproxyDomain}`)";
@@ -284,7 +246,7 @@
             services = {
               services-auth-gateway = mkDirectService servicesAuthGatewayPort;
               dashboard = mkDirectService 8082;
-              cockpit = mkDirectService config.services.cockpit.port;
+              webmin = mkDirectService config.services.webmin.port;
               mitmproxy = mkDirectService 8083;
               vpn = mkDirectService 10802;
               cliproxyapi = mkDirectService 8317;

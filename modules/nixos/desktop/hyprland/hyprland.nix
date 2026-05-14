@@ -18,6 +18,8 @@
       mod = "SUPER";
       shiftMod = "SUPER_SHIFT";
       altMod = "ALT";
+      altSuperMod = "SUPER_ALT";
+      shiftAltSuperMod = "SUPER_SHIFT_ALT";
       terminal = self.packages.${pkgs.stdenv.hostPlatform.system}.terminal;
       braveOrigin = self.packages.${pkgs.stdenv.hostPlatform.system}.brave-origin;
       qsDmenu = self.packages.${pkgs.stdenv.hostPlatform.system}.qs-dmenu;
@@ -250,7 +252,7 @@
         # ── Windows ──
         windows = [
           (kb "${mod},Q" "exec, ${closeActiveWindowScript}" "Close active window (press twice)" "Windows")
-          (kb "${mod} ALT, Q" "exec, hyprctl kill" "Force kill window (click)" "Windows")
+          (kb "${altSuperMod},Q" "exec, hyprctl kill" "Force kill window (click)" "Windows")
           (kb "${shiftMod},F" "togglefloating," "Toggle floating mode" "Windows")
           (kb "${shiftMod},C" "centerwindow" "Center floating window" "Windows")
           (kb "${mod},F" "fullscreen" "Toggle fullscreen" "Windows")
@@ -272,14 +274,14 @@
           (kb "${shiftMod} CTRL, right" "swapwindow, r" "Swap window right" "Windows")
           (kb "${shiftMod} CTRL, up" "swapwindow, u" "Swap window up" "Windows")
           (kb "${shiftMod} CTRL, down" "swapwindow, d" "Swap window down" "Windows")
-          (kb "${mod} ALT, left" "focusmonitor, l" "Focus left monitor" "Windows")
-          (kb "${mod} ALT, right" "focusmonitor, r" "Focus right monitor" "Windows")
-          (kb "${mod} ALT, up" "focusmonitor, u" "Focus upper monitor" "Windows")
-          (kb "${mod} ALT, down" "focusmonitor, d" "Focus lower monitor" "Windows")
-          (kb "${shiftMod} ALT, left" "movewindow, mon:l" "Move window to left monitor" "Windows")
-          (kb "${shiftMod} ALT, right" "movewindow, mon:r" "Move window to right monitor" "Windows")
-          (kb "${shiftMod} ALT, up" "movewindow, mon:u" "Move window to upper monitor" "Windows")
-          (kb "${shiftMod} ALT, down" "movewindow, mon:d" "Move window to lower monitor" "Windows")
+          (kb "${altSuperMod},left" "focusmonitor, l" "Focus left monitor" "Windows")
+          (kb "${altSuperMod},right" "focusmonitor, r" "Focus right monitor" "Windows")
+          (kb "${altSuperMod},up" "focusmonitor, u" "Focus upper monitor" "Windows")
+          (kb "${altSuperMod},down" "focusmonitor, d" "Focus lower monitor" "Windows")
+          (kb "${shiftAltSuperMod},left" "movewindow, mon:l" "Move window to left monitor" "Windows")
+          (kb "${shiftAltSuperMod},right" "movewindow, mon:r" "Move window to right monitor" "Windows")
+          (kb "${shiftAltSuperMod},up" "movewindow, mon:u" "Move window to upper monitor" "Windows")
+          (kb "${shiftAltSuperMod},down" "movewindow, mon:d" "Move window to lower monitor" "Windows")
           (kb "${mod},backslash" "togglesplit," "Toggle window split direction" "Windows")
           (kb "${mod},TAB" "cyclenext," "Focus next window" "Windows")
           (kb "${mod},TAB" "bringactivetotop" "Raise focused floating window" "Windows")
@@ -351,7 +353,7 @@
           (kb "${shiftMod},Z" "exec, ${
             getExe self.packages.${pkgs.stdenv.hostPlatform.system}.qs-vpn
           }" "VPN selector" "Tools")
-          (kb "${mod} ${altMod},M" "exec, ${
+          (kb "${altSuperMod},M" "exec, ${
             getExe self.packages.${pkgs.stdenv.hostPlatform.system}.toggle-lyrics-overlay
           }" "Toggle lyrics overlay" "Tools")
           (kb "${mod},I" "exec, ${
@@ -517,8 +519,8 @@
           replaced =
             builtins.replaceStrings
               [
-                "${shiftMod} ALT,"
-                "${mod} ALT,"
+                "${shiftAltSuperMod},"
+                "${altSuperMod},"
                 "${mod} CTRL,"
                 "${mod},"
                 "${shiftMod},"
@@ -878,8 +880,11 @@
                 ws = i + 1;
               in
               [
+                # Use physical number-row keycodes so GB-layout shifted symbols do
+                # not break workspace movement. Plain SUPER switches the current
+                # monitor; SUPER+SHIFT moves the window and follows it.
                 "${mod},code:1${toString i}, focusworkspaceoncurrentmonitor, ${toString ws}"
-                "${shiftMod},code:1${toString i}, movetoworkspacesilent, ${toString ws}"
+                "${shiftMod},code:1${toString i}, movetoworkspace, ${toString ws}"
               ]
             ) 9
           ));

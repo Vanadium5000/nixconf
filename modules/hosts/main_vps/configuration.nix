@@ -19,6 +19,7 @@
 
       imports = [
         self.nixosModules.terminal
+        self.nixosModules.webmin
         inputs.nix-dokploy.nixosModules.default
 
         # Disko

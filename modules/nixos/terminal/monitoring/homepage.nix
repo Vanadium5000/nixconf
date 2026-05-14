@@ -102,9 +102,9 @@
             {
               "Monitoring" = [
                 {
-                  "Cockpit — VPS" = {
+                  "Webmin — VPS" = {
                     icon = "mdi-monitor-dashboard";
-                    href = mkPublicUrl "cockpit" "";
+                    href = mkPublicUrl "webmin" "";
                     description = "Systemd services, logs, and host actions";
                   };
                 }
@@ -176,18 +176,18 @@
             {
               "Fleet" = [
                 {
-                  "Cockpit — Legion 5i" = [
+                  "Webmin — Legion 5i" = [
                     {
                       icon = "mdi-laptop";
-                      href = "http://legion5i:9090";
+                      href = "https://legion5i:10000";
                     }
                   ];
                 }
                 {
-                  "Cockpit — MacBook" = [
+                  "Webmin — MacBook" = [
                     {
                       icon = "mdi-laptop";
-                      href = "http://macbook:9090";
+                      href = "https://macbook:10000";
                     }
                   ];
                 }

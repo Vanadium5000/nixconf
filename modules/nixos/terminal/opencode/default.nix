@@ -645,6 +645,21 @@
           [ "$effective_models" = "$config_models" ]
         }
 
+        config_file_matches_provider_metadata() {
+          local cfg_file="$1"
+
+          if [ ! -f "$cfg_file" ] || [ ! -s "$cfg_file" ]; then
+            return 1
+          fi
+
+          local base_provider
+          local config_provider
+          base_provider=$($JQ -cS '.provider.omniroute | del(.models)' "$BASE_CONFIG_FILE")
+          config_provider=$($JQ -cS '.provider.omniroute | del(.models)' "$cfg_file")
+
+          [ "$base_provider" = "$config_provider" ]
+        }
+
         mem_config_matches_state() {
           local cfg_file="$1"
 
@@ -662,6 +677,13 @@
 
         config_out_of_date() {
           ensure_state_file
+          if ! config_file_matches_provider_metadata "$GLOBAL_CONFIG_FILE"; then
+            # Default sync check only compared model data; provider-level fixes
+            # such as timeout/chunkTimeout would otherwise wait for an unrelated
+            # model/state change before reaching ~/.config/opencode/config.json.
+            return 0
+          fi
+
           if ! config_file_matches_effective_models "$GLOBAL_CONFIG_FILE"; then
             return 0
           fi
@@ -980,9 +1002,16 @@
             | {
                 providers: {
                   omniroute: {
-                    npm: "@ai-sdk/openai",
-                    name: "omniroute",
-                    baseUrl: "https://omniroute.${publicBaseDomain}/v1",
+                    # Keep cache metadata aligned with the actual runtime
+                    # provider in _providers.nix. Previous/default sync output
+                    # used @ai-sdk/openai plus baseUrl, which is not the
+                    # OpenCode custom-provider shape and can select the wrong
+                    # Responses/client path if the cache is consumed directly.
+                    npm: "@ai-sdk/openai-compatible",
+                    name: "OmniRoute",
+                    options: {
+                      baseURL: "https://omniroute.${publicBaseDomain}/v1"
+                    },
                     syncedAt: (now | todateiso8601),
                     models: ($entries | from_entries)
                   }
@@ -1028,6 +1057,31 @@
           if [ -n "$missing_state_models" ]; then
             $GUM style --foreground 214 "Warning: state.json references models missing from the synced cache:"
             printf '%s\n' "$missing_state_models"
+          fi
+
+          local risky_state_models
+          risky_state_models=$(get_effective_models_json | $JQ -r --slurpfile state "$STATE_FILE" '
+            . as $models
+            | (($state[0].categories // {}) | to_entries[] | .value | if type == "object" then .model else . end)
+            | select(type == "string" and startswith("omniroute/"))
+            | sub("^omniroute/"; "") as $model_id
+            | ($models[$model_id] // {}) as $model
+            | [
+                (if ($model.limit.context? == null or $model.limit.output? == null) then "missing-limit" else empty end),
+                (if ($model.tool_call? != true) then "tool-call-unverified" else empty end),
+                (if (($model.modalities.output? // ["text"]) | index("text")) == null then "non-text-output" else empty end)
+              ] as $issues
+            | select($issues | length > 0)
+            | "\($model_id): \($issues | join(", "))"
+          ' | sort -u)
+          if [ -n "$risky_state_models" ]; then
+            # OpenCode default behavior is to accept sparse custom model metadata.
+            # Warn on active category models because missing limits/tool metadata
+            # can degrade compaction and agentic tool behavior without producing
+            # an OmniRoute request error.
+            $GUM style --foreground 214 "Warning: active state models have sparse or risky metadata:"
+            printf '%s\n' "$risky_state_models"
+            $GUM style --foreground 214 "Patch verified facts in _model-local-patches.json before relying on these models for agentic work."
           fi
 
           $GUM style --foreground 212 "Remember to git add the changes."

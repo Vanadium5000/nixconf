@@ -63,10 +63,19 @@ let
     options = {
       baseURL = "https://omniroute.${publicBaseDomain}/v1";
       apiKey = self.secrets.OMNIROUTE_OPENCODE_API_KEY;
-      # OmniRoute's OpenCode path should use plain chat-completions responses,
-      # not SSE chunks; this flag is consumed by the OpenAI-compatible provider
-      # options path documented at https://opencode.ai/docs/providers/.
-      disableStreaming = true;
+
+      # OpenCode default: provider requests time out after 300000ms. Keep that
+      # default explicit here because OmniRoute is a gateway and a hung upstream
+      # should fail visibly instead of looking like an OpenCode deadlock.
+      # Source: https://github.com/anomalyco/opencode/blob/dev/packages/opencode/src/config/provider.ts
+      timeout = 300000;
+
+      # OpenCode default: no SSE idle watchdog unless `chunkTimeout` is set.
+      # OmniRoute/OpenAI-compatible tool streams have had chunk-shape/finish
+      # compatibility bugs; abort idle streams so a half-closed gateway response
+      # cannot leave the session busy forever.
+      # Source: https://github.com/anomalyco/opencode/issues/21173
+      chunkTimeout = 45000;
     };
     models = builtins.mapAttrs normalizeModel (lib.recursiveUpdate baseModels filteredPatches);
   };

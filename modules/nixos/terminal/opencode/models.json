@@ -1,7 +1,11 @@
 {
   "providers": {
     "omniroute": {
-      "baseUrl": "https://omniroute.my-website.space/v1",
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "OmniRoute",
+      "options": {
+        "baseURL": "https://omniroute.my-website.space/v1"
+      },
       "models": {
         "01-ai/yi-large": {
           "id": "nvidia/01-ai/yi-large",
@@ -1429,8 +1433,6 @@
           "name": "nvidia/zyphra/zamba2-7b-instruct"
         }
       },
-      "name": "omniroute",
-      "npm": "@ai-sdk/openai",
       "syncedAt": "2026-05-11T20:22:54Z"
     }
   }

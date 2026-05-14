@@ -12,6 +12,13 @@ in
 
         # Very strong root password (do NOT hardcode)
         initialRootPasswordFile = pkgs.writeText "mongodb-password" (secrets.MONGODB_PASSWORD);
+
+        # Keep the server on MongoDB 7.x: the persisted database currently has
+        # featureCompatibilityVersion 7.0, and MongoDB 8 refuses to start until
+        # the DB has been explicitly upgraded through the 8.0 procedure.
+        package = pkgs.mongodb-7_0;
+        # Optional but recommended:
+        dbpath = "/var/db/mongodb";
       };
 
       preferences.allowedUnfree = [

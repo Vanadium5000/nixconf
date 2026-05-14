@@ -16,6 +16,7 @@
     {
       imports = [
         self.nixosModules.desktop
+        self.nixosModules.webmin
 
         # Drivers and settings, https://github.com/NixOS/nixos-hardware/blob/master/flake.nix
         inputs.nixos-hardware.nixosModules.common-cpu-intel
@@ -143,41 +144,9 @@
       # HTTPS traffic analyzer — on-demand: systemctl start mitmproxy
       services.mitmproxy.enable = true;
       services.mitmproxy.trustCA = true;
-      services.cockpit = {
+      services.webmin = {
         enable = true;
         openFirewall = false;
-        allowed-origins = [ "*" ];
-        settings.WebService.LoginTo = false;
-      };
-      systemd.services = {
-        "cockpit-wsinstance-http" = {
-          overrideStrategy = "asDropin";
-          serviceConfig = {
-            # Skip Cockpit's PAM login only on the service UI; the firewall remains closed and the bridge runs as the primary local user.
-            # Source: cockpit-ws(8) --local-session.
-            DynamicUser = lib.mkForce false;
-            User = config.preferences.user.username;
-            Environment = "XDG_DATA_DIRS=${config.services.cockpit.package}/share:/run/current-system/sw/share";
-            ExecStart = lib.mkForce [
-              ""
-              "${config.services.cockpit.package}/libexec/cockpit-ws --local-session=${config.services.cockpit.package}/bin/cockpit-bridge --port=0"
-            ];
-          };
-        };
-        "cockpit-wsinstance-https@" = {
-          overrideStrategy = "asDropin";
-          serviceConfig = {
-            # cockpit-tls normally dispatches browser traffic here, even for :9090; keep this in local-session too.
-            # Source: cockpit-ws(8) --local-session.
-            DynamicUser = lib.mkForce false;
-            User = config.preferences.user.username;
-            Environment = "XDG_DATA_DIRS=${config.services.cockpit.package}/share:/run/current-system/sw/share";
-            ExecStart = lib.mkForce [
-              ""
-              "${config.services.cockpit.package}/libexec/cockpit-ws --for-tls-proxy --local-session=${config.services.cockpit.package}/bin/cockpit-bridge --port=0"
-            ];
-          };
-        };
       };
       services.ntfy-sh = {
         enable = true;

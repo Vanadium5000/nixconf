@@ -122,6 +122,11 @@ let
         "vpn-proxy"
         "enable"
       ];
+      webmin = [
+        "services"
+        "webmin"
+        "enable"
+      ];
     };
 
     programs = { };
@@ -182,6 +187,7 @@ in
         unison = self.nixosModules.unison;
         virtualisation = self.nixosModules.virtualisation;
         vpn-proxy-service = self.nixosModules.vpn-proxy-service;
+        webmin = self.nixosModules.webmin;
       };
 
       hosts = {
