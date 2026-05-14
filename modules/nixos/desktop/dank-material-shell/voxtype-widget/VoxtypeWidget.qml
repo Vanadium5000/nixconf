@@ -11,6 +11,11 @@ PluginComponent {
 
     readonly property string voxtypeCommand: "__VOXTYPE__"
     readonly property string systemctlCommand: "__SYSTEMCTL__"
+    readonly property string shellCommand: "__SH__"
+    readonly property string wtypeCommand: "__WTYPE__"
+    readonly property string wlCopyCommand: "__WL_COPY__"
+    readonly property string notifySendCommand: "__NOTIFY_SEND__"
+    readonly property string outputFile: "/tmp/voxtype-widget-transcript.txt"
     readonly property int refreshInterval: 750
 
     property string currentState: "stopped"
@@ -18,9 +23,16 @@ PluginComponent {
     property string configSummary: "Loading configuration..."
     property string modelsSummary: "Loading models..."
     property string checkSummary: "Run a check to see setup status."
+    property string lastTranscript: ""
     property string pendingRecordAction: ""
+    property string activeRecordAction: ""
     property bool commandBusy: false
     property bool statusFailed: false
+    property bool outputHandled: false
+    property int transcriptReadAttempts: 0
+    property bool autoType: false
+    property bool autoCopy: true
+    property bool autoNotify: false
 
     readonly property bool isReady: currentState === "idle"
     readonly property bool isRecording: currentState === "recording"
@@ -38,6 +50,12 @@ PluginComponent {
         return [root.voxtypeCommand].concat(args || [])
     }
 
+    function recordCommand(action) {
+        if (action === "start")
+            return [root.shellCommand, "-c", "rm -f " + root.escapedPath(root.outputFile) + "; exec " + root.escapedPath(root.voxtypeCommand) + " record start --file=" + root.escapedPath(root.outputFile)]
+        return commandLine(["record", action])
+    }
+
     function refreshStatus() {
         if (!statusProcess.running)
             statusProcess.running = true
@@ -53,8 +71,24 @@ PluginComponent {
             return
         }
         commandBusy = true
-        recordProcess.command = commandLine(["record", action])
+        if (action === "start")
+            outputHandled = false
+        activeRecordAction = action
+        recordProcess.command = recordCommand(action)
         recordProcess.running = true
+    }
+
+    function loadSettings() {
+        if (!pluginService || !pluginService.loadPluginData)
+            return
+        autoType = pluginService.loadPluginData("voxtypeWidget", "autoType", false) === true
+        autoCopy = pluginService.loadPluginData("voxtypeWidget", "autoCopy", true) !== false
+        autoNotify = pluginService.loadPluginData("voxtypeWidget", "autoNotify", false) === true
+    }
+
+    function saveSetting(key, value) {
+        if (pluginService && pluginService.savePluginData)
+            pluginService.savePluginData("voxtypeWidget", key, value)
     }
 
     function refreshDetails() {
@@ -83,17 +117,63 @@ PluginComponent {
         return ""
     }
 
+    function valueInSection(text, section, key) {
+        const lines = (text || "").split("\n")
+        let active = ""
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i].trim()
+            if (line.length === 0)
+                continue
+            if (line[0] === "[") {
+                active = line.replace("[", "").replace("]", "")
+                continue
+            }
+            if (active === section && line.indexOf(key + " =") === 0)
+                return line.substring(line.indexOf("=") + 1).trim()
+        }
+        return ""
+    }
+
     function summarizeConfig(text) {
-        const model = firstMatchingLine(text, ["model ="])
-        const engine = firstMatchingLine(text, ["engine ="])
-        const output = firstMatchingLine(text, ["mode ="])
+        const model = valueInSection(text, "whisper", "model")
+        const engine = valueInSection(text, "engine", "engine")
+        const output = valueInSection(text, "output", "mode")
         const stateFile = firstMatchingLine(text, ["(resolves to:"])
         const parts = []
-        if (engine) parts.push(engine.replace("engine =", "Engine:"))
-        if (model) parts.push(model.replace("model =", "Model:"))
-        if (output) parts.push(output.replace("mode =", "Output:"))
+        if (engine) parts.push("Engine: " + engine)
+        if (model) parts.push("Model: " + model)
+        if (output) parts.push("Output: " + output)
         if (stateFile) parts.push(stateFile.replace("(resolves to:", "State:").replace(")", ""))
         return parts.length ? parts.join("\n") : "No config details returned."
+    }
+
+    function escapedPath(path) {
+        return "'" + String(path).replace(/'/g, "'\\''") + "'"
+    }
+
+    function processTranscript(text) {
+        const clean = (text || "").trim()
+        if (clean.length === 0)
+            return
+        outputHandled = true
+        readTranscriptTimer.stop()
+        lastTranscript = clean
+        if (autoCopy)
+            copyProcess.running = true
+        if (autoType)
+            typeProcess.running = true
+        if (autoNotify)
+            notifyProcess.running = true
+    }
+
+    function maybeReadTranscript() {
+        if (!outputHandled && !readTranscriptProcess.running)
+            readTranscriptProcess.running = true
+    }
+
+    function waitForTranscript() {
+        transcriptReadAttempts = 0
+        readTranscriptTimer.restart()
     }
 
     function summarizeModels(text) {
@@ -113,9 +193,12 @@ PluginComponent {
     }
 
     Component.onCompleted: {
+        loadSettings()
         refreshStatus()
         refreshDetails()
     }
+
+    onPluginServiceChanged: loadSettings()
 
     Timer {
         interval: root.refreshInterval
@@ -141,9 +224,12 @@ PluginComponent {
             onStreamFinished: {
                 const state = statusCollector.text.trim()
                 if (state.length > 0) {
+                    const oldState = root.currentState
                     root.previousState = root.currentState
                     root.currentState = state
                     root.statusFailed = false
+                    if ((oldState === "transcribing" || oldState === "outputting") && state === "idle")
+                        root.waitForTranscript()
                 }
             }
         }
@@ -159,8 +245,12 @@ PluginComponent {
         running: false
         onExited: exitCode => {
             root.commandBusy = false
-            if (exitCode !== 0)
+            if (exitCode !== 0) {
                 console.warn("VoxtypeWidget: record command failed", exitCode, recordStderr.text.trim())
+            } else if (root.activeRecordAction === "stop") {
+                root.waitForTranscript()
+            }
+            root.activeRecordAction = ""
             root.refreshStatus()
         }
 
@@ -196,9 +286,66 @@ PluginComponent {
                 root.commandBusy = false
                 return
             }
-            recordProcess.command = root.commandLine(["record", root.pendingRecordAction])
+            if (root.pendingRecordAction === "start")
+                root.outputHandled = false
+            root.activeRecordAction = root.pendingRecordAction
+            recordProcess.command = root.recordCommand(root.pendingRecordAction)
             root.pendingRecordAction = ""
             recordProcess.running = true
+        }
+    }
+
+    Timer {
+        id: readTranscriptTimer
+        interval: 1000
+        repeat: true
+        onTriggered: {
+            if (root.outputHandled || root.transcriptReadAttempts >= 90) {
+                stop()
+                return
+            }
+            root.transcriptReadAttempts += 1
+            root.maybeReadTranscript()
+        }
+    }
+
+    Process {
+        id: readTranscriptProcess
+        command: [root.shellCommand, "-c", "[ -s " + root.escapedPath(root.outputFile) + " ] && cat " + root.escapedPath(root.outputFile) + " || true"]
+        running: false
+        stdout: StdioCollector {
+            id: transcriptCollector
+            onStreamFinished: root.processTranscript(transcriptCollector.text)
+        }
+    }
+
+    Process {
+        id: copyProcess
+        command: [root.shellCommand, "-c", root.wlCopyCommand + " < " + root.escapedPath(root.outputFile)]
+        running: false
+        onExited: exitCode => {
+            if (exitCode !== 0)
+                console.warn("VoxtypeWidget: clipboard copy failed", exitCode)
+        }
+    }
+
+    Process {
+        id: typeProcess
+        command: [root.shellCommand, "-c", root.wtypeCommand + " -- \"$(cat " + root.escapedPath(root.outputFile) + ")\""]
+        running: false
+        onExited: exitCode => {
+            if (exitCode !== 0)
+                console.warn("VoxtypeWidget: auto type failed", exitCode)
+        }
+    }
+
+    Process {
+        id: notifyProcess
+        command: [root.shellCommand, "-c", root.notifySendCommand + " 'Voxtype' \"$(cat " + root.escapedPath(root.outputFile) + ")\""]
+        running: false
+        onExited: exitCode => {
+            if (exitCode !== 0)
+                console.warn("VoxtypeWidget: notification failed", exitCode)
         }
     }
 
@@ -353,6 +500,92 @@ PluginComponent {
                     enabled: !root.commandBusy && (root.isRecording || root.isTranscribing)
                     Layout.fillWidth: true
                     onClicked: root.runRecordCommand("cancel")
+                }
+            }
+
+            StyledRect {
+                width: parent.width
+                height: outputSettingsColumn.implicitHeight + Theme.spacingM * 2
+                radius: Theme.cornerRadius
+                color: Theme.surfaceContainerHigh
+
+                Column {
+                    id: outputSettingsColumn
+                    width: parent.width - Theme.spacingM * 2
+                    x: Theme.spacingM
+                    y: Theme.spacingM
+                    spacing: Theme.spacingXS
+
+                    StyledText {
+                        text: "Output"
+                        font.pixelSize: Theme.fontSizeMedium
+                        font.weight: Font.Medium
+                        color: Theme.surfaceText
+                    }
+
+                    DankToggle {
+                        width: parent.width
+                        text: "Auto copy"
+                        description: "Copy the transcription to the clipboard."
+                        checked: root.autoCopy
+                        onToggled: checked => {
+                            root.autoCopy = checked
+                            root.saveSetting("autoCopy", checked)
+                        }
+                    }
+
+                    DankToggle {
+                        width: parent.width
+                        text: "Auto type"
+                        description: "Type the transcription at the cursor."
+                        checked: root.autoType
+                        onToggled: checked => {
+                            root.autoType = checked
+                            root.saveSetting("autoType", checked)
+                        }
+                    }
+
+                    DankToggle {
+                        width: parent.width
+                        text: "Notify result"
+                        description: "Show a notification with the transcription."
+                        checked: root.autoNotify
+                        onToggled: checked => {
+                            root.autoNotify = checked
+                            root.saveSetting("autoNotify", checked)
+                        }
+                    }
+                }
+            }
+
+            StyledRect {
+                width: parent.width
+                height: lastTranscriptColumn.implicitHeight + Theme.spacingM * 2
+                radius: Theme.cornerRadius
+                color: Theme.surfaceContainerHigh
+                visible: root.lastTranscript.length > 0
+
+                Column {
+                    id: lastTranscriptColumn
+                    width: parent.width - Theme.spacingM * 2
+                    x: Theme.spacingM
+                    y: Theme.spacingM
+                    spacing: Theme.spacingXS
+
+                    StyledText {
+                        text: "Last transcript"
+                        font.pixelSize: Theme.fontSizeMedium
+                        font.weight: Font.Medium
+                        color: Theme.surfaceText
+                    }
+
+                    StyledText {
+                        width: parent.width
+                        text: root.lastTranscript
+                        font.pixelSize: Theme.fontSizeSmall
+                        color: Theme.surfaceVariantText
+                        wrapMode: Text.WordWrap
+                    }
                 }
             }
 

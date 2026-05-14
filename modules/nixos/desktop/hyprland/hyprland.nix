@@ -354,7 +354,9 @@
           (kb "${mod} ${altMod},M" "exec, ${
             getExe self.packages.${pkgs.stdenv.hostPlatform.system}.toggle-lyrics-overlay
           }" "Toggle lyrics overlay" "Tools")
-          (kb "${mod},I" "exec, dms ipc call inhibit toggle" "Toggle suspend inhibitor" "Tools")
+          (kb "${mod},I" "exec, ${
+            getExe self.packages.${pkgs.stdenv.hostPlatform.system}.dms-idle-inhibit
+          } toggle" "Toggle persistent idle inhibitor" "Tools")
         ];
 
         # ── Accessibility ──

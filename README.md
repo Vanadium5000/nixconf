@@ -161,13 +161,16 @@ Key Hyprland bindings call DMS through IPC rather than starting replaced tools:
 | `SUPER+SHIFT+D` | `dms ipc call dock toggle`           |
 | `SUPER+L`       | `dms ipc call lock lock`             |
 | `SUPER+X`       | `dms ipc call powermenu toggle`      |
-| `SUPER+I`       | `dms ipc call inhibit toggle`        |
+| `SUPER+I`       | `dms-idle-inhibit toggle`            |
 | `SUPER+Y`       | `toggle-lyrics-overlay`              |
 
 The DMS module pins `programs.dank-material-shell.dgop.package` to
 `pkgs.unstable.dgop` because upstream DMS expects the newer `dgop` package
-surface. DMS has an idle/suspend inhibitor IPC, but no documented lid-close
-policy API; lid-close behavior remains a system policy concern.
+surface. A local `idleInhibit` DMS plugin replaces the built-in inhibitor UI and
+talks to the `dms-idle-inhibit` CLI. The CLI stores its enabled state under
+`$XDG_STATE_HOME`, starts a `dms-idle-inhibitor.service` user unit, and uses
+`systemd-inhibit` for idle, sleep, and lid-close inhibition, so it keeps working
+across shell refreshes, relogins, reboots, and while DMS is not running.
 
 ### 🔐 Secrets Management
 

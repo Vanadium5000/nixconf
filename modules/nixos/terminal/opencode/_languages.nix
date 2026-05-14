@@ -2,6 +2,7 @@
 let
   lib = pkgs.lib;
   timeoutSeconds = 20;
+  notifyTimeoutSeconds = 5;
   timeoutBin = "${pkgs.coreutils}/bin/timeout";
   notifySendBin = "${pkgs.libnotify}/bin/notify-send";
 
@@ -30,7 +31,7 @@ let
         status="$?"
 
         if [ "$status" -eq 124 ]; then
-          "${notifySendBin}" \
+          "${timeoutBin}" --foreground --kill-after=1s "${toString notifyTimeoutSeconds}s" "${notifySendBin}" \
             -a "OpenCode" \
             -u critical \
             -t 0 \
@@ -41,7 +42,7 @@ let
     Exit status: $status
     Command: $renderedCommand"
         else
-          "${notifySendBin}" \
+          "${timeoutBin}" --foreground --kill-after=1s "${toString notifyTimeoutSeconds}s" "${notifySendBin}" \
             -a "OpenCode" \
             -u critical \
             -t 0 \
@@ -69,7 +70,13 @@ let
 
     status="$?"
 
-    "${notifySendBin}" \
+    case "$status" in
+      129|130|143)
+        exit "$status"
+        ;;
+    esac
+
+    "${timeoutBin}" --foreground --kill-after=1s "${toString notifyTimeoutSeconds}s" "${notifySendBin}" \
       -a "OpenCode" \
       -u critical \
       -t 0 \

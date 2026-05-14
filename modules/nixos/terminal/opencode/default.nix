@@ -182,7 +182,7 @@
       baseConfig = {
         "$schema" = "https://opencode.ai/config.json";
         plugin = pluginsConfig.plugins;
-        small_model = "omniroute/kilo-auto/free";
+        small_model = "omniroute/moonshotai/kimi-k2.6";
         autoupdate = false;
         share = "disabled";
         permission = {

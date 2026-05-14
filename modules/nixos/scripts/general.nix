@@ -317,6 +317,98 @@
         '';
       };
 
+      packages.dms-idle-inhibit = inputs.wrappers.lib.makeWrapper {
+        inherit pkgs;
+        package = pkgs.writeShellScriptBin "dms-idle-inhibit" ''
+          #!/usr/bin/env bash
+          set -euo pipefail
+
+          STATE_DIR="''${XDG_STATE_HOME:-$HOME/.local/state}/dms-idle-inhibit"
+          STATE_FILE="$STATE_DIR/enabled"
+          UNIT="dms-idle-inhibitor.service"
+          SYSTEMCTL="${pkgs.systemd}/bin/systemctl"
+          SYSTEMD_INHIBIT="${pkgs.systemd}/bin/systemd-inhibit"
+          SLEEP="${pkgs.coreutils}/bin/sleep"
+          NOTIFY_SEND="${pkgs.libnotify}/bin/notify-send"
+
+          mkdir -p "$STATE_DIR"
+
+          enabled() {
+            [[ -f "$STATE_FILE" && "$(<"$STATE_FILE")" == "enabled" ]]
+          }
+
+          active() {
+            "$SYSTEMCTL" --user --quiet is-active "$UNIT" 2>/dev/null
+          }
+
+          json_status() {
+            if enabled; then
+              if active; then
+                printf '{"text":"󰌾","class":"active","enabled":true,"active":true,"tooltip":"Idle inhibitor is enabled and running"}\n'
+              else
+                printf '{"text":"󰌾","class":"starting","enabled":true,"active":false,"tooltip":"Idle inhibitor is enabled but not running"}\n'
+              fi
+            else
+              printf '{"text":"󰌿","class":"inactive","enabled":false,"active":false,"tooltip":"Idle inhibitor is disabled"}\n'
+            fi
+          }
+
+          notify() {
+            "$NOTIFY_SEND" "Idle Inhibitor" "$1" 2>/dev/null || true
+          }
+
+          case "''${1:-toggle}" in
+            daemon)
+              enabled || exit 0
+              exec "$SYSTEMD_INHIBIT" \
+                --what=idle:sleep:handle-lid-switch \
+                --who=dms-idle-inhibitor \
+                --why="User-enabled persistent idle/suspend inhibition" \
+                --mode=block \
+                "$SLEEP" infinity
+              ;;
+            enable|on)
+              printf 'enabled\n' > "$STATE_FILE"
+              "$SYSTEMCTL" --user reset-failed "$UNIT" 2>/dev/null || true
+              "$SYSTEMCTL" --user start "$UNIT"
+              notify "Idle, sleep, and lid-close inhibition enabled"
+              json_status
+              ;;
+            disable|off)
+              rm -f "$STATE_FILE"
+              "$SYSTEMCTL" --user stop "$UNIT" 2>/dev/null || true
+              notify "Idle, sleep, and lid-close inhibition disabled"
+              json_status
+              ;;
+            toggle)
+              if enabled; then
+                "$0" disable
+              else
+                "$0" enable
+              fi
+              ;;
+            status|json)
+              json_status
+              ;;
+            is-enabled)
+              enabled
+              ;;
+            is-active)
+              active
+              ;;
+            *)
+              cat <<'EOF'
+          Usage: dms-idle-inhibit [enable|disable|toggle|status|is-enabled|is-active|daemon]
+
+          Persistent systemd-inhibit controller for idle, sleep, and lid-close inhibition.
+          The enabled/disabled preference survives shell refreshes, relogins, and reboots.
+          EOF
+              exit 64
+              ;;
+          esac
+        '';
+      };
+
       packages.openports = inputs.wrappers.lib.makeWrapper {
         inherit pkgs;
         package = pkgs.writeShellScriptBin "openports" ''

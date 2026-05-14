@@ -15,8 +15,13 @@
       selfpkgs = self.packages.${pkgs.stdenv.hostPlatform.system};
       inherit (self) colors;
 
+      idleInhibitPluginDir = ".config/DankMaterialShell/plugins/idleInhibit";
       toggleLidInhibitPluginDir = ".config/DankMaterialShell/plugins/toggleLidInhibit";
       voxtypeWidgetPluginDir = ".config/DankMaterialShell/plugins/voxtypeWidget";
+      idleInhibitPluginQml =
+        builtins.replaceStrings [ "__DMS_IDLE_INHIBIT__" ] [ "${lib.getExe selfpkgs.dms-idle-inhibit}" ]
+          (builtins.readFile ./dank-material-shell/idle-inhibit/IdleInhibitWidget.qml);
+      idleInhibitPluginQmlFile = pkgs.writeText "IdleInhibitWidget.qml" idleInhibitPluginQml;
       toggleLidInhibitPluginQml =
         builtins.replaceStrings
           [ "__LID_STATUS__" "__TOGGLE_LID_INHIBIT__" ]
@@ -30,10 +35,18 @@
           [
             "__VOXTYPE__"
             "__SYSTEMCTL__"
+            "__SH__"
+            "__WTYPE__"
+            "__WL_COPY__"
+            "__NOTIFY_SEND__"
           ]
           [
             "${lib.getExe pkgs.unstable.voxtype}"
             "${pkgs.systemd}/bin/systemctl"
+            "${pkgs.bash}/bin/sh"
+            "${lib.getExe pkgs.wtype}"
+            "${pkgs.wl-clipboard}/bin/wl-copy"
+            "${pkgs.libnotify}/bin/notify-send"
           ]
           (builtins.readFile ./dank-material-shell/voxtype-widget/VoxtypeWidget.qml);
       voxtypeModelsPersistence = self.lib.persistence.mkPersistent {
@@ -41,6 +54,13 @@
         inherit user;
         fileName = "voxtype-models";
         targetFile = "${homeDirectory}/.local/share/voxtype/models";
+        isDirectory = true;
+      };
+      idleInhibitPersistence = self.lib.persistence.mkPersistent {
+        method = "bind";
+        inherit user;
+        fileName = "dms-idle-inhibit";
+        targetFile = "${homeDirectory}/.local/state/dms-idle-inhibit";
         isDirectory = true;
       };
       dmsConfigPersistence = self.lib.persistence.mkPersistent {
@@ -210,11 +230,21 @@
             dmsConfigPersistence.activationScript
             + hyprDmsPersistence.activationScript
             + voxtypeModelsPersistence.activationScript
+            + idleInhibitPersistence.activationScript
             + ''
               HYPR_DMS_DIR="${homeDirectory}/.config/hypr/dms"
               mkdir -p "$HYPR_DMS_DIR"
               ${lib.concatMapStringsSep "\n" (fragment: ''touch "$HYPR_DMS_DIR/${fragment}"'') hyprDmsFragments}
               chown -R ${user}:users "$HYPR_DMS_DIR"
+
+              # ~/.config/DankMaterialShell is itself a persisted bind mount, so
+              # place the locally shipped plugin directly into that live tree as
+              # well as declaring it through hjem below. This keeps it visible in
+              # DMS's plugin picker immediately after rebuild/reboot.
+              IDLE_INHIBIT_PLUGIN_DIR="${homeDirectory}/${idleInhibitPluginDir}"
+              install -D -m 0644 ${./dank-material-shell/idle-inhibit/plugin.json} "$IDLE_INHIBIT_PLUGIN_DIR/plugin.json"
+              install -D -m 0644 ${idleInhibitPluginQmlFile} "$IDLE_INHIBIT_PLUGIN_DIR/IdleInhibitWidget.qml"
+              chown -R ${user}:users "$IDLE_INHIBIT_PLUGIN_DIR"
             '';
           deps = [ "users" ];
         };
@@ -222,9 +252,13 @@
         fileSystems =
           dmsConfigPersistence.fileSystems
           // hyprDmsPersistence.fileSystems
-          // voxtypeModelsPersistence.fileSystems;
+          // voxtypeModelsPersistence.fileSystems
+          // idleInhibitPersistence.fileSystems;
 
-        environment.systemPackages = [ pkgs.unstable.voxtype ];
+        environment.systemPackages = [
+          pkgs.unstable.voxtype
+          selfpkgs.dms-idle-inhibit
+        ];
 
         # DMS registry themes are loaded from <theme>/theme.json; generating only
         # that required file keeps previews optional while making the palette
@@ -239,6 +273,9 @@
           # local widget there matches user-installed plugins and avoids stale
           # system-plugin component caches. Source:
           # https://github.com/AvengeMedia/DankMaterialShell/blob/eb5afcdc40ea5446c27e18552ff4a19f9daf9484/quickshell/Services/PluginService.qml#L21-L29
+          "${idleInhibitPluginDir}/plugin.json".text =
+            builtins.readFile ./dank-material-shell/idle-inhibit/plugin.json;
+          "${idleInhibitPluginDir}/IdleInhibitWidget.qml".text = idleInhibitPluginQml;
           "${toggleLidInhibitPluginDir}/plugin.json".text =
             builtins.readFile ./dank-material-shell/toggle-lid-inhibit/plugin.json;
           "${toggleLidInhibitPluginDir}/ToggleLidInhibitWidget.qml".text = toggleLidInhibitPluginQml;
@@ -284,6 +321,18 @@
 
           serviceConfig = {
             ExecStart = "${lib.getExe pkgs.unstable.voxtype} daemon";
+            Restart = "on-failure";
+            RestartSec = 5;
+          };
+        };
+
+        systemd.user.services.dms-idle-inhibitor = {
+          description = "Persistent idle/sleep/lid inhibitor";
+          wantedBy = [ "default.target" ];
+
+          serviceConfig = {
+            Type = "exec";
+            ExecStart = "${lib.getExe selfpkgs.dms-idle-inhibit} daemon";
             Restart = "on-failure";
             RestartSec = 5;
           };
