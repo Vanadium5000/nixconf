@@ -885,7 +885,19 @@
                 .capabilities.supported_reasoning_efforts?
               ]) as $explicit
               | if ($explicit | length) > 0 then $explicit
-                elif ((.reasoning // .supports_reasoning // .supportsReasoning // false) == true) or has_any(["reasoning", "reasoning_effort", "reasoning.summary", "reasoning.encrypted_content"]) then
+                elif ((
+                  .reasoning
+                  // .supports_reasoning
+                  // .supportsReasoning
+                  // .supports_thinking
+                  // .supportsThinking
+                  // .capabilities.reasoning
+                  // .capabilities.supports_reasoning
+                  // .capabilities.supportsReasoning
+                  // .capabilities.supports_thinking
+                  // .capabilities.supportsThinking
+                  // false
+                ) == true) or has_any(["reasoning", "reasoning_effort", "reasoning.summary", "reasoning.encrypted_content"]) then
                   ["low", "medium", "high"]
                 else
                   []
@@ -963,7 +975,25 @@
                   + (if ($limit | length) > 0 then { limit: $limit } else {} end)
                   + (if ($modalities | length) > 0 then { modalities: $modalities } else {} end)
                   + (if ($efforts | length) > 0 then { reasoning: true, reasoning_effort: $efforts } else {} end)
-                  + (if ((.tool_call // .toolCall // .supports_tools // .supportsTools // false) == true) or (($supported | index("tools")) != null) or (($supported | index("tool_choice")) != null) then { tool_call: true } else {} end))
+                  + (if ((
+                    .tool_call
+                    // .toolCall
+                    // .tool_calling
+                    // .toolCalling
+                    // .supports_tools
+                    // .supportsTools
+                    // .supports_tool_calling
+                    // .supportsToolCalling
+                    // .capabilities.tool_call
+                    // .capabilities.toolCall
+                    // .capabilities.tool_calling
+                    // .capabilities.toolCalling
+                    // .capabilities.supports_tools
+                    // .capabilities.supportsTools
+                    // .capabilities.supports_tool_calling
+                    // .capabilities.supportsToolCalling
+                    // false
+                  ) == true) or (($supported | index("tools")) != null) or (($supported | index("tool_choice")) != null) then { tool_call: true } else {} end))
                 };
 
             def transport_priority:

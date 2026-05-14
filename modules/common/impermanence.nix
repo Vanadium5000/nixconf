@@ -8,8 +8,37 @@
     }:
     let
       inherit (lib)
+        attrNames
+        filterAttrs
+        head
+        length
+        listToAttrs
         mkOption
+        warn
         ;
+
+      dedupePersistenceEntries =
+        kind: entries:
+        let
+          pathAttr = if kind == "directory" then "directory" else "file";
+          entryPath = entry: if builtins.isAttrs entry then entry.${pathAttr} else entry;
+          entryName = entry: "${kind}:${entryPath entry}";
+          grouped = builtins.groupBy entryName entries;
+          duplicateGroups = filterAttrs (_: group: length group > 1) grouped;
+          duplicatePaths = map (name: entryPath (head duplicateGroups.${name})) (attrNames duplicateGroups);
+          deduped = builtins.attrValues (
+            listToAttrs (
+              map (entry: {
+                name = entryName entry;
+                value = entry;
+              }) entries
+            )
+          );
+        in
+        if duplicatePaths == [ ] then
+          entries
+        else
+          warn "impermanence: de-duplicated ${kind} persistence entries for: ${builtins.concatStringsSep ", " duplicatePaths}" deduped;
 
       persistOption =
         description:
@@ -83,54 +112,58 @@
             # present; impermanence maps this option to that mount flag.
             # Source: https://github.com/nix-community/impermanence#persistent
             allowTrash = true;
-            directories = [
-              "/var/log"
-              "/var/lib/bluetooth"
-              "/var/lib/nixos"
-              "/var/lib/systemd/coredump"
-              "/etc/NetworkManager/system-connections"
-            ]
-            ++ cfg.nixos.directories;
-            files = [
-              "/etc/machine-id"
-              {
-                file = "/var/keys/secret_file";
-                parentDirectory = {
-                  mode = "u=rwx,g=,o=";
-                };
-              }
-            ]
-            ++ cfg.nixos.files;
+            directories = dedupePersistenceEntries "directory" (
+              [
+                "/var/log"
+                "/var/lib/bluetooth"
+                "/var/lib/nixos"
+                "/var/lib/systemd/coredump"
+                "/etc/NetworkManager/system-connections"
+              ]
+              ++ cfg.nixos.directories
+            );
+            files = dedupePersistenceEntries "file" (
+              [
+                "/etc/machine-id"
+                {
+                  file = "/var/keys/secret_file";
+                  parentDirectory = {
+                    mode = "u=rwx,g=,o=";
+                  };
+                }
+              ]
+              ++ cfg.nixos.files
+            );
             users.${username} = {
-              directories = [
-                "Media"
-                "Documents"
-                "Downloads"
-                "Shared"
-                "nixconf"
+              directories = dedupePersistenceEntries "directory" (
+                [
+                  "Media"
+                  "Documents"
+                  "Downloads"
+                  "Shared"
+                  "nixconf"
 
-                # Credential storage
-                {
-                  directory = ".gnupg";
-                  mode = "0700";
-                }
-                {
-                  directory = ".ssh";
-                  mode = "0700";
-                }
-                {
-                  directory = ".local/share/keyrings";
-                  mode = "0700";
-                }
-                {
-                  directory = ".local/share/password-store";
-                  mode = "0700";
-                }
-              ]
-              ++ cfg.home.directories;
-              files = [
-              ]
-              ++ cfg.home.files;
+                  # Credential storage
+                  {
+                    directory = ".gnupg";
+                    mode = "0700";
+                  }
+                  {
+                    directory = ".ssh";
+                    mode = "0700";
+                  }
+                  {
+                    directory = ".local/share/keyrings";
+                    mode = "0700";
+                  }
+                  {
+                    directory = ".local/share/password-store";
+                    mode = "0700";
+                  }
+                ]
+                ++ cfg.home.directories
+              );
+              files = dedupePersistenceEntries "file" cfg.home.files;
             };
           };
 
@@ -142,15 +175,17 @@
             # Source: https://github.com/nix-community/impermanence#persistent
             allowTrash = true;
 
-            directories = cfg.nixos.cache.directories;
-            files = cfg.nixos.cache.files;
+            directories = dedupePersistenceEntries "directory" cfg.nixos.cache.directories;
+            files = dedupePersistenceEntries "file" cfg.nixos.cache.files;
             users.${username} = {
-              directories = [
-                ".cache/personalive"
-                "Passlists"
-              ]
-              ++ cfg.home.cache.directories;
-              files = cfg.home.cache.files;
+              directories = dedupePersistenceEntries "directory" (
+                [
+                  ".cache/personalive"
+                  "Passlists"
+                ]
+                ++ cfg.home.cache.directories
+              );
+              files = dedupePersistenceEntries "file" cfg.home.cache.files;
             };
           };
         };

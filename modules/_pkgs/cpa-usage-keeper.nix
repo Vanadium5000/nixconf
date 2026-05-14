@@ -7,12 +7,12 @@
 }:
 
 let
-  version = "1.3.2";
+  version = "1.7.0";
   src = fetchFromGitHub {
     owner = "Willxup";
     repo = "cpa-usage-keeper";
     rev = "v${version}";
-    hash = "sha256-XzLufGRue4tCTEvlHe89yKC+sbBdqj7PFTYeJYd5CH8=";
+    hash = "sha256-WxX086z94wWWR/C7tN+qzRJBF8Rnf3mud17W5QGtGaw=";
   };
 
   web = buildNpmPackage {
@@ -38,7 +38,7 @@ buildGoModule {
 
   # Upstream's Docker build places Vite's production assets at /app/web/dist
   # beside the Go binary so static discovery works in packaged deployments.
-  # Source: https://github.com/Willxup/cpa-usage-keeper/blob/v1.3.2/Dockerfile
+  # Source: https://github.com/Willxup/cpa-usage-keeper/blob/v${version}/Dockerfile
   preBuild = ''
     cp -r ${web}/share/cpa-usage-keeper/web/dist web/dist
   '';
@@ -51,7 +51,7 @@ buildGoModule {
 
   # github.com/mattn/go-sqlite3 requires CGO; upstream Docker installs
   # build-base and builds with CGO_ENABLED=1 for the same reason.
-  # Source: https://github.com/Willxup/cpa-usage-keeper/blob/v1.3.2/Dockerfile
+  # Source: https://github.com/Willxup/cpa-usage-keeper/blob/v${version}/Dockerfile
   env.CGO_ENABLED = "1";
 
   postInstall = ''
@@ -61,6 +61,10 @@ buildGoModule {
     mkdir -p $out/bin/web
     ln -s $out/share/cpa-usage-keeper/web/dist $out/bin/web/dist
   '';
+
+  passthru = {
+    inherit web;
+  };
 
   meta = {
     description = "Persistent CLIProxyAPI usage storage and dashboard";

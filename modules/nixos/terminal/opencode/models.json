@@ -1,11 +1,6 @@
 {
   "providers": {
     "omniroute": {
-      "npm": "@ai-sdk/openai-compatible",
-      "name": "OmniRoute",
-      "options": {
-        "baseURL": "https://omniroute.my-website.space/v1"
-      },
       "models": {
         "01-ai/yi-large": {
           "id": "nvidia/01-ai/yi-large",
@@ -177,15 +172,6 @@
             "upstream_id": "nvidia/google/gemma-3-12b-it"
           },
           "name": "nvidia/google/gemma-3-12b-it"
-        },
-        "google/gemma-3-27b-it": {
-          "id": "nvidia/google/gemma-3-27b-it",
-          "metadata": {
-            "object": "model",
-            "owned_by": "nvidia",
-            "upstream_id": "nvidia/google/gemma-3-27b-it"
-          },
-          "name": "nvidia/google/gemma-3-27b-it"
         },
         "google/gemma-3-4b-it": {
           "id": "nvidia/google/gemma-3-4b-it",
@@ -478,14 +464,14 @@
           },
           "name": "nvidia/ibm/granite-8b-code-instruct"
         },
-        "kilocode/kilocode/auto-free": {
-          "id": "kilocode/kilocode/auto-free",
+        "kilocode/kilo-auto/free": {
+          "id": "kilocode/kilo-auto/free",
           "metadata": {
             "object": "model",
             "owned_by": "kilocode",
-            "upstream_id": "kilocode/kilocode/auto-free"
+            "upstream_id": "kilocode/kilo-auto/free"
           },
-          "name": "kilocode/kilocode/auto-free"
+          "name": "kilocode/kilo-auto/free"
         },
         "meta/codellama-70b": {
           "id": "nvidia/meta/codellama-70b",
@@ -631,15 +617,6 @@
           },
           "name": "nvidia/microsoft/phi-4-multimodal-instruct"
         },
-        "minimaxai/minimax-m2.5": {
-          "id": "nvidia/minimaxai/minimax-m2.5",
-          "metadata": {
-            "object": "model",
-            "owned_by": "nvidia",
-            "upstream_id": "nvidia/minimaxai/minimax-m2.5"
-          },
-          "name": "nvidia/minimaxai/minimax-m2.5"
-        },
         "minimaxai/minimax-m2.7": {
           "id": "nvidia/minimaxai/minimax-m2.7",
           "metadata": {
@@ -765,24 +742,6 @@
             "upstream_id": "nvidia/mistralai/mixtral-8x7b-instruct-v0.1"
           },
           "name": "nvidia/mistralai/mixtral-8x7b-instruct-v0.1"
-        },
-        "moonshotai/kimi-k2-instruct": {
-          "id": "nvidia/moonshotai/kimi-k2-instruct",
-          "metadata": {
-            "object": "model",
-            "owned_by": "nvidia",
-            "upstream_id": "nvidia/moonshotai/kimi-k2-instruct"
-          },
-          "name": "nvidia/moonshotai/kimi-k2-instruct"
-        },
-        "moonshotai/kimi-k2-thinking": {
-          "id": "nvidia/moonshotai/kimi-k2-thinking",
-          "metadata": {
-            "object": "model",
-            "owned_by": "nvidia",
-            "upstream_id": "nvidia/moonshotai/kimi-k2-thinking"
-          },
-          "name": "nvidia/moonshotai/kimi-k2-thinking"
         },
         "moonshotai/kimi-k2.6": {
           "id": "nvidia/moonshotai/kimi-k2.6",
@@ -1252,15 +1211,6 @@
           },
           "name": "nvidia/parakeet-ctc-1.1b-asr"
         },
-        "qwen/qwen2.5-coder-32b-instruct": {
-          "id": "nvidia/qwen/qwen2.5-coder-32b-instruct",
-          "metadata": {
-            "object": "model",
-            "owned_by": "nvidia",
-            "upstream_id": "nvidia/qwen/qwen2.5-coder-32b-instruct"
-          },
-          "name": "nvidia/qwen/qwen2.5-coder-32b-instruct"
-        },
         "qwen/qwen3-coder-480b-a35b-instruct": {
           "id": "nvidia/qwen/qwen3-coder-480b-a35b-instruct",
           "metadata": {
@@ -1405,15 +1355,6 @@
           },
           "name": "nvidia/z-ai/glm-5.1"
         },
-        "z-ai/glm4.7": {
-          "id": "nvidia/z-ai/glm4.7",
-          "metadata": {
-            "object": "model",
-            "owned_by": "nvidia",
-            "upstream_id": "nvidia/z-ai/glm4.7"
-          },
-          "name": "nvidia/z-ai/glm4.7"
-        },
         "z-ai/glm5": {
           "id": "nvidia/z-ai/glm5",
           "metadata": {
@@ -1433,7 +1374,12 @@
           "name": "nvidia/zyphra/zamba2-7b-instruct"
         }
       },
-      "syncedAt": "2026-05-11T20:22:54Z"
+      "name": "OmniRoute",
+      "npm": "@ai-sdk/openai-compatible",
+      "options": {
+        "baseURL": "https://omniroute.my-website.space/v1"
+      },
+      "syncedAt": "2026-05-14T22:49:32Z"
     }
   }
 }

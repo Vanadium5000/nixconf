@@ -13,16 +13,18 @@ in
         # Very strong root password (do NOT hardcode)
         initialRootPasswordFile = pkgs.writeText "mongodb-password" (secrets.MONGODB_PASSWORD);
 
-        # Keep the server on MongoDB 7.x: the persisted database currently has
-        # featureCompatibilityVersion 7.0, and MongoDB 8 refuses to start until
-        # the DB has been explicitly upgraded through the 8.0 procedure.
-        package = pkgs.mongodb-7_0;
+        # Use upstream's current Community Edition package. If an existing DB was
+        # last opened by MongoDB 7.x, first run while still on 7.x:
+        #   nix shell nixpkgs#mongosh -c mongosh --eval 'db.adminCommand({setFeatureCompatibilityVersion: "7.0", confirm: true})'
+        # Then rebuild with this package, start MongoDB 8, and finalize with:
+        #   mongosh --eval 'db.adminCommand({setFeatureCompatibilityVersion: "8.0", confirm: true})'
+        package = pkgs.mongodb-ce;
         # Optional but recommended:
         dbpath = "/var/db/mongodb";
       };
 
       preferences.allowedUnfree = [
-        "mongodb"
+        "mongodb-ce"
         "mongodb-compass"
       ];
       # Persist DB data
