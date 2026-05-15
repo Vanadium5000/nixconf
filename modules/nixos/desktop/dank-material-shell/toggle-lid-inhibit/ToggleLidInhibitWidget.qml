@@ -11,11 +11,12 @@ PluginComponent {
     property string statusClass: "inactive"
     property bool isActive: false
     property bool isBusy: false
+    property string tooltip: "Lid suspend inhibitor is disabled"
     readonly property int refreshInterval: 30000
-    readonly property string statusCommand: "__LID_STATUS__"
-    readonly property string toggleCommand: "__TOGGLE_LID_INHIBIT__"
+    readonly property string inhibitCommand: "__TOGGLE_LID_INHIBIT__"
 
     readonly property string statusIcon: root.isBusy ? "hourglass_empty" : (root.isActive ? "lock_open" : "lock")
+    readonly property color statusColor: root.isActive ? Theme.primary : Theme.widgetIconColor
 
     pillClickAction: () => root.toggleLidInhibit()
 
@@ -23,10 +24,12 @@ PluginComponent {
         try {
             const data = JSON.parse((output || "").trim())
             root.statusClass = data.class || "inactive"
-            root.isActive = root.statusClass === "active"
+            root.isActive = data.active === true || root.statusClass === "active"
+            root.tooltip = data.tooltip || (root.isActive ? "Lid suspend inhibitor is enabled" : "Lid suspend inhibitor is disabled")
         } catch (error) {
             root.statusClass = "inactive"
             root.isActive = false
+            root.tooltip = "Lid suspend inhibitor status could not be read"
             console.warn("ToggleLidInhibit: failed to parse status", error)
         }
     }
@@ -44,12 +47,9 @@ PluginComponent {
         toggleProcess.running = true
     }
 
-    Component.onCompleted: {
-        refreshStatus()
-    }
+    Component.onCompleted: refreshStatus()
 
     Timer {
-        id: refreshTimer
         interval: root.refreshInterval
         running: true
         repeat: true
@@ -58,33 +58,34 @@ PluginComponent {
 
     Process {
         id: statusProcess
-        command: [root.statusCommand]
+        command: [root.inhibitCommand, "status"]
         running: false
 
         stdout: StdioCollector {
             id: statusCollector
-            onStreamFinished: {
-                root.applyStatus(statusCollector.text)
-            }
+            onStreamFinished: root.applyStatus(statusCollector.text)
         }
 
         onExited: exitCode => {
-            if (exitCode !== 0) {
+            if (exitCode !== 0)
                 console.warn("ToggleLidInhibit: status command failed with code", exitCode)
-            }
         }
     }
 
     Process {
         id: toggleProcess
-        command: [root.toggleCommand]
+        command: [root.inhibitCommand, "toggle"]
         running: false
+
+        stdout: StdioCollector {
+            id: toggleCollector
+            onStreamFinished: root.applyStatus(toggleCollector.text)
+        }
 
         onExited: exitCode => {
             root.isBusy = false
-            if (exitCode !== 0) {
+            if (exitCode !== 0)
                 console.warn("ToggleLidInhibit: toggle command failed with code", exitCode)
-            }
             root.refreshStatus()
         }
     }
@@ -98,7 +99,7 @@ PluginComponent {
                 id: icon
                 name: root.statusIcon
                 size: Theme.barIconSize(root.barThickness, -4)
-                color: root.isActive ? Theme.primary : Theme.widgetIconColor
+                color: root.statusColor
                 anchors.centerIn: parent
             }
         }
@@ -113,7 +114,7 @@ PluginComponent {
                 id: icon
                 name: root.statusIcon
                 size: Theme.barIconSize(root.barThickness)
-                color: root.isActive ? Theme.primary : Theme.widgetIconColor
+                color: root.statusColor
                 anchors.centerIn: parent
             }
         }

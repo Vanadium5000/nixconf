@@ -1,7 +1,7 @@
 {
   "id": "idleInhibit",
   "name": "Idle Inhibit",
-  "description": "Persistent idle/sleep/lid inhibitor backed by a user service",
+  "description": "Persistent idle and sleep inhibitor backed by a user service",
   "version": "0.1.0",
   "author": "nixconf",
   "type": "widget",

@@ -169,7 +169,7 @@ The DMS module pins `programs.dank-material-shell.dgop.package` to
 surface. A local `idleInhibit` DMS plugin replaces the built-in inhibitor UI and
 talks to the `dms-idle-inhibit` CLI. The CLI stores its enabled state under
 `$XDG_STATE_HOME`, starts a `dms-idle-inhibitor.service` user unit, and uses
-`systemd-inhibit` for idle, sleep, and lid-close inhibition, so it keeps working
+`systemd-inhibit` for idle and sleep inhibition, so it keeps working
 across shell refreshes, relogins, reboots, and while DMS is not running.
 
 ### 🔐 Secrets Management

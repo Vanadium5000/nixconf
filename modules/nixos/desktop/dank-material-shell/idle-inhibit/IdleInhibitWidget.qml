@@ -12,7 +12,7 @@ PluginComponent {
     property bool isEnabled: false
     property bool isActive: false
     property bool isBusy: false
-    property string tooltip: "Idle inhibitor is disabled"
+    property string tooltip: "Idle and sleep inhibitor is disabled"
     readonly property int refreshInterval: 5000
     readonly property string inhibitCommand: "__DMS_IDLE_INHIBIT__"
 
@@ -27,12 +27,12 @@ PluginComponent {
             root.statusClass = data.class || "inactive"
             root.isEnabled = data.enabled === true || root.statusClass === "active" || root.statusClass === "starting"
             root.isActive = data.active === true || root.statusClass === "active"
-            root.tooltip = data.tooltip || (root.isEnabled ? "Idle inhibitor is enabled" : "Idle inhibitor is disabled")
+            root.tooltip = data.tooltip || (root.isEnabled ? "Idle and sleep inhibitor is enabled" : "Idle and sleep inhibitor is disabled")
         } catch (error) {
             root.statusClass = "inactive"
             root.isEnabled = false
             root.isActive = false
-            root.tooltip = "Idle inhibitor status could not be read"
+            root.tooltip = "Idle and sleep inhibitor status could not be read"
             console.warn("IdleInhibit: failed to parse status", error)
         }
     }

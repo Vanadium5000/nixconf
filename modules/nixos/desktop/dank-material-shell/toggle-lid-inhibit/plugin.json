@@ -1,7 +1,7 @@
 {
   "id": "toggleLidInhibit",
   "name": "Lid Inhibit",
-  "description": "Show and toggle suspend-on-lid-close inhibition",
+  "description": "Show and toggle lid-close suspend inhibition",
   "version": "0.1.0",
   "author": "nixconf",
   "type": "widget",

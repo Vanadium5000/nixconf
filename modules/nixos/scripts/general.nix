@@ -268,52 +268,96 @@
         inherit pkgs;
         package = pkgs.writeShellScriptBin "toggle-lid-inhibit" ''
           #!/usr/bin/env bash
+          set -euo pipefail
 
-          PID_FILE="$HOME/.local/share/lid-inhibit.pid"
+          STATE_DIR="''${XDG_STATE_HOME:-$HOME/.local/state}/lid-inhibit"
+          PID_FILE="$STATE_DIR/inhibitor.pid"
           SYSTEMD_INHIBIT="${pkgs.systemd}/bin/systemd-inhibit"
           SLEEP="${pkgs.coreutils}/bin/sleep"
           NOTIFY_SEND="${pkgs.libnotify}/bin/notify-send"
 
-          if [ -f "$PID_FILE" ]; then
-              PID=$(cat "$PID_FILE")
-              if kill -0 "$PID" 2>/dev/null; then
-                  kill "$PID" 2>/dev/null || true
-                  rm -f "$PID_FILE"
-                  $NOTIFY_SEND "Lid Inhibit" "Suspend inhibitator on lid close disabled"
-                  echo "Disabled suspend inhibitator on lid close"
-              else
-                  rm -f "$PID_FILE"
-                  echo "Stale PID removed; run again to enable"
-              fi
-          else
-              mkdir -p "$(dirname "$PID_FILE")"
-              # Use exec to replace the shell process with systemd-inhibit
-              (exec $SYSTEMD_INHIBIT --what=handle-lid-switch --who=dms-lid --why="Lid close suspend inhibited" --mode=block $SLEEP infinity) &
-              INHIBIT_PID=$!
-              echo $INHIBIT_PID > "$PID_FILE"
-              $NOTIFY_SEND "Lid Inhibit" "Suspend inhibitator on lid close enabled"
-              echo "Enabled suspend inhibitator on lid close (PID: $INHIBIT_PID)"
-          fi
-        '';
-      };
+          mkdir -p "$STATE_DIR"
 
-      packages.lid-status = inputs.wrappers.lib.makeWrapper {
-        inherit pkgs;
-        package = pkgs.writeShellScriptBin "lid-status" ''
-          #!/usr/bin/env bash
+          active() {
+            [[ -f "$PID_FILE" ]] || return 1
 
-          PID_FILE="$HOME/.local/share/lid-inhibit.pid"
-          if [ -f "$PID_FILE" ]; then
-              PID=$(cat "$PID_FILE")
-              if kill -0 "$PID" 2>/dev/null; then
-                  echo '{"text": "🔓", "class": "active"}'
+            local pid
+            pid="$(<"$PID_FILE")"
+            if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
+              return 0
+            fi
+
+            rm -f "$PID_FILE"
+            return 1
+          }
+
+          json_status() {
+            if active; then
+              printf '{"text":"🔓","class":"active","active":true,"tooltip":"Lid suspend inhibitor is enabled"}\n'
+            else
+              printf '{"text":"🔒","class":"inactive","active":false,"tooltip":"Lid suspend inhibitor is disabled"}\n'
+            fi
+          }
+
+          notify() {
+            "$NOTIFY_SEND" "Lid Inhibit" "$1" 2>/dev/null || true
+          }
+
+          enable() {
+            if active; then
+              json_status
+              return
+            fi
+
+            (exec "$SYSTEMD_INHIBIT" \
+              --what=handle-lid-switch \
+              --who=dms-lid-inhibitor \
+              --why="User-enabled lid-close suspend inhibition" \
+              --mode=block \
+              "$SLEEP" infinity) &
+            printf '%s\n' "$!" > "$PID_FILE"
+            notify "Lid-close suspend inhibition enabled"
+            json_status
+          }
+
+          disable() {
+            if active; then
+              kill "$(<"$PID_FILE")" 2>/dev/null || true
+            fi
+            rm -f "$PID_FILE"
+            notify "Lid-close suspend inhibition disabled"
+            json_status
+          }
+
+          case "''${1:-toggle}" in
+            enable|on)
+              enable
+              ;;
+            disable|off)
+              disable
+              ;;
+            toggle)
+              if active; then
+                disable
               else
-                  rm -f "$PID_FILE"
-                  echo '{"text": "🔒", "class": "inactive"}'
+                enable
               fi
-          else
-              echo '{"text": "🔒", "class": "inactive"}'
-          fi
+              ;;
+            status|json)
+              json_status
+              ;;
+            is-active)
+              active
+              ;;
+            *)
+              cat <<'EOF'
+          Usage: toggle-lid-inhibit [enable|disable|toggle|status|is-active]
+
+          Persistent systemd-inhibit controller for lid-close suspend inhibition.
+          EOF
+              exit 64
+              ;;
+          esac
         '';
       };
 
@@ -361,7 +405,7 @@
             daemon)
               enabled || exit 0
               exec "$SYSTEMD_INHIBIT" \
-                --what=idle:sleep:handle-lid-switch \
+                --what=idle:sleep \
                 --who=dms-idle-inhibitor \
                 --why="User-enabled persistent idle/suspend inhibition" \
                 --mode=block \
@@ -371,13 +415,13 @@
               printf 'enabled\n' > "$STATE_FILE"
               "$SYSTEMCTL" --user reset-failed "$UNIT" 2>/dev/null || true
               "$SYSTEMCTL" --user start "$UNIT"
-              notify "Idle, sleep, and lid-close inhibition enabled"
+              notify "Idle and sleep inhibition enabled"
               json_status
               ;;
             disable|off)
               rm -f "$STATE_FILE"
               "$SYSTEMCTL" --user stop "$UNIT" 2>/dev/null || true
-              notify "Idle, sleep, and lid-close inhibition disabled"
+              notify "Idle and sleep inhibition disabled"
               json_status
               ;;
             toggle)
@@ -400,7 +444,7 @@
               cat <<'EOF'
           Usage: dms-idle-inhibit [enable|disable|toggle|status|is-enabled|is-active|daemon]
 
-          Persistent systemd-inhibit controller for idle, sleep, and lid-close inhibition.
+          Persistent systemd-inhibit controller for idle and sleep inhibition.
           The enabled/disabled preference survives shell refreshes, relogins, and reboots.
           EOF
               exit 64

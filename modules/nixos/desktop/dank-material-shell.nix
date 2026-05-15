@@ -24,9 +24,8 @@
       idleInhibitPluginQmlFile = pkgs.writeText "IdleInhibitWidget.qml" idleInhibitPluginQml;
       toggleLidInhibitPluginQml =
         builtins.replaceStrings
-          [ "__LID_STATUS__" "__TOGGLE_LID_INHIBIT__" ]
+          [ "__TOGGLE_LID_INHIBIT__" ]
           [
-            "${lib.getExe selfpkgs.lid-status}"
             "${lib.getExe selfpkgs.toggle-lid-inhibit}"
           ]
           (builtins.readFile ./dank-material-shell/toggle-lid-inhibit/ToggleLidInhibitWidget.qml);
@@ -329,7 +328,7 @@
         };
 
         systemd.user.services.dms-idle-inhibitor = {
-          description = "Persistent idle/sleep/lid inhibitor";
+          description = "Persistent idle and sleep inhibitor";
           wantedBy = [ "default.target" ];
 
           serviceConfig = {
