@@ -179,7 +179,7 @@
                   "Webmin — Legion 5i" = [
                     {
                       icon = "mdi-laptop";
-                      href = "https://legion5i:10000";
+                      href = "http://legion5i:10000";
                     }
                   ];
                 }
@@ -187,7 +187,7 @@
                   "Webmin — MacBook" = [
                     {
                       icon = "mdi-laptop";
-                      href = "https://macbook:10000";
+                      href = "http://macbook:10000";
                     }
                   ];
                 }

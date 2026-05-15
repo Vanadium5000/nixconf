@@ -189,9 +189,14 @@
                 rule = "Host(`${dashboardDomain}`)";
                 service = "dashboard";
               };
-              webmin = mkProtectedServiceRouter {
+              webmin = {
+                # Webmin's own login is disabled; keep the public hostname
+                # protected only by the shared edge-auth gateway.
                 rule = "Host(`${webminDomain}`)";
                 service = "webmin";
+                entryPoints = [ "websecure" ];
+                middlewares = [ "services-auth" ];
+                tls = { };
               };
               mitmproxy = mkProtectedServiceRouter {
                 rule = "Host(`${mitmproxyDomain}`)";

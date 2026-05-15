@@ -67,6 +67,7 @@
             env_WEBMIN_CONFIG=${configDir}
             env_WEBMIN_VAR=${varDir}
             atboot=1
+            anonymous=/=root
             denyfile=\.pl$
             log=1
             blockhost_failures=5
@@ -86,7 +87,6 @@
             passwd_mode=0
             preroot=authentic-theme
             passdelay=1
-            login_script=${webminRoot}/login.pl
             logout_script=${webminRoot}/logout.pl
             webprefix=
           '';

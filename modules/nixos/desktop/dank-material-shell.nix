@@ -110,7 +110,9 @@
         model = "base.en"
         language = "en"
         translate = false
-        on_demand_loading = true
+        # Keep the small model resident so external start/stop triggers do not
+        # race the first model load and appear to record/transcribe nothing.
+        on_demand_loading = false
 
         [output]
         mode = "type"

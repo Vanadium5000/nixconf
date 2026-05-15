@@ -9,7 +9,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/01-ai/yi-large"
           },
-          "name": "nvidia/01-ai/yi-large"
+          "name": "nvidia/01-ai/yi-large",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "abacusai/dracarys-llama-3.1-70b-instruct": {
           "id": "nvidia/abacusai/dracarys-llama-3.1-70b-instruct",
@@ -18,7 +25,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/abacusai/dracarys-llama-3.1-70b-instruct"
           },
-          "name": "nvidia/abacusai/dracarys-llama-3.1-70b-instruct"
+          "name": "nvidia/abacusai/dracarys-llama-3.1-70b-instruct",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "adept/fuyu-8b": {
           "id": "nvidia/adept/fuyu-8b",
@@ -27,7 +41,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/adept/fuyu-8b"
           },
-          "name": "nvidia/adept/fuyu-8b"
+          "name": "nvidia/adept/fuyu-8b",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "ai21labs/jamba-1.5-large-instruct": {
           "id": "nvidia/ai21labs/jamba-1.5-large-instruct",
@@ -36,7 +57,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/ai21labs/jamba-1.5-large-instruct"
           },
-          "name": "nvidia/ai21labs/jamba-1.5-large-instruct"
+          "name": "nvidia/ai21labs/jamba-1.5-large-instruct",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "aisingapore/sea-lion-7b-instruct": {
           "id": "nvidia/aisingapore/sea-lion-7b-instruct",
@@ -45,7 +73,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/aisingapore/sea-lion-7b-instruct"
           },
-          "name": "nvidia/aisingapore/sea-lion-7b-instruct"
+          "name": "nvidia/aisingapore/sea-lion-7b-instruct",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "baai/bge-m3": {
           "id": "nvidia/baai/bge-m3",
@@ -54,7 +89,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/baai/bge-m3"
           },
-          "name": "nvidia/baai/bge-m3"
+          "name": "nvidia/baai/bge-m3",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "bigcode/starcoder2-15b": {
           "id": "nvidia/bigcode/starcoder2-15b",
@@ -63,7 +105,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/bigcode/starcoder2-15b"
           },
-          "name": "nvidia/bigcode/starcoder2-15b"
+          "name": "nvidia/bigcode/starcoder2-15b",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "bytedance/seed-oss-36b-instruct": {
           "id": "nvidia/bytedance/seed-oss-36b-instruct",
@@ -72,7 +121,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/bytedance/seed-oss-36b-instruct"
           },
-          "name": "nvidia/bytedance/seed-oss-36b-instruct"
+          "name": "nvidia/bytedance/seed-oss-36b-instruct",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "databricks/dbrx-instruct": {
           "id": "nvidia/databricks/dbrx-instruct",
@@ -81,7 +137,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/databricks/dbrx-instruct"
           },
-          "name": "nvidia/databricks/dbrx-instruct"
+          "name": "nvidia/databricks/dbrx-instruct",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "deepseek-ai/deepseek-coder-6.7b-instruct": {
           "id": "nvidia/deepseek-ai/deepseek-coder-6.7b-instruct",
@@ -90,7 +153,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/deepseek-ai/deepseek-coder-6.7b-instruct"
           },
-          "name": "nvidia/deepseek-ai/deepseek-coder-6.7b-instruct"
+          "name": "nvidia/deepseek-ai/deepseek-coder-6.7b-instruct",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "deepseek-ai/deepseek-v4-flash": {
           "id": "nvidia/deepseek-ai/deepseek-v4-flash",
@@ -99,7 +169,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/deepseek-ai/deepseek-v4-flash"
           },
-          "name": "nvidia/deepseek-ai/deepseek-v4-flash"
+          "name": "nvidia/deepseek-ai/deepseek-v4-flash",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "deepseek-ai/deepseek-v4-pro": {
           "id": "nvidia/deepseek-ai/deepseek-v4-pro",
@@ -108,7 +185,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/deepseek-ai/deepseek-v4-pro"
           },
-          "name": "nvidia/deepseek-ai/deepseek-v4-pro"
+          "name": "nvidia/deepseek-ai/deepseek-v4-pro",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "fastpitch": {
           "id": "nvidia/fastpitch",
@@ -117,7 +201,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/fastpitch"
           },
-          "name": "nvidia/fastpitch"
+          "name": "nvidia/fastpitch",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "google/codegemma-1.1-7b": {
           "id": "nvidia/google/codegemma-1.1-7b",
@@ -126,7 +217,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/google/codegemma-1.1-7b"
           },
-          "name": "nvidia/google/codegemma-1.1-7b"
+          "name": "nvidia/google/codegemma-1.1-7b",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "google/codegemma-7b": {
           "id": "nvidia/google/codegemma-7b",
@@ -135,7 +233,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/google/codegemma-7b"
           },
-          "name": "nvidia/google/codegemma-7b"
+          "name": "nvidia/google/codegemma-7b",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "google/deplot": {
           "id": "nvidia/google/deplot",
@@ -144,7 +249,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/google/deplot"
           },
-          "name": "nvidia/google/deplot"
+          "name": "nvidia/google/deplot",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "google/gemma-2-2b-it": {
           "id": "nvidia/google/gemma-2-2b-it",
@@ -153,7 +265,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/google/gemma-2-2b-it"
           },
-          "name": "nvidia/google/gemma-2-2b-it"
+          "name": "nvidia/google/gemma-2-2b-it",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "google/gemma-2b": {
           "id": "nvidia/google/gemma-2b",
@@ -162,7 +281,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/google/gemma-2b"
           },
-          "name": "nvidia/google/gemma-2b"
+          "name": "nvidia/google/gemma-2b",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "google/gemma-3-12b-it": {
           "id": "nvidia/google/gemma-3-12b-it",
@@ -171,7 +297,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/google/gemma-3-12b-it"
           },
-          "name": "nvidia/google/gemma-3-12b-it"
+          "name": "nvidia/google/gemma-3-12b-it",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "google/gemma-3-4b-it": {
           "id": "nvidia/google/gemma-3-4b-it",
@@ -180,7 +313,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/google/gemma-3-4b-it"
           },
-          "name": "nvidia/google/gemma-3-4b-it"
+          "name": "nvidia/google/gemma-3-4b-it",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "google/gemma-3n-e2b-it": {
           "id": "nvidia/google/gemma-3n-e2b-it",
@@ -189,7 +329,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/google/gemma-3n-e2b-it"
           },
-          "name": "nvidia/google/gemma-3n-e2b-it"
+          "name": "nvidia/google/gemma-3n-e2b-it",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "google/gemma-3n-e4b-it": {
           "id": "nvidia/google/gemma-3n-e4b-it",
@@ -198,7 +345,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/google/gemma-3n-e4b-it"
           },
-          "name": "nvidia/google/gemma-3n-e4b-it"
+          "name": "nvidia/google/gemma-3n-e4b-it",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "google/gemma-4-31b-it": {
           "id": "nvidia/google/gemma-4-31b-it",
@@ -216,7 +370,14 @@
               "text"
             ]
           },
-          "name": "nvidia/google/gemma-4-31b-it"
+          "name": "nvidia/google/gemma-4-31b-it",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "google/recurrentgemma-2b": {
           "id": "nvidia/google/recurrentgemma-2b",
@@ -225,7 +386,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/google/recurrentgemma-2b"
           },
-          "name": "nvidia/google/recurrentgemma-2b"
+          "name": "nvidia/google/recurrentgemma-2b",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "gpt-5.2": {
           "id": "codex/gpt-5.2",
@@ -241,7 +409,14 @@
             "owned_by": "codex",
             "upstream_id": "codex/gpt-5.2"
           },
-          "name": "codex/gpt-5.2"
+          "name": "codex/gpt-5.2",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "gpt-5.3-codex": {
           "id": "codex/gpt-5.3-codex",
@@ -257,7 +432,14 @@
             "owned_by": "codex",
             "upstream_id": "codex/gpt-5.3-codex"
           },
-          "name": "codex/gpt-5.3-codex"
+          "name": "codex/gpt-5.3-codex",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "gpt-5.3-codex-spark": {
           "id": "codex/gpt-5.3-codex-spark",
@@ -273,7 +455,14 @@
             "owned_by": "codex",
             "upstream_id": "codex/gpt-5.3-codex-spark"
           },
-          "name": "codex/gpt-5.3-codex-spark"
+          "name": "codex/gpt-5.3-codex-spark",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "gpt-5.4": {
           "id": "codex/gpt-5.4",
@@ -289,7 +478,14 @@
             "owned_by": "codex",
             "upstream_id": "codex/gpt-5.4"
           },
-          "name": "codex/gpt-5.4"
+          "name": "codex/gpt-5.4",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "gpt-5.4-mini": {
           "id": "codex/gpt-5.4-mini",
@@ -305,7 +501,14 @@
             "owned_by": "codex",
             "upstream_id": "codex/gpt-5.4-mini"
           },
-          "name": "codex/gpt-5.4-mini"
+          "name": "codex/gpt-5.4-mini",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "gpt-5.5": {
           "id": "codex/gpt-5.5",
@@ -326,7 +529,14 @@
               "image"
             ]
           },
-          "name": "codex/gpt-5.5"
+          "name": "codex/gpt-5.5",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "gpt-5.5-high": {
           "id": "codex/gpt-5.5-high",
@@ -351,7 +561,14 @@
               "text"
             ]
           },
-          "name": "codex/gpt-5.5-high"
+          "name": "codex/gpt-5.5-high",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "gpt-5.5-low": {
           "id": "codex/gpt-5.5-low",
@@ -376,7 +593,14 @@
               "text"
             ]
           },
-          "name": "codex/gpt-5.5-low"
+          "name": "codex/gpt-5.5-low",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "gpt-5.5-medium": {
           "id": "codex/gpt-5.5-medium",
@@ -401,7 +625,14 @@
               "text"
             ]
           },
-          "name": "codex/gpt-5.5-medium"
+          "name": "codex/gpt-5.5-medium",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "gpt-5.5-xhigh": {
           "id": "codex/gpt-5.5-xhigh",
@@ -426,7 +657,14 @@
               "text"
             ]
           },
-          "name": "codex/gpt-5.5-xhigh"
+          "name": "codex/gpt-5.5-xhigh",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "ibm/granite-3.0-3b-a800m-instruct": {
           "id": "nvidia/ibm/granite-3.0-3b-a800m-instruct",
@@ -435,7 +673,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/ibm/granite-3.0-3b-a800m-instruct"
           },
-          "name": "nvidia/ibm/granite-3.0-3b-a800m-instruct"
+          "name": "nvidia/ibm/granite-3.0-3b-a800m-instruct",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "ibm/granite-3.0-8b-instruct": {
           "id": "nvidia/ibm/granite-3.0-8b-instruct",
@@ -444,7 +689,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/ibm/granite-3.0-8b-instruct"
           },
-          "name": "nvidia/ibm/granite-3.0-8b-instruct"
+          "name": "nvidia/ibm/granite-3.0-8b-instruct",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "ibm/granite-34b-code-instruct": {
           "id": "nvidia/ibm/granite-34b-code-instruct",
@@ -453,7 +705,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/ibm/granite-34b-code-instruct"
           },
-          "name": "nvidia/ibm/granite-34b-code-instruct"
+          "name": "nvidia/ibm/granite-34b-code-instruct",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "ibm/granite-8b-code-instruct": {
           "id": "nvidia/ibm/granite-8b-code-instruct",
@@ -462,7 +721,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/ibm/granite-8b-code-instruct"
           },
-          "name": "nvidia/ibm/granite-8b-code-instruct"
+          "name": "nvidia/ibm/granite-8b-code-instruct",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "kilocode/kilo-auto/free": {
           "id": "kilocode/kilo-auto/free",
@@ -471,7 +737,14 @@
             "owned_by": "kilocode",
             "upstream_id": "kilocode/kilo-auto/free"
           },
-          "name": "kilocode/kilo-auto/free"
+          "name": "kilocode/kilo-auto/free",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "meta/codellama-70b": {
           "id": "nvidia/meta/codellama-70b",
@@ -480,7 +753,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/meta/codellama-70b"
           },
-          "name": "nvidia/meta/codellama-70b"
+          "name": "nvidia/meta/codellama-70b",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "meta/llama-3.1-70b-instruct": {
           "id": "nvidia/meta/llama-3.1-70b-instruct",
@@ -489,7 +769,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/meta/llama-3.1-70b-instruct"
           },
-          "name": "nvidia/meta/llama-3.1-70b-instruct"
+          "name": "nvidia/meta/llama-3.1-70b-instruct",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "meta/llama-3.1-8b-instruct": {
           "id": "nvidia/meta/llama-3.1-8b-instruct",
@@ -498,7 +785,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/meta/llama-3.1-8b-instruct"
           },
-          "name": "nvidia/meta/llama-3.1-8b-instruct"
+          "name": "nvidia/meta/llama-3.1-8b-instruct",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "meta/llama-3.2-11b-vision-instruct": {
           "id": "nvidia/meta/llama-3.2-11b-vision-instruct",
@@ -507,7 +801,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/meta/llama-3.2-11b-vision-instruct"
           },
-          "name": "nvidia/meta/llama-3.2-11b-vision-instruct"
+          "name": "nvidia/meta/llama-3.2-11b-vision-instruct",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "meta/llama-3.2-1b-instruct": {
           "id": "nvidia/meta/llama-3.2-1b-instruct",
@@ -516,7 +817,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/meta/llama-3.2-1b-instruct"
           },
-          "name": "nvidia/meta/llama-3.2-1b-instruct"
+          "name": "nvidia/meta/llama-3.2-1b-instruct",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "meta/llama-3.2-3b-instruct": {
           "id": "nvidia/meta/llama-3.2-3b-instruct",
@@ -525,7 +833,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/meta/llama-3.2-3b-instruct"
           },
-          "name": "nvidia/meta/llama-3.2-3b-instruct"
+          "name": "nvidia/meta/llama-3.2-3b-instruct",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "meta/llama-3.2-90b-vision-instruct": {
           "id": "nvidia/meta/llama-3.2-90b-vision-instruct",
@@ -534,7 +849,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/meta/llama-3.2-90b-vision-instruct"
           },
-          "name": "nvidia/meta/llama-3.2-90b-vision-instruct"
+          "name": "nvidia/meta/llama-3.2-90b-vision-instruct",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "meta/llama-3.3-70b-instruct": {
           "id": "nvidia/meta/llama-3.3-70b-instruct",
@@ -543,7 +865,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/meta/llama-3.3-70b-instruct"
           },
-          "name": "nvidia/meta/llama-3.3-70b-instruct"
+          "name": "nvidia/meta/llama-3.3-70b-instruct",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "meta/llama-4-maverick-17b-128e-instruct": {
           "id": "nvidia/meta/llama-4-maverick-17b-128e-instruct",
@@ -552,7 +881,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/meta/llama-4-maverick-17b-128e-instruct"
           },
-          "name": "nvidia/meta/llama-4-maverick-17b-128e-instruct"
+          "name": "nvidia/meta/llama-4-maverick-17b-128e-instruct",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "meta/llama-guard-4-12b": {
           "id": "nvidia/meta/llama-guard-4-12b",
@@ -561,7 +897,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/meta/llama-guard-4-12b"
           },
-          "name": "nvidia/meta/llama-guard-4-12b"
+          "name": "nvidia/meta/llama-guard-4-12b",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "meta/llama2-70b": {
           "id": "nvidia/meta/llama2-70b",
@@ -570,7 +913,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/meta/llama2-70b"
           },
-          "name": "nvidia/meta/llama2-70b"
+          "name": "nvidia/meta/llama2-70b",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "microsoft/kosmos-2": {
           "id": "nvidia/microsoft/kosmos-2",
@@ -579,7 +929,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/microsoft/kosmos-2"
           },
-          "name": "nvidia/microsoft/kosmos-2"
+          "name": "nvidia/microsoft/kosmos-2",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "microsoft/phi-3-vision-128k-instruct": {
           "id": "nvidia/microsoft/phi-3-vision-128k-instruct",
@@ -588,7 +945,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/microsoft/phi-3-vision-128k-instruct"
           },
-          "name": "nvidia/microsoft/phi-3-vision-128k-instruct"
+          "name": "nvidia/microsoft/phi-3-vision-128k-instruct",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "microsoft/phi-3.5-moe-instruct": {
           "id": "nvidia/microsoft/phi-3.5-moe-instruct",
@@ -597,7 +961,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/microsoft/phi-3.5-moe-instruct"
           },
-          "name": "nvidia/microsoft/phi-3.5-moe-instruct"
+          "name": "nvidia/microsoft/phi-3.5-moe-instruct",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "microsoft/phi-4-mini-instruct": {
           "id": "nvidia/microsoft/phi-4-mini-instruct",
@@ -606,7 +977,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/microsoft/phi-4-mini-instruct"
           },
-          "name": "nvidia/microsoft/phi-4-mini-instruct"
+          "name": "nvidia/microsoft/phi-4-mini-instruct",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "microsoft/phi-4-multimodal-instruct": {
           "id": "nvidia/microsoft/phi-4-multimodal-instruct",
@@ -615,7 +993,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/microsoft/phi-4-multimodal-instruct"
           },
-          "name": "nvidia/microsoft/phi-4-multimodal-instruct"
+          "name": "nvidia/microsoft/phi-4-multimodal-instruct",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "minimaxai/minimax-m2.7": {
           "id": "nvidia/minimaxai/minimax-m2.7",
@@ -624,7 +1009,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/minimaxai/minimax-m2.7"
           },
-          "name": "nvidia/minimaxai/minimax-m2.7"
+          "name": "nvidia/minimaxai/minimax-m2.7",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "mistralai/codestral-22b-instruct-v0.1": {
           "id": "nvidia/mistralai/codestral-22b-instruct-v0.1",
@@ -633,7 +1025,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/mistralai/codestral-22b-instruct-v0.1"
           },
-          "name": "nvidia/mistralai/codestral-22b-instruct-v0.1"
+          "name": "nvidia/mistralai/codestral-22b-instruct-v0.1",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "mistralai/devstral-2-123b-instruct-2512": {
           "id": "nvidia/mistralai/devstral-2-123b-instruct-2512",
@@ -642,7 +1041,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/mistralai/devstral-2-123b-instruct-2512"
           },
-          "name": "nvidia/mistralai/devstral-2-123b-instruct-2512"
+          "name": "nvidia/mistralai/devstral-2-123b-instruct-2512",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "mistralai/ministral-14b-instruct-2512": {
           "id": "nvidia/mistralai/ministral-14b-instruct-2512",
@@ -651,7 +1057,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/mistralai/ministral-14b-instruct-2512"
           },
-          "name": "nvidia/mistralai/ministral-14b-instruct-2512"
+          "name": "nvidia/mistralai/ministral-14b-instruct-2512",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "mistralai/mistral-7b-instruct-v0.3": {
           "id": "nvidia/mistralai/mistral-7b-instruct-v0.3",
@@ -660,7 +1073,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/mistralai/mistral-7b-instruct-v0.3"
           },
-          "name": "nvidia/mistralai/mistral-7b-instruct-v0.3"
+          "name": "nvidia/mistralai/mistral-7b-instruct-v0.3",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "mistralai/mistral-large": {
           "id": "nvidia/mistralai/mistral-large",
@@ -669,7 +1089,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/mistralai/mistral-large"
           },
-          "name": "nvidia/mistralai/mistral-large"
+          "name": "nvidia/mistralai/mistral-large",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "mistralai/mistral-large-2-instruct": {
           "id": "nvidia/mistralai/mistral-large-2-instruct",
@@ -678,7 +1105,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/mistralai/mistral-large-2-instruct"
           },
-          "name": "nvidia/mistralai/mistral-large-2-instruct"
+          "name": "nvidia/mistralai/mistral-large-2-instruct",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "mistralai/mistral-large-3-675b-instruct-2512": {
           "id": "nvidia/mistralai/mistral-large-3-675b-instruct-2512",
@@ -687,7 +1121,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/mistralai/mistral-large-3-675b-instruct-2512"
           },
-          "name": "nvidia/mistralai/mistral-large-3-675b-instruct-2512"
+          "name": "nvidia/mistralai/mistral-large-3-675b-instruct-2512",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "mistralai/mistral-medium-3.5-128b": {
           "id": "nvidia/mistralai/mistral-medium-3.5-128b",
@@ -696,7 +1137,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/mistralai/mistral-medium-3.5-128b"
           },
-          "name": "nvidia/mistralai/mistral-medium-3.5-128b"
+          "name": "nvidia/mistralai/mistral-medium-3.5-128b",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "mistralai/mistral-nemotron": {
           "id": "nvidia/mistralai/mistral-nemotron",
@@ -705,7 +1153,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/mistralai/mistral-nemotron"
           },
-          "name": "nvidia/mistralai/mistral-nemotron"
+          "name": "nvidia/mistralai/mistral-nemotron",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "mistralai/mistral-small-4-119b-2603": {
           "id": "nvidia/mistralai/mistral-small-4-119b-2603",
@@ -714,7 +1169,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/mistralai/mistral-small-4-119b-2603"
           },
-          "name": "nvidia/mistralai/mistral-small-4-119b-2603"
+          "name": "nvidia/mistralai/mistral-small-4-119b-2603",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "mistralai/mixtral-8x22b-instruct-v0.1": {
           "id": "nvidia/mistralai/mixtral-8x22b-instruct-v0.1",
@@ -723,7 +1185,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/mistralai/mixtral-8x22b-instruct-v0.1"
           },
-          "name": "nvidia/mistralai/mixtral-8x22b-instruct-v0.1"
+          "name": "nvidia/mistralai/mixtral-8x22b-instruct-v0.1",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "mistralai/mixtral-8x22b-v0.1": {
           "id": "nvidia/mistralai/mixtral-8x22b-v0.1",
@@ -732,7 +1201,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/mistralai/mixtral-8x22b-v0.1"
           },
-          "name": "nvidia/mistralai/mixtral-8x22b-v0.1"
+          "name": "nvidia/mistralai/mixtral-8x22b-v0.1",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "mistralai/mixtral-8x7b-instruct-v0.1": {
           "id": "nvidia/mistralai/mixtral-8x7b-instruct-v0.1",
@@ -741,7 +1217,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/mistralai/mixtral-8x7b-instruct-v0.1"
           },
-          "name": "nvidia/mistralai/mixtral-8x7b-instruct-v0.1"
+          "name": "nvidia/mistralai/mixtral-8x7b-instruct-v0.1",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "moonshotai/kimi-k2.6": {
           "id": "nvidia/moonshotai/kimi-k2.6",
@@ -750,7 +1233,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/moonshotai/kimi-k2.6"
           },
-          "name": "nvidia/moonshotai/kimi-k2.6"
+          "name": "nvidia/moonshotai/kimi-k2.6",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "nv-embedqa-e5-v5": {
           "id": "nvidia/nv-embedqa-e5-v5",
@@ -759,7 +1249,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nv-embedqa-e5-v5"
           },
-          "name": "nvidia/nv-embedqa-e5-v5"
+          "name": "nvidia/nv-embedqa-e5-v5",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "nv-mistralai/mistral-nemo-12b-instruct": {
           "id": "nvidia/nv-mistralai/mistral-nemo-12b-instruct",
@@ -768,7 +1265,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nv-mistralai/mistral-nemo-12b-instruct"
           },
-          "name": "nvidia/nv-mistralai/mistral-nemo-12b-instruct"
+          "name": "nvidia/nv-mistralai/mistral-nemo-12b-instruct",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "nv-rerankqa-mistral-4b-v3": {
           "id": "nvidia/nv-rerankqa-mistral-4b-v3",
@@ -777,7 +1281,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nv-rerankqa-mistral-4b-v3"
           },
-          "name": "nvidia/nv-rerankqa-mistral-4b-v3"
+          "name": "nvidia/nv-rerankqa-mistral-4b-v3",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "nvidia/ai-synthetic-video-detector": {
           "id": "nvidia/nvidia/ai-synthetic-video-detector",
@@ -786,7 +1297,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/ai-synthetic-video-detector"
           },
-          "name": "nvidia/nvidia/ai-synthetic-video-detector"
+          "name": "nvidia/nvidia/ai-synthetic-video-detector",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "nvidia/cosmos-reason2-8b": {
           "id": "nvidia/nvidia/cosmos-reason2-8b",
@@ -795,7 +1313,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/cosmos-reason2-8b"
           },
-          "name": "nvidia/nvidia/cosmos-reason2-8b"
+          "name": "nvidia/nvidia/cosmos-reason2-8b",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "nvidia/embed-qa-4": {
           "id": "nvidia/nvidia/embed-qa-4",
@@ -804,7 +1329,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/embed-qa-4"
           },
-          "name": "nvidia/nvidia/embed-qa-4"
+          "name": "nvidia/nvidia/embed-qa-4",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "nvidia/gliner-pii": {
           "id": "nvidia/nvidia/gliner-pii",
@@ -813,7 +1345,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/gliner-pii"
           },
-          "name": "nvidia/nvidia/gliner-pii"
+          "name": "nvidia/nvidia/gliner-pii",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "nvidia/ising-calibration-1-35b-a3b": {
           "id": "nvidia/nvidia/ising-calibration-1-35b-a3b",
@@ -822,7 +1361,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/ising-calibration-1-35b-a3b"
           },
-          "name": "nvidia/nvidia/ising-calibration-1-35b-a3b"
+          "name": "nvidia/nvidia/ising-calibration-1-35b-a3b",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "nvidia/llama-3.1-nemoguard-8b-content-safety": {
           "id": "nvidia/nvidia/llama-3.1-nemoguard-8b-content-safety",
@@ -831,7 +1377,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/llama-3.1-nemoguard-8b-content-safety"
           },
-          "name": "nvidia/nvidia/llama-3.1-nemoguard-8b-content-safety"
+          "name": "nvidia/nvidia/llama-3.1-nemoguard-8b-content-safety",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "nvidia/llama-3.1-nemoguard-8b-topic-control": {
           "id": "nvidia/nvidia/llama-3.1-nemoguard-8b-topic-control",
@@ -840,7 +1393,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/llama-3.1-nemoguard-8b-topic-control"
           },
-          "name": "nvidia/nvidia/llama-3.1-nemoguard-8b-topic-control"
+          "name": "nvidia/nvidia/llama-3.1-nemoguard-8b-topic-control",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "nvidia/llama-3.1-nemotron-51b-instruct": {
           "id": "nvidia/nvidia/llama-3.1-nemotron-51b-instruct",
@@ -849,7 +1409,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/llama-3.1-nemotron-51b-instruct"
           },
-          "name": "nvidia/nvidia/llama-3.1-nemotron-51b-instruct"
+          "name": "nvidia/nvidia/llama-3.1-nemotron-51b-instruct",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "nvidia/llama-3.1-nemotron-70b-instruct": {
           "id": "nvidia/nvidia/llama-3.1-nemotron-70b-instruct",
@@ -858,7 +1425,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/llama-3.1-nemotron-70b-instruct"
           },
-          "name": "nvidia/nvidia/llama-3.1-nemotron-70b-instruct"
+          "name": "nvidia/nvidia/llama-3.1-nemotron-70b-instruct",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "nvidia/llama-3.1-nemotron-nano-8b-v1": {
           "id": "nvidia/nvidia/llama-3.1-nemotron-nano-8b-v1",
@@ -867,7 +1441,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/llama-3.1-nemotron-nano-8b-v1"
           },
-          "name": "nvidia/nvidia/llama-3.1-nemotron-nano-8b-v1"
+          "name": "nvidia/nvidia/llama-3.1-nemotron-nano-8b-v1",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "nvidia/llama-3.1-nemotron-nano-vl-8b-v1": {
           "id": "nvidia/nvidia/llama-3.1-nemotron-nano-vl-8b-v1",
@@ -876,7 +1457,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/llama-3.1-nemotron-nano-vl-8b-v1"
           },
-          "name": "nvidia/nvidia/llama-3.1-nemotron-nano-vl-8b-v1"
+          "name": "nvidia/nvidia/llama-3.1-nemotron-nano-vl-8b-v1",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "nvidia/llama-3.1-nemotron-safety-guard-8b-v3": {
           "id": "nvidia/nvidia/llama-3.1-nemotron-safety-guard-8b-v3",
@@ -885,7 +1473,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/llama-3.1-nemotron-safety-guard-8b-v3"
           },
-          "name": "nvidia/nvidia/llama-3.1-nemotron-safety-guard-8b-v3"
+          "name": "nvidia/nvidia/llama-3.1-nemotron-safety-guard-8b-v3",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "nvidia/llama-3.1-nemotron-ultra-253b-v1": {
           "id": "nvidia/nvidia/llama-3.1-nemotron-ultra-253b-v1",
@@ -894,7 +1489,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/llama-3.1-nemotron-ultra-253b-v1"
           },
-          "name": "nvidia/nvidia/llama-3.1-nemotron-ultra-253b-v1"
+          "name": "nvidia/nvidia/llama-3.1-nemotron-ultra-253b-v1",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "nvidia/llama-3.2-nemoretriever-1b-vlm-embed-v1": {
           "id": "nvidia/nvidia/llama-3.2-nemoretriever-1b-vlm-embed-v1",
@@ -903,7 +1505,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/llama-3.2-nemoretriever-1b-vlm-embed-v1"
           },
-          "name": "nvidia/nvidia/llama-3.2-nemoretriever-1b-vlm-embed-v1"
+          "name": "nvidia/nvidia/llama-3.2-nemoretriever-1b-vlm-embed-v1",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "nvidia/llama-3.2-nemoretriever-300m-embed-v1": {
           "id": "nvidia/nvidia/llama-3.2-nemoretriever-300m-embed-v1",
@@ -912,7 +1521,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/llama-3.2-nemoretriever-300m-embed-v1"
           },
-          "name": "nvidia/nvidia/llama-3.2-nemoretriever-300m-embed-v1"
+          "name": "nvidia/nvidia/llama-3.2-nemoretriever-300m-embed-v1",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "nvidia/llama-3.2-nv-embedqa-1b-v1": {
           "id": "nvidia/nvidia/llama-3.2-nv-embedqa-1b-v1",
@@ -921,7 +1537,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/llama-3.2-nv-embedqa-1b-v1"
           },
-          "name": "nvidia/nvidia/llama-3.2-nv-embedqa-1b-v1"
+          "name": "nvidia/nvidia/llama-3.2-nv-embedqa-1b-v1",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "nvidia/llama-3.2-nv-embedqa-1b-v2": {
           "id": "nvidia/nvidia/llama-3.2-nv-embedqa-1b-v2",
@@ -930,7 +1553,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/llama-3.2-nv-embedqa-1b-v2"
           },
-          "name": "nvidia/nvidia/llama-3.2-nv-embedqa-1b-v2"
+          "name": "nvidia/nvidia/llama-3.2-nv-embedqa-1b-v2",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "nvidia/llama-3.3-nemotron-super-49b-v1": {
           "id": "nvidia/nvidia/llama-3.3-nemotron-super-49b-v1",
@@ -939,7 +1569,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/llama-3.3-nemotron-super-49b-v1"
           },
-          "name": "nvidia/nvidia/llama-3.3-nemotron-super-49b-v1"
+          "name": "nvidia/nvidia/llama-3.3-nemotron-super-49b-v1",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "nvidia/llama-3.3-nemotron-super-49b-v1.5": {
           "id": "nvidia/nvidia/llama-3.3-nemotron-super-49b-v1.5",
@@ -948,7 +1585,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/llama-3.3-nemotron-super-49b-v1.5"
           },
-          "name": "nvidia/nvidia/llama-3.3-nemotron-super-49b-v1.5"
+          "name": "nvidia/nvidia/llama-3.3-nemotron-super-49b-v1.5",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "nvidia/llama-nemotron-embed-1b-v2": {
           "id": "nvidia/nvidia/llama-nemotron-embed-1b-v2",
@@ -957,7 +1601,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/llama-nemotron-embed-1b-v2"
           },
-          "name": "nvidia/nvidia/llama-nemotron-embed-1b-v2"
+          "name": "nvidia/nvidia/llama-nemotron-embed-1b-v2",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "nvidia/llama-nemotron-embed-vl-1b-v2": {
           "id": "nvidia/nvidia/llama-nemotron-embed-vl-1b-v2",
@@ -966,7 +1617,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/llama-nemotron-embed-vl-1b-v2"
           },
-          "name": "nvidia/nvidia/llama-nemotron-embed-vl-1b-v2"
+          "name": "nvidia/nvidia/llama-nemotron-embed-vl-1b-v2",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "nvidia/llama3-chatqa-1.5-70b": {
           "id": "nvidia/nvidia/llama3-chatqa-1.5-70b",
@@ -975,7 +1633,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/llama3-chatqa-1.5-70b"
           },
-          "name": "nvidia/nvidia/llama3-chatqa-1.5-70b"
+          "name": "nvidia/nvidia/llama3-chatqa-1.5-70b",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "nvidia/mistral-nemo-minitron-8b-8k-instruct": {
           "id": "nvidia/nvidia/mistral-nemo-minitron-8b-8k-instruct",
@@ -984,7 +1649,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/mistral-nemo-minitron-8b-8k-instruct"
           },
-          "name": "nvidia/nvidia/mistral-nemo-minitron-8b-8k-instruct"
+          "name": "nvidia/nvidia/mistral-nemo-minitron-8b-8k-instruct",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "nvidia/nemoretriever-parse": {
           "id": "nvidia/nvidia/nemoretriever-parse",
@@ -993,7 +1665,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/nemoretriever-parse"
           },
-          "name": "nvidia/nvidia/nemoretriever-parse"
+          "name": "nvidia/nvidia/nemoretriever-parse",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "nvidia/nemotron-3-content-safety": {
           "id": "nvidia/nvidia/nemotron-3-content-safety",
@@ -1002,7 +1681,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/nemotron-3-content-safety"
           },
-          "name": "nvidia/nvidia/nemotron-3-content-safety"
+          "name": "nvidia/nvidia/nemotron-3-content-safety",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "nvidia/nemotron-3-nano-30b-a3b": {
           "id": "nvidia/nvidia/nemotron-3-nano-30b-a3b",
@@ -1011,7 +1697,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/nemotron-3-nano-30b-a3b"
           },
-          "name": "nvidia/nvidia/nemotron-3-nano-30b-a3b"
+          "name": "nvidia/nvidia/nemotron-3-nano-30b-a3b",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning": {
           "id": "nvidia/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
@@ -1020,7 +1713,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning"
           },
-          "name": "nvidia/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning"
+          "name": "nvidia/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "nvidia/nemotron-3-super-120b-a12b": {
           "id": "nvidia/nvidia/nemotron-3-super-120b-a12b",
@@ -1029,7 +1729,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/nemotron-3-super-120b-a12b"
           },
-          "name": "nvidia/nvidia/nemotron-3-super-120b-a12b"
+          "name": "nvidia/nvidia/nemotron-3-super-120b-a12b",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "nvidia/nemotron-4-340b-instruct": {
           "id": "nvidia/nvidia/nemotron-4-340b-instruct",
@@ -1038,7 +1745,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/nemotron-4-340b-instruct"
           },
-          "name": "nvidia/nvidia/nemotron-4-340b-instruct"
+          "name": "nvidia/nvidia/nemotron-4-340b-instruct",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "nvidia/nemotron-4-340b-reward": {
           "id": "nvidia/nvidia/nemotron-4-340b-reward",
@@ -1047,7 +1761,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/nemotron-4-340b-reward"
           },
-          "name": "nvidia/nvidia/nemotron-4-340b-reward"
+          "name": "nvidia/nvidia/nemotron-4-340b-reward",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "nvidia/nemotron-content-safety-reasoning-4b": {
           "id": "nvidia/nvidia/nemotron-content-safety-reasoning-4b",
@@ -1056,7 +1777,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/nemotron-content-safety-reasoning-4b"
           },
-          "name": "nvidia/nvidia/nemotron-content-safety-reasoning-4b"
+          "name": "nvidia/nvidia/nemotron-content-safety-reasoning-4b",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "nvidia/nemotron-mini-4b-instruct": {
           "id": "nvidia/nvidia/nemotron-mini-4b-instruct",
@@ -1065,7 +1793,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/nemotron-mini-4b-instruct"
           },
-          "name": "nvidia/nvidia/nemotron-mini-4b-instruct"
+          "name": "nvidia/nvidia/nemotron-mini-4b-instruct",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "nvidia/nemotron-nano-12b-v2-vl": {
           "id": "nvidia/nvidia/nemotron-nano-12b-v2-vl",
@@ -1074,7 +1809,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/nemotron-nano-12b-v2-vl"
           },
-          "name": "nvidia/nvidia/nemotron-nano-12b-v2-vl"
+          "name": "nvidia/nvidia/nemotron-nano-12b-v2-vl",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "nvidia/nemotron-nano-3-30b-a3b": {
           "id": "nvidia/nvidia/nemotron-nano-3-30b-a3b",
@@ -1083,7 +1825,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/nemotron-nano-3-30b-a3b"
           },
-          "name": "nvidia/nvidia/nemotron-nano-3-30b-a3b"
+          "name": "nvidia/nvidia/nemotron-nano-3-30b-a3b",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "nvidia/nemotron-parse": {
           "id": "nvidia/nvidia/nemotron-parse",
@@ -1092,7 +1841,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/nemotron-parse"
           },
-          "name": "nvidia/nvidia/nemotron-parse"
+          "name": "nvidia/nvidia/nemotron-parse",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "nvidia/neva-22b": {
           "id": "nvidia/nvidia/neva-22b",
@@ -1101,7 +1857,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/neva-22b"
           },
-          "name": "nvidia/nvidia/neva-22b"
+          "name": "nvidia/nvidia/neva-22b",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "nvidia/nv-embed-v1": {
           "id": "nvidia/nvidia/nv-embed-v1",
@@ -1110,7 +1873,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/nv-embed-v1"
           },
-          "name": "nvidia/nvidia/nv-embed-v1"
+          "name": "nvidia/nvidia/nv-embed-v1",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "nvidia/nv-embedcode-7b-v1": {
           "id": "nvidia/nvidia/nv-embedcode-7b-v1",
@@ -1119,7 +1889,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/nv-embedcode-7b-v1"
           },
-          "name": "nvidia/nvidia/nv-embedcode-7b-v1"
+          "name": "nvidia/nvidia/nv-embedcode-7b-v1",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "nvidia/nv-embedqa-e5-v5": {
           "id": "nvidia/nvidia/nv-embedqa-e5-v5",
@@ -1128,7 +1905,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/nv-embedqa-e5-v5"
           },
-          "name": "nvidia/nvidia/nv-embedqa-e5-v5"
+          "name": "nvidia/nvidia/nv-embedqa-e5-v5",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "nvidia/nv-embedqa-mistral-7b-v2": {
           "id": "nvidia/nvidia/nv-embedqa-mistral-7b-v2",
@@ -1137,7 +1921,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/nv-embedqa-mistral-7b-v2"
           },
-          "name": "nvidia/nvidia/nv-embedqa-mistral-7b-v2"
+          "name": "nvidia/nvidia/nv-embedqa-mistral-7b-v2",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "nvidia/nvclip": {
           "id": "nvidia/nvidia/nvclip",
@@ -1146,7 +1937,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/nvclip"
           },
-          "name": "nvidia/nvidia/nvclip"
+          "name": "nvidia/nvidia/nvclip",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "nvidia/nvidia-nemotron-nano-9b-v2": {
           "id": "nvidia/nvidia/nvidia-nemotron-nano-9b-v2",
@@ -1155,7 +1953,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/nvidia-nemotron-nano-9b-v2"
           },
-          "name": "nvidia/nvidia/nvidia-nemotron-nano-9b-v2"
+          "name": "nvidia/nvidia/nvidia-nemotron-nano-9b-v2",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "nvidia/riva-translate-4b-instruct": {
           "id": "nvidia/nvidia/riva-translate-4b-instruct",
@@ -1164,7 +1969,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/riva-translate-4b-instruct"
           },
-          "name": "nvidia/nvidia/riva-translate-4b-instruct"
+          "name": "nvidia/nvidia/riva-translate-4b-instruct",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "nvidia/riva-translate-4b-instruct-v1.1": {
           "id": "nvidia/nvidia/riva-translate-4b-instruct-v1.1",
@@ -1173,7 +1985,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/riva-translate-4b-instruct-v1.1"
           },
-          "name": "nvidia/nvidia/riva-translate-4b-instruct-v1.1"
+          "name": "nvidia/nvidia/riva-translate-4b-instruct-v1.1",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "nvidia/vila": {
           "id": "nvidia/nvidia/vila",
@@ -1182,7 +2001,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/nvidia/vila"
           },
-          "name": "nvidia/nvidia/vila"
+          "name": "nvidia/nvidia/vila",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "openai/gpt-oss-120b": {
           "id": "nvidia/openai/gpt-oss-120b",
@@ -1191,7 +2017,13 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/openai/gpt-oss-120b"
           },
-          "name": "nvidia/openai/gpt-oss-120b"
+          "name": "nvidia/openai/gpt-oss-120b",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ]
         },
         "openai/gpt-oss-20b": {
           "id": "nvidia/openai/gpt-oss-20b",
@@ -1200,7 +2032,13 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/openai/gpt-oss-20b"
           },
-          "name": "nvidia/openai/gpt-oss-20b"
+          "name": "nvidia/openai/gpt-oss-20b",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ]
         },
         "parakeet-ctc-1.1b-asr": {
           "id": "nvidia/parakeet-ctc-1.1b-asr",
@@ -1209,7 +2047,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/parakeet-ctc-1.1b-asr"
           },
-          "name": "nvidia/parakeet-ctc-1.1b-asr"
+          "name": "nvidia/parakeet-ctc-1.1b-asr",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "qwen/qwen3-coder-480b-a35b-instruct": {
           "id": "nvidia/qwen/qwen3-coder-480b-a35b-instruct",
@@ -1218,7 +2063,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/qwen/qwen3-coder-480b-a35b-instruct"
           },
-          "name": "nvidia/qwen/qwen3-coder-480b-a35b-instruct"
+          "name": "nvidia/qwen/qwen3-coder-480b-a35b-instruct",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "qwen/qwen3-next-80b-a3b-instruct": {
           "id": "nvidia/qwen/qwen3-next-80b-a3b-instruct",
@@ -1227,7 +2079,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/qwen/qwen3-next-80b-a3b-instruct"
           },
-          "name": "nvidia/qwen/qwen3-next-80b-a3b-instruct"
+          "name": "nvidia/qwen/qwen3-next-80b-a3b-instruct",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "qwen/qwen3-next-80b-a3b-thinking": {
           "id": "nvidia/qwen/qwen3-next-80b-a3b-thinking",
@@ -1236,7 +2095,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/qwen/qwen3-next-80b-a3b-thinking"
           },
-          "name": "nvidia/qwen/qwen3-next-80b-a3b-thinking"
+          "name": "nvidia/qwen/qwen3-next-80b-a3b-thinking",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "qwen/qwen3.5-122b-a10b": {
           "id": "nvidia/qwen/qwen3.5-122b-a10b",
@@ -1245,7 +2111,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/qwen/qwen3.5-122b-a10b"
           },
-          "name": "nvidia/qwen/qwen3.5-122b-a10b"
+          "name": "nvidia/qwen/qwen3.5-122b-a10b",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "qwen/qwen3.5-397b-a17b": {
           "id": "nvidia/qwen/qwen3.5-397b-a17b",
@@ -1254,7 +2127,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/qwen/qwen3.5-397b-a17b"
           },
-          "name": "nvidia/qwen/qwen3.5-397b-a17b"
+          "name": "nvidia/qwen/qwen3.5-397b-a17b",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "sarvamai/sarvam-m": {
           "id": "nvidia/sarvamai/sarvam-m",
@@ -1263,7 +2143,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/sarvamai/sarvam-m"
           },
-          "name": "nvidia/sarvamai/sarvam-m"
+          "name": "nvidia/sarvamai/sarvam-m",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "snowflake/arctic-embed-l": {
           "id": "nvidia/snowflake/arctic-embed-l",
@@ -1272,7 +2159,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/snowflake/arctic-embed-l"
           },
-          "name": "nvidia/snowflake/arctic-embed-l"
+          "name": "nvidia/snowflake/arctic-embed-l",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "stepfun-ai/step-3.5-flash": {
           "id": "nvidia/stepfun-ai/step-3.5-flash",
@@ -1281,7 +2175,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/stepfun-ai/step-3.5-flash"
           },
-          "name": "nvidia/stepfun-ai/step-3.5-flash"
+          "name": "nvidia/stepfun-ai/step-3.5-flash",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "stockmark/stockmark-2-100b-instruct": {
           "id": "nvidia/stockmark/stockmark-2-100b-instruct",
@@ -1290,7 +2191,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/stockmark/stockmark-2-100b-instruct"
           },
-          "name": "nvidia/stockmark/stockmark-2-100b-instruct"
+          "name": "nvidia/stockmark/stockmark-2-100b-instruct",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "tacotron2": {
           "id": "nvidia/tacotron2",
@@ -1299,7 +2207,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/tacotron2"
           },
-          "name": "nvidia/tacotron2"
+          "name": "nvidia/tacotron2",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "upstage/solar-10.7b-instruct": {
           "id": "nvidia/upstage/solar-10.7b-instruct",
@@ -1308,7 +2223,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/upstage/solar-10.7b-instruct"
           },
-          "name": "nvidia/upstage/solar-10.7b-instruct"
+          "name": "nvidia/upstage/solar-10.7b-instruct",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "writer/palmyra-creative-122b": {
           "id": "nvidia/writer/palmyra-creative-122b",
@@ -1317,7 +2239,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/writer/palmyra-creative-122b"
           },
-          "name": "nvidia/writer/palmyra-creative-122b"
+          "name": "nvidia/writer/palmyra-creative-122b",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "writer/palmyra-fin-70b-32k": {
           "id": "nvidia/writer/palmyra-fin-70b-32k",
@@ -1326,7 +2255,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/writer/palmyra-fin-70b-32k"
           },
-          "name": "nvidia/writer/palmyra-fin-70b-32k"
+          "name": "nvidia/writer/palmyra-fin-70b-32k",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "writer/palmyra-med-70b": {
           "id": "nvidia/writer/palmyra-med-70b",
@@ -1335,7 +2271,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/writer/palmyra-med-70b"
           },
-          "name": "nvidia/writer/palmyra-med-70b"
+          "name": "nvidia/writer/palmyra-med-70b",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "writer/palmyra-med-70b-32k": {
           "id": "nvidia/writer/palmyra-med-70b-32k",
@@ -1344,7 +2287,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/writer/palmyra-med-70b-32k"
           },
-          "name": "nvidia/writer/palmyra-med-70b-32k"
+          "name": "nvidia/writer/palmyra-med-70b-32k",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "z-ai/glm-5.1": {
           "id": "nvidia/z-ai/glm-5.1",
@@ -1353,7 +2303,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/z-ai/glm-5.1"
           },
-          "name": "nvidia/z-ai/glm-5.1"
+          "name": "nvidia/z-ai/glm-5.1",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "z-ai/glm5": {
           "id": "nvidia/z-ai/glm5",
@@ -1362,7 +2319,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/z-ai/glm5"
           },
-          "name": "nvidia/z-ai/glm5"
+          "name": "nvidia/z-ai/glm5",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         },
         "zyphra/zamba2-7b-instruct": {
           "id": "nvidia/zyphra/zamba2-7b-instruct",
@@ -1371,7 +2335,14 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/zyphra/zamba2-7b-instruct"
           },
-          "name": "nvidia/zyphra/zamba2-7b-instruct"
+          "name": "nvidia/zyphra/zamba2-7b-instruct",
+          "reasoning": true,
+          "reasoning_effort": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "tool_call": true
         }
       },
       "name": "OmniRoute",
@@ -1379,7 +2350,7 @@
       "options": {
         "baseURL": "https://omniroute.my-website.space/v1"
       },
-      "syncedAt": "2026-05-14T22:49:32Z"
+      "syncedAt": "2026-05-15T18:38:50Z"
     }
   }
 }
