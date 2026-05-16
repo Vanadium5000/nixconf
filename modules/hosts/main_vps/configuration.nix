@@ -19,7 +19,7 @@
 
       imports = [
         self.nixosModules.terminal
-        self.nixosModules.webmin
+        self.nixosModules.ajenti
         inputs.nix-dokploy.nixosModules.default
 
         # Disko
@@ -217,6 +217,8 @@
           terminal.enable = true;
           server.enable = true;
         };
+        hardware.memory.enable = true;
+        hardware.btrfsMaintenance.enable = true;
         user = {
           username = "main";
         };

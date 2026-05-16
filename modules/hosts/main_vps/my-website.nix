@@ -36,7 +36,7 @@
       authDomain = mkHostname "auth";
       openclawDomain = mkHostname "openclaw";
       dashboardDomain = mkHostname "dashboard";
-      webminDomain = mkHostname "webmin";
+      ajentiDomain = mkHostname "ajenti";
       mitmproxyDomain = mkHostname "mitmproxy";
       vpnDomain = mkHostname "vpn";
       cliproxyapiDomain = mkHostname "cliproxyapi";
@@ -115,8 +115,11 @@
         requireApiKey = true;
       };
 
-      services.webmin = {
+      services.ajenti = {
         enable = true;
+        host = "127.0.0.1";
+        port = 8000;
+        autologin = true;
         openFirewall = false;
       };
       # Run mongo-express in a container (isolated & easy)
@@ -189,11 +192,11 @@
                 rule = "Host(`${dashboardDomain}`)";
                 service = "dashboard";
               };
-              webmin = {
-                # Webmin's own login is disabled; keep the public hostname
+              ajenti = {
+                # Ajenti autologin removes in-app auth; keep the public hostname
                 # protected only by the shared edge-auth gateway.
-                rule = "Host(`${webminDomain}`)";
-                service = "webmin";
+                rule = "Host(`${ajentiDomain}`)";
+                service = "ajenti";
                 entryPoints = [ "websecure" ];
                 middlewares = [ "services-auth" ];
                 tls = { };
@@ -251,7 +254,7 @@
             services = {
               services-auth-gateway = mkDirectService servicesAuthGatewayPort;
               dashboard = mkDirectService 8082;
-              webmin = mkDirectService config.services.webmin.port;
+              ajenti = mkDirectService config.services.ajenti.port;
               mitmproxy = mkDirectService 8083;
               vpn = mkDirectService 10802;
               cliproxyapi = mkDirectService 8317;

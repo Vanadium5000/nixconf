@@ -47,12 +47,12 @@ pkgs.writeShellApplication {
             cpa-usage-keeper
             services-auth-gateway
             niri-screen-time
-            webmin
             daisyui-mcp
             mattpocock-skills
           )
 
           IMPORTANT_MEDIUM_PACKAGES=(
+            ajenti
             brave-origin
             patchright
             iloader

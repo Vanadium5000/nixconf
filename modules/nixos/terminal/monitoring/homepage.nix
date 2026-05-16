@@ -102,9 +102,9 @@
             {
               "Monitoring" = [
                 {
-                  "Webmin — VPS" = {
+                  "Ajenti — VPS" = {
                     icon = "mdi-monitor-dashboard";
-                    href = mkPublicUrl "webmin" "";
+                    href = mkPublicUrl "ajenti" "";
                     description = "Systemd services, logs, and host actions";
                   };
                 }
@@ -176,18 +176,18 @@
             {
               "Fleet" = [
                 {
-                  "Webmin — Legion 5i" = [
+                  "Ajenti — Legion 5i" = [
                     {
                       icon = "mdi-laptop";
-                      href = "http://legion5i:10000";
+                      href = "http://legion5i:8000";
                     }
                   ];
                 }
                 {
-                  "Webmin — MacBook" = [
+                  "Ajenti — MacBook" = [
                     {
                       icon = "mdi-laptop";
-                      href = "http://macbook:10000";
+                      href = "http://macbook:8000";
                     }
                   ];
                 }

@@ -660,6 +660,21 @@
           [ "$base_provider" = "$config_provider" ]
         }
 
+        config_file_matches_static_base() {
+          local cfg_file="$1"
+
+          if [ ! -f "$cfg_file" ] || [ ! -s "$cfg_file" ]; then
+            return 1
+          fi
+
+          local base_static
+          local config_static
+          base_static=$($JQ -cS 'del(.provider.omniroute.models)' "$BASE_CONFIG_FILE")
+          config_static=$($JQ -cS 'del(.provider.omniroute.models)' "$cfg_file")
+
+          [ "$base_static" = "$config_static" ]
+        }
+
         mem_config_matches_state() {
           local cfg_file="$1"
 
@@ -677,6 +692,13 @@
 
         config_out_of_date() {
           ensure_state_file
+          if ! config_file_matches_static_base "$GLOBAL_CONFIG_FILE"; then
+            # Language/LSP/formatter and other static config changes should
+            # refresh ~/.config/opencode/config.json without waiting for an
+            # unrelated provider/model state change.
+            return 0
+          fi
+
           if ! config_file_matches_provider_metadata "$GLOBAL_CONFIG_FILE"; then
             # Default sync check only compared model data; provider-level fixes
             # such as timeout/chunkTimeout would otherwise wait for an unrelated

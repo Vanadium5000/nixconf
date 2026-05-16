@@ -16,7 +16,7 @@
     {
       imports = [
         self.nixosModules.desktop
-        self.nixosModules.webmin
+        self.nixosModules.ajenti
 
         # Drivers and settings, https://github.com/NixOS/nixos-hardware/blob/master/flake.nix
         inputs.nixos-hardware.nixosModules.common-cpu-intel
@@ -52,6 +52,11 @@
           username = "matrix";
         };
         hardware.tlp.enable = true;
+        hardware.memory.enable = true;
+        hardware.btrfsMaintenance = {
+          enable = true;
+          dedupe.enable = true;
+        };
         system = {
           backlightDevice = "intel_backlight";
           keyboardBacklightDevice = "platform::kbd_backlight";
@@ -114,8 +119,11 @@
       # HTTPS traffic analyzer — on-demand: systemctl start mitmproxy
       services.mitmproxy.enable = true;
       services.mitmproxy.trustCA = true;
-      services.webmin = {
+      services.ajenti = {
         enable = true;
+        host = "127.0.0.1";
+        port = 8000;
+        autologin = true;
         openFirewall = false;
       };
       services.ntfy-sh = {

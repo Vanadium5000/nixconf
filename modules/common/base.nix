@@ -97,7 +97,26 @@
           };
         };
 
-        hardware.tlp.enable = mkEnableOption "the laptop TLP tuning module";
+        hardware = {
+          tlp.enable = mkEnableOption "the laptop TLP tuning module";
+          memory.enable = mkEnableOption "zram and systemd-oomd memory-pressure tuning";
+          btrfsMaintenance = {
+            enable = mkEnableOption "low-risk Btrfs and SSD maintenance timers";
+            dedupe = {
+              enable = mkEnableOption "bees Btrfs deduplication for duplicate extents";
+              hashTableSizeMB = mkOption {
+                type = types.ints.positive;
+                default = 1024;
+                description = "Memory budget for the bees extent hash table, in MiB.";
+              };
+              loadAverageTarget = mkOption {
+                type = types.str;
+                default = "1.0";
+                description = "bees --loadavg-target value used to throttle deduplication work.";
+              };
+            };
+          };
+        };
 
         system = {
           backlightDevice = mkOption {

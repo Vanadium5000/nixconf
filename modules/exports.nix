@@ -122,9 +122,9 @@ let
         "vpn-proxy"
         "enable"
       ];
-      webmin = [
+      ajenti = [
         "services"
-        "webmin"
+        "ajenti"
         "enable"
       ];
     };
@@ -187,7 +187,7 @@ in
         unison = self.nixosModules.unison;
         virtualisation = self.nixosModules.virtualisation;
         vpn-proxy-service = self.nixosModules.vpn-proxy-service;
-        webmin = self.nixosModules.webmin;
+        ajenti = self.nixosModules.ajenti;
       };
 
       hosts = {
