@@ -27,6 +27,7 @@
         ssl:
           enable: false
       '';
+      runtimeConfigFile = "/var/lib/ajenti/config.yml";
     in
     {
       options.services.ajenti = {
@@ -77,6 +78,8 @@
           }
         ];
 
+        environment.etc."ajenti".source = "/var/lib/ajenti/etc";
+
         systemd.services.ajenti = {
           description = "Ajenti system administration panel";
           wantedBy = [ "multi-user.target" ];
@@ -92,16 +95,54 @@
             # Autologin is safe only because this module defaults to localhost + closed firewall.
             # Source: https://docs.ajenti.org/en/stable/man/run.html#cmdoption-ajenti-panel-autologin
             Type = "simple";
+            ExecStartPre = pkgs.writeShellScript "ajenti-pre-start" ''
+              set -eu
+
+              install -d -m 0750 /var/lib/ajenti/etc
+
+              install -m 0600 -T ${configFile} ${runtimeConfigFile}
+
+              if [ ! -e /var/lib/ajenti/etc/users.yml ]; then
+                install -m 0600 /dev/null /var/lib/ajenti/etc/users.yml
+                printf 'users: null\n' > /var/lib/ajenti/etc/users.yml
+              fi
+
+              if [ ! -e /var/lib/ajenti/etc/smtp.yml ]; then
+                install -m 0600 /dev/null /var/lib/ajenti/etc/smtp.yml
+                cat > /var/lib/ajenti/etc/smtp.yml <<'YAML'
+              smtp:
+                password: ""
+                port: starttls
+                server: ""
+                user: ""
+              YAML
+              fi
+
+              if [ ! -e /var/lib/ajenti/etc/tfa.yml ]; then
+                install -m 0600 /dev/null /var/lib/ajenti/etc/tfa.yml
+                printf 'users: {}\n' > /var/lib/ajenti/etc/tfa.yml
+              fi
+
+              chmod 0600 /var/lib/ajenti/etc/users.yml /var/lib/ajenti/etc/smtp.yml /var/lib/ajenti/etc/tfa.yml
+            '';
             ExecStart = lib.escapeShellArgs (
               [
                 (lib.getExe cfg.package)
                 "--config"
-                configFile
+                runtimeConfigFile
               ]
-              ++ lib.optional cfg.autologin "--autologin"
+              ++ lib.optionals cfg.autologin [
+                # Upstream intentionally refuses --autologin unless debug/verbose
+                # mode is set, so include -v while keeping access restricted by
+                # localhost binding, closed firewall, and edge/Tailscale auth.
+                # Source: ajenti-panel entrypoint: `Autologin is a dangerous option...`
+                "-v"
+                "--autologin"
+              ]
             );
             Restart = "on-failure";
             StateDirectory = "ajenti";
+            LogsDirectory = "ajenti";
           };
         };
 

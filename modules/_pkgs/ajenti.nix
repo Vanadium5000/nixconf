@@ -21,9 +21,11 @@ let
     lxml
     passlib
     pexpect
+    pillow
     psutil
     pyopenssl
     pyotp
+    pyte
     python-daemon
     python-engineio
     python-socketio
@@ -58,22 +60,25 @@ let
     };
 
   mkAjentiPluginFromPypi =
-    pname: pypiPname: version: hash: dependencies:
-    buildPythonPackage {
-      inherit
-        pname
-        version
-        pyproject
-        dontCheck
-        dontCheckRuntimeDeps
-        ;
-      src = fetchPypi {
-        pname = pypiPname;
-        inherit version hash;
-      };
-      build-system = [ setuptools ];
-      propagatedBuildInputs = dependencies;
-    };
+    pname: pypiPname: version: hash: dependencies: extraAttrs:
+    buildPythonPackage (
+      {
+        inherit
+          pname
+          version
+          pyproject
+          dontCheck
+          dontCheckRuntimeDeps
+          ;
+        src = fetchPypi {
+          pname = pypiPname;
+          inherit version hash;
+        };
+        build-system = [ setuptools ];
+        propagatedBuildInputs = dependencies;
+      }
+      // extraAttrs
+    );
 
   jadi = buildPythonPackage {
     inherit pyproject dontCheck dontCheckRuntimeDeps;
@@ -151,7 +156,8 @@ let
   pluginCore =
     mkAjentiPluginFromPypi "ajenti.plugin.core" "ajenti_plugin_core" "0.114"
       "sha256-P9UtxOKstpEkrM1iyNPkXrlcZiP6qAUS3mOehWHVs38="
-      [ aj ];
+      [ aj ]
+      { };
   pluginDashboard =
     mkAjentiPlugin "ajenti.plugin.dashboard" "0.42"
       "sha256-QZ7ZRDNaRL/AouHMrXJLQEtiT0uhyLNV9o5f/2NmGYY="
@@ -174,7 +180,8 @@ let
         pluginCore
         pluginFilesystem
         pluginPasswd
-      ];
+      ]
+      { };
   pluginTerminal =
     mkAjentiPlugin "ajenti.plugin.terminal" "0.42" "sha256-iWrTRxGMl+WYJ5j+EKojwCADJ3z/aItdWUMMwgMmB8I="
       [ aj ];
@@ -185,7 +192,77 @@ let
         aj
         pluginCore
         pluginSettings
-      ];
+      ]
+      {
+        postFixup = ''
+                    cat >> "$out/lib/python3.13/site-packages/ajenti_plugin_plugins/__init__.py" <<'PY'
+          ${pluginManagerPatch}
+          PY
+        '';
+      };
+
+  pluginManagerPatch = ''
+    from ajenti_plugin_plugins import views as _views
+    from aj.api.endpoint import EndpointError as _EndpointError
+
+    _nix_installed_plugins = {
+        'ace': 'ajenti.plugin.ace',
+        'core': 'ajenti.plugin.core',
+        'dashboard': 'ajenti.plugin.dashboard',
+        'filesystem': 'ajenti.plugin.filesystem',
+        'passwd': 'ajenti.plugin.passwd',
+        'plugins': 'ajenti.plugin.plugins',
+        'services': 'ajenti.plugin.services',
+        'settings': 'ajenti.plugin.settings',
+        'terminal': 'ajenti.plugin.terminal',
+    }
+
+    def _nix_handle_api_pypi_list(self, http_context):
+        return dict(_nix_installed_plugins)
+
+    def _nix_handle_api_getpypi_list(self, http_context):
+        return [
+            {
+                'url': 'https://ajenti.org',
+                'version': "",
+                'description': 'Packaged declaratively by NixOS; manage plugins in modules/_pkgs/ajenti.nix.',
+                'name': name,
+                'title': package,
+                'author_email': 'e@ajenti.org',
+                'last_month_downloads': 0,
+                'author': 'Ajenti project / NixOS package',
+                'pypi_name': package,
+                'type': 'nix',
+            }
+            for name, package in sorted(_nix_installed_plugins.items())
+        ]
+
+    def _nix_no_pip_mutation(self, http_context, *args, **kwargs):
+        raise _EndpointError('Ajenti plugins are managed declaratively by NixOS; pip install/uninstall is disabled for this immutable package.')
+
+    _views.Handler.handle_api_pypi_list = _nix_handle_api_pypi_list
+    _views.Handler.handle_api_getpypi_list = _nix_handle_api_getpypi_list
+
+    try:
+        from ajenti_plugin_plugins import tasks as _tasks
+
+        def _nix_install_plugin(self):
+            if self.spec in _nix_installed_plugins.values():
+                return None
+            raise RuntimeError('Ajenti plugins are managed declaratively by NixOS; add the plugin to modules/_pkgs/ajenti.nix instead of using pip at runtime.')
+
+        def _nix_uninstall_plugin(self):
+            raise RuntimeError('Ajenti plugins are managed declaratively by NixOS; remove the plugin from modules/_pkgs/ajenti.nix instead of using pip at runtime.')
+
+        def _nix_upgrade_all(self):
+            return None
+
+        _tasks.InstallPlugin.run = _nix_install_plugin
+        _tasks.UnInstallPlugin.run = _nix_uninstall_plugin
+        _tasks.UpgradeAll.run = _nix_upgrade_all
+    except Exception:
+        pass
+  '';
 in
 buildPythonApplication {
   inherit pyproject dontCheck dontCheckRuntimeDeps;
@@ -208,6 +285,8 @@ buildPythonApplication {
     pluginServices
     pluginSettings
     pluginTerminal
+    pillow
+    pyte
     pyyaml
     requests
   ];
