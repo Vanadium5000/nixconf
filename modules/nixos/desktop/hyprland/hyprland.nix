@@ -913,6 +913,7 @@
           "MOZ_ENABLE_WAYLAND,1"
           "ANKI_WAYLAND,1"
           "NIXOS_OZONE_WL,1"
+          "ELECTRON_OZONE_PLATFORM_HINT,auto"
           "DISABLE_QT5_COMPAT,0"
           "GDK_BACKEND,wayland"
           "GDK_SCALE,2" # scaling

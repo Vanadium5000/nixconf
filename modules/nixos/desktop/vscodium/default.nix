@@ -81,14 +81,24 @@
 
       inherit (self) colors;
 
+      editorWaylandArgs = "--ozone-platform-hint=auto --enable-features=WaylandWindowDecorations --enable-wayland-ime=true --wayland-text-input-version=3";
+
+      vscodiumWayland = pkgs.vscodium.override {
+        commandLineArgs = editorWaylandArgs;
+      };
+
+      antigravityWayland = pkgs.unstable.antigravity.override {
+        commandLineArgs = editorWaylandArgs;
+      };
+
       extensionsJson = pkgs.writeText "extensions.json" (
         pkgs.vscode-utils.toExtensionJson vscodeExtensions
       );
     in
     {
       environment.systemPackages = with pkgs; [
-        vscodium
-        unstable.antigravity
+        vscodiumWayland
+        antigravityWayland
 
         # LSPs/Dependencies
         nixd

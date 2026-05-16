@@ -170,8 +170,8 @@ Scope {
         Item {
             id: mainDialog
             anchors.centerIn: parent
-            width: root.viewMode === "grid" ? Math.min(parent.width * 0.9, 900) : 600
-            height: root.viewMode === "grid" ? Math.min(parent.height * 0.85, 700) : Math.min(520, 76 + (root.lineCount * 44))
+            width: root.viewMode === "grid" ? Math.min(parent.width * 0.9, 900) : Math.min(parent.width * 0.85, 760)
+            height: root.viewMode === "grid" ? Math.min(parent.height * 0.85, 700) : Math.min(560, 116 + (root.lineCount * 44))
 
             // Outer glow (subtle accent border outside main container)
             Rectangle {
@@ -254,7 +254,7 @@ Scope {
                     // Search Bar
                     Rectangle {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: 50
+                        Layout.preferredHeight: 82
                         radius: Theme.glass.cornerRadius - 4
                         color: Qt.rgba(0, 0, 0, 0.35)
 
@@ -268,38 +268,47 @@ Scope {
                             border.width: 1
                         }
 
-                        RowLayout {
+                        ColumnLayout {
                             anchors.fill: parent
-                            anchors.leftMargin: 16
-                            anchors.rightMargin: 16
-                            spacing: 12
+                            anchors.leftMargin: 14
+                            anchors.rightMargin: 14
+                            anchors.topMargin: 8
+                            anchors.bottomMargin: 8
+                            spacing: 4
 
                             // Prompt label
-                            Text {
-                                text: root.promptText
-                                font.family: Theme.glass.fontFamily
-                                font.pixelSize: Theme.glass.fontSizeMedium
-                                font.weight: Font.DemiBold
-                                color: Theme.glass.accentColor
-                            }
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 8
 
-                            // Vertical divider
-                            Rectangle {
-                                width: 1
-                                Layout.fillHeight: true
-                                Layout.topMargin: 12
-                                Layout.bottomMargin: 12
-                                color: Qt.rgba(1, 1, 1, 0.12)
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: root.promptText
+                                    font.family: Theme.glass.fontFamily
+                                    font.pixelSize: Theme.glass.fontSizeSmall
+                                    font.weight: Font.DemiBold
+                                    color: Theme.glass.accentColor
+                                    elide: Text.ElideRight
+                                }
+
+                                // Match count indicator
+                                Text {
+                                    text: filteredModel.count + "/" + itemsModel.count
+                                    font.family: Theme.glass.fontFamily
+                                    font.pixelSize: Theme.glass.fontSizeSmall
+                                    color: Theme.glass.textTertiary
+                                    visible: !root.passwordMode && itemsModel.count > 0
+                                }
                             }
 
                             // Text input field
                             TextInput {
                                 id: searchInput
                                 Layout.fillWidth: true
-                                Layout.fillHeight: true
+                                Layout.preferredHeight: 38
                                 verticalAlignment: TextInput.AlignVCenter
                                 font.family: Theme.glass.fontFamily
-                                font.pixelSize: Theme.glass.fontSizeMedium
+                                font.pixelSize: Theme.glass.fontSizeMedium + 1
                                 color: Theme.glass.textPrimary
                                 focus: true
                                 clip: true
@@ -406,14 +415,6 @@ Scope {
                                 }
                             }
 
-                            // Match count indicator
-                            Text {
-                                text: filteredModel.count + "/" + itemsModel.count
-                                font.family: Theme.glass.fontFamily
-                                font.pixelSize: Theme.glass.fontSizeSmall
-                                color: Theme.glass.textTertiary
-                                visible: !root.passwordMode && itemsModel.count > 0
-                            }
                         }
                     }
 
