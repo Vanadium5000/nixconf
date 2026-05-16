@@ -1,1 +1,37 @@
-{}
+{
+  "gpt-5.5": {
+    "limit": {
+      "context": 400000,
+      "input": 258400,
+      "output": 128000
+    }
+  },
+  "gpt-5.5-high": {
+    "limit": {
+      "context": 400000,
+      "input": 258400,
+      "output": 128000
+    }
+  },
+  "gpt-5.5-low": {
+    "limit": {
+      "context": 400000,
+      "input": 258400,
+      "output": 128000
+    }
+  },
+  "gpt-5.5-medium": {
+    "limit": {
+      "context": 400000,
+      "input": 258400,
+      "output": 128000
+    }
+  },
+  "gpt-5.5-xhigh": {
+    "limit": {
+      "context": 400000,
+      "input": 258400,
+      "output": 128000
+    }
+  }
+}

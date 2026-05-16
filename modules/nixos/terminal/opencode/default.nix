@@ -475,10 +475,13 @@
             def normalize_model:
               . as $model
               | ($model.context // $model.limit.context // null) as $context
+              | ($model.input // $model.limit.input // null) as $input
               | ($model.output // $model.limit.output // null) as $output
-              | ($model | del(.context, .output, .limit))
+              | ($model | del(.context, .input, .output, .limit))
                 + (if $context != null then
-                    { limit: ({ context: $context } + (if $output != null then { output: $output } else {} end)) }
+                    { limit: ({ context: $context }
+                      + (if $input != null then { input: $input } else {} end)
+                      + (if $output != null then { output: $output } else {} end)) }
                   else
                     {}
                   end);

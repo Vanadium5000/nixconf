@@ -194,75 +194,27 @@ let
         pluginSettings
       ]
       {
-        postFixup = ''
-                    cat >> "$out/lib/python3.13/site-packages/ajenti_plugin_plugins/__init__.py" <<'PY'
-          ${pluginManagerPatch}
-          PY
+        postInstall = ''
+          site="$out/lib/python3.13/site-packages/ajenti_plugin_plugins"
+
+          substituteInPlace "$site/views.py" \
+            --replace-fail "for l in subprocess.check_output([sys.executable, '-m', 'pip', 'freeze']).splitlines():" "for l in []:" \
+            --replace-fail "page = requests.get('https://pypi.org/simple')" "page = None" \
+            --replace-fail "official = requests.get('https://raw.githubusercontent.com/ajenti/ajenti/master/official_plugins.json').json()['plugins']" "official = []" \
+            --replace-fail "pypi_plugin_list = fromstring(page.content).xpath(\"//a[starts-with(text(),'ajenti.plugin')]/text()\")" "pypi_plugin_list = []"
+
+          substituteInPlace "$site/tasks.py" \
+            --replace-fail "subprocess.check_output([sys.executable, '-m', 'pip', 'install', self.spec])" "return None" \
+            --replace-fail "subprocess.check_output([sys.executable, '-m', 'pip', 'uninstall', '-y', self.spec])" "raise RuntimeError('Ajenti plugins are managed declaratively by NixOS; edit modules/_pkgs/ajenti.nix instead of uninstalling via pip at runtime.')" \
+            --replace-fail "subprocess.check_output(['ajenti-upgrade'])" "return None" \
+            --replace-fail "subprocess.check_output(['/usr/local/bin/ajenti-upgrade'])" "return None"
+
+          # Keep the old plugin manager page from exposing unsupported runtime pip actions.
+          substituteInPlace "$site/main.py" \
+            --replace-fail "'name': _('Plugins')," "'name': _('Nix Plugins')," \
+            --replace-fail "'url': '/view/plugins'," "'url': '/view/settings',"
         '';
       };
-
-  pluginManagerPatch = ''
-    from ajenti_plugin_plugins import views as _views
-    from aj.api.endpoint import EndpointError as _EndpointError
-
-    _nix_installed_plugins = {
-        'ace': 'ajenti.plugin.ace',
-        'core': 'ajenti.plugin.core',
-        'dashboard': 'ajenti.plugin.dashboard',
-        'filesystem': 'ajenti.plugin.filesystem',
-        'passwd': 'ajenti.plugin.passwd',
-        'plugins': 'ajenti.plugin.plugins',
-        'services': 'ajenti.plugin.services',
-        'settings': 'ajenti.plugin.settings',
-        'terminal': 'ajenti.plugin.terminal',
-    }
-
-    def _nix_handle_api_pypi_list(self, http_context):
-        return dict(_nix_installed_plugins)
-
-    def _nix_handle_api_getpypi_list(self, http_context):
-        return [
-            {
-                'url': 'https://ajenti.org',
-                'version': "",
-                'description': 'Packaged declaratively by NixOS; manage plugins in modules/_pkgs/ajenti.nix.',
-                'name': name,
-                'title': package,
-                'author_email': 'e@ajenti.org',
-                'last_month_downloads': 0,
-                'author': 'Ajenti project / NixOS package',
-                'pypi_name': package,
-                'type': 'nix',
-            }
-            for name, package in sorted(_nix_installed_plugins.items())
-        ]
-
-    def _nix_no_pip_mutation(self, http_context, *args, **kwargs):
-        raise _EndpointError('Ajenti plugins are managed declaratively by NixOS; pip install/uninstall is disabled for this immutable package.')
-
-    _views.Handler.handle_api_pypi_list = _nix_handle_api_pypi_list
-    _views.Handler.handle_api_getpypi_list = _nix_handle_api_getpypi_list
-
-    try:
-        from ajenti_plugin_plugins import tasks as _tasks
-
-        def _nix_install_plugin(self):
-            if self.spec in _nix_installed_plugins.values():
-                return None
-            raise RuntimeError('Ajenti plugins are managed declaratively by NixOS; add the plugin to modules/_pkgs/ajenti.nix instead of using pip at runtime.')
-
-        def _nix_uninstall_plugin(self):
-            raise RuntimeError('Ajenti plugins are managed declaratively by NixOS; remove the plugin from modules/_pkgs/ajenti.nix instead of using pip at runtime.')
-
-        def _nix_upgrade_all(self):
-            return None
-
-        _tasks.InstallPlugin.run = _nix_install_plugin
-        _tasks.UnInstallPlugin.run = _nix_uninstall_plugin
-        _tasks.UpgradeAll.run = _nix_upgrade_all
-    except Exception:
-        pass
-  '';
 in
 buildPythonApplication {
   inherit pyproject dontCheck dontCheckRuntimeDeps;

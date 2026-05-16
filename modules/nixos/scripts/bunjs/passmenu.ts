@@ -309,6 +309,59 @@ async function selectOption(
   }
 }
 
+async function promptCredentialPath(
+  menuCommand: string[],
+  passDir: string,
+  prompt: string,
+  allowEmpty = false,
+): Promise<string> {
+  const entries = await listPassEntries(passDir);
+  let input = "";
+  const supportsSelectionlessInput = menuCommand.some((part) =>
+    part.includes("qs-dmenu"),
+  );
+
+  while (true) {
+    const args = [...menuCommand, "-p", prompt];
+    if (supportsSelectionlessInput) {
+      args.push("-no-select", "-mark-input");
+    }
+    if (supportsSelectionlessInput && input) {
+      args.push("-input", input);
+    }
+
+    const proc = Bun.spawn(args, {
+      stdin: "pipe",
+      stdout: "pipe",
+      stderr: "inherit",
+    });
+
+    proc.stdin.write(entries.join("\n") + (entries.length > 0 ? "\n" : ""));
+    proc.stdin.end();
+
+    const output = (await new Response(proc.stdout).text()).trim();
+    const status = await proc.exited;
+
+    if (status !== 0) {
+      return "";
+    }
+    if (!output) {
+      return allowEmpty ? "" : "";
+    }
+
+    if (output.startsWith("INPUT:")) {
+      return output.slice("INPUT:".length);
+    }
+
+    if (entries.includes(output)) {
+      input = output;
+      continue;
+    }
+
+    return output;
+  }
+}
+
 // =============================================================================
 // Clipboard & Typing Actions
 // =============================================================================
@@ -783,9 +836,11 @@ async function showEditOptions(
         }
       }
 
-      const newPath = (
-        await $`echo -n | ${menuCommand} -p 'Enter new path:'`.text()
-      ).trim();
+      const newPath = await promptCredentialPath(
+        menuCommand,
+        passDir,
+        "Enter new path:",
+      );
 
       // Validate path
       if (!newPath) {
@@ -832,9 +887,11 @@ async function createCredential(
   passDir: string,
 ): Promise<void> {
   // Prompt for path
-  const path = (
-    await $`echo -n | ${menuCommand} -p 'Enter credential path (e.g., personal/site/account)'`.text()
-  ).trim();
+  const path = await promptCredentialPath(
+    menuCommand,
+    passDir,
+    "Enter credential path (e.g., personal/site/account)",
+  );
 
   if (!path) {
     await notify("No path entered", "passmenu");
@@ -1276,9 +1333,11 @@ async function generateCredential(
     }
 
     if (emailType === "Temporary (real)") {
-      const path = (
-        await $`echo -n | ${menuCommand} -p 'Enter associated path for temp email'`.text()
-      ).trim();
+      const path = await promptCredentialPath(
+        menuCommand,
+        passDir,
+        "Enter associated path for temp email",
+      );
       if (!path) {
         await notify("No path entered", "passmenu");
         return;
@@ -1340,9 +1399,12 @@ async function generateCredential(
 
   // Prompt to save (unless temp email, already saved)
   if (!isTempEmail) {
-    const path = (
-      await $`echo -n | ${menuCommand} -p 'Enter path to save credential (empty to skip)'`.text()
-    ).trim();
+    const path = await promptCredentialPath(
+      menuCommand,
+      passDir,
+      "Enter path to save credential (empty to skip)",
+      true,
+    );
     if (path) {
       await appendToPass(path, selectedField, value);
       logInfo(`Appended ${selectedField} to ${path}`);

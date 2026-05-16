@@ -239,6 +239,9 @@
           #   -i                     Case insensitive matching
           #   -password              Password/hidden input mode
           #   -selected N            Pre-select item at index N
+          #   -no-select             Start with no selected item
+          #   -input TEXT            Initial input/filter text
+          #   -mark-input            Prefix custom input output with INPUT:
           #   -placeholder TEXT      Placeholder text for input
           #   -filter MODE           Filter mode: fuzzy, prefix, exact (default: fuzzy)
           #   -dmenu                 Ignored (compatibility)
@@ -248,6 +251,8 @@
           PASSWORD="false"
           CASE_INSENSITIVE="true"
           SELECTED=0
+          INITIAL_INPUT=""
+          MARK_INPUT="false"
           PLACEHOLDER=""
           FILTER="fuzzy"
           MESSAGE=""
@@ -279,6 +284,18 @@
               -selected)
                 SELECTED="$2"
                 shift 2
+                ;;
+              -no-select|-no-selected)
+                SELECTED="-1"
+                shift
+                ;;
+              -input)
+                INITIAL_INPUT="$2"
+                shift 2
+                ;;
+              -mark-input)
+                MARK_INPUT="true"
+                shift
                 ;;
               -placeholder)
                 PLACEHOLDER="$2"
@@ -322,11 +339,13 @@
           DMENU_PASSWORD="$PASSWORD" \
           DMENU_CASE_INSENSITIVE="$CASE_INSENSITIVE" \
           DMENU_SELECTED="$SELECTED" \
+          DMENU_INITIAL_INPUT="$INITIAL_INPUT" \
+          DMENU_MARK_INPUT="$MARK_INPUT" \
           DMENU_PLACEHOLDER="$PLACEHOLDER" \
           DMENU_FILTER="$FILTER" \
           DMENU_MESSAGE="$MESSAGE" \
           DMENU_KEYBINDS="$KEYBINDS" \
-          "$QS_BIN" -p "$QML_FILE" 2>&1 | grep -E "QS_DMENU_(RESULT|KEYBIND|DROPDOWN):" | sed 's/^.*QS_DMENU_RESULT://; s/^.*QS_DMENU_KEYBIND:/KEYBIND:/; s/^.*QS_DMENU_DROPDOWN:/DROPDOWN:/'
+          "$QS_BIN" -p "$QML_FILE" 2>&1 | grep -E "QS_DMENU_(RESULT|INPUT|KEYBIND|DROPDOWN):" | sed 's/^.*QS_DMENU_RESULT://; s/^.*QS_DMENU_INPUT:/INPUT:/; s/^.*QS_DMENU_KEYBIND:/KEYBIND:/; s/^.*QS_DMENU_DROPDOWN:/DROPDOWN:/'
 
           # Cleanup
           rm -f "$INPUT_FILE"

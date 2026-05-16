@@ -11,6 +11,8 @@
  *   DMENU_PASSWORD        - "true" for password mode (hides input, no list)
  *   DMENU_CASE_INSENSITIVE - "true" for case-insensitive matching
  *   DMENU_SELECTED        - Index of initially selected item
+ *   DMENU_INITIAL_INPUT   - Initial input/filter text
+ *   DMENU_MARK_INPUT      - "true" to prefix custom input output with INPUT:
  *   DMENU_PLACEHOLDER     - Placeholder text for empty input
  *   DMENU_FILTER          - Filter mode: "fuzzy", "prefix", "exact"
  *   DMENU_DROPDOWN        - Dropdown mode: "hidden", "inline", "submenu"
@@ -45,6 +47,8 @@ Scope {
     property bool passwordMode: (Quickshell.env("DMENU_PASSWORD") ?? "false") === "true"
     property bool caseInsensitive: (Quickshell.env("DMENU_CASE_INSENSITIVE") ?? "true") === "true"
     property int selectedIndex: parseInt(Quickshell.env("DMENU_SELECTED") ?? "0")
+    property string initialInput: Quickshell.env("DMENU_INITIAL_INPUT") ?? ""
+    property bool markInput: (Quickshell.env("DMENU_MARK_INPUT") ?? "false") === "true"
     property string placeholderText: Quickshell.env("DMENU_PLACEHOLDER") ?? ""
     property string messageText: Quickshell.env("DMENU_MESSAGE") ?? ""
     property string filterMode: Quickshell.env("DMENU_FILTER") ?? "fuzzy"
@@ -104,9 +108,16 @@ Scope {
 
         onExited: (code, status) => {
             root.isLoading = false;
-            // Set initial selection after loading
-            if (root.selectedIndex > 0 && root.selectedIndex < filteredModel.count && viewLoader.item) {
-                viewLoader.item.currentIndex = root.selectedIndex;
+            if (root.initialInput !== "") {
+                filterItems(root.initialInput);
+            }
+            // Set initial selection after loading. -1 means no item is selected.
+            if (viewLoader.item) {
+                if (root.selectedIndex >= 0 && root.selectedIndex < filteredModel.count) {
+                    viewLoader.item.currentIndex = root.selectedIndex;
+                } else if (root.selectedIndex < 0) {
+                    viewLoader.item.currentIndex = -1;
+                }
             }
         }
     }
@@ -295,6 +306,7 @@ Scope {
                                 selectByMouse: true
                                 selectionColor: Theme.glass.accentColor
                                 selectedTextColor: "#ffffff"
+                                text: root.initialInput
 
                                 echoMode: root.passwordMode ? TextInput.Password : TextInput.Normal
 
@@ -323,14 +335,14 @@ Scope {
                                         }
                                         outputAndQuit(item.originalText || item.text);
                                     } else if (text) {
-                                        outputAndQuit(text);
+                                        outputInputAndQuit(text);
                                     }
                                 }
 
                                 onTextChanged: {
                                     filterItems(text);
-                                    if (filteredModel.count > 0 && viewLoader.item) {
-                                        viewLoader.item.currentIndex = 0;
+                                    if (viewLoader.item) {
+                                        viewLoader.item.currentIndex = root.selectedIndex < 0 ? -1 : (filteredModel.count > 0 ? 0 : -1);
                                     }
                                 }
 
@@ -432,19 +444,19 @@ Scope {
                             property int currentIndex: item ? item.currentIndex : -1
                             
                             function increment() {
-                                if (item) item.currentIndex = Math.min(item.currentIndex + 1, item.count - 1)
+                                if (item && item.count > 0) item.currentIndex = item.currentIndex < 0 ? 0 : Math.min(item.currentIndex + 1, item.count - 1)
                             }
-                            
+
                             function decrement() {
-                                if (item) item.currentIndex = Math.max(item.currentIndex - 1, 0)
+                                if (item && item.count > 0) item.currentIndex = item.currentIndex < 0 ? item.count - 1 : Math.max(item.currentIndex - 1, 0)
                             }
-                            
+
                             function pageDown() {
-                                if (item) item.currentIndex = Math.min(item.currentIndex + 5, item.count - 1)
+                                if (item && item.count > 0) item.currentIndex = item.currentIndex < 0 ? 0 : Math.min(item.currentIndex + 5, item.count - 1)
                             }
-                            
+
                             function pageUp() {
-                                if (item) item.currentIndex = Math.max(item.currentIndex - 5, 0)
+                                if (item && item.count > 0) item.currentIndex = item.currentIndex < 0 ? item.count - 1 : Math.max(item.currentIndex - 5, 0)
                             }
                             
                             function getCurrentItem() {
@@ -704,6 +716,11 @@ Scope {
      */
     function outputAndQuit(text) {
         console.log("QS_DMENU_RESULT:" + text);
+        Qt.quit();
+    }
+
+    function outputInputAndQuit(text) {
+        console.log((root.markInput ? "QS_DMENU_INPUT:" : "QS_DMENU_RESULT:") + text);
         Qt.quit();
     }
 

@@ -34,10 +34,14 @@ let
     _modelId: model:
     let
       hasContext = model ? context || (model ? limit && model.limit ? context);
+      hasInput = model ? input || (model ? limit && model.limit ? input);
       limit = lib.optionalAttrs hasContext (
         {
           context = model.context or model.limit.context;
         }
+        // (lib.optionalAttrs hasInput {
+          input = model.input or model.limit.input;
+        })
         // (lib.optionalAttrs (model ? output || (model ? limit && model.limit ? output)) {
           output = model.output or model.limit.output;
         })
@@ -49,6 +53,7 @@ let
     # Source: https://opencode.ai/docs/models/
     (builtins.removeAttrs model [
       "context"
+      "input"
       "output"
       "limit"
     ])
