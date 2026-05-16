@@ -100,14 +100,14 @@
               "$QS_BIN" kill -p "$QML_FILE" 2>/dev/null || true
               # Launch with environment configuration
               OVERLAY_COMMAND="''${OVERLAY_COMMAND}" \
-              LYRICS_LINES="''${LYRICS_LINES:-3}" \
+              LYRICS_LINES="''${LYRICS_LINES:-2}" \
               LYRICS_POSITION="''${LYRICS_POSITION:-bottom}" \
-              LYRICS_FONT_SIZE="''${LYRICS_FONT_SIZE:-28}" \
+              LYRICS_FONT_SIZE="''${LYRICS_FONT_SIZE:-18}" \
               LYRICS_COLOR="''${LYRICS_COLOR:-#ffffff}" \
-              LYRICS_OPACITY="''${LYRICS_OPACITY:-0.95}" \
+              LYRICS_OPACITY="''${LYRICS_OPACITY:-0.82}" \
               LYRICS_SHADOW="''${LYRICS_SHADOW:-true}" \
               LYRICS_UPDATE_INTERVAL="''${LYRICS_UPDATE_INTERVAL:-400}" \
-              LYRICS_SPACING="''${LYRICS_SPACING:-8}" \
+              LYRICS_SPACING="''${LYRICS_SPACING:-4}" \
               LYRICS_LENGTH="''${LYRICS_LENGTH:-0}" \
               "$QS_BIN" -p "$QML_FILE" &
               ;;
@@ -117,14 +117,14 @@
             *)  # toggle
               if ! "$QS_BIN" kill -p "$QML_FILE" 2>/dev/null; then
                 OVERLAY_COMMAND="''${OVERLAY_COMMAND}" \
-                LYRICS_LINES="''${LYRICS_LINES:-3}" \
+                LYRICS_LINES="''${LYRICS_LINES:-2}" \
                 LYRICS_POSITION="''${LYRICS_POSITION:-bottom}" \
-                LYRICS_FONT_SIZE="''${LYRICS_FONT_SIZE:-28}" \
+                LYRICS_FONT_SIZE="''${LYRICS_FONT_SIZE:-18}" \
                 LYRICS_COLOR="''${LYRICS_COLOR:-#ffffff}" \
-                LYRICS_OPACITY="''${LYRICS_OPACITY:-0.95}" \
+                LYRICS_OPACITY="''${LYRICS_OPACITY:-0.82}" \
                 LYRICS_SHADOW="''${LYRICS_SHADOW:-true}" \
                 LYRICS_UPDATE_INTERVAL="''${LYRICS_UPDATE_INTERVAL:-400}" \
-                LYRICS_SPACING="''${LYRICS_SPACING:-8}" \
+                LYRICS_SPACING="''${LYRICS_SPACING:-4}" \
                 LYRICS_LENGTH="''${LYRICS_LENGTH:-0}" \
                 "$QS_BIN" -p "$QML_FILE" &
               fi

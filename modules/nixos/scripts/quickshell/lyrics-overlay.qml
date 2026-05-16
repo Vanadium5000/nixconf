@@ -32,30 +32,30 @@ PanelWindow {
 
     // --- Configuration ---
     // Read from environment variables with sensible defaults.
-    property int numLines: parseInt(Quickshell.env("LYRICS_LINES") ?? "3")
+    property int numLines: parseInt(Quickshell.env("LYRICS_LINES") ?? "2")
     property string positionMode: Quickshell.env("LYRICS_POSITION") ?? "bottom"
     property bool editMode: false
     property int fontSize: parseInt(Quickshell.env("LYRICS_FONT_SIZE") ?? Theme.fontSizeLarge.toString())
     property string textColor: Quickshell.env("LYRICS_COLOR") ?? Theme.foreground
-    property real textOpacity: parseFloat(Quickshell.env("LYRICS_OPACITY") ?? "0.95")
+    property real textOpacity: parseFloat(Quickshell.env("LYRICS_OPACITY") ?? "0.82")
     property string fontFamily: Quickshell.env("LYRICS_FONT") ?? Theme.fontName
     property bool showShadow: (Quickshell.env("LYRICS_SHADOW") ?? "true") === "true"
-    property int lineSpacing: parseInt(Quickshell.env("LYRICS_SPACING") ?? "8")
+    property int lineSpacing: parseInt(Quickshell.env("LYRICS_SPACING") ?? "4")
     property int maxLineLength: parseInt(Quickshell.env("LYRICS_LENGTH") ?? "0")
-    property int cardInset: 24
-    property int cardRadius: 20
-    property int cardPadding: 14
-    property int railHeight: 28
-    property int controlGap: 8
-    property int controlHeight: 20
-    property int resizeGripSize: 18
-    property int normalDragHandleWidth: 44
-    property int normalDragHandleHeight: 14
+    property int cardInset: 16
+    property int cardRadius: 14
+    property int cardPadding: 8
+    property int railHeight: 24
+    property int controlGap: 6
+    property int controlHeight: 18
+    property int resizeGripSize: 16
+    property int normalDragHandleWidth: 36
+    property int normalDragHandleHeight: 10
     property int editResizeHitSize: 52 // Bigger hit area makes corner resizing easier without a larger visible grip.
-    property int minCardWidth: 320
-    property int minCardHeight: 136
-    property int cardWidth: parseInt(Quickshell.env("LYRICS_CARD_WIDTH") ?? "520")
-    property int cardHeight: parseInt(Quickshell.env("LYRICS_CARD_HEIGHT") ?? "188")
+    property int minCardWidth: 180
+    property int minCardHeight: 56
+    property int cardWidth: parseInt(Quickshell.env("LYRICS_CARD_WIDTH") ?? "360")
+    property int cardHeight: parseInt(Quickshell.env("LYRICS_CARD_HEIGHT") ?? "92")
     property int cardX: 0
     property int cardY: 0
     property bool geometryInitialized: false
@@ -143,11 +143,11 @@ PanelWindow {
     }
 
     function defaultCardWidth() {
-        return root.clamp(parseInt(Quickshell.env("LYRICS_CARD_WIDTH") ?? "520"), root.effectiveMinCardWidth(), root.maxCardWidth)
+        return root.clamp(parseInt(Quickshell.env("LYRICS_CARD_WIDTH") ?? "360"), root.effectiveMinCardWidth(), root.maxCardWidth)
     }
 
     function defaultCardHeight() {
-        return root.clamp(parseInt(Quickshell.env("LYRICS_CARD_HEIGHT") ?? "188"), root.effectiveMinCardHeight(), root.maxCardHeight)
+        return root.clamp(parseInt(Quickshell.env("LYRICS_CARD_HEIGHT") ?? "92"), root.effectiveMinCardHeight(), root.maxCardHeight)
     }
 
     function defaultCardX() {
@@ -231,7 +231,7 @@ PanelWindow {
                 id: cardBackground
                 anchors.fill: parent
                 radius: root.cardRadius
-                color: Theme.rgba(Theme.glass.backgroundColor, root.editMode ? 0.82 : 0.66)
+                color: Theme.rgba(Theme.glass.backgroundColor, root.editMode ? 0.70 : 0.28)
                 clip: true
             }
 
@@ -243,7 +243,7 @@ PanelWindow {
                 height: 24
                 radius: 12
                 anchors.top: parent.top
-                anchors.topMargin: 8
+                anchors.topMargin: 5
                 anchors.right: parent.right
                 anchors.rightMargin: 8
                 color: Theme.rgba(Theme.foreground, 0.16)
@@ -278,8 +278,8 @@ PanelWindow {
 
                 Rectangle {
                     anchors.centerIn: parent
-                    width: 32
-                    height: 4
+                    width: 24
+                    height: 3
                     radius: 2
                     color: Theme.rgba(root.textColor, 0.22)
                 }
@@ -443,8 +443,8 @@ PanelWindow {
                     id: lyricsColumn
                     width: parent.width
                     anchors.top: editHeader.bottom
-                    anchors.topMargin: root.editMode ? 10 : 0
-                    spacing: Math.max(4, root.lineSpacing - 2)
+                    anchors.topMargin: root.editMode ? 6 : 0
+                    spacing: Math.max(1, root.lineSpacing)
 
                 Text {
                     id: currentText
@@ -454,7 +454,7 @@ PanelWindow {
                     color: root.textColor
                     opacity: root.currentLine ? root.textOpacity : 0.5
                     font.family: root.fontFamily
-                    font.pixelSize: Math.max(22, Math.round(root.fontSize * 0.88))
+                    font.pixelSize: Math.max(10, Math.round(root.fontSize * 0.82))
                     font.weight: Font.Medium
                     style: root.showShadow ? Text.Outline : Text.Normal
                     styleColor: "#80000000"
@@ -496,7 +496,7 @@ PanelWindow {
                         color: root.textColor
                         opacity: Math.max(0.22, root.textOpacity * (0.56 - index * 0.12))
                         font.family: root.fontFamily
-                        font.pixelSize: Math.max(15, Math.round(root.fontSize * 0.68))
+                        font.pixelSize: Math.max(8, Math.round(root.fontSize * 0.56))
                         font.weight: Font.Normal
                         style: root.showShadow ? Text.Outline : Text.Normal
                         styleColor: "#60000000"
