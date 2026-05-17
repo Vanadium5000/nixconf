@@ -1,11 +1,11 @@
 {
-  unstable,
+  buildGo126Module,
   fetchFromGitHub,
   lib,
   ...
 }:
 
-unstable.buildGo126Module rec {
+buildGo126Module rec {
   pname = "cliproxyapi";
   version = "7.1.0";
 

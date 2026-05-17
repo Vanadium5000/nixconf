@@ -165,7 +165,7 @@ Key Hyprland bindings call DMS through IPC rather than starting replaced tools:
 | `SUPER+Y`       | `toggle-lyrics-overlay`              |
 
 The DMS module pins `programs.dank-material-shell.dgop.package` to
-`pkgs.unstable.dgop` because upstream DMS expects the newer `dgop` package
+the edge package set because upstream DMS expects the newer `dgop` package
 surface. A local `idleInhibit` DMS plugin replaces the built-in inhibitor UI and
 talks to the `dms-idle-inhibit` CLI. The CLI stores its enabled state under
 `$XDG_STATE_HOME`, starts a `dms-idle-inhibitor.service` user unit, and uses
@@ -363,6 +363,13 @@ for BunJS development details.
 ## 📦 Custom Packages
 
 All packages in `modules/_pkgs/` are auto-exposed via `self.packages`:
+
+Custom packages build from the stable `nixpkgs` input by default. Edge AI and
+gateway packages that benefit from current Go/Bun/Node stacks are routed through
+`nixpkgs-unstable` centrally in `modules/custom-packages.nix`; package files
+should declare normal dependencies and avoid `{ unstable, ... }` parameters.
+Current unstable-routed packages: `cliproxyapi`, `omniroute`, and
+`openchamber-web`.
 
 | Package                    | Description                             |
 | -------------------------- | --------------------------------------- |

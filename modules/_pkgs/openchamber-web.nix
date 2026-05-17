@@ -8,7 +8,7 @@
   pkg-config,
   cargo,
   rustc,
-  nodePackages,
+  node-gyp,
 }:
 
 let
@@ -28,7 +28,7 @@ let
     pkg-config
     cargo
     rustc
-    nodePackages.node-gyp
+    node-gyp
   ];
 
   bunEnv = ''

@@ -10,6 +10,7 @@
       ...
     }:
     let
+      jsPkgs = pkgs.unstable;
       bunScriptsSrc = pkgs.lib.cleanSourceWith {
         src = ./.;
         filter =
@@ -53,7 +54,7 @@
         npmConfigHook = pkgs.importNpmLock.npmConfigHook;
         npmFlags = [ "--legacy-peer-deps" ];
 
-        nativeBuildInputs = [ pkgs.bun ];
+        nativeBuildInputs = [ jsPkgs.bun ];
         PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "1";
 
         buildPhase = ''
@@ -91,7 +92,7 @@
       packages.qs-passmenu = inputs.wrappers.lib.makeWrapper {
         inherit pkgs;
         package = pkgs.writeShellScriptBin "qs-passmenu" ''
-          exec ${pkgs.bun}/bin/bun ${bunScriptBundles}/share/bunjs/passmenu.js "$@"
+          exec ${jsPkgs.bun}/bin/bun ${bunScriptBundles}/share/bunjs/passmenu.js "$@"
         '';
 
         # Ensure PATH includes all runtime inputs
@@ -104,7 +105,7 @@
           # pkgs.wtype
           pkgs.wl-clipboard
           pkgs.ydotool
-          pkgs.bun
+          jsPkgs.bun
           pkgs.nodejs_latest
           pkgs.libnotify
 
@@ -119,13 +120,13 @@
       packages.qs-checklist = inputs.wrappers.lib.makeWrapper {
         inherit pkgs;
         package = pkgs.writeShellScriptBin "qs-checklist" ''
-          exec ${pkgs.bun}/bin/bun run ${./checklist.ts} "$@"
+          exec ${jsPkgs.bun}/bin/bun run ${./checklist.ts} "$@"
         '';
 
         # Ensure PATH includes all runtime inputs
         runtimeInputs = [
           self'.packages.qs-dmenu
-          pkgs.bun
+          jsPkgs.bun
           pkgs.nodejs_latest
           pkgs.libnotify
 
@@ -148,16 +149,16 @@
               WAYLAND_DISPLAY="$WAYLAND_DISPLAY" \
               XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" \
               DISPLAY="$DISPLAY" \
-              ${pkgs.bun}/bin/bun run ${./btrfs-backup.ts} "$@"
+              ${jsPkgs.bun}/bin/bun run ${./btrfs-backup.ts} "$@"
           else
-            exec ${pkgs.bun}/bin/bun run ${./btrfs-backup.ts} "$@"
+            exec ${jsPkgs.bun}/bin/bun run ${./btrfs-backup.ts} "$@"
           fi
         '';
 
         # Ensure PATH includes all runtime inputs
         runtimeInputs = [
           self'.packages.qs-dmenu
-          pkgs.bun
+          jsPkgs.bun
           pkgs.nodejs_latest
           pkgs.libnotify
 
@@ -177,16 +178,16 @@
         inherit pkgs;
         package = pkgs.writeShellScriptBin "qs-music-search" ''
           export QS_DMENU_IMAGES="${self'.packages.qs-dmenu}/bin/qs-dmenu"
-          exec ${pkgs.bun}/bin/bun run ${./music-search.ts} "$@"
+          exec ${jsPkgs.bun}/bin/bun run ${./music-search.ts} "$@"
         '';
 
         # Ensure PATH includes all runtime inputs
         runtimeInputs = [
           self'.packages.qs-dmenu
-          pkgs.bun
+          jsPkgs.bun
           pkgs.nodejs_latest
           pkgs.libnotify
-          pkgs.unstable.yt-dlp
+          jsPkgs.yt-dlp
           pkgs.mpc
           pkgs.curl
           pkgs.ffmpeg # for yt-dlp audio conversion usually
@@ -203,12 +204,12 @@
         inherit pkgs;
         package = pkgs.writeShellScriptBin "qs-music-local" ''
           export QS_DMENU_IMAGES="${self'.packages.qs-dmenu}/bin/qs-dmenu"
-          exec ${pkgs.bun}/bin/bun run ${./music-local.ts} "$@"
+          exec ${jsPkgs.bun}/bin/bun run ${./music-local.ts} "$@"
         '';
 
         runtimeInputs = [
           self'.packages.qs-dmenu
-          pkgs.bun
+          jsPkgs.bun
           pkgs.libnotify
           pkgs.mpc
           pkgs.coreutils
@@ -219,12 +220,12 @@
       packages.synced-lyrics = inputs.wrappers.lib.makeWrapper {
         inherit pkgs;
         package = pkgs.writeShellScriptBin "synced-lyrics" ''
-          exec ${pkgs.bun}/bin/bun run ${./synced-lyrics.ts} "$@"
+          exec ${jsPkgs.bun}/bin/bun run ${./synced-lyrics.ts} "$@"
         '';
 
         # Ensure PATH includes all runtime inputs
         runtimeInputs = [
-          pkgs.bun
+          jsPkgs.bun
           pkgs.nodejs_latest
           pkgs.playerctl
           self'.packages.toggle-lyrics-overlay
@@ -236,12 +237,12 @@
       packages.pomodoro = inputs.wrappers.lib.makeWrapper {
         inherit pkgs;
         package = pkgs.writeShellScriptBin "pomodoro" ''
-          exec ${pkgs.bun}/bin/bun run ${./pomodoro.ts} "$@"
+          exec ${jsPkgs.bun}/bin/bun run ${./pomodoro.ts} "$@"
         '';
 
         # Ensure PATH includes all runtime inputs
         runtimeInputs = [
-          pkgs.bun
+          jsPkgs.bun
           pkgs.libnotify
           pkgs.libcanberra-gtk3
           pkgs.curl
@@ -254,10 +255,10 @@
       packages.image-gen-mcp = inputs.wrappers.lib.makeWrapper {
         inherit pkgs;
         package = pkgs.writeShellScriptBin "image-gen-mcp" ''
-          exec ${pkgs.bun}/bin/bun ${bunScriptBundles}/share/bunjs/image-gen-mcp.js "$@"
+          exec ${jsPkgs.bun}/bin/bun ${bunScriptBundles}/share/bunjs/image-gen-mcp.js "$@"
         '';
         runtimeInputs = [
-          pkgs.bun
+          jsPkgs.bun
           pkgs.coreutils
         ];
       };
@@ -265,10 +266,10 @@
       packages.markdown-lint-mcp = inputs.wrappers.lib.makeWrapper {
         inherit pkgs;
         package = pkgs.writeShellScriptBin "markdown-lint-mcp" ''
-          exec ${pkgs.bun}/bin/bun ${bunScriptBundles}/share/bunjs/markdown-lint-mcp.js "$@"
+          exec ${jsPkgs.bun}/bin/bun ${bunScriptBundles}/share/bunjs/markdown-lint-mcp.js "$@"
         '';
         runtimeInputs = [
-          pkgs.bun
+          jsPkgs.bun
           pkgs.nodePackages.markdownlint-cli
           pkgs.coreutils
         ];
@@ -278,10 +279,10 @@
         inherit pkgs;
         package = pkgs.writeShellScriptBin "quickshell-docs-mcp" ''
           export QUICKSHELL_DOCS_PATH="${self'.packages.quickshell-docs-markdown}"
-          exec ${pkgs.bun}/bin/bun ${bunScriptBundles}/share/bunjs/quickshell-docs-mcp.js "$@"
+          exec ${jsPkgs.bun}/bin/bun ${bunScriptBundles}/share/bunjs/quickshell-docs-mcp.js "$@"
         '';
         runtimeInputs = [
-          pkgs.bun
+          jsPkgs.bun
           pkgs.coreutils
         ];
       };
@@ -289,10 +290,10 @@
       packages.qmllint-mcp = inputs.wrappers.lib.makeWrapper {
         inherit pkgs;
         package = pkgs.writeShellScriptBin "qmllint-mcp" ''
-          exec ${pkgs.bun}/bin/bun ${bunScriptBundles}/share/bunjs/qmllint-mcp.js "$@"
+          exec ${jsPkgs.bun}/bin/bun ${bunScriptBundles}/share/bunjs/qmllint-mcp.js "$@"
         '';
         runtimeInputs = [
-          pkgs.bun
+          jsPkgs.bun
           pkgs.qt6.qtdeclarative
           pkgs.coreutils
         ];
@@ -301,10 +302,10 @@
       packages.git-sync-debug = inputs.wrappers.lib.makeWrapper {
         inherit pkgs;
         package = pkgs.writeShellScriptBin "git-sync-debug" ''
-          exec ${pkgs.bun}/bin/bun run ${./git-sync-debug.ts} "$@"
+          exec ${jsPkgs.bun}/bin/bun run ${./git-sync-debug.ts} "$@"
         '';
         runtimeInputs = [
-          pkgs.bun
+          jsPkgs.bun
           pkgs.gnupg
           pkgs.openssh
           pkgs.git
@@ -338,10 +339,10 @@
         inputs.wrappers.lib.makeWrapper {
           inherit pkgs;
           package = pkgs.writeShellScriptBin "vpn-resolver" ''
-            exec ${pkgs.bun}/bin/bun run ${proxyEnv}/vpn-resolver.ts "$@"
+            exec ${jsPkgs.bun}/bin/bun run ${proxyEnv}/vpn-resolver.ts "$@"
           '';
           runtimeInputs = [
-            pkgs.bun
+            jsPkgs.bun
             pkgs.coreutils
           ];
         };
@@ -365,10 +366,10 @@
           inherit pkgs;
           package = pkgs.writeShellScriptBin "vpn-proxy" ''
             export VPN_PROXY_NETNS_SCRIPT="${proxyEnv}/netns.sh"
-            exec ${pkgs.bun}/bin/bun run ${proxyEnv}/socks5-proxy.ts "$@"
+            exec ${jsPkgs.bun}/bin/bun run ${proxyEnv}/socks5-proxy.ts "$@"
           '';
           runtimeInputs = [
-            pkgs.bun
+            jsPkgs.bun
             pkgs.iproute2
             pkgs.iptables
             pkgs.nftables
@@ -399,10 +400,10 @@
           inherit pkgs;
           package = pkgs.writeShellScriptBin "http-proxy" ''
             export VPN_PROXY_NETNS_SCRIPT="${proxyEnv}/netns.sh"
-            exec ${pkgs.bun}/bin/bun run ${proxyEnv}/http-proxy.ts "$@"
+            exec ${jsPkgs.bun}/bin/bun run ${proxyEnv}/http-proxy.ts "$@"
           '';
           runtimeInputs = [
-            pkgs.bun
+            jsPkgs.bun
             pkgs.iproute2
             pkgs.iptables
             pkgs.nftables
@@ -436,10 +437,10 @@
         inputs.wrappers.lib.makeWrapper {
           inherit pkgs;
           package = pkgs.writeShellScriptBin "vpn-proxy-cleanup" ''
-            exec ${pkgs.bun}/bin/bun run ${proxyEnv}/cleanup.ts "$@"
+            exec ${jsPkgs.bun}/bin/bun run ${proxyEnv}/cleanup.ts "$@"
           '';
           runtimeInputs = [
-            pkgs.bun
+            jsPkgs.bun
             pkgs.iproute2
             pkgs.iptables
             pkgs.nftables
@@ -454,10 +455,10 @@
         inherit pkgs;
         package = pkgs.writeShellScriptBin "vpn-proxy-web" ''
           export VPN_PROXY_WEB_DIST="${bunScriptBundles}/share/vpn-proxy-web/dist"
-          exec ${pkgs.bun}/bin/bun ${bunScriptBundles}/share/bunjs/vpn-proxy-web.js "$@"
+          exec ${jsPkgs.bun}/bin/bun ${bunScriptBundles}/share/bunjs/vpn-proxy-web.js "$@"
         '';
         runtimeInputs = [
-          pkgs.bun
+          jsPkgs.bun
           pkgs.curl # health testing uses curl through SOCKS5
           pkgs.coreutils
         ];
@@ -473,10 +474,10 @@
         inputs.wrappers.lib.makeWrapper {
           inherit pkgs;
           package = pkgs.writeShellScriptBin "vpn-proxy-singbox-config" ''
-            exec ${pkgs.bun}/bin/bun run ${proxyEnv}/singbox-config.ts "$@"
+            exec ${jsPkgs.bun}/bin/bun run ${proxyEnv}/singbox-config.ts "$@"
           '';
           runtimeInputs = [
-            pkgs.bun
+            jsPkgs.bun
             pkgs.coreutils
           ];
         };
@@ -504,11 +505,11 @@
             export PLAYWRIGHT_NODEJS_PATH=${pkgs.nodejs}/bin/node
             export PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH="${chromiumBin}"
 
-            exec ${pkgs.bun}/bin/bun run ${playwrightStealthEnv}/playwright-stealth-browser.ts "$@"
+            exec ${jsPkgs.bun}/bin/bun run ${playwrightStealthEnv}/playwright-stealth-browser.ts "$@"
           '';
 
           runtimeInputs = [
-            pkgs.bun
+            jsPkgs.bun
             pkgs.nodejs
             pkgs.playwright
             pkgs.playwright-driver.browsers

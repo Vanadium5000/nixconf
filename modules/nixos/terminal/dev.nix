@@ -5,6 +5,9 @@ in
 {
   flake.nixosModules.dev =
     { config, pkgs, ... }:
+    let
+      aiPkgs = pkgs.unstable;
+    in
     {
       # MongoDB - a source-available, cross-platform, document-oriented database program
       services.mongodb = {
@@ -52,8 +55,7 @@ in
       # Ollama - local text AIs
       services.ollama = {
         enable = true;
-        package =
-          if config.nixpkgs.config.cudaSupport then pkgs.unstable.ollama-cuda else pkgs.unstable.ollama;
+        package = if config.nixpkgs.config.cudaSupport then aiPkgs.ollama-cuda else aiPkgs.ollama;
         acceleration = if config.nixpkgs.config.cudaSupport then "cuda" else false;
       };
       impermanence.nixos.cache.directories = [

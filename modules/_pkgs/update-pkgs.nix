@@ -571,7 +571,7 @@ pkgs.writeShellApplication {
             set_first_hash_after "$file" 'repo = "openchamber"' "$src_hash"
 
             echo "    Refreshing fixed-output hash..."
-            refresh_fake_hash_from_build "$file" outputHash nix-build -E 'let pkgs = import <nixpkgs> {}; in pkgs.callPackage ./openchamber-web.nix {}'
+            refresh_fake_hash_from_build "$file" outputHash nix-build -E 'let unstable = import <nixpkgs-unstable> {}; in unstable.callPackage ./openchamber-web.nix {}'
             return 0
           }
 
@@ -605,12 +605,11 @@ pkgs.writeShellApplication {
       printf '%s\n' '{ pkgs ? import <nixpkgs> {}, unstable ? import <nixpkgs-unstable> {} }:'
       printf '%s\n' '{'
       for pkg in "''${PACKAGES[@]}"; do
-          if [ "$pkg" == "cliproxyapi" ]; then
-            # Use the real unstable package set because CLIProxyAPI 6.10.x requires
-            # Go >= 1.26 during vendorHash prefetch; a fake override falls back to
-            # stable buildGoModule and reproduces the nix-update failure. Source:
-            # modules/_pkgs/cliproxyapi.nix and upstream go.mod.
-            echo " $pkg = pkgs.callPackage ./$pkg.nix { inherit unstable; };"
+          if [[ "$pkg" == "cliproxyapi" || "$pkg" == "omniroute" || "$pkg" == "openchamber-web" ]]; then
+            # Edge AI gateway packages intentionally build from nixpkgs-unstable
+            # so fast-moving Go/Bun/Node dependencies follow upstream APIs. Keep
+            # this in sync with modules/custom-packages.nix.
+            echo " $pkg = unstable.callPackage ./$pkg.nix {};"
           elif [ "$pkg" == "brave-origin" ]; then
             # Supported via custom updater because Brave Origin versions are valid
             # only when the expected prerelease .deb exists and all platform hashes
@@ -644,11 +643,11 @@ pkgs.writeShellApplication {
         # Supported via custom updater because the npm tarball and GitHub docs
         # source must move together. Native better-sqlite3 remains pinned until
         # upstream's npm dependency range changes.
-        echo " $pkg = pkgs.callPackage ./$pkg.nix {};"
+        echo " $pkg = unstable.callPackage ./$pkg.nix {};"
           elif [ "$pkg" == "cpa-usage-keeper" ]; then
         # Supported via custom updater because src, npmDepsHash, and vendorHash
         # must be refreshed together.
-        echo " $pkg = pkgs.callPackage ./$pkg.nix {};"
+        echo " $pkg = unstable.callPackage ./$pkg.nix {};"
       elif [ "$pkg" == "openchamber-web" ]; then
         # Supported via custom updater because source hash and fixed-output Bun
         # dependency/build hash must be refreshed together.
@@ -767,7 +766,7 @@ pkgs.writeShellApplication {
       # Custom updater keeps the npm CLI artifact and GitHub docs source in
       # lockstep, then the normal build serves as the native-module smoke test.
       if update_omniroute_package; then
-        if nix-build -E 'let pkgs = import <nixpkgs> {}; in pkgs.callPackage ./omniroute.nix {}' >/dev/null; then
+        if nix-build -E 'let unstable = import <nixpkgs-unstable> {}; in unstable.callPackage ./omniroute.nix {}' >/dev/null; then
           UPDATED+=("$pkg")
         else
           FAILED+=("$pkg")

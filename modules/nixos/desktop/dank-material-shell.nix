@@ -10,6 +10,7 @@
     let
       cfg = config.preferences.dankMaterialShell;
       dmsProgram = config.programs.dank-material-shell;
+      shellEdgePkgs = pkgs.unstable;
       user = config.preferences.user.username;
       homeDirectory = config.preferences.paths.homeDirectory;
       selfpkgs = self.packages.${pkgs.stdenv.hostPlatform.system};
@@ -40,7 +41,7 @@
             "__NOTIFY_SEND__"
           ]
           [
-            "${lib.getExe pkgs.unstable.voxtype}"
+            "${lib.getExe shellEdgePkgs.voxtype}"
             "${pkgs.systemd}/bin/systemctl"
             "${pkgs.bash}/bin/sh"
             "${lib.getExe pkgs.wtype}"
@@ -210,8 +211,8 @@
         # https://danklinux.com/docs/dankmaterialshell/nixos
         programs.dank-material-shell = {
           enable = true;
-          package = pkgs.unstable.dms-shell;
-          dgop.package = pkgs.unstable.dgop;
+          package = shellEdgePkgs.dms-shell;
+          dgop.package = shellEdgePkgs.dgop;
           systemd = {
             enable = true;
             target = graphicalSessionTarget;
@@ -257,7 +258,7 @@
           // idleInhibitPersistence.fileSystems;
 
         environment.systemPackages = [
-          pkgs.unstable.voxtype
+          shellEdgePkgs.voxtype
           selfpkgs.dms-idle-inhibit
         ];
 
@@ -321,7 +322,7 @@
           ];
 
           serviceConfig = {
-            ExecStart = "${lib.getExe pkgs.unstable.voxtype} daemon";
+            ExecStart = "${lib.getExe shellEdgePkgs.voxtype} daemon";
             Restart = "on-failure";
             RestartSec = 5;
           };

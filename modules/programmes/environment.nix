@@ -15,6 +15,7 @@
         getExe
         ;
 
+      edgePkgs = pkgs.unstable;
       editor = inputs.nvf-neovim.packages.${pkgs.stdenv.hostPlatform.system}.default;
 
       rawPackages = [
@@ -93,7 +94,7 @@
             [
               python3
               gcc
-              unstable.bun
+              edgePkgs.bun
               nodejs_latest
               go
               sqlite
@@ -105,7 +106,7 @@
             [
               imagemagick
               ffmpeg
-              unstable.yt-dlp
+              edgePkgs.yt-dlp
             ]
           ++
             # Just cool
@@ -117,7 +118,7 @@
           ++
             # Security / Pentesting
             [
-              unstable.aircrack-ng # WiFi security auditing suite - unstable has better support for newer drivers
+              edgePkgs.aircrack-ng # WiFi security auditing suite - unstable has better support for newer drivers
               nmap # Network discovery and security auditing
               metasploit # Penetration testing framework
               thc-hydra # Network logon cracker (supports SSH, FTP, etc.)

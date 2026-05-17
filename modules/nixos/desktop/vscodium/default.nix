@@ -7,6 +7,7 @@
       ...
     }:
     let
+      editorEdgePkgs = pkgs.unstable;
       user = config.preferences.user.username;
 
       vscodeExtensions =
@@ -83,13 +84,13 @@
 
       editorWaylandArgs = "--ozone-platform-hint=auto --enable-features=WaylandWindowDecorations --enable-wayland-ime=true --wayland-text-input-version=3";
 
-      vscodiumWayland = pkgs.vscodium.override {
+      vscodiumWayland = editorEdgePkgs.vscodium.override {
         commandLineArgs = editorWaylandArgs;
       };
 
-      antigravityWayland = pkgs.unstable.antigravity.override {
-        commandLineArgs = editorWaylandArgs;
-      };
+      # antigravityWayland = editorEdgePkgs.antigravity.override {
+      #   commandLineArgs = editorWaylandArgs;
+      # };
 
       extensionsJson = pkgs.writeText "extensions.json" (
         pkgs.vscode-utils.toExtensionJson vscodeExtensions
@@ -98,7 +99,7 @@
     {
       environment.systemPackages = with pkgs; [
         vscodiumWayland
-        antigravityWayland
+        # antigravityWayland
 
         # LSPs/Dependencies
         nixd
