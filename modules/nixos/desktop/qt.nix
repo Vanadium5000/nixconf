@@ -262,12 +262,18 @@
         adwaita-icon-theme
       ];
 
-      hjem.users.${user} = {
-        files = {
-          ".config/hypr/hyprqt6engine.conf".text = hyprqt6engineConf;
-          ".config/kdeglobals".text = kdeGlobals;
-          ".local/share/color-schemes/${kdeColorSchemeId}.colors".source = hyprqt6engineColorScheme;
+      system.activationScripts.qt-user-files = {
+        text = self.lib.userFiles.mkActivationScript {
+          inherit user;
+          inherit pkgs;
+          homeDirectory = config.preferences.paths.homeDirectory;
+          files = {
+            ".config/hypr/hyprqt6engine.conf".text = hyprqt6engineConf;
+            ".config/kdeglobals".text = kdeGlobals;
+            ".local/share/color-schemes/${kdeColorSchemeId}.colors".source = hyprqt6engineColorScheme;
+          };
         };
+        deps = [ "users" ];
       };
     };
 }

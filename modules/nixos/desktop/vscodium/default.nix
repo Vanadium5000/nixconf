@@ -168,11 +168,19 @@
         deps = [ "users" ];
       };
 
-      hjem.users.${user} = {
-        files.".config/VSCodium/User/settings.json".source =
-          "${config.preferences.paths.configDirectory}/modules/nixos/desktop/vscodium/settings.json";
-        files.".config/Antigravity/User/settings.json".source =
-          "${config.preferences.paths.configDirectory}/modules/nixos/desktop/vscodium/settings.json";
+      system.activationScripts.vscodium-user-files = {
+        text = self.lib.userFiles.mkActivationScript {
+          inherit user;
+          inherit pkgs;
+          homeDirectory = config.preferences.paths.homeDirectory;
+          files = {
+            ".config/VSCodium/User/settings.json".source =
+              "${config.preferences.paths.configDirectory}/modules/nixos/desktop/vscodium/settings.json";
+            ".config/Antigravity/User/settings.json".source =
+              "${config.preferences.paths.configDirectory}/modules/nixos/desktop/vscodium/settings.json";
+          };
+        };
+        deps = [ "users" ];
       };
 
       # FIXME: "fill-labs.dependi" is UNFREE

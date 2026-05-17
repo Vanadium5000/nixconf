@@ -14,6 +14,9 @@
     # Persistence helpers for managing files across reboots (impermanence setups)
     persistence = import ./_internal/persistence.nix { inherit lib; };
 
+    # NixOS activation-script helper for managing files in the primary user's home.
+    userFiles = import ./_internal/user-files.nix { inherit lib; };
+
     # Generator functions for various config formats
     generators = import ./_internal/generators.nix { inherit lib; };
 

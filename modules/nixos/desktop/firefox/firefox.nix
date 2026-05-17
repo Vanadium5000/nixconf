@@ -14,7 +14,6 @@
 
         types
         mkIf
-        mkMerge
         mapAttrsToList
         ;
 
@@ -197,88 +196,94 @@
           ".librewolf"
         ];
 
-        # Configure Profiles via hjem
-        hjem.users.${user}.files = mkMerge (
-          lib.flatten (
-            lib.mapAttrsToList (
-              profileName: profile:
-              let
-                profileDir = ".librewolf/${profile.path}";
-                # Extension settings need ExtensionStorageIDB disabled to work via storage.js
-                storageSettings = profile.extensions.settings;
-                hasStorageSettings = storageSettings != { };
+        system.activationScripts.librewolf-user-files = {
+          text = self.lib.userFiles.mkActivationScript {
+            inherit user;
+            inherit pkgs;
+            files = lib.foldl' lib.recursiveUpdate { } (
+              (lib.flatten (
+                lib.mapAttrsToList (
+                  profileName: profile:
+                  let
+                    profileDir = ".librewolf/${profile.path}";
+                    # Extension settings need ExtensionStorageIDB disabled to work via storage.js
+                    storageSettings = profile.extensions.settings;
+                    hasStorageSettings = storageSettings != { };
 
-                finalPrefs =
-                  profile.settings
-                  // (
-                    if hasStorageSettings then
-                      { "extensions.webextensions.ExtensionStorageIDB.enabled" = false; }
-                    else
-                      { }
-                  );
+                    finalPrefs =
+                      profile.settings
+                      // (
+                        if hasStorageSettings then
+                          { "extensions.webextensions.ExtensionStorageIDB.enabled" = false; }
+                        else
+                          { }
+                      );
 
-                # Prepare extension packages (symlink)
-                extensionsEnv =
-                  if profile.extensions.packages != [ ] then
-                    pkgs.buildEnv {
-                      name = "hm-firefox-extensions-${profileName}";
-                      paths = profile.extensions.packages;
+                    # Prepare extension packages (symlink)
+                    extensionsEnv =
+                      if profile.extensions.packages != [ ] then
+                        pkgs.buildEnv {
+                          name = "hm-firefox-extensions-${profileName}";
+                          paths = profile.extensions.packages;
+                        }
+                      else
+                        null;
+
+                  in
+                  [
+                    # user.js
+                    {
+                      "${profileDir}/user.js".text = mkUserJs finalPrefs profile.extraConfig;
                     }
-                  else
-                    null;
 
-              in
-              [
-                # user.js
+                    # Extensions installation (symlink)
+                    (lib.optionalAttrs (extensionsEnv != null) {
+                      "${profileDir}/extensions" = {
+                        source = "${extensionsEnv}/share/mozilla/extensions/{ec8030f7-c20a-464f-9b0e-13a3a9e97384}";
+                        recursive = true;
+                      };
+                    })
+
+                    # Extension Settings (storage.js)
+                    (lib.foldl' lib.recursiveUpdate { } (
+                      mapAttrsToList (
+                        extId: extCfg:
+                        lib.optionalAttrs (extCfg.settings != { }) {
+                          "${profileDir}/browser-extension-data/${extId}/storage.js" = {
+                            text = builtins.toJSON extCfg.settings;
+                          };
+                        }
+                      ) storageSettings
+                    ))
+                  ]
+                ) cfg.profiles
+              ))
+              ++ [
+                # profiles.ini
                 {
-                  "${profileDir}/user.js".text = mkUserJs finalPrefs profile.extraConfig;
-                }
-
-                # Extensions installation (symlink)
-                (mkIf (extensionsEnv != null) {
-                  "${profileDir}/extensions" = {
-                    source = "${extensionsEnv}/share/mozilla/extensions/{ec8030f7-c20a-464f-9b0e-13a3a9e97384}";
-                    recursive = true;
-                  };
-                })
-
-                # Extension Settings (storage.js)
-                (mkMerge (
-                  mapAttrsToList (
-                    extId: extCfg:
-                    mkIf (extCfg.settings != { }) {
-                      "${profileDir}/browser-extension-data/${extId}/storage.js" = {
-                        text = builtins.toJSON extCfg.settings;
+                  ".librewolf/profiles.ini".text = lib.generators.toINI { } (
+                    {
+                      General = {
+                        StartWithLastProfile = 1;
+                        Version = 2;
                       };
                     }
-                  ) storageSettings
-                ))
-              ]
-            ) cfg.profiles
-          )
-          ++ [
-            # profiles.ini
-            {
-              ".librewolf/profiles.ini".text = lib.generators.toINI { } (
-                {
-                  General = {
-                    StartWithLastProfile = 1;
-                    Version = 2;
-                  };
+                    // (lib.mapAttrs' (
+                      name: profile:
+                      lib.nameValuePair "Profile${toString profile.id}" {
+                        Name = name;
+                        Path = profile.path;
+                        IsRelative = 1;
+                        Default = if profile.isDefault then 1 else 0;
+                      }
+                    ) cfg.profiles)
+                  );
                 }
-                // (lib.mapAttrs' (
-                  name: profile:
-                  lib.nameValuePair "Profile${toString profile.id}" {
-                    Name = name;
-                    Path = profile.path;
-                    IsRelative = 1;
-                    Default = if profile.isDefault then 1 else 0;
-                  }
-                ) cfg.profiles)
-              );
-            }
-          ]
-        );
+              ]
+            );
+          };
+          deps = [ "users" ];
+        };
 
         system.activationScripts.firefox-permissions = {
           text = permissionsPersistence.activationScript;

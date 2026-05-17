@@ -6,7 +6,7 @@ let
   inherit (self.lib.generators) toHyprconf;
 in
 {
-  flake.nixosModules.extra_hjem =
+  flake.nixosModules.user-hyprland-config =
     {
       lib,
       config,
@@ -110,10 +110,18 @@ in
       config = mkIf cfg.enable {
         home.programs.hyprland.finalConfig = (toHyprconf { attrs = cfg.settings; }) + cfg.extraConfig;
 
-        hjem.users.${user} = {
-          files.".config/hypr/hyprland.conf".text = cfg.finalConfig;
-          # Generate keybinds JSON for the help overlay
-          files.".config/hypr/keybinds.json".text = keybindsJson;
+        system.activationScripts.hyprland-user-files = {
+          text = self.lib.userFiles.mkActivationScript {
+            inherit user;
+            inherit pkgs;
+            homeDirectory = config.preferences.paths.homeDirectory;
+            files = {
+              ".config/hypr/hyprland.conf".text = cfg.finalConfig;
+              # Generate keybinds JSON for the help overlay
+              ".config/hypr/keybinds.json".text = keybindsJson;
+            };
+          };
+          deps = [ "users" ];
         };
 
         home.programs.hyprland.settings.exec-once = builtins.map (

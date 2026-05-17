@@ -241,8 +241,8 @@
 
               # ~/.config/DankMaterialShell is itself a persisted bind mount, so
               # place the locally shipped plugin directly into that live tree as
-              # well as declaring it through hjem below. This keeps it visible in
-              # DMS's plugin picker immediately after rebuild/reboot.
+              # well as through the activation-managed user files below. This keeps
+              # it visible in DMS's plugin picker immediately after rebuild/reboot.
               IDLE_INHIBIT_PLUGIN_DIR="${homeDirectory}/${idleInhibitPluginDir}"
               install -D -m 0644 ${./dank-material-shell/idle-inhibit/plugin.json} "$IDLE_INHIBIT_PLUGIN_DIR/plugin.json"
               install -D -m 0644 ${idleInhibitPluginQmlFile} "$IDLE_INHIBIT_PLUGIN_DIR/IdleInhibitWidget.qml"
@@ -266,24 +266,31 @@
         # that required file keeps previews optional while making the palette
         # reproducible from modules/theme.nix. Source:
         # https://github.com/AvengeMedia/DankMaterialShell/blob/eb5afcdc40ea5446c27e18552ff4a19f9daf9484/docs/CUSTOM_THEMES.md#theme-structure
-        hjem.users.${user}.files = {
-          ${dmsThemeFile}.text = builtins.toJSON dmsTheme;
-          ${voxtypeConfigFile}.text = voxtypeConfig;
+        system.activationScripts.dank-material-shell-user-files = {
+          text = self.lib.userFiles.mkActivationScript {
+            inherit user homeDirectory;
+            inherit pkgs;
+            files = {
+              ${dmsThemeFile}.text = builtins.toJSON dmsTheme;
+              ${voxtypeConfigFile}.text = voxtypeConfig;
 
-          # DMS scans user plugins from ~/.config/DankMaterialShell/plugins and
-          # gives them priority over /etc/xdg system plugins. Installing this
-          # local widget there matches user-installed plugins and avoids stale
-          # system-plugin component caches. Source:
-          # https://github.com/AvengeMedia/DankMaterialShell/blob/eb5afcdc40ea5446c27e18552ff4a19f9daf9484/quickshell/Services/PluginService.qml#L21-L29
-          "${idleInhibitPluginDir}/plugin.json".text =
-            builtins.readFile ./dank-material-shell/idle-inhibit/plugin.json;
-          "${idleInhibitPluginDir}/IdleInhibitWidget.qml".text = idleInhibitPluginQml;
-          "${toggleLidInhibitPluginDir}/plugin.json".text =
-            builtins.readFile ./dank-material-shell/toggle-lid-inhibit/plugin.json;
-          "${toggleLidInhibitPluginDir}/ToggleLidInhibitWidget.qml".text = toggleLidInhibitPluginQml;
-          "${voxtypeWidgetPluginDir}/plugin.json".text =
-            builtins.readFile ./dank-material-shell/voxtype-widget/plugin.json;
-          "${voxtypeWidgetPluginDir}/VoxtypeWidget.qml".text = voxtypeWidgetPluginQml;
+              # DMS scans user plugins from ~/.config/DankMaterialShell/plugins and
+              # gives them priority over /etc/xdg system plugins. Installing this
+              # local widget there matches user-installed plugins and avoids stale
+              # system-plugin component caches. Source:
+              # https://github.com/AvengeMedia/DankMaterialShell/blob/eb5afcdc40ea5446c27e18552ff4a19f9daf9484/quickshell/Services/PluginService.qml#L21-L29
+              "${idleInhibitPluginDir}/plugin.json".text =
+                builtins.readFile ./dank-material-shell/idle-inhibit/plugin.json;
+              "${idleInhibitPluginDir}/IdleInhibitWidget.qml".text = idleInhibitPluginQml;
+              "${toggleLidInhibitPluginDir}/plugin.json".text =
+                builtins.readFile ./dank-material-shell/toggle-lid-inhibit/plugin.json;
+              "${toggleLidInhibitPluginDir}/ToggleLidInhibitWidget.qml".text = toggleLidInhibitPluginQml;
+              "${voxtypeWidgetPluginDir}/plugin.json".text =
+                builtins.readFile ./dank-material-shell/voxtype-widget/plugin.json;
+              "${voxtypeWidgetPluginDir}/VoxtypeWidget.qml".text = voxtypeWidgetPluginQml;
+            };
+          };
+          deps = [ "users" ];
         };
 
         # Mirror the upstream user unit locally so installing `dms-shell` cannot

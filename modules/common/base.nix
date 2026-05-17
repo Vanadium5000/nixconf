@@ -19,7 +19,7 @@
       cfg = config.preferences;
     in
     {
-      imports = [ self.nixosModules.extra_hjem ];
+      imports = [ self.nixosModules.user-hyprland-config ];
 
       options.preferences = {
         enable = mkEnableOption "the shared nixconf preference layer" // {
@@ -177,6 +177,8 @@
 
           users.users.${cfg.user.username} = {
             isNormalUser = true;
+            home = cfg.paths.homeDirectory;
+            createHome = true;
 
             packages = self.legacyPackages.${pkgs.stdenv.hostPlatform.system}.environmentPackages;
 
@@ -218,11 +220,19 @@
           i18n.defaultLocale = cfg.locale;
 
           # Git global config
-          hjem.users.${cfg.user.username}.files.".gitconfig".text = ''
-            [user]
-              name = ${cfg.git.username}
-              email = ${cfg.git.email}
-          '';
+          system.activationScripts.git-user-config = {
+            text = self.lib.userFiles.mkActivationScript {
+              user = cfg.user.username;
+              inherit pkgs;
+              homeDirectory = cfg.paths.homeDirectory;
+              files.".gitconfig".text = ''
+                [user]
+                  name = ${cfg.git.username}
+                  email = ${cfg.git.email}
+              '';
+            };
+            deps = [ "users" ];
+          };
 
           # SSH
           # Enable GnuPG with SSH support

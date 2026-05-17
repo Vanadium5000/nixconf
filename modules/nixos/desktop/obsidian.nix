@@ -219,42 +219,50 @@
         # Source: https://github.com/bezata/kObsidian/blob/main/docs/ENVIRONMENT.md#obsidianjson-paths-per-os
         impermanence.home.directories = [ ".config/obsidian" ];
 
-        hjem.users.${user}.files = {
-          # Native Linux Obsidian reads its vault registry from ~/.config/obsidian;
-          # seed only the stable path/open fields so first launch opens Shared/Vault
-          # without taking ownership of mutable profile files such as Preferences.
-          # Source: https://github.com/bezata/kObsidian/blob/main/docs/ENVIRONMENT.md#obsidianjson-paths-per-os
-          ".config/obsidian/obsidian.json" = {
-            type = "copy";
-            clobber = false;
-            text = builtins.toJSON {
-              vaults.nixconf-primary = {
-                path = vaultPath;
-                open = true;
-                ts = 0;
+        system.activationScripts.obsidian-user-files = {
+          text = self.lib.userFiles.mkActivationScript {
+            inherit user;
+            inherit pkgs;
+            homeDirectory = config.preferences.paths.homeDirectory;
+            files = {
+              # Native Linux Obsidian reads its vault registry from ~/.config/obsidian;
+              # seed only the stable path/open fields so first launch opens Shared/Vault
+              # without taking ownership of mutable profile files such as Preferences.
+              # Source: https://github.com/bezata/kObsidian/blob/main/docs/ENVIRONMENT.md#obsidianjson-paths-per-os
+              ".config/obsidian/obsidian.json" = {
+                type = "copy";
+                clobber = false;
+                text = builtins.toJSON {
+                  vaults.nixconf-primary = {
+                    path = vaultPath;
+                    open = true;
+                    ts = 0;
+                  };
+                };
+              };
+
+            }
+            // optionalAttrs cfg.theme.enable {
+              # Obsidian discovers full app themes from .obsidian/themes/<name> with
+              # manifest.json and theme.css. Symlinks can be hidden by Electron file
+              # watchers, so copy the files like a manually installed Obsidianite theme.
+              # Source: https://github.com/obsidianmd/obsidian-developer-docs/blob/2ed97bd04e82773d81eac967382819431da3b098/en/Themes/App%20themes/Build%20a%20theme.md#L20-L25
+              "${cfg.vaultDirectory}/.obsidian/appearance.json" = {
+                type = "copy";
+                clobber = false;
+                text = builtins.toJSON appearanceConfig;
+              };
+              "${cfg.vaultDirectory}/.obsidian/themes/${themeDirectory}/manifest.json" = {
+                type = "copy";
+                text = builtins.toJSON themeManifest;
+              };
+              "${cfg.vaultDirectory}/.obsidian/themes/${themeDirectory}/theme.css" = {
+                type = "copy";
+                text = themeCss;
               };
             };
           };
-        }
-        // optionalAttrs cfg.theme.enable {
-          # Obsidian discovers full app themes from .obsidian/themes/<name> with
-          # manifest.json and theme.css. Hjem's default symlinks can be hidden by
-          # Electron file watchers, so copy the files like a manually installed
-          # Obsidianite theme instead of linking them from the Nix store.
-          # Source: https://github.com/obsidianmd/obsidian-developer-docs/blob/2ed97bd04e82773d81eac967382819431da3b098/en/Themes/App%20themes/Build%20a%20theme.md#L20-L25
-          "${cfg.vaultDirectory}/.obsidian/appearance.json" = {
-            type = "copy";
-            clobber = false;
-            text = builtins.toJSON appearanceConfig;
-          };
-          "${cfg.vaultDirectory}/.obsidian/themes/${themeDirectory}/manifest.json" = {
-            type = "copy";
-            text = builtins.toJSON themeManifest;
-          };
-          "${cfg.vaultDirectory}/.obsidian/themes/${themeDirectory}/theme.css" = {
-            type = "copy";
-            text = themeCss;
-          };
+          deps = [ "users" ];
         };
 
         # Shared is already persisted by modules/common/impermanence.nix, so the

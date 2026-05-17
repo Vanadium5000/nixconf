@@ -45,12 +45,6 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # Alternative to Home Manager for user environment management
-    hjem = {
-      url = "github:feel-co/hjem";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
     # Install flatpaks declaratively
     # https://github.com/gmodena/nix-flatpak
     nix-flatpak.url = "github:gmodena/nix-flatpak/?ref=v0.7.0";

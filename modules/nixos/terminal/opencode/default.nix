@@ -27,11 +27,9 @@
       aiPkgs = pkgs.unstable;
       opencode = aiPkgs.opencode;
 
-      # OpenCode scans `~/.config/opencode/skills/<name>/SKILL.md`, and Hjem's
-      # `copy` mode is file-only, so install each skill file explicitly rather
-      # than handing it a directory source.
-      # Sources: https://opencode.ai/docs/skills/ and
-      # https://github.com/feel-co/hjem/blob/ab977051adce0bf9f7c1032327e72f0febda6f7b/manifest/v3.cue#L16-L19
+      # OpenCode scans `~/.config/opencode/skills/<name>/SKILL.md`; install each
+      # skill file explicitly so activation can preserve the expected tree shape.
+      # Source: https://opencode.ai/docs/skills/
       opencodeSkillFiles = builtins.listToAttrs (
         map (skillName: {
           name = ".config/opencode/skills/${skillName}/SKILL.md";
@@ -1744,58 +1742,65 @@
         // opencodePersistence.fileSystems
         // opencodeMemPersistence.fileSystems;
 
-      hjem.users.${user}.files = {
-        "${configFile}" = {
-          text = builtins.toJSON initialConfig;
-          type = "copy";
-          permissions = "0600";
-        };
+      system.activationScripts.opencode-user-files = {
+        text = self.lib.userFiles.mkActivationScript {
+          inherit user homeDirectory;
+          inherit pkgs;
+          files = {
+            "${configFile}" = {
+              text = builtins.toJSON initialConfig;
+              type = "copy";
+              permissions = "0600";
+            };
 
-        ".config/opencode/oh-my-opencode.jsonc" = {
-          text = builtins.toJSON ohMyOpencodeConfig;
-          type = "copy";
-          permissions = "0600";
-        };
+            ".config/opencode/oh-my-opencode.jsonc" = {
+              text = builtins.toJSON ohMyOpencodeConfig;
+              type = "copy";
+              permissions = "0600";
+            };
 
-        # Compatibility alias used by some OpenCode plugin/runtime paths.
-        # Keep this synced with oh-my-opencode.jsonc to avoid stale model picks.
-        ".config/opencode/oh-my-openagent.jsonc" = {
-          text = builtins.toJSON ohMyOpencodeConfig;
-          type = "copy";
-          permissions = "0600";
-        };
+            # Compatibility alias used by some OpenCode plugin/runtime paths.
+            # Keep this synced with oh-my-opencode.jsonc to avoid stale model picks.
+            ".config/opencode/oh-my-openagent.jsonc" = {
+              text = builtins.toJSON ohMyOpencodeConfig;
+              type = "copy";
+              permissions = "0600";
+            };
 
-        ".config/opencode/command" = {
-          source = ./command;
-          type = "copy";
-          permissions = "0755";
-        };
+            ".config/opencode/command" = {
+              source = ./command;
+              type = "copy";
+              permissions = "0755";
+            };
 
-        ".config/opencode/plugin" = {
-          source = ./plugin;
-          type = "copy";
-          permissions = "0755";
-        };
+            ".config/opencode/plugin" = {
+              source = ./plugin;
+              type = "copy";
+              permissions = "0755";
+            };
 
-        ".config/opencode/AGENTS.md" = {
-          source = ./_AGENTS.md;
-          type = "copy";
-          permissions = "0644";
-        };
+            ".config/opencode/AGENTS.md" = {
+              source = ./_AGENTS.md;
+              type = "copy";
+              permissions = "0644";
+            };
 
-        ".config/opencode/package.json" = {
-          source = ./_package.json;
-          type = "copy";
-          permissions = "0644";
-        };
+            ".config/opencode/package.json" = {
+              source = ./_package.json;
+              type = "copy";
+              permissions = "0644";
+            };
 
-        ".config/opencode/opencode-mem.jsonc" = {
-          text = builtins.toJSON opencodeMemConfig;
-          type = "copy";
-          permissions = "0644";
+            ".config/opencode/opencode-mem.jsonc" = {
+              text = builtins.toJSON opencodeMemConfig;
+              type = "copy";
+              permissions = "0644";
+            };
+          }
+          // mattpocockSkillFiles
+          // opencodeSkillFiles;
         };
-      }
-      // mattpocockSkillFiles
-      // opencodeSkillFiles;
+        deps = [ "users" ];
+      };
     };
 }

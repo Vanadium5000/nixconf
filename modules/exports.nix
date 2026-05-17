@@ -152,7 +152,6 @@ in
       profiles = {
         common = self.nixosModules.common;
         desktop = self.nixosModules.desktop;
-        extra_hjem = self.nixosModules.extra_hjem;
         terminal = self.nixosModules.terminal;
       };
 

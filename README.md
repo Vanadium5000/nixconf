@@ -408,7 +408,7 @@ nixconf/
 │   │   ├── terminal/      # Terminal tools (nix, opencode, git-sync)
 │   │   └── scripts/       # All scripts (quickshell/, bunjs/, general.nix)
 │   ├── programmes/        # Application configurations (kitty, zsh)
-│   ├── hjem/              # User environment (hjem — home-manager alternative)
+│   ├── user/              # User-level configuration helpers
 │   ├── wrappers/          # Executable wrappers (kitty, zsh, starship)
 │   ├── lib/               # Custom library (self.lib — persistence, generators)
 │   ├── _pkgs/             # Custom package definitions (self.packages)
@@ -616,7 +616,6 @@ HOST=legion5i ./rebuild.sh generations
 | `impermanence`       | nix-community/impermanence    | Ephemeral root management            |
 | `persist-retro`      | Geometer1729/persist-retro    | Retroactive persistence              |
 | `disko`              | nix-community/disko           | Declarative disk partitioning        |
-| `hjem`               | feel-co/hjem                  | User environment (home-manager alt)  |
 | `wrappers`           | Lassulus/wrappers             | Executable wrapping utility          |
 | `nix-index-database` | Mic92/nix-index-database      | Pre-built nix-index DB               |
 | `nix-flatpak`        | gmodena/nix-flatpak           | Declarative Flatpak management       |

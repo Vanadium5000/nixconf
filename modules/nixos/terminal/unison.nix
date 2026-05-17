@@ -1,4 +1,4 @@
-{ ... }:
+{ self, ... }:
 {
   flake.nixosModules.unison =
     {
@@ -81,41 +81,46 @@
         };
 
         # Shared Unison Profile Configuration
-        hjem.users."${user}" = {
-          files.".unison/default.prf".text = ''
-            # Roots: Local home directory vs Remote sync-target home (via SSH)
-            root = /home/${user}
-            root = ssh://${user}@sync-target//home/${user}
+        system.activationScripts.unison-user-files = {
+          text = self.lib.userFiles.mkActivationScript {
+            inherit user;
+            inherit pkgs;
+            files.".unison/default.prf".text = ''
+              # Roots: Local home directory vs Remote sync-target home (via SSH)
+              root = /home/${user}
+              root = ssh://${user}@sync-target//home/${user}
 
-            # Selective Sync: Only sync the Shared folder
-            path = Shared
+              # Selective Sync: Only sync the Shared folder
+              path = Shared
 
-            # Robustness & Automation
-            auto = true
-            batch = true
-            repeat = watch
-            confirmbigdel = true
-            prefer = newer
-            times = true
+              # Robustness & Automation
+              auto = true
+              batch = true
+              repeat = watch
+              confirmbigdel = true
+              prefer = newer
+              times = true
 
-            # Connection resilience
-            retry = 3
-            sshargs = -o BatchMode=yes -o ConnectTimeout=10
+              # Connection resilience
+              retry = 3
+              sshargs = -o BatchMode=yes -o ConnectTimeout=10
 
-            # Backup conflicting files before overwriting
-            backup = Name *
-            backuploc = central
-            backupdir = .unison/backups
-            maxbackups = 5
+              # Backup conflicting files before overwriting
+              backup = Name *
+              backuploc = central
+              backupdir = .unison/backups
+              maxbackups = 5
 
-            # Run "unison" on the remote host
-            servercmd = /run/current-system/sw/bin/unison
-            # Remote sync breaks if this isn't false:
-            addversionno = false
+              # Run "unison" on the remote host
+              servercmd = /run/current-system/sw/bin/unison
+              # Remote sync breaks if this isn't false:
+              addversionno = false
 
-            # Automatically ignore any stale lock files
-            ignorelocks = true
-          '';
+              # Automatically ignore any stale lock files
+              ignorelocks = true
+            '';
+          };
+          deps = [ "users" ];
         };
 
         # Persist Unison state (archives/backups) across reboots

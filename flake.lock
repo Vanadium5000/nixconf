@@ -135,27 +135,6 @@
         "type": "github"
       }
     },
-    "hjem": {
-      "inputs": {
-        "nix-darwin": "nix-darwin",
-        "nixpkgs": [
-          "nixpkgs"
-        ]
-      },
-      "locked": {
-        "lastModified": 1777732535,
-        "narHash": "sha256-gaHRkPaGAAjc6D4sZ+/haEKMJGO79tu4ROBlyOjXuco=",
-        "owner": "feel-co",
-        "repo": "hjem",
-        "rev": "ab977051adce0bf9f7c1032327e72f0febda6f7b",
-        "type": "github"
-      },
-      "original": {
-        "owner": "feel-co",
-        "repo": "hjem",
-        "type": "github"
-      }
-    },
     "home-manager": {
       "inputs": {
         "nixpkgs": [
@@ -322,27 +301,6 @@
       "original": {
         "owner": "oxalica",
         "repo": "nil",
-        "type": "github"
-      }
-    },
-    "nix-darwin": {
-      "inputs": {
-        "nixpkgs": [
-          "hjem",
-          "nixpkgs"
-        ]
-      },
-      "locked": {
-        "lastModified": 1775037210,
-        "narHash": "sha256-KM2WYj6EA7M/FVZVCl3rqWY+TFV5QzSyyGE2gQxeODU=",
-        "owner": "nix-darwin",
-        "repo": "nix-darwin",
-        "rev": "06648f4902343228ce2de79f291dd5a58ee12146",
-        "type": "github"
-      },
-      "original": {
-        "owner": "nix-darwin",
-        "repo": "nix-darwin",
         "type": "github"
       }
     },
@@ -657,7 +615,6 @@
         "disko": "disko",
         "dms": "dms",
         "flake-parts": "flake-parts",
-        "hjem": "hjem",
         "hyprqt6engine": "hyprqt6engine",
         "impermanence": "impermanence",
         "import-tree": "import-tree",
