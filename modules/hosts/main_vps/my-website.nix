@@ -104,7 +104,9 @@
         cookieDomain = servicesAuthCookieDomain;
         cookieName = servicesAuthCookieName;
         returnCookieName = servicesAuthReturnCookieName;
-        defaultRedirect = "https://${apexDomain}/";
+        # The apex hostname is routed through Dokploy and may legitimately have
+        # no app deployed; after direct /login sign-in, land on a real dashboard.
+        defaultRedirect = "https://${dashboardDomain}/";
         password = servicesAuthPassword;
         signingKey = servicesAuthSigningKey;
       };
