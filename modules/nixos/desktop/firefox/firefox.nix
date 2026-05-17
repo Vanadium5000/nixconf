@@ -166,7 +166,7 @@
 
         package = mkOption {
           type = types.package;
-          default = pkgs.unstable.librewolf;
+          default = pkgs.librewolf;
           description = "The package to use.";
         };
 

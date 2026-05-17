@@ -93,7 +93,7 @@
             [
               python3
               gcc
-              bun
+              unstable.bun
               nodejs_latest
               go
               sqlite
