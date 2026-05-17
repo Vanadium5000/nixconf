@@ -252,19 +252,9 @@ pkgs.writeShellApplication {
             grep -oP "$pattern" "$file" | head -1 || echo ""
           }
 
-          # OpenChamber now keeps its real package definition under a dedicated
-          # support directory, while the top-level file remains a thin shim so the
-          # exported package name stays stable for self.packages.openchamber-web.
           package_file() {
             local pkg="$1"
-            case "$pkg" in
-              "openchamber-web")
-                echo "openchamber/openchamber-web.nix"
-                ;;
-              *)
-                echo "$pkg.nix"
-                ;;
-            esac
+            echo "$pkg.nix"
           }
 
           # Multi-source update for packages with multiple fetchFromGitHub/fetchurl
@@ -547,6 +537,44 @@ pkgs.writeShellApplication {
           return 0
         }
 
+          update_openchamber_web_package() {
+            local pkg="openchamber-web"
+            local file
+            file=$(package_file "$pkg")
+            local current_version latest_tag latest_version src_hash
+
+            current_version=$(grep -oP 'version = "\K[^"]+' "$file" | head -1 || true)
+            latest_tag=$(get_latest_release "openchamber" "openchamber")
+            latest_version="''${latest_tag#v}"
+            latest_version="''${latest_version#V}"
+
+            if [ -z "$current_version" ] || [ -z "$latest_version" ]; then
+              echo "    Could not determine OpenChamber release version"
+              return 1
+            fi
+
+            echo "    Current version: $current_version"
+            echo "    Latest version: $latest_version"
+
+            if [ "$current_version" = "$latest_version" ]; then
+              echo "    Already up to date"
+              return 1
+            fi
+
+            src_hash=$(prefetch_github "openchamber" "openchamber" "v$latest_version")
+            if [ -z "$src_hash" ]; then
+              echo "    Could not prefetch OpenChamber source"
+              return 1
+            fi
+
+            sed -i "s|version = \"$current_version\"|version = \"$latest_version\"|" "$file"
+            set_first_hash_after "$file" 'repo = "openchamber"' "$src_hash"
+
+            echo "    Refreshing fixed-output hash..."
+            refresh_fake_hash_from_build "$file" outputHash nix-build -E 'let pkgs = import <nixpkgs> {}; in pkgs.callPackage ./openchamber-web.nix {}'
+            return 0
+          }
+
           select_update_packages
 
           notify "Scanning for packages..."
@@ -617,9 +645,13 @@ pkgs.writeShellApplication {
         # source must move together. Native better-sqlite3 remains pinned until
         # upstream's npm dependency range changes.
         echo " $pkg = pkgs.callPackage ./$pkg.nix {};"
-      elif [ "$pkg" == "cpa-usage-keeper" ]; then
+          elif [ "$pkg" == "cpa-usage-keeper" ]; then
         # Supported via custom updater because src, npmDepsHash, and vendorHash
         # must be refreshed together.
+        echo " $pkg = pkgs.callPackage ./$pkg.nix {};"
+      elif [ "$pkg" == "openchamber-web" ]; then
+        # Supported via custom updater because source hash and fixed-output Bun
+        # dependency/build hash must be refreshed together.
         echo " $pkg = pkgs.callPackage ./$pkg.nix {};"
           elif [ "$pkg" == "services-auth-gateway" ]; then
             # Skip: local generated Python app with no upstream source URL for nix-update.
@@ -701,9 +733,9 @@ pkgs.writeShellApplication {
           ;;
 
         "openchamber-web")
-          # The GitHub release tarball mirrors the npm publish artifact, so the
-          # generic versioned release updater can bump version and source hash.
-          if update_versioned_url_package "$pkg" "openchamber" "openchamber"; then
+          # OpenChamber builds from the upstream Bun workspace lock. Keep the
+          # release source hash and fixed-output dependency/build hash in sync.
+          if update_openchamber_web_package; then
             UPDATED+=("$pkg")
           else
             SKIPPED+=("$pkg")
