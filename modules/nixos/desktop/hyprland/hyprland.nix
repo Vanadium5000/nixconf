@@ -689,8 +689,9 @@
         # Fix nwg-displays: an output management utility for sway and Hyprland
         # https://github.com/nwg-piotr/nwg-displays
         source = [
-          "~/.config/hypr/monitors.conf"
-          "~/.config/hypr/workspaces.conf"
+          # I use DMS over NWG-Displays now
+          # "~/.config/hypr/monitors.conf"
+          # "~/.config/hypr/workspaces.conf"
 
           # DMS writes Hyprland fragments under ~/.config/hypr/dms. Use absolute
           # home paths because this generated Hyprland config lives in /nix/store,
@@ -698,12 +699,13 @@
           # Sources:
           # https://github.com/AvengeMedia/DankMaterialShell/blob/eb5afcdc40ea5446c27e18552ff4a19f9daf9484/core/internal/config/embedded/hyprland.conf#L117-L121
           # https://wiki.hyprland.org/Configuring/Keywords/#sourcing-multi-file
-          "~/.config/hypr/dms/colors.conf"
+          # Note: I only care about the DMS display config, the rest I don't care about
+          # "~/.config/hypr/dms/colors.conf"
           "~/.config/hypr/dms/outputs.conf"
-          "~/.config/hypr/dms/layout.conf"
-          "~/.config/hypr/dms/cursor.conf"
-          "~/.config/hypr/dms/binds.conf"
-          "~/.config/hypr/dms/windowrules.conf"
+          # "~/.config/hypr/dms/layout.conf"
+          # "~/.config/hypr/dms/cursor.conf"
+          # "~/.config/hypr/dms/binds.conf"
+          # "~/.config/hypr/dms/windowrules.conf"
         ];
 
         general = {
