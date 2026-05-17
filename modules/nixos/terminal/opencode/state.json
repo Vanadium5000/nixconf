@@ -2,20 +2,11 @@
   "categories": {
     "artistry": "omniroute/gpt-5.5-high",
     "deep": "omniroute/gpt-5.5-high",
-    "quick": {
-      "model": "omniroute/gpt-5.4-mini",
-      "reasoningEffort": "medium"
-    },
-    "ultrabrain": "omniroute/gpt-5.5-high",
-    "unspecified-high": "omniroute/gpt-5.5-high",
-    "unspecified-low": {
-      "model": "omniroute/gpt-5.4-mini",
-      "reasoningEffort": "medium"
-    },
+    "quick": "omniroute/gpt-5.4-mini",
+    "ultrabrain": "omniroute/gpt-5.5-xhigh",
+    "unspecified-high": "omniroute/gpt-5.5-xhigh",
+    "unspecified-low": "omniroute/gpt-5.4-mini",
     "visual-engineering": "omniroute/gpt-5.5-high",
-    "writing": {
-      "model": "omniroute/gpt-5.4-mini",
-      "reasoningEffort": "medium"
-    }
+    "writing": "omniroute/gpt-5.4-mini"
   }
 }

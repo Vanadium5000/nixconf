@@ -24,8 +24,7 @@
       };
       pluginsConfig = import ./_plugins.nix;
       categoriesConfig = import ./_categories.nix { inherit lib; };
-      aiPkgs = pkgs.unstable;
-      opencode = aiPkgs.opencode;
+      opencode = inputs.opencode.packages.${pkgs.stdenv.hostPlatform.system}.opencode;
 
       # OpenCode scans `~/.config/opencode/skills/<name>/SKILL.md`; install each
       # skill file explicitly so activation can preserve the expected tree shape.
@@ -181,7 +180,7 @@
       baseConfig = {
         "$schema" = "https://opencode.ai/config.json";
         plugin = pluginsConfig.plugins;
-        small_model = "omniroute/moonshotai/kimi-k2.6";
+        small_model = "omniroute/kilocode/kilo-auto/free";
         autoupdate = false;
         share = "disabled";
         permission = {
@@ -907,20 +906,6 @@
                 .capabilities.supported_reasoning_efforts?
               ]) as $explicit
               | if ($explicit | length) > 0 then $explicit
-                elif ((
-                  .reasoning
-                  // .supports_reasoning
-                  // .supportsReasoning
-                  // .supports_thinking
-                  // .supportsThinking
-                  // .capabilities.reasoning
-                  // .capabilities.supports_reasoning
-                  // .capabilities.supportsReasoning
-                  // .capabilities.supports_thinking
-                  // .capabilities.supportsThinking
-                  // false
-                ) == true) or has_any(["reasoning", "reasoning_effort", "reasoning.summary", "reasoning.encrypted_content"]) then
-                  ["low", "medium", "high"]
                 else
                   []
                 end;
