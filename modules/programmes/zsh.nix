@@ -303,8 +303,28 @@
             # ══════════════════════════════════════════════════════════════════
             # Environment Setup
             # ══════════════════════════════════════════════════════════════════
-            # Bun CLIs
-            export PATH="$HOME/.cache/.bun/bin:$PATH"
+            # User-scoped package manager CLIs.
+            # Keep mutable global installs out of the Nix store while exposing the
+            # conventional per-user bin directories when they exist.
+            export BUN_INSTALL="''${BUN_INSTALL:-$HOME/.bun}"
+            export PNPM_HOME="''${PNPM_HOME:-$HOME/.local/share/pnpm}"
+            export NPM_CONFIG_PREFIX="''${NPM_CONFIG_PREFIX:-$HOME/.npm-global}"
+
+            typeset -U path PATH
+            path=(
+              "$BUN_INSTALL/bin"
+              "$HOME/.cache/.bun/bin"
+              "$HOME/.cache/.bun/install/global/node_modules/.bin"
+              "$NPM_CONFIG_PREFIX/bin"
+              "$HOME/.npm/bin"
+              "$HOME/.local/share/npm/bin"
+              "$PNPM_HOME"
+              "$HOME/.yarn/bin"
+              "$HOME/.config/yarn/global/node_modules/.bin"
+              "$HOME/.local/bin"
+              $path
+            )
+            export PATH
 
             # Setup GPG_TTY for GPG-support
             export GPG_TTY=$(tty)

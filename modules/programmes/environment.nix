@@ -94,7 +94,7 @@
             [
               python3
               gcc
-              edgePkgs.bun
+              #edgePkgs.bun # Replaced by "curl -fsSL https://bun.sh/install | bash"
               nodejs_latest
               go
               sqlite
@@ -166,7 +166,10 @@
         runtimeInputs = rawPackages;
         env = {
           EDITOR = getExe editor;
+          BUN_INSTALL = "$HOME/.bun";
+          NPM_CONFIG_PREFIX = "$HOME/.npm-global";
           PASSWORD_STORE_DIR = "$HOME/.local/share/password-store";
+          PNPM_HOME = "$HOME/.local/share/pnpm";
         };
       };
 

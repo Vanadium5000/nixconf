@@ -316,7 +316,34 @@ let
       experimental = {
         task_system = true;
         dynamic_context_pruning = {
-          enabled = false;
+          enabled = true;
+          notification = "detailed";
+          turn_protection = {
+            enabled = true;
+            turns = 3;
+          };
+          protected_tools = [
+            "task"
+            "todowrite"
+            "todoread"
+            "lsp_rename"
+            "session_read"
+            "session_write"
+            "session_search"
+          ];
+          strategies = {
+            deduplication = {
+              enabled = true;
+            };
+            supersede_writes = {
+              enabled = true;
+              aggressive = false;
+            };
+            purge_errors = {
+              enabled = true;
+              turns = 5;
+            };
+          };
         };
       };
     };
