@@ -15,8 +15,7 @@
     };
 
     # Hardware configs/drivers
-    # TODO: Switch to the mainstream repo when PR 1710 is merged
-    nixos-hardware.url = "github:LukeChannings/nixos-hardware/master";
+    nixos-hardware.url = "github:NixOS/nixos-hardware/master";
 
     # Utility for wrapping applications and executables
     wrappers.url = "github:Lassulus/wrappers/39b27c1bbf6cfc38afb570f98664540639fc52f8";

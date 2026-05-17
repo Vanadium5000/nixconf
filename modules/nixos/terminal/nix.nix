@@ -61,7 +61,76 @@
           stalled-download-timeout = 30;
         };
       };
-      programs.nix-ld.enable = true;
+      programs.nix-ld = {
+        enable = true;
+        libraries = with pkgs; [
+          # Extra runtime libs for unpatched binaries that npm/bun download
+          # (Chrome for Testing, Playwright/Puppeteer browsers, Electron tools).
+          # The xorg.* entries below are X11 client libraries linked by upstream
+          # Chromium/Electron builds, not the Xorg server/session; Wayland-only
+          # systems still need them when running those prebuilt Linux binaries.
+          alsa-lib
+          at-spi2-atk
+          at-spi2-core
+          atk
+          cairo
+          coreutils
+          cups
+          dbus
+          dbus-glib
+          expat
+          ffmpeg
+          fontconfig
+          freetype
+          gdk-pixbuf
+          gsettings-desktop-schemas
+          glib
+          gtk3
+          icu
+          libcap
+          libdrm
+          libelf
+          libgbm
+          libGL
+          libGLU
+          libnotify
+          libusb1
+          libva
+          libxkbcommon
+          libxcrypt
+          mesa
+          networkmanager
+          nspr
+          nss
+          pango
+          pciutils
+          pipewire
+          SDL2
+          stdenv.cc.cc
+          udev
+          vulkan-loader
+          wayland
+          zenity
+          xorg.libICE
+          xorg.libSM
+          xorg.libX11
+          xorg.libXScrnSaver
+          xorg.libXcomposite
+          xorg.libXcursor
+          xorg.libXdamage
+          xorg.libXext
+          xorg.libXfixes
+          xorg.libXi
+          xorg.libXinerama
+          xorg.libXrandr
+          xorg.libXrender
+          xorg.libXt
+          xorg.libXtst
+          xorg.libXxf86vm
+          xorg.libxcb
+          xorg.libxshmfence
+        ];
+      };
       nixpkgs.config = {
         # Disable if you don't want unfree packages
         allowUnfree = false;

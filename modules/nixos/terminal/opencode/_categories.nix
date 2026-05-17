@@ -310,20 +310,42 @@ let
           "openai/gpt-5.5-pro" = 4;
         };
       };
-      tmux = {
-        enabled = true;
-        layout = "main-vertical";
-        main_pane_size = 60;
-        main_pane_min_width = 120;
-        agent_pane_min_width = 40;
-      };
       browser_automation_engine = {
-        provider = "playwright";
+        provider = "agent-browser";
       };
       experimental = {
         task_system = true;
+        dynamic_context_pruning = {
+          enabled = true;
+          notification = "detailed";
+          turn_protection = {
+            enabled = true;
+            turns = 3;
+          };
+          protected_tools = [
+            "task"
+            "todowrite"
+            "todoread"
+            "lsp_rename"
+            "session_read"
+            "session_write"
+            "session_search"
+          ];
+          strategies = {
+            deduplication = {
+              enabled = true;
+            };
+            supersede_writes = {
+              enabled = true;
+              aggressive = false;
+            };
+            purge_errors = {
+              enabled = true;
+              turns = 5;
+            };
+          };
+        };
       };
-      new_task_system_enabled = true;
     };
 in
 {
