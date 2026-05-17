@@ -4,10 +4,8 @@ let
 in
 {
   flake.nixosModules.dev =
-    { config, pkgs, ... }:
-    let
-      aiPkgs = pkgs.unstable;
-    in
+    { pkgs, ... }:
+
     {
       # MongoDB - a source-available, cross-platform, document-oriented database program
       services.mongodb = {
@@ -51,30 +49,6 @@ in
           mode = "0700";
         }
       ];
-
-      # llama.cpp - local text AIs
-      services.llama-cpp = {
-        enable = true;
-        package = aiPkgs.llama-cpp;
-        model = "/var/lib/llama-cpp/models/default.gguf";
-        extraFlags =
-          if config.nixpkgs.config.cudaSupport then
-            [
-              "--n-gpu-layers"
-              "99"
-            ]
-          else
-            [ ];
-      };
-      impermanence.nixos.cache.directories = [
-        {
-          directory = "/var/lib/private/llama-cpp";
-          user = "root";
-          group = "root";
-          mode = "0700";
-        }
-      ];
-
       environment.systemPackages = [
         pkgs.mongodb-compass
         pkgs.openssl # encryption
