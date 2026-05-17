@@ -43,7 +43,6 @@ pkgs.writeShellApplication {
           IMPORTANT_LIGHT_PACKAGES=(
             cliproxyapi
             omniroute
-            opencode
             openchamber-web
             cpa-usage-keeper
             services-auth-gateway

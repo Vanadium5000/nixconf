@@ -24,7 +24,7 @@
       };
       pluginsConfig = import ./_plugins.nix;
       categoriesConfig = import ./_categories.nix { inherit lib; };
-      opencode = pkgs.customPackages.opencode;
+      opencode = pkgs.unstable.opencode;
 
       # OpenCode scans `~/.config/opencode/skills/<name>/SKILL.md`, and Hjem's
       # `copy` mode is file-only, so install each skill file explicitly rather
