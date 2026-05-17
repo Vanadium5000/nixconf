@@ -178,19 +178,13 @@
             directories = dedupePersistenceEntries "directory" cfg.nixos.cache.directories;
             files = dedupePersistenceEntries "file" cfg.nixos.cache.files;
             users.${username} = {
-              directories = dedupePersistenceEntries "directory" (
-                [
-                  ".cache/personalive"
-                  "Passlists"
-                ]
-                ++ cfg.home.cache.directories
-              );
+              directories = dedupePersistenceEntries "directory" ([ "Passlists" ] ++ cfg.home.cache.directories);
               files = dedupePersistenceEntries "file" cfg.home.cache.files;
             };
           };
         };
 
-        # DynamicUser services such as ollama keep writable state under /var/lib/private.
+        # DynamicUser services such as llama.cpp keep writable state under /var/lib/private.
         # Use tmpfiles type "d" so an impermanent root creates the parent as 0700 instead
         # of relying on type "z", which only adjusts paths that already exist. This keeps
         # the parent secure without persisting every DynamicUser private state directory.

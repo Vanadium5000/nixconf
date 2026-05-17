@@ -116,6 +116,7 @@
           # XDG Integration (MIME & Desktop Entry tools)
           shared-mime-info
           desktop-file-utils
+          glib # Provides `gio trash`; Electron/VSCodium needs it on PATH for Trash deletes.
 
           # GTK icon themes
           # morewaita-icon-theme - Removed

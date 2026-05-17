@@ -13,7 +13,6 @@
 
       hostPackageExclusions = {
         macbook = [
-          "personalive"
           "sora-watermark-cleaner"
         ];
         main_vps = [
@@ -23,14 +22,11 @@
           "iloader"
           "powerpoint-mcp"
           "niri-screen-time"
-          "personalive"
           "sideloader"
           "sora-watermark-cleaner"
           "waydroid-total-spoof"
         ];
-        legion5i = [
-          "personalive" # Temporary - due to it not working
-        ];
+        legion5i = [ ];
         # Example: Add more hosts as needed
         # server_host = [ "some-gui-package" ];
       };

@@ -69,7 +69,6 @@ pkgs.writeShellApplication {
 
           HEAVY_LESS_IMPORTANT_PACKAGES=(
             wallpapers
-            personalive
             aptos-fonts
           )
 
@@ -628,9 +627,6 @@ pkgs.writeShellApplication {
           elif [ "$pkg" == "iloader" ]; then
             # Skip: iOS device management AppImage with manual download (manual update required)
             echo " # $pkg = pkgs.callPackage ./$pkg.nix {}; # skipped - iOS AppImage with manual download (manual update)"
-          elif [ "$pkg" == "personalive" ]; then
-            # Skip: Complex PyTorch ecosystem with CUDA pins and platform-specific wheels
-            echo " # $pkg = pkgs.callPackage ./$pkg.nix {}; # skipped - complex PyTorch/CUDA pins (manual update required)"
           elif [ "$pkg" == "playwright-cli" ]; then
             # Skip: NPM-based package with Playwright browser bundle dependencies
             echo " # $pkg = pkgs.callPackage ./$pkg.nix {}; # skipped - NPM package with browser bundles (manual update)"
@@ -837,16 +833,6 @@ pkgs.writeShellApplication {
                   FAILED+=("$pkg")
                 fi
                 set -e
-                ;;
-
-              "personalive")
-                # Skip - complex PyTorch ecosystem pins (wheels, CUDA overrides)
-                # Requires manual updates for compatibility between:
-                # - transformers/diffusers versions
-                # - numpy/opencv versions
-                # - torch/accelerate platform tags
-                echo "    Skipping personalive (manual update required for complex pins)"
-                SKIPPED+=("$pkg")
                 ;;
 
               *)

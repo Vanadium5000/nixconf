@@ -52,17 +52,25 @@ in
         }
       ];
 
-      # Ollama - local text AIs
-      services.ollama = {
+      # llama.cpp - local text AIs
+      services.llama-cpp = {
         enable = true;
-        package = if config.nixpkgs.config.cudaSupport then aiPkgs.ollama-cuda else aiPkgs.ollama;
-        acceleration = if config.nixpkgs.config.cudaSupport then "cuda" else false;
+        package = aiPkgs.llama-cpp;
+        model = "/var/lib/llama-cpp/models/default.gguf";
+        extraFlags =
+          if config.nixpkgs.config.cudaSupport then
+            [
+              "--n-gpu-layers"
+              "99"
+            ]
+          else
+            [ ];
       };
       impermanence.nixos.cache.directories = [
         {
-          directory = "/var/lib/private/ollama";
-          user = "ollama";
-          group = "ollama";
+          directory = "/var/lib/private/llama-cpp";
+          user = "root";
+          group = "root";
           mode = "0700";
         }
       ];

@@ -59,7 +59,7 @@ persisted paths survive reboots. Two persistence tiers:
 - **`/persist/system`** — Critical data (backed up): `/var/log`, machine-id,
   NetworkManager, bluetooth, SSH keys, Documents, password-store
 - **`/persist/cache`** — Large/regenerable data (not backed up): browser cache,
-  Steam, Downloads, Ollama models
+  Steam, Downloads, llama.cpp models
 
 Old root subvolumes are kept for 30 days before automatic cleanup.
 
@@ -183,13 +183,12 @@ Secrets flow through `pass` (password-store) → `secrets.nix` → `self.secrets
 
 ### 🤖 AI & Machine Learning
 
-| Tool                       | Purpose                      | Acceleration    |
-| -------------------------- | ---------------------------- | --------------- |
-| **Ollama**                 | Local LLM inference          | CUDA (legion5i) |
-| **PersonaLive**            | Real-time portrait animation | CUDA            |
-| **voxtype**                | Speech-to-text voice typing  | CPU/CUDA        |
-| **OpenCode**               | AI coding assistant          | —               |
-| **sora-watermark-cleaner** | AI video watermark removal   | CUDA            |
+| Tool                       | Purpose                     | Acceleration    |
+| -------------------------- | --------------------------- | --------------- |
+| **llama.cpp**              | Local LLM inference         | CUDA (legion5i) |
+| **voxtype**                | Speech-to-text voice typing | CPU/CUDA        |
+| **OpenCode**               | AI coding assistant         | —               |
+| **sora-watermark-cleaner** | AI video watermark removal  | CUDA            |
 
 ### 💰 Cryptocurrency Wallets
 
@@ -382,7 +381,6 @@ Current unstable-routed packages: `cliproxyapi`, `omniroute`, and
 | `niri-screen-time`         | Screen time tracker (Go, Wayland)       |
 | `omniroute`                | OpenAI-compatible AI gateway            |
 | `patchright`               | Patched Playwright automation           |
-| `personalive`              | Real-time portrait animation (CUDA)     |
 | `powerpoint-mcp`           | PowerPoint MCP server (Python)          |
 | `quickshell-docs-markdown` | Quickshell docs as Markdown (Rust)      |
 | `sideloader`               | iOS app sideloading tool                |
@@ -559,7 +557,7 @@ This keeps skill runtimes reproducible and avoids hidden per-machine state.
 terminal (base for all hosts)
   ├── common (base, impermanence, networking, keymap)
   ├── nix (Lix package manager, nix-index, unfree policy)
-  ├── dev (MongoDB, Ollama, Podman, libvirtd)
+  ├── dev (MongoDB, llama.cpp, Podman, libvirtd)
   ├── tailscale, unison, git-sync, opencode
   └── vpn-proxy-service
 

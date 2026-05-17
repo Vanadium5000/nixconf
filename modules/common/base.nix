@@ -187,7 +187,6 @@
               "video"
               "libvirtd"
               "docker"
-              "ollama"
               "ydotool" # Wayland automation tool
               "pipewire"
               "wireshark" # Network capture permissions (for termshark/dumpcap)
