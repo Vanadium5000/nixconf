@@ -10,85 +10,90 @@
     let
       cfg = config.services.acp-chat;
       system = pkgs.stdenv.hostPlatform.system;
-      format = pkgs.formats.json { };
-      settingsFile = format.generate "acp-chat-settings.json" {
-        # acp-chat loads VS Code-compatible `agent_servers` from .vscode/settings.json
-        # while walking upward from cwd. Source: acp-chat/server/src/acp/external_settings.ts.
-        agent_servers = cfg.agentServers;
-        # Keep upstream built-in agent discovery unless explicitly disabled; the VS Code
-        # setting key is declared in upstream package.json under contributes.configuration.
-        "acp.includeBuiltInAgents" = cfg.includeBuiltInAgents;
-      };
       opencodePackage = inputs.opencode.packages.${system}.opencode;
+      bridgePackage = self.packages.${system}.stdio-to-ws;
       runtimePackages = cfg.extraPackages ++ [
         opencodePackage
-        pkgs.nodejs
         pkgs.git
       ];
+      uiArgs = lib.escapeShellArgs [
+        (toString cfg.port)
+        "--bind"
+        cfg.host
+      ];
+      bridgeArgs = lib.escapeShellArgs (
+        [
+          (lib.escapeShellArgs cfg.agentCommand)
+          "--port"
+          (toString cfg.agentPort)
+          "--persist"
+          "--grace-period"
+          "-1"
+        ]
+        ++ cfg.bridgeExtraArgs
+      );
     in
     {
       options.services.acp-chat = {
-        enable = lib.mkEnableOption "acp-chat browser UI for Agent Client Protocol agents";
+        enable = lib.mkEnableOption "ACP UI web client and ACP stdio-to-WebSocket bridge";
 
         package = lib.mkPackageOption self.packages.${system} "acp-chat" { };
 
         host = lib.mkOption {
           type = lib.types.str;
           default = "0.0.0.0";
-          description = "Address passed to ACP_CHAT_HOST.";
+          description = "Address used by the ACP UI static web server.";
         };
 
         port = lib.mkOption {
           type = lib.types.port;
           default = 8732;
-          description = "Port passed to ACP_CHAT_PORT.";
+          description = "Port used by the ACP UI static web server.";
+        };
+
+        agentPort = lib.mkOption {
+          type = lib.types.port;
+          default = 8733;
+          description = "Port used by the ACP stdio-to-WebSocket bridge.";
         };
 
         openFirewall = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = "Whether to open the configured TCP port in the NixOS firewall.";
+          description = "Whether to open the configured UI and bridge TCP ports in the NixOS firewall.";
         };
 
         workDir = lib.mkOption {
           type = lib.types.path;
           default = "/var/lib/acp-chat";
-          description = "State directory used as HOME and cwd so acp-chat can discover .vscode/settings.json.";
+          description = "State directory used as HOME and cwd for ACP UI and the bridged agent.";
         };
 
-        connectTimeoutMs = lib.mkOption {
-          type = lib.types.ints.positive;
-          default = 600000;
-          description = "ACP_CONNECT_TIMEOUT_MS value used while waiting for agent connections.";
+        agentCommand = lib.mkOption {
+          type = lib.types.listOf lib.types.str;
+          default = [
+            "opencode"
+            "acp"
+          ];
+          description = "Command run by the WebSocket bridge for each ACP agent session.";
+        };
+
+        bridgeExtraArgs = lib.mkOption {
+          type = lib.types.listOf lib.types.str;
+          default = [ ];
+          description = "Additional arguments passed to stdio-to-ws after the default persistent bridge flags.";
         };
 
         environmentFile = lib.mkOption {
           type = lib.types.nullOr lib.types.path;
           default = null;
-          description = "Optional systemd EnvironmentFile; set ACP_CHAT_AUTH_TOKEN here to require browser WebSocket auth.";
-        };
-
-        agentServers = lib.mkOption {
-          type = format.type;
-          default = {
-            opencode = {
-              command = "opencode";
-              args = [ "acp" ];
-            };
-          };
-          description = "Declarative ACP agent_servers written to the VS Code settings file acp-chat reads.";
-        };
-
-        includeBuiltInAgents = lib.mkOption {
-          type = lib.types.bool;
-          default = true;
-          description = "Whether acp-chat should include upstream built-in ACP agent presets.";
+          description = "Optional systemd EnvironmentFile shared by the ACP UI and bridge services.";
         };
 
         extraPackages = lib.mkOption {
           type = lib.types.listOf lib.types.package;
           default = [ ];
-          description = "Additional packages exposed on PATH for declarative ACP agent commands.";
+          description = "Additional packages exposed on PATH for the bridged ACP agent command.";
         };
       };
 
@@ -102,39 +107,52 @@
         };
 
         systemd.services.acp-chat = {
-          description = "acp-chat browser UI for Agent Client Protocol agents";
+          description = "ACP UI web client for Agent Client Protocol agents";
           wantedBy = [ "multi-user.target" ];
           after = [ "network-online.target" ];
           wants = [ "network-online.target" ];
 
-          # Upstream reads ACP_CHAT_HOST/PORT/AUTH_TOKEN and ACP_CONNECT_TIMEOUT_MS
-          # in acp-chat/server/src/index.ts; auth is generated outside the Nix store.
-          environment = {
-            ACP_CHAT_HOST = cfg.host;
-            ACP_CHAT_PORT = toString cfg.port;
-            ACP_CONNECT_TIMEOUT_MS = toString cfg.connectTimeoutMs;
-            HOME = cfg.workDir;
-          };
-
-          # Use the service-level `path` option instead of environment.PATH so
-          # NixOS can merge its default systemd helper PATH without conflicts.
-          # Source: nixos/modules/system/boot/systemd.nix defines PATH globally.
-          path = runtimePackages;
-
-          preStart = ''
-            set -eu
-            install -d -m 0700 -o acp-chat -g acp-chat '${cfg.workDir}' '${cfg.workDir}/.vscode'
-
-            ln -sfn '${settingsFile}' '${cfg.workDir}/.vscode/settings.json'
-            chown -h acp-chat:acp-chat '${cfg.workDir}/.vscode/settings.json'
-          '';
+          environment.HOME = cfg.workDir;
 
           serviceConfig = {
             Type = "simple";
             User = "acp-chat";
             Group = "acp-chat";
             WorkingDirectory = cfg.workDir;
-            ExecStart = lib.getExe cfg.package;
+            ExecStart = "${lib.getExe cfg.package} ${uiArgs}";
+            EnvironmentFile = lib.optional (cfg.environmentFile != null) cfg.environmentFile;
+            Restart = "on-failure";
+            RestartSec = "5s";
+            StateDirectory = "acp-chat";
+            StateDirectoryMode = "0700";
+            NoNewPrivileges = true;
+            PrivateTmp = true;
+            ProtectSystem = "strict";
+            ReadWritePaths = [ cfg.workDir ];
+          };
+        };
+
+        systemd.services.acp-chat-agent = {
+          description = "ACP stdio-to-WebSocket bridge for ACP UI";
+          wantedBy = [ "multi-user.target" ];
+          after = [
+            "network-online.target"
+            "acp-chat.service"
+          ];
+          wants = [ "network-online.target" ];
+
+          # The web build of ACP UI cannot spawn stdio agents; upstream recommends
+          # @rebornix/stdio-to-ws for browser/mobile clients. Source: ACP UI README
+          # "Connecting from your phone or browser".
+          environment.HOME = cfg.workDir;
+          path = runtimePackages;
+
+          serviceConfig = {
+            Type = "simple";
+            User = "acp-chat";
+            Group = "acp-chat";
+            WorkingDirectory = cfg.workDir;
+            ExecStart = "${lib.getExe bridgePackage} ${bridgeArgs}";
             EnvironmentFile = lib.optional (cfg.environmentFile != null) cfg.environmentFile;
             Restart = "on-failure";
             RestartSec = "5s";
@@ -156,7 +174,10 @@
           }
         ];
 
-        networking.firewall.allowedTCPPorts = lib.mkIf cfg.openFirewall [ cfg.port ];
+        networking.firewall.allowedTCPPorts = lib.mkIf cfg.openFirewall [
+          cfg.port
+          cfg.agentPort
+        ];
       };
     };
 }

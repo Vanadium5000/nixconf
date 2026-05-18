@@ -30,22 +30,22 @@ zero-leak kill-switch.
 
 ## 🖥️ Desktop Stack
 
-| Component       | Tool                             | Notes                                          |
-| --------------- | -------------------------------- | ---------------------------------------------- |
-| Compositor      | **Hyprland** (Wayland)           | UWSM integration, dwindle layout               |
-| Desktop Shell   | **DankMaterialShell**            | Bar, dock, launcher, notifications, lock       |
-| Menu Utilities  | **qs-dmenu** and retained qs-\*  | Kept until each utility is explicitly migrated |
-| Terminal        | **Kitty**                        | Cursor trail, remote control                   |
-| Shell           | **Zsh** + **Starship**           | fzf-tab, autosuggestions, syntax highlighting  |
-| Editor          | **Neovim** (NVF)                 | Primary `$EDITOR`, custom NVF config           |
-| IDE             | **VSCodium** / **Antigravity**   | Declarative extensions, custom theme           |
-| AI Coding       | **OpenCode**                     | Terminal AI assistant with MCP servers         |
-| Browser         | **Librewolf**                    | uBlock Origin, Vimium, custom user.js          |
-| File Manager    | **Dolphin** (KDE)                | kio-extras, kio-admin                          |
-| Display Manager | **tuigreet** (greetd)            | TUI greeter                                    |
-| Wallpaper       | **Hyprpaper** + **qs-wallpaper** | Grid preview selector                          |
-| Music           | **MPD** + **mpc**                | PipeWire output, synced lyrics overlay         |
-| Clipboard       | **cliphist** + **wl-clipboard**  | History via `SUPER+Z`                          |
+| Component       | Tool                             | Notes                                            |
+| --------------- | -------------------------------- | ------------------------------------------------ |
+| Compositor      | **Hyprland** (Wayland)           | UWSM integration, dwindle layout                 |
+| Desktop Shell   | **DankMaterialShell**            | Bar, dock, launcher, notifications, lock         |
+| Menu Utilities  | **qs-dmenu** and retained qs-\*  | Kept until each utility is explicitly migrated   |
+| Terminal        | **Kitty**                        | Cursor trail, remote control                     |
+| Shell           | **Zsh** + **Starship**           | fzf-tab, autosuggestions, syntax highlighting    |
+| Editor          | **Fresh**                        | Primary `$EDITOR`/`$VISUAL`, terminal LSP editor |
+| IDE             | **VSCodium** / **Antigravity**   | Declarative extensions, custom theme             |
+| AI Coding       | **OpenCode**                     | Terminal AI assistant with MCP servers           |
+| Browser         | **Librewolf**                    | uBlock Origin, Vimium, custom user.js            |
+| File Manager    | **Dolphin** (KDE)                | kio-extras, kio-admin                            |
+| Display Manager | **tuigreet** (greetd)            | TUI greeter                                      |
+| Wallpaper       | **Hyprpaper** + **qs-wallpaper** | Grid preview selector                            |
+| Music           | **MPD** + **mpc**                | PipeWire output, synced lyrics overlay           |
+| Clipboard       | **cliphist** + **wl-clipboard**  | History via `SUPER+Z`                            |
 
 ---
 
@@ -620,7 +620,7 @@ HOST=legion5i ./rebuild.sh generations
 | `nix-index-database` | Mic92/nix-index-database      | Pre-built nix-index DB               |
 | `nix-flatpak`        | gmodena/nix-flatpak           | Declarative Flatpak management       |
 | `nix4vscode`         | nix-community/nix4vscode      | Auto-updated VSCode extensions       |
-| `nvf-neovim`         | Vanadium5000/nvf-neovim       | Custom Neovim config                 |
+| `fresh`              | sinelaw/fresh                 | Terminal editor with native LSP      |
 | `opencode`           | anomalyco/opencode            | AI coding assistant                  |
 | `hyprqt6engine`      | hyprwm/hyprqt6engine          | Qt6 theming for Hyprland             |
 

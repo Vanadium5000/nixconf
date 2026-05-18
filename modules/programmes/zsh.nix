@@ -257,6 +257,7 @@ in
             setopt SHARE_HISTORY          # Share history between all sessions
             setopt HIST_FCNTL_LOCK        # Use robust file locking, better for shared history
             unsetopt HIST_SAVE_BY_COPY    # Don't use mv to rewrite history (breaks impermanence symlinks)
+            ZSH_HISTORY_PRUNE_AFTER_DAYS="''${ZSH_HISTORY_PRUNE_AFTER_DAYS:-30}"
 
             zmodload zsh/parameter
             autoload -Uz add-zsh-hook
@@ -267,9 +268,81 @@ in
               source ${fallbackConfig}
             fi
 
+
+            typeset -g NIXCONF_ZSH_LAST_HISTORY_LINE=""
+            typeset -g NIXCONF_ZSH_LAST_HISTORY_ACCEPTED=0
+            typeset -g NIXCONF_ZSH_HISTORY_PRUNED=0
+
+            function nixconf_zsh_history_command_key() {
+              emulate -L zsh
+              setopt EXTENDED_GLOB
+              local line="''${1%%$'\n'}"
+              line="''${line#; }"
+              if [[ "$line" == :[[:space:]]##<->:[0-9]#\;* ]]; then
+                line="''${line#*;}"
+              fi
+              print -r -- "$line"
+            }
+
+            function nixconf_zsh_compact_history_file() {
+              emulate -L zsh
+              setopt EXTENDED_GLOB
+
+              [[ -n "$HISTFILE" && -r "$HISTFILE" && -w "$HISTFILE" ]] || return 0
+
+              local now cutoff tmp line key stamp keep drop_key="''${1:-}"
+              local -A newest
+              now=$EPOCHSECONDS
+              cutoff=$(( now - ''${ZSH_HISTORY_PRUNE_AFTER_DAYS:-30} * 86400 ))
+              tmp="''${HISTFILE}.nixconf-prune.$$"
+
+              while IFS= read -r line; do
+                key="$(nixconf_zsh_history_command_key "$line")"
+                [[ -n "$key" && "$key" != "$drop_key" ]] || continue
+                if [[ "$line" == :[[:space:]]##<->:[0-9]#\;* ]]; then
+                  stamp="''${line#:[[:space:]]#}"
+                  stamp="''${stamp%%:*}"
+                else
+                  stamp=$now
+                fi
+                if [[ -z "''${newest[$key]}" || $stamp -gt ''${newest[$key]} ]]; then
+                  newest[$key]=$stamp
+                fi
+              done < "$HISTFILE"
+
+              while IFS= read -r line; do
+                key="$(nixconf_zsh_history_command_key "$line")"
+                if [[ -z "$key" ]]; then
+                  print -r -- "$line"
+                  continue
+                fi
+                [[ "$key" == "$drop_key" ]] && continue
+                keep="''${newest[$key]:-$now}"
+                (( keep >= cutoff )) && print -r -- "$line"
+              done < "$HISTFILE" >| "$tmp"
+
+              if command cp -- "$tmp" "$HISTFILE"; then
+                command rm -f -- "$tmp"
+                fc -p -a "$HISTFILE" "$HISTSIZE" "$SAVEHIST"
+                fc -R "$HISTFILE"
+              else
+                command rm -f -- "$tmp"
+                return 1
+              fi
+            }
+
+            function nixconf_zsh_prune_history() {
+              emulate -L zsh
+              (( NIXCONF_ZSH_HISTORY_PRUNED )) && return 0
+              NIXCONF_ZSH_HISTORY_PRUNED=1
+              nixconf_zsh_compact_history_file
+            }
+
             function nixconf_zshaddhistory() {
               emulate -L zsh
               local line="''${1%%$'\n'}"
+              NIXCONF_ZSH_LAST_HISTORY_LINE="$line"
+              NIXCONF_ZSH_LAST_HISTORY_ACCEPTED=0
 
               # Returning non-zero prevents both disk persistence and the live in-memory
               # history entry used by Up/Down and history-substring-search.
@@ -278,9 +351,43 @@ in
                 return 1
               fi
 
+              NIXCONF_ZSH_LAST_HISTORY_ACCEPTED=1
+
               return 0
             }
             add-zsh-hook zshaddhistory nixconf_zshaddhistory
+
+            function nixconf_zsh_history_preexec() {
+              emulate -L zsh
+              NIXCONF_ZSH_LAST_HISTORY_LINE="$1"
+            }
+            add-zsh-hook preexec nixconf_zsh_history_preexec
+
+            function nixconf_zsh_history_precmd() {
+              emulate -L zsh
+              local command_status=$?
+              nixconf_zsh_prune_history
+
+              # zshaddhistory runs before execution; delete only commands that were first seen and failed.
+              # If the same command succeeded before, pruning by last successful use keeps that older entry.
+              if (( command_status != 0 && NIXCONF_ZSH_LAST_HISTORY_ACCEPTED )) && [[ -n "$NIXCONF_ZSH_LAST_HISTORY_LINE" ]]; then
+                local key="$(nixconf_zsh_history_command_key "$NIXCONF_ZSH_LAST_HISTORY_LINE")"
+                local existing=0 line
+                if [[ -r "$HISTFILE" ]]; then
+                  while IFS= read -r line; do
+                    [[ "$(nixconf_zsh_history_command_key "$line")" == "$key" ]] && (( existing++ ))
+                  done < "$HISTFILE"
+                fi
+                if (( existing <= 1 )); then
+                  nixconf_zsh_compact_history_file "$key"
+                fi
+              fi
+
+              NIXCONF_ZSH_LAST_HISTORY_ACCEPTED=0
+              NIXCONF_ZSH_LAST_HISTORY_LINE=""
+              return $command_status
+            }
+            add-zsh-hook precmd nixconf_zsh_history_precmd
 
             # ══════════════════════════════════════════════════════════════════
             # Long Command Notifications
@@ -507,9 +614,9 @@ in
             fi
 
             # ══════════════════════════════════════════════════════════════════
-            # Starship Prompt
+            # Oh My Posh Prompt
             # ══════════════════════════════════════════════════════════════════
-            eval "$(${self'.packages.starship}/bin/starship init zsh)"
+            eval "$(${self'.packages.oh-my-posh}/bin/oh-my-posh init zsh --config ${self'.packages.oh-my-posh.theme})"
           '';
 
       # Create a directory with .zshrc file for ZDOTDIR

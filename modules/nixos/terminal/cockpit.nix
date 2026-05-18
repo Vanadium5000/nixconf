@@ -73,6 +73,7 @@
         systemd.sockets.cockpit = {
           wantedBy = lib.mkForce [ ];
           listenStreams = lib.mkForce [ ];
+          enable = lib.mkForce false;
         };
 
         systemd.services.cockpit-autologin = {
@@ -90,6 +91,10 @@
           ];
           environment = {
             COCKPIT_SUPERUSER = cfg.superuser;
+            # Direct cockpit-ws does not inherit the system profile's XDG data
+            # search path, so it otherwise serves only static/login endpoints and
+            # returns Cockpit's own 404 for /shell. Source: cockpit-ws(8) XDG_DATA_DIRS.
+            XDG_DATA_DIRS = "/run/current-system/sw/share:/nix/var/nix/profiles/default/share";
           };
           serviceConfig = {
             # --local-session intentionally skips Cockpit's login screen; public access is gated by

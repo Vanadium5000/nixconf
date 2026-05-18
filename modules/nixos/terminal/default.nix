@@ -104,7 +104,7 @@
 
         services.acp-chat = {
           # User requested all-host LAN bind without opening the NixOS firewall;
-          # acp-chat consumes ACP_CHAT_HOST in server/src/index.ts upstream.
+          # ACP UI receives this through the service --host flag.
           enable = true;
           host = "0.0.0.0";
           openFirewall = false;

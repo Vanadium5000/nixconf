@@ -575,6 +575,41 @@ pkgs.writeShellApplication {
             return 0
           }
 
+          update_acp_chat_package() {
+            local pkg="acp-chat"
+            local file
+            file=$(package_file "$pkg")
+
+            echo "  Checking latest ACP UI release..."
+            local current_version latest_tag latest_version src_hash
+            current_version=$(extract_nix_value "$file" 'version = "\K[^"]+')
+            latest_tag=$(get_latest_release "formulahendry" "acp-ui")
+            latest_version="''${latest_tag#v}"
+
+            if [ -z "$current_version" ] || [ -z "$latest_tag" ] || [ -z "$latest_version" ]; then
+              echo "    Could not determine ACP UI version"
+              return 1
+            fi
+
+            if [ "$current_version" = "$latest_version" ]; then
+              echo "    Already up to date"
+              return 1
+            fi
+
+            src_hash=$(prefetch_github "formulahendry" "acp-ui" "$latest_tag")
+            if [ -z "$src_hash" ]; then
+              echo "    Could not prefetch ACP UI source"
+              return 1
+            fi
+
+            sed -i "s|version = \"$current_version\"|version = \"$latest_version\"|" "$file"
+            set_first_hash_after "$file" 'repo = "acp-ui"' "$src_hash"
+
+            echo "    Refreshing npmDepsHash..."
+            refresh_fake_hash_from_build "$file" npmDepsHash nix-build -E 'let unstable = import <nixpkgs-unstable> {}; in unstable.callPackage ./acp-chat.nix {}'
+            return 0
+          }
+
           select_update_packages
 
           notify "Scanning for packages..."
@@ -699,6 +734,15 @@ pkgs.writeShellApplication {
             FAILED+=("$pkg")
           fi
           set -e
+          ;;
+
+        "acp-chat")
+          # ACP UI builds from the upstream web lockfile; refresh source and npm cache together.
+          if update_acp_chat_package; then
+            UPDATED+=("$pkg")
+          else
+            SKIPPED+=("$pkg")
+          fi
           ;;
 
         "aptos-fonts")

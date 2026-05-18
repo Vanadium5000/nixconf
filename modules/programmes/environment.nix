@@ -18,7 +18,7 @@
         self'.packages.bitcoin-wallet
         self'.packages.ethereum-wallet
         self'.packages.git
-        self'.packages.starship
+        self'.packages.oh-my-posh
         self'.packages.fresh
       ]
       ++ (
