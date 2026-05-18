@@ -41,7 +41,6 @@ pkgs.writeShellApplication {
           }
 
           IMPORTANT_LIGHT_PACKAGES=(
-            cliproxyapi
             omniroute
             openchamber-web
             cpa-usage-keeper
@@ -53,6 +52,7 @@ pkgs.writeShellApplication {
 
           IMPORTANT_MEDIUM_PACKAGES=(
             ajenti
+            cliproxyapi
             brave-origin
             patchright
             iloader

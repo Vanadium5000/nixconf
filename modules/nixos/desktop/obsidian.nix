@@ -31,6 +31,20 @@
         commandLineArgs = "--password-store=gnome-libsecret";
       };
 
+      # Obsidian's in-app CLI installer follows Electron's process.execPath and
+      # can therefore see "electron" instead of the Nix wrapper. Install a real
+      # declarative `obsidian` command while preserving the upstream desktop file.
+      # Source: nixpkgs pkgs/by-name/ob/obsidian/package.nix wrapper layout.
+      obsidianPackageWithCli = pkgs.symlinkJoin {
+        name = "obsidian-with-cli";
+        paths = [ obsidianPackage ];
+        nativeBuildInputs = [ pkgs.makeWrapper ];
+        postBuild = ''
+          rm -f $out/bin/obsidian
+          makeWrapper ${obsidianPackage}/bin/obsidian $out/bin/obsidian
+        '';
+      };
+
       inherit (self) colors colorsNoHash theme;
 
       appearanceConfig = {
@@ -183,7 +197,7 @@
 
       config = mkIf cfg.enable {
         environment.systemPackages = [
-          obsidianPackage
+          obsidianPackageWithCli
 
           # Keep the libsecret stack explicit so Obsidian Sync's encrypted
           # credentials do not depend on unrelated Electron apps being present.
@@ -217,7 +231,15 @@
         # than managing those files, otherwise an impermanent root forgets zoom
         # on every boot and package migrations start from a fresh app profile.
         # Source: https://github.com/bezata/kObsidian/blob/main/docs/ENVIRONMENT.md#obsidianjson-paths-per-os
-        impermanence.home.directories = [ ".config/obsidian" ];
+        impermanence.home.directories = [
+          ".config/obsidian"
+          ".local/share/obsidian"
+        ];
+
+        # Chromium/Electron caches are reproducible performance state, not vault
+        # data; keep them in the cache tier used by modules/common/impermanence.nix.
+        # Assumption: Obsidian follows XDG cache conventions on native Linux.
+        impermanence.home.cache.directories = [ ".cache/obsidian" ];
 
         system.activationScripts.obsidian-user-files = {
           text = self.lib.userFiles.mkActivationScript {

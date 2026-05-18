@@ -1,4 +1,5 @@
 {
+  self,
   lib,
   inputs,
   ...
@@ -17,6 +18,7 @@
 
       edgePkgs = pkgs.unstable;
       editor = inputs.nvf-neovim.packages.${pkgs.stdenv.hostPlatform.system}.default;
+      userPackageEnv = self.lib.userPackages.environment;
 
       rawPackages = [
         # Wrapped programmes
@@ -164,12 +166,9 @@
         inherit pkgs;
         package = self'.packages.zsh;
         runtimeInputs = rawPackages;
-        env = {
+        env = userPackageEnv // {
           EDITOR = getExe editor;
-          BUN_INSTALL = "$HOME/.bun";
-          NPM_CONFIG_PREFIX = "$HOME/.npm-global";
           PASSWORD_STORE_DIR = "$HOME/.local/share/password-store";
-          PNPM_HOME = "$HOME/.local/share/pnpm";
         };
       };
 

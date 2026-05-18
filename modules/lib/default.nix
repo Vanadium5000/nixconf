@@ -23,5 +23,9 @@
     # Nixpkgs overlay helpers keep duplicated package overrides in one place
     # while callers preserve their own NixOS or flake-parts evaluation policy.
     nixpkgs = import ./_internal/nixpkgs.nix { inherit lib; };
+
+    # User package-manager paths/env stay shared between shell wrappers,
+    # session env, and impermanence so Bun/npm/pnpm do not drift per module.
+    userPackages = import ./_internal/user-packages.nix { inherit lib; };
   };
 }
