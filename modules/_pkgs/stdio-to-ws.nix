@@ -22,6 +22,19 @@ buildNpmPackage rec {
   postPatch = ''
     cp ${./stdio-to-ws/package-lock.json} package-lock.json
     ${nodejs}/bin/node -e 'let p=require("./package.json"); delete p.devDependencies; delete p.scripts; require("fs").writeFileSync("package.json", JSON.stringify(p, null, 2))'
+    # ACP stdio is newline-delimited, while ACP UI sends one JSON-RPC object per WebSocket frame; add the missing LF or `omp acp` keeps waiting for the initialize line. Source: https://agentclientprotocol.com/protocol/transports
+    substituteInPlace dist/stdio-to-ws.js \
+      --replace-fail 'child.stdin?.write(content);' 'child.stdin?.write(content.endsWith("\n") ? content : content + "\n");'
+  '';
+
+  doInstallCheck = true;
+  installCheckPhase = ''
+    runHook preInstallCheck
+
+    grep -F 'child.stdin?.write(content.endsWith("\n") ? content : content + "\n");' \
+      "$out/lib/node_modules/@rebornix/stdio-to-ws/dist/stdio-to-ws.js"
+
+    runHook postInstallCheck
   '';
 
   meta = {

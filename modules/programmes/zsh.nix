@@ -258,8 +258,10 @@ in
             setopt HIST_FCNTL_LOCK        # Use robust file locking, better for shared history
             unsetopt HIST_SAVE_BY_COPY    # Don't use mv to rewrite history (breaks impermanence symlinks)
             ZSH_HISTORY_PRUNE_AFTER_DAYS="''${ZSH_HISTORY_PRUNE_AFTER_DAYS:-30}"
+            ZSH_HISTORY_PRUNE_INTERVAL_SECONDS="''${ZSH_HISTORY_PRUNE_INTERVAL_SECONDS:-86400}"
 
             zmodload zsh/parameter
+            zmodload zsh/stat
             autoload -Uz add-zsh-hook
 
             if [[ -r "$HOME/.config/nixconf/zsh/config.zsh" ]]; then
@@ -284,7 +286,7 @@ in
               print -r -- "$line"
             }
 
-            function nixconf_zsh_compact_history_file() {
+            function nixconf_zsh_rewrite_history_file() {
               emulate -L zsh
               setopt EXTENDED_GLOB
 
@@ -331,11 +333,64 @@ in
               fi
             }
 
+            function nixconf_zsh_prune_history_async() {
+              emulate -L zsh
+              setopt EXTENDED_GLOB NO_MONITOR
+
+              [[ -n "$HISTFILE" && -r "$HISTFILE" && -w "$HISTFILE" ]] || return 0
+              local stamp_file="''${ZSH_CACHE_DIR}/history-prune.stamp"
+              local -A hist_stat stamp_stat
+              local last_run=0
+              zstat -H hist_stat -- "$HISTFILE" 2>/dev/null || return 0
+              if zstat -H stamp_stat -- "$stamp_file" 2>/dev/null; then
+                last_run=$stamp_stat[mtime]
+              fi
+              (( EPOCHSECONDS - last_run >= ''${ZSH_HISTORY_PRUNE_INTERVAL_SECONDS:-86400} )) || return 0
+
+              {
+                local tmp="''${HISTFILE}.nixconf-prune.$$"
+                local now=$EPOCHSECONDS
+                local cutoff=$(( now - ''${ZSH_HISTORY_PRUNE_AFTER_DAYS:-30} * 86400 ))
+                local line key stamp keep
+                local -A newest current_stat
+
+                while IFS= read -r line; do
+                  key="$(nixconf_zsh_history_command_key "$line")"
+                  [[ -n "$key" ]] || continue
+                  if [[ "$line" == :[[:space:]]##<->:[0-9]#\;* ]]; then
+                    stamp="''${line#:[[:space:]]#}"
+                    stamp="''${stamp%%:*}"
+                  else
+                    stamp=$now
+                  fi
+                  if [[ -z "''${newest[$key]}" || $stamp -gt ''${newest[$key]} ]]; then
+                    newest[$key]=$stamp
+                  fi
+                done < "$HISTFILE"
+
+                while IFS= read -r line; do
+                  key="$(nixconf_zsh_history_command_key "$line")"
+                  if [[ -z "$key" ]]; then
+                    print -r -- "$line"
+                    continue
+                  fi
+                  keep="''${newest[$key]:-$now}"
+                  (( keep >= cutoff )) && print -r -- "$line"
+                done < "$HISTFILE" >| "$tmp"
+
+                zstat -H current_stat -- "$HISTFILE" 2>/dev/null \
+                  && [[ "$current_stat[size]:$current_stat[mtime]" == "$hist_stat[size]:$hist_stat[mtime]" ]] \
+                  && command cp -- "$tmp" "$HISTFILE"
+                command rm -f -- "$tmp"
+                print -r -- "$now" >| "$stamp_file"
+              } &!
+            }
+
             function nixconf_zsh_prune_history() {
               emulate -L zsh
               (( NIXCONF_ZSH_HISTORY_PRUNED )) && return 0
               NIXCONF_ZSH_HISTORY_PRUNED=1
-              nixconf_zsh_compact_history_file
+              nixconf_zsh_prune_history_async
             }
 
             function nixconf_zshaddhistory() {
@@ -379,7 +434,7 @@ in
                   done < "$HISTFILE"
                 fi
                 if (( existing <= 1 )); then
-                  nixconf_zsh_compact_history_file "$key"
+                  nixconf_zsh_rewrite_history_file "$key"
                 fi
               fi
 
@@ -617,6 +672,7 @@ in
             # Oh My Posh Prompt
             # ══════════════════════════════════════════════════════════════════
             eval "$(${self'.packages.oh-my-posh}/bin/oh-my-posh init zsh --config ${self'.packages.oh-my-posh.theme})"
+            _omp_config=${self'.packages.oh-my-posh.theme}
           '';
 
       # Create a directory with .zshrc file for ZDOTDIR

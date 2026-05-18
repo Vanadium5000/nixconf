@@ -1,4 +1,4 @@
-{ inputs, self, ... }:
+{ self, ... }:
 {
   flake.nixosModules.acp-chat =
     {
@@ -10,10 +10,30 @@
     let
       cfg = config.services.acp-chat;
       system = pkgs.stdenv.hostPlatform.system;
-      opencodePackage = inputs.opencode.packages.${system}.opencode;
       bridgePackage = self.packages.${system}.stdio-to-ws;
+      user = config.preferences.user.username;
+      homeDirectory = config.preferences.paths.homeDirectory;
+      # `omp` is intentionally not packaged here: it is installed as a mutable
+      # user-scoped Bun global and persisted by self.lib.userPackages. Run the
+      # bridge as that user so `omp acp` resolves to the existing Bun install.
+      userPackagePath = lib.concatStringsSep ":" (
+        map (lib.replaceStrings
+          [
+            "$HOME"
+            "$BUN_INSTALL"
+            "$NPM_CONFIG_PREFIX"
+            "$PNPM_HOME"
+          ]
+          [
+            homeDirectory
+            "${homeDirectory}/.bun"
+            "${homeDirectory}/.npm-global"
+            "${homeDirectory}/.local/share/pnpm"
+          ]
+        ) self.lib.userPackages.pathEntries
+      );
       runtimePackages = cfg.extraPackages ++ [
-        opencodePackage
+        pkgs.bun
         pkgs.git
       ];
       uiArgs = lib.escapeShellArgs [
@@ -27,11 +47,14 @@
           "--port"
           (toString cfg.agentPort)
           "--persist"
-          "--grace-period"
-          "-1"
+          "--grace-period=-1"
         ]
         ++ cfg.bridgeExtraArgs
       );
+      bridgeScript = pkgs.writeShellScript "acp-chat-agent" ''
+        export PATH=${lib.escapeShellArg userPackagePath}:$PATH
+        exec ${lib.getExe bridgePackage} ${bridgeArgs}
+      '';
     in
     {
       options.services.acp-chat = {
@@ -72,7 +95,7 @@
         agentCommand = lib.mkOption {
           type = lib.types.listOf lib.types.str;
           default = [
-            "opencode"
+            "omp"
             "acp"
           ];
           description = "Command run by the WebSocket bridge for each ACP agent session.";
@@ -144,15 +167,18 @@
           # The web build of ACP UI cannot spawn stdio agents; upstream recommends
           # @rebornix/stdio-to-ws for browser/mobile clients. Source: ACP UI README
           # "Connecting from your phone or browser".
-          environment.HOME = cfg.workDir;
+          environment.HOME = homeDirectory;
+          environment.BUN_INSTALL = "${homeDirectory}/.bun";
+          environment.NPM_CONFIG_PREFIX = "${homeDirectory}/.npm-global";
+          environment.PNPM_HOME = "${homeDirectory}/.local/share/pnpm";
           path = runtimePackages;
 
           serviceConfig = {
             Type = "simple";
-            User = "acp-chat";
-            Group = "acp-chat";
-            WorkingDirectory = cfg.workDir;
-            ExecStart = "${lib.getExe bridgePackage} ${bridgeArgs}";
+            User = user;
+            Group = "users";
+            WorkingDirectory = homeDirectory;
+            ExecStart = bridgeScript;
             EnvironmentFile = lib.optional (cfg.environmentFile != null) cfg.environmentFile;
             Restart = "on-failure";
             RestartSec = "5s";

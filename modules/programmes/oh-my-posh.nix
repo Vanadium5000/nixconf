@@ -65,7 +65,7 @@
                     "threshold": 0
                   },
                   "style": "diamond",
-                  "template": "<#000000> </>{{ .FormattedMs }}s ",
+                  "template": "<#000000> </>{{ .FormattedMs }} ",
                   "trailing_diamond": "",
                   "type": "executiontime"
                 }
@@ -98,17 +98,19 @@
             {
               "alignment": "left",
               "newline": true,
+              "force": true,
               "segments": [
                 {
                   "foreground": "#00ff0d",
                   "foreground_templates": [
-                    "{{ if gt .Code 0 }}#ff0000{{ end }}"
+                    "{{ if .Error }}#ff0000{{ end }}"
                   ],
                   "options": {
-                    "always_enabled": true
+                    "always_enabled": true,
+                    "status_template": "{{ if eq .Code 0 }}{{ else }}✗{{ end }}"
                   },
                   "style": "plain",
-                  "template": " ",
+                  "template": "{{ .String }} ",
                   "type": "status"
                 }
               ],
