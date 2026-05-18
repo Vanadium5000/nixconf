@@ -1,9 +1,224 @@
 {
   self,
   inputs,
+  lib,
   ...
 }:
+let
+  inherit (lib)
+    attrNames
+    concatMapStringsSep
+    escapeShellArg
+    literalExpression
+    mkEnableOption
+    mkIf
+    mkOption
+    types
+    ;
+
+  renderAlias = name: value: "alias ${escapeShellArg name}=${escapeShellArg value}";
+
+  renderFunction = name: body: ''
+    function ${name}() {
+    ${body}
+    }
+  '';
+
+  renderHistoryIgnoreFunction = patterns: ''
+    function nixconf_zsh_history_should_ignore() {
+      emulate -L zsh
+      local line="$1"
+      case "$line" in
+    ${concatMapStringsSep "\n" (pattern: "    (${pattern}) return 0 ;;") patterns}
+      esac
+      return 1
+    }
+  '';
+
+  renderConfig = cfg: ''
+    ${renderHistoryIgnoreFunction cfg.history.ignorePatterns}
+
+    ${concatMapStringsSep "\n" (name: renderAlias name cfg.aliases.${name}) (attrNames cfg.aliases)}
+
+    ${concatMapStringsSep "\n" (name: renderFunction name cfg.functions.${name}) (
+      attrNames cfg.functions
+    )}
+
+    ${cfg.initExtra}
+  '';
+
+  defaultZshPreferences = pkgs: {
+    history = {
+      size = 50000;
+      save = 50000;
+      share = true;
+      ignorePatterns = [ ];
+    };
+
+    correction.enable = true;
+
+    notifications = {
+      enable = true;
+      longCommandThresholdSeconds = 5;
+    };
+
+    aliases = {
+      c = "printf '\\033[2J\\033[3J\\033[1;1H'";
+      suspend = "systemctl suspend";
+      reboot = "systemctl reboot";
+      logout = "hyprctl dispatch exit";
+      poweroff = "systemctl poweroff";
+      ports = "sudo ss -ltnup";
+      unlock-device = "unlock-host";
+      ls = "eza --group-directories-first --icons=auto";
+      ll = "eza -lah --group-directories-first --icons=auto --git";
+      la = "eza -A --group-directories-first --icons=auto";
+      tree = "eza --tree --group-directories-first --icons=auto";
+      grep = "grep --color=auto";
+      diff = "diff --color=auto";
+      ".." = "cd ..";
+      "..." = "cd ../..";
+      "...." = "cd ../../..";
+      cat = "bat --style=plain --color=always --paging=never";
+      less = "bat --color=always --paging=always";
+    };
+
+    functions = {
+      unlock-host = ''
+        if [[ $# -lt 1 || $# -gt 2 ]]; then
+          print -u2 "usage: unlock-host <host> [port]"
+          return 2
+        fi
+
+        local host="$1"
+        local port="''${2:-2222}"
+
+        # The initrd unlock SSH daemon is separate from normal post-boot sshd;
+        # connect as root on the stage-1 port declared by remote-unlock.nix.
+        ssh -p "$port" root@"$host"
+      '';
+
+      killport = ''
+        if [[ $# -ne 1 || ! $1 == <1-65535> ]]; then
+          print -u2 "usage: killport {port}"
+          return 2
+        fi
+
+        local port=$1
+        local pids
+        pids=($(${pkgs.lsof}/bin/lsof -t -nP -iTCP:"$port" -sTCP:LISTEN 2>/dev/null))
+
+        if (( ''${#pids[@]} == 0 )); then
+          print "No TCP listener found on port $port"
+          return 1
+        fi
+
+        # SIGTERM keeps this helper safe for everyday dev servers; use kill -9 manually if a process ignores it.
+        kill "''${pids[@]}"
+        print "Killed PID(s) on port $port: ''${(j: :)pids}"
+      '';
+    };
+
+    initExtra = "";
+  };
+in
 {
+  flake.nixosModules.zsh =
+    {
+      config,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.preferences.zsh;
+      renderedConfig = renderConfig cfg;
+    in
+    {
+      options.preferences.zsh = {
+        history = {
+          size = mkOption {
+            type = types.ints.positive;
+            default = 50000;
+            description = "Interactive zsh history size.";
+          };
+          save = mkOption {
+            type = types.ints.positive;
+            default = 50000;
+            description = "Number of zsh history entries saved to disk.";
+          };
+          share = mkEnableOption "history sharing between live zsh sessions" // {
+            default = true;
+          };
+          ignorePatterns = mkOption {
+            type = types.listOf types.str;
+            default = [ ];
+            example = literalExpression ''[ "q(|[[:space:]]*)" ]'';
+            description = "Zsh case patterns excluded from file and in-memory history.";
+          };
+        };
+
+        correction.enable = mkEnableOption "zsh spelling correction" // {
+          default = true;
+        };
+
+        notifications = {
+          enable = mkEnableOption "desktop notifications for long-running shell commands" // {
+            default = true;
+          };
+          longCommandThresholdSeconds = mkOption {
+            type = types.ints.positive;
+            default = 5;
+            description = "Minimum runtime before zsh sends a command-complete notification.";
+          };
+        };
+
+        aliases = mkOption {
+          type = types.attrsOf types.str;
+          default = (defaultZshPreferences pkgs).aliases;
+          description = "Aliases rendered into the primary user's zsh startup file.";
+        };
+
+        functions = mkOption {
+          type = types.attrsOf types.lines;
+          default = (defaultZshPreferences pkgs).functions;
+          description = "Shell functions rendered into the primary user's zsh startup file.";
+        };
+
+        initExtra = mkOption {
+          type = types.lines;
+          default = "";
+          description = "Additional zsh source appended after generated aliases and functions.";
+        };
+      };
+
+      config = mkIf config.preferences.enable {
+        system.activationScripts.zsh-user-config = {
+          text = self.lib.userFiles.mkActivationScript {
+            user = config.preferences.user.username;
+            inherit pkgs;
+            homeDirectory = config.preferences.paths.homeDirectory;
+            files = {
+              ".config/nixconf/zsh/config.zsh" = {
+                text = ''
+                  export ZSH_HISTSIZE=${toString cfg.history.size}
+                  export ZSH_SAVEHIST=${toString cfg.history.save}
+                  export NIXCONF_ZSH_CORRECTION=${if cfg.correction.enable then "1" else "0"}
+                  export NIXCONF_ZSH_NOTIFICATIONS=${if cfg.notifications.enable then "1" else "0"}
+                  export NIXCONF_ZSH_LONG_COMMAND_SECONDS=${toString cfg.notifications.longCommandThresholdSeconds}
+                  ${if cfg.history.share then "setopt SHARE_HISTORY" else "unsetopt SHARE_HISTORY"}
+
+                  ${renderedConfig}
+                '';
+                type = "copy";
+                permissions = "0644";
+              };
+            };
+          };
+          deps = [ "users" ];
+        };
+      };
+    };
+
   perSystem =
     {
       pkgs,
@@ -12,6 +227,9 @@
     }:
     let
       userPackageZshSetup = self.lib.userPackages.zshSetup;
+      fallbackConfig = pkgs.writeText "nixconf-zsh-defaults.zsh" (
+        renderConfig (defaultZshPreferences pkgs)
+      );
 
       # Create the .zshrc content
       zshrc =
@@ -21,22 +239,48 @@
             # ══════════════════════════════════════════════════════════════════
             # History Configuration
             # ══════════════════════════════════════════════════════════════════
-            HISTFILE=~/.zsh_history
-            HISTSIZE=50000
-            SAVEHIST=50000
+            HISTFILE="''${ZSH_HISTORY_FILE:-$HOME/.zsh_history}"
+            HISTSIZE="''${ZSH_HISTSIZE:-50000}"
+            SAVEHIST="''${ZSH_SAVEHIST:-50000}"
+            ZSH_CACHE_DIR="''${ZSH_CACHE_DIR:-''${XDG_CACHE_HOME:-$HOME/.cache}/zsh}"
 
             setopt HIST_IGNORE_SPACE      # Don't save commands starting with space (privacy)
             setopt HIST_IGNORE_DUPS       # Ignore duplicate commands
             setopt HIST_IGNORE_ALL_DUPS   # Remove older duplicate from history
             setopt HIST_FIND_NO_DUPS      # Don't show duplicates in search
             setopt HIST_REDUCE_BLANKS     # Remove superfluous blanks
+            setopt HIST_EXPIRE_DUPS_FIRST # Drop duplicates before unique entries when trimming
+            setopt HIST_NO_STORE          # Do not store history-manipulation commands
+            setopt HIST_SAVE_NO_DUPS      # Rewrite history without duplicate commands
+            setopt INC_APPEND_HISTORY_TIME # Append after execution with duration metadata
             setopt EXTENDED_HISTORY       # Save timestamps (needed for correct history sharing)
-            setopt SHARE_HISTORY          # Share history between all sessions (implies INC_APPEND_HISTORY)
+            setopt SHARE_HISTORY          # Share history between all sessions
             setopt HIST_FCNTL_LOCK        # Use robust file locking, better for shared history
             unsetopt HIST_SAVE_BY_COPY    # Don't use mv to rewrite history (breaks impermanence symlinks)
 
             zmodload zsh/parameter
             autoload -Uz add-zsh-hook
+
+            if [[ -r "$HOME/.config/nixconf/zsh/config.zsh" ]]; then
+              source "$HOME/.config/nixconf/zsh/config.zsh"
+            else
+              source ${fallbackConfig}
+            fi
+
+            function nixconf_zshaddhistory() {
+              emulate -L zsh
+              local line="''${1%%$'\n'}"
+
+              # Returning non-zero prevents both disk persistence and the live in-memory
+              # history entry used by Up/Down and history-substring-search.
+              [[ "$line" == [[:space:]]* ]] && return 1
+              if (( $+functions[nixconf_zsh_history_should_ignore] )) && nixconf_zsh_history_should_ignore "$line"; then
+                return 1
+              fi
+
+              return 0
+            }
+            add-zsh-hook zshaddhistory nixconf_zshaddhistory
 
             # ══════════════════════════════════════════════════════════════════
             # Long Command Notifications
@@ -50,7 +294,7 @@
             function notify_long_command_precmd() {
               if [[ -n $command_start_time ]]; then
                 local elapsed=$(( SECONDS - command_start_time ))
-                if [[ $elapsed -ge 5 ]]; then
+                if [[ $elapsed -ge ''${NIXCONF_ZSH_LONG_COMMAND_SECONDS:-5} ]]; then
                   # Truncate command if it's too long for notification
                   local cmd_display=$last_command
                   if [[ ''${#cmd_display} -gt 50 ]]; then
@@ -62,8 +306,10 @@
               fi
             }
 
-            add-zsh-hook preexec notify_long_command_preexec
-            add-zsh-hook precmd notify_long_command_precmd
+            if [[ "''${NIXCONF_ZSH_NOTIFICATIONS:-1}" == 1 ]]; then
+              add-zsh-hook preexec notify_long_command_preexec
+              add-zsh-hook precmd notify_long_command_precmd
+            fi
 
             # Reset cursor style to prevent invisible cursor bug
             # (zsh-syntax-highlighting can corrupt cursor escape sequences)
@@ -83,14 +329,18 @@
             setopt PUSHD_MINUS            # Swap meaning of + and -
             setopt INTERACTIVE_COMMENTS   # Allow comments in interactive shell
             setopt NO_BEEP                # Don't beep on errors
-            setopt CORRECT                # Spelling correction for commands
+            if [[ "''${NIXCONF_ZSH_CORRECTION:-1}" == 1 ]]; then
+              setopt CORRECT                # Spelling correction for commands
+            fi
             setopt COMPLETE_IN_WORD       # Complete from both ends of word
             setopt ALWAYS_TO_END          # Move cursor to end after completion
 
             # ══════════════════════════════════════════════════════════════════
             # Completion System
             # ══════════════════════════════════════════════════════════════════
-            autoload -Uz compinit && compinit -d ~/.zcompdump
+            autoload -Uz compinit
+            mkdir -p "$ZSH_CACHE_DIR"
+            compinit -i -d "$ZSH_CACHE_DIR/zcompdump"
 
             # Case-insensitive, partial-word, and substring completion
             zstyle ':completion:*' matcher-list 'm:{a-zA-Z}={A-Za-z}' 'r:|[._-]=* r:|=*' 'l:|=* r:|=*'
@@ -108,7 +358,7 @@
 
             # Cache completions for faster results
             zstyle ':completion:*' use-cache on
-            zstyle ':completion:*' cache-path ~/.zsh/cache
+            zstyle ':completion:*' cache-path "$ZSH_CACHE_DIR/completion"
 
             # Complete . and .. special directories
             zstyle ':completion:*' special-dirs true
@@ -141,15 +391,15 @@
             # Ctrl+T: File search with bat preview
             export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
             export FZF_CTRL_T_OPTS="
-              --preview 'bat --style=numbers,changes --color=always {} 2>/dev/null || cat {}'
+              --preview 'bat --style=numbers,changes --color=always {} 2>/dev/null || true'
               --preview-window=right:60%:wrap
-              --bind='ctrl-y:execute-silent(echo {} | xclip -selection clipboard)'
+              --bind='ctrl-y:execute-silent(printf %s {} | wl-copy --type text/plain)'
             "
 
             # Alt+C: Directory navigation with tree preview
             export FZF_ALT_C_COMMAND='fd --type d --hidden --follow --exclude .git'
             export FZF_ALT_C_OPTS="
-              --preview 'ls -la --color=always {} | head -50'
+              --preview 'eza -la --color=always --icons=auto --group-directories-first {} 2>/dev/null || true'
               --preview-window=right:50%:wrap
             "
 
@@ -157,7 +407,7 @@
             export FZF_CTRL_R_OPTS="
               --preview 'echo {}'
               --preview-window=down:3:wrap
-              --bind='ctrl-y:execute-silent(echo -n {2..} | xclip -selection clipboard)'
+              --bind='ctrl-y:execute-silent(printf %s {2..} | wl-copy --type text/plain)'
             "
 
             # ══════════════════════════════════════════════════════════════════
@@ -183,10 +433,9 @@
             zstyle ':completion:*:git-checkout:*' sort false
             # Set descriptions format to enable group support
             zstyle ':completion:*:descriptions' format '[%d]'
-            # Preview directory's content with ls when completing cd
-            zstyle ':fzf-tab:complete:cd:*' fzf-preview 'ls -la --color=always $realpath'
-            # Preview file content with bat or icat for images
-            zstyle ':fzf-tab:complete:*:*' fzf-preview 'mime=""; if [ -n "$realpath" ] && [ -f "$realpath" ]; then mime=$(file --mime-type -b $realpath 2>/dev/null); fi; if [[ $mime == image/* ]]; then kitty +kitten icat --clear --transfer-mode=memory --stdin=no $realpath; else kitty +kitten icat --clear --stdin=no --silent --transfer-mode=memory; bat --style=numbers --color=always $realpath 2>/dev/null || ls -la --color=always $realpath 2>/dev/null; fi'
+            # Preview directory and file candidates without depending on GNU ls output.
+            zstyle ':fzf-tab:complete:cd:*' fzf-preview 'eza -la --color=always --icons=auto --group-directories-first "$realpath"'
+            zstyle ':fzf-tab:complete:*:*' fzf-preview 'mime=""; if [ -n "$realpath" ] && [ -f "$realpath" ]; then mime=$(file --mime-type -b "$realpath" 2>/dev/null); fi; if [[ $mime == image/* ]]; then kitty +kitten icat --clear --transfer-mode=memory --stdin=no "$realpath"; else kitty +kitten icat --clear --stdin=no --silent --transfer-mode=memory; bat --style=numbers --color=always "$realpath" 2>/dev/null || eza -la --color=always --icons=auto --group-directories-first "$realpath" 2>/dev/null; fi'
             # Switch group using `,` and `.`
             zstyle ':fzf-tab:*' switch-group ',' '.'
             # Use tmux popup if available (optional)
@@ -236,72 +485,10 @@
             ZSH_HIGHLIGHT_STYLES[comment]='fg=#7f849c'  # Visible gray for comments (Catppuccin overlay1)
 
             # ══════════════════════════════════════════════════════════════════
-            # Aliases
+            # Aliases and functions
             # ══════════════════════════════════════════════════════════════════
-            # Clear screen + scrollback
-            alias c="printf '\033[2J\033[3J\033[1;1H'"
-
-            # System actions
-            alias suspend="systemctl suspend"
-            alias reboot="systemctl reboot"
-            alias logout="hyprctl dispatch exit"
-            alias poweroff="systemctl poweroff"
-
-            # Utils
-            alias ports="sudo ss -ltnup"
-
-            function unlock-host() {
-              if [[ $# -lt 1 || $# -gt 2 ]]; then
-                print -u2 "usage: unlock-host <host> [port]"
-                return 2
-              fi
-
-              local host="$1"
-              local port="''${2:-2222}"
-
-              # The initrd unlock SSH daemon is separate from normal post-boot
-              # sshd, so connect as root on the stage-1 port declared in
-              # modules/hosts/main_vps/remote-unlock.nix.
-              ssh -p "$port" root@"$host"
-            }
-
-            alias unlock-device="unlock-host"
-
-            function killport() {
-              if [[ $# -ne 1 || ! $1 == <1-65535> ]]; then
-                print -u2 "usage: killport {port}"
-                return 2
-              fi
-
-              local port=$1
-              local pids
-              pids=($(${pkgs.lsof}/bin/lsof -t -nP -iTCP:"$port" -sTCP:LISTEN 2>/dev/null))
-
-              if (( ''${#pids[@]} == 0 )); then
-                print "No TCP listener found on port $port"
-                return 1
-              fi
-
-              # SIGTERM keeps this helper safe for everyday dev servers; use kill -9 manually if a process ignores it.
-              kill "''${pids[@]}"
-              print "Killed PID(s) on port $port: ''${(j: :)pids}"
-            }
-
-            # Better defaults with colors
-            alias ls="ls --color=auto"
-            alias ll="ls -lah --color=auto"
-            alias la="ls -A --color=auto"
-            alias grep="grep --color=auto"
-            alias diff="diff --color=auto"
-
-            # Quick navigation
-            alias ..="cd .."
-            alias ...="cd ../.."
-            alias ....="cd ../../.."
-
-            # Bat as cat replacement with better defaults
-            alias cat="bat --style=plain --color=always --paging=never"
-            alias less="bat --color=always --paging=always"
+            # Loaded earlier from ~/.config/nixconf/zsh/config.zsh so zshaddhistory can
+            # see per-host ignore rules before the first interactive command is accepted.
 
             # ══════════════════════════════════════════════════════════════════
             # Environment Setup
@@ -344,6 +531,8 @@
           fzf
           fd
           bat
+          eza
+          wl-clipboard
           lsof # killport uses terse PID output instead of parsing ss columns.
           scc # Replaces the local loc helper with nixpkgs' maintained code counter.
           tokei # Provides an alternate maintained LOC view for cross-checking project stats.

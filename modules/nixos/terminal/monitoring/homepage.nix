@@ -17,6 +17,8 @@
     }:
     let
       inherit (lib)
+        attrByPath
+        mapAttrs
         mkEnableOption
         mkOption
         mkIf
@@ -24,16 +26,51 @@
         ;
       cfg = config.services.homepage-monitor;
       publicBaseDomain = self.secrets.PUBLIC_BASE_DOMAIN;
+      hostName = attrByPath [ "preferences" "hostName" ] "localhost" config;
+      portOf = path: fallback: attrByPath path fallback config;
+      traefikEnabled = attrByPath [ "services" "traefik" "enable" ] false config;
+      ports = {
+        dashboard = cfg.port;
+        cockpit = portOf [ "services" "cockpit-autologin" "port" ] 9090;
+        acpChat = portOf [ "services" "acp-chat" "port" ] 8732;
+        mitmproxy = portOf [ "services" "mitmproxy" "webPort" ] 8083;
+        vpn = portOf [ "services" "vpn-proxy" "webUiPort" ] 10802;
+        cliproxyapi = portOf [ "services" "cliproxyapi" "port" ] 8317;
+        omniroute = portOf [ "services" "omniroute" "port" ] 20128;
+        cpaUsage = portOf [ "services" "cpa-usage-keeper" "port" ] 8080;
+        dokploy = portOf [ "services" "dokploy" "port" ] 3000;
+        mongo = 41275;
+      };
       mkPublicUrl =
         subdomain: path:
         let
           host = if subdomain == null then publicBaseDomain else "${subdomain}.${publicBaseDomain}";
         in
         "https://${host}${path}";
+      mkLocalUrl = port: path: "http://localhost:${toString port}${path}";
+      mkAnyUrl = port: path: "http://0.0.0.0:${toString port}${path}";
+      mkShortUrl =
+        name: port: path:
+        "http://${name}:${toString port}${path}";
+      shortHostnames = {
+        dashboard = ports.dashboard;
+        cockpit = ports.cockpit;
+        "acp-chat" = ports.acpChat;
+        mitmproxy = ports.mitmproxy;
+        vpn = ports.vpn;
+        cliproxyapi = ports.cliproxyapi;
+        omniroute = ports.omniroute;
+        "cpa-usage" = ports.cpaUsage;
+        dokploy = ports.dokploy;
+        mongo = ports.mongo;
+      };
+      mkTraefikServiceName = name: "local-${name}";
     in
     {
       options.services.homepage-monitor = {
-        enable = mkEnableOption "Homepage fleet dashboard portal";
+        enable = mkEnableOption "Homepage fleet dashboard portal" // {
+          default = true;
+        };
 
         port = mkOption {
           type = types.port;
@@ -61,13 +98,46 @@
           enable = true;
           listenPort = cfg.port;
 
+          allowedHosts = "*";
+          customCSS = ''
+            :root {
+              --color-800: 15 23 42;
+              --color-900: 2 6 23;
+              --color-950: 2 6 23;
+            }
+
+            body {
+              background:
+                radial-gradient(circle at top left, rgba(14, 165, 233, 0.16), transparent 28rem),
+                radial-gradient(circle at bottom right, rgba(168, 85, 247, 0.14), transparent 30rem),
+                rgb(2, 6, 23);
+            }
+
+            #information-widgets, .service-card {
+              backdrop-filter: blur(18px);
+            }
+          '';
+
           settings = {
-            title = "NixOS Fleet";
+            title = "NixOS Fleet — ${hostName}";
             theme = "dark";
             color = "slate";
-
-            # Allow access from Tailscale MagicDNS hostnames
-            # Without this, Homepage rejects non-localhost connections
+            headerStyle = "boxed";
+            statusStyle = "dot";
+            layout = {
+              "Local on this host" = {
+                style = "row";
+                columns = 4;
+              };
+              "Public dashboards" = {
+                style = "row";
+                columns = 4;
+              };
+              "Developer references" = {
+                style = "row";
+                columns = 3;
+              };
+            };
             useEqualHeights = true;
           };
 
@@ -100,25 +170,67 @@
 
           services = [
             {
-              "Monitoring" = [
+              "Local on this host" = [
                 {
-                  "Cockpit — VPS" = {
+                  "Dashboard — local" = {
+                    icon = "mdi-view-dashboard";
+                    href = mkLocalUrl ports.dashboard "";
+                    description = "Homepage on ${hostName} via localhost";
+                  };
+                }
+                {
+                  "Dashboard — any interface" = {
+                    icon = "mdi-lan";
+                    href = mkAnyUrl ports.dashboard "";
+                    description = "Homepage bind address link for LAN/Tailscale checks";
+                  };
+                }
+                {
+                  "Cockpit — local" = {
                     icon = "mdi-monitor-dashboard";
-                    href = mkPublicUrl "cockpit" "";
+                    href = mkLocalUrl ports.cockpit "";
                     description = "Systemd services, journal logs, terminal, and host actions";
                   };
                 }
                 {
-                  "Mitmproxy — HTTPS Analyzer" = {
+                  "ACP Chat — local" = {
+                    icon = "mdi-chat-processing";
+                    href = mkLocalUrl ports.acpChat "";
+                    description = "Browser UI for local ACP agents";
+                  };
+                }
+                {
+                  "Mitmproxy — local" = {
                     icon = "mdi-security";
-                    href = mkPublicUrl "mitmproxy" "";
-                    description = "HTTPS traffic analysis and debugging";
+                    href = mkLocalUrl ports.mitmproxy "";
+                    description = "On-demand HTTPS traffic analysis UI";
+                  };
+                }
+                {
+                  "VPN Proxy — local" = {
+                    icon = "mdi-vpn";
+                    href = mkLocalUrl ports.vpn "";
+                    description = "SOCKS5/HTTP VPN proxy management";
                   };
                 }
               ];
             }
             {
-              "Services" = [
+              "Public dashboards" = [
+                {
+                  "Dashboard" = {
+                    icon = "mdi-view-dashboard";
+                    href = mkPublicUrl "dashboard" "";
+                    description = "Authenticated public fleet dashboard";
+                  };
+                }
+                {
+                  "Cockpit" = {
+                    icon = "mdi-monitor-dashboard";
+                    href = mkPublicUrl "cockpit" "";
+                    description = "Public Cockpit route protected by shared auth";
+                  };
+                }
                 {
                   "CLIProxyAPI" = {
                     icon = "mdi-api";
@@ -151,14 +263,7 @@
                   "VPN Proxy" = {
                     icon = "mdi-vpn";
                     href = mkPublicUrl "vpn" "";
-                    description = "SOCKS5/HTTP VPN proxy management";
-                  };
-                }
-                {
-                  "My Website" = {
-                    icon = "mdi-web";
-                    href = mkPublicUrl null "";
-                    description = "Primary website";
+                    description = "Public VPN proxy management route";
                   };
                 }
                 {
@@ -168,18 +273,94 @@
                     description = "Mongo Express database management";
                   };
                 }
+                {
+                  "My Website" = {
+                    icon = "mdi-web";
+                    href = mkPublicUrl null "";
+                    description = "Primary website";
+                  };
+                }
+              ];
+            }
+            {
+              "Developer references" = [
+                {
+                  "NixOS Packages" = {
+                    icon = "mdi-magnify";
+                    href = "https://search.nixos.org/packages";
+                    description = "Search nixpkgs packages";
+                  };
+                }
+                {
+                  "NixOS Options" = {
+                    icon = "mdi-cog";
+                    href = "https://search.nixos.org/options";
+                    description = "Search NixOS module options";
+                  };
+                }
+                {
+                  "Nix Reference Manual" = {
+                    icon = "mdi-book-open-variant";
+                    href = "https://nix.dev/manual/nix/latest/";
+                    description = "Nix language and command reference";
+                  };
+                }
               ];
             }
           ];
 
           bookmarks = [
             {
+              "Short local names" = [
+                {
+                  "dashboard/" = [
+                    {
+                      icon = "mdi-view-dashboard";
+                      href = mkShortUrl "dashboard" ports.dashboard "";
+                    }
+                  ];
+                }
+                {
+                  "cockpit/" = [
+                    {
+                      icon = "mdi-monitor-dashboard";
+                      href = mkShortUrl "cockpit" ports.cockpit "";
+                    }
+                  ];
+                }
+                {
+                  "acp-chat/" = [
+                    {
+                      icon = "mdi-chat-processing";
+                      href = mkShortUrl "acp-chat" ports.acpChat "";
+                    }
+                  ];
+                }
+                {
+                  "mitmproxy/" = [
+                    {
+                      icon = "mdi-security";
+                      href = mkShortUrl "mitmproxy" ports.mitmproxy "";
+                    }
+                  ];
+                }
+                {
+                  "vpn/" = [
+                    {
+                      icon = "mdi-vpn";
+                      href = mkShortUrl "vpn" ports.vpn "";
+                    }
+                  ];
+                }
+              ];
+            }
+            {
               "Fleet" = [
                 {
                   "Cockpit — Legion 5i" = [
                     {
                       icon = "mdi-laptop";
-                      href = "http://legion5i:9090";
+                      href = "http://legion5i:${toString ports.cockpit}";
                     }
                   ];
                 }
@@ -187,35 +368,23 @@
                   "Cockpit — MacBook" = [
                     {
                       icon = "mdi-laptop";
-                      href = "http://macbook:9090";
-                    }
-                  ];
-                }
-              ];
-            }
-            {
-              "NixOS" = [
-                {
-                  "Package Search" = [
-                    {
-                      icon = "mdi-magnify";
-                      href = "https://search.nixos.org/packages";
+                      href = "http://macbook:${toString ports.cockpit}";
                     }
                   ];
                 }
                 {
-                  "NixOS Options" = [
+                  "Dashboard — Legion 5i" = [
                     {
-                      icon = "mdi-cog";
-                      href = "https://search.nixos.org/options";
+                      icon = "mdi-view-dashboard";
+                      href = "http://legion5i:${toString ports.dashboard}";
                     }
                   ];
                 }
                 {
-                  "Nix Reference Manual" = [
+                  "Dashboard — MacBook" = [
                     {
-                      icon = "mdi-book-open-variant";
-                      href = "https://nix.dev/manual/nix/latest/";
+                      icon = "mdi-view-dashboard";
+                      href = "http://macbook:${toString ports.dashboard}";
                     }
                   ];
                 }
@@ -226,10 +395,35 @@
 
         networking.firewall.allowedTCPPorts = mkIf cfg.openFirewall [ cfg.port ];
 
-        # Next.js 15 requires strict Host header validation
-        # Setting to * allows all hosts since it's already protected by Tailscale
-        systemd.services.homepage-dashboard.environment = {
-          HOMEPAGE_ALLOWED_HOSTS = lib.mkForce "*";
+        # Short dashboard names resolve locally on every host; browsers can open
+        # http://dashboard/, http://cockpit/, etc. without leaking these names to DNS.
+        networking.hosts."127.0.0.1" = builtins.attrNames shortHostnames;
+
+        services.nginx = mkIf (!traefikEnabled) {
+          enable = true;
+          virtualHosts = mapAttrs (name: port: {
+            serverName = name;
+            listen = [
+              {
+                addr = "127.0.0.1";
+                port = 80;
+              }
+            ];
+            locations."/".proxyPass = "http://127.0.0.1:${toString port}";
+          }) shortHostnames;
+        };
+
+        services.traefik.dynamicConfigOptions.http = mkIf traefikEnabled {
+          routers = mapAttrs (name: _: {
+            rule = "Host(`${name}`)";
+            service = mkTraefikServiceName name;
+            entryPoints = [ "web" ];
+          }) shortHostnames;
+          services = mapAttrs (_name: port: {
+            loadBalancer.servers = [
+              { url = "http://127.0.0.1:${toString port}"; }
+            ];
+          }) shortHostnames;
         };
       };
     };

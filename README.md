@@ -354,7 +354,7 @@ for BunJS development details.
 | `ethereum-wallet`                          | Foundry cast with pass + VPN                 |
 | `autoclicker-daemon`                       | Multi-point autoclicker                      |
 | `run-flatpak-instance`                     | Isolated multi-instance Flatpak              |
-| `opencode-models`                          | Host-installed OpenCode / OMA model switcher |
+| `models`                                   | Host-installed OpenCode / OMA model switcher |
 | `rebuild.sh`                               | NixOS rebuild wrapper with secrets           |
 
 ---
@@ -456,7 +456,7 @@ Current flake app exports are intentionally conservative:
 
 - `nix run .#rebuild` - wrapper around `rebuild.sh`
 
-Some tools such as `opencode-models` remain host-installed runtime commands for
+Some tools such as `models` remain host-installed runtime commands for
 now because they still depend on host-specific NixOS module state and checked-out
 repo data rather than a fully generic per-system package interface.
 

@@ -1,9 +1,4 @@
-{
-  self,
-  lib,
-  inputs,
-  ...
-}:
+{ self, inputs, ... }:
 {
   perSystem =
     {
@@ -12,12 +7,8 @@
       ...
     }:
     let
-      inherit (lib)
-        getExe
-        ;
 
       edgePkgs = pkgs.unstable;
-      editor = inputs.nvf-neovim.packages.${pkgs.stdenv.hostPlatform.system}.default;
       userPackageEnv = self.lib.userPackages.environment;
 
       rawPackages = [
@@ -28,7 +19,7 @@
         self'.packages.ethereum-wallet
         self'.packages.git
         self'.packages.starship
-        editor
+        self'.packages.fresh
       ]
       ++ (
         with pkgs;
@@ -70,7 +61,6 @@
             unzip
             _7zz
             jq
-            neovim
 
             (pass.withExtensions (exts: [ exts.pass-otp ])) # Password management
 
@@ -167,7 +157,8 @@
         package = self'.packages.zsh;
         runtimeInputs = rawPackages;
         env = userPackageEnv // {
-          EDITOR = getExe editor;
+          EDITOR = "${self'.packages.fresh}/bin/fresh";
+          VISUAL = "${self'.packages.fresh}/bin/fresh";
           PASSWORD_STORE_DIR = "$HOME/.local/share/password-store";
         };
       };

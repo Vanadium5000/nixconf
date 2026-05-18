@@ -19,7 +19,10 @@
       cfg = config.preferences;
     in
     {
-      imports = [ self.nixosModules.user-hyprland-config ];
+      imports = [
+        self.nixosModules.user-hyprland-config
+        self.nixosModules.fresh
+      ];
 
       options.preferences = {
         enable = mkEnableOption "the shared nixconf preference layer" // {

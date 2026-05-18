@@ -43,6 +43,7 @@
       imports = [
         # Requirements
         self.nixosModules.common
+        self.nixosModules.zsh
 
         # Opencode
         self.nixosModules.opencode

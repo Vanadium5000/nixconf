@@ -24,7 +24,6 @@
         opencodePackage
         pkgs.nodejs
         pkgs.git
-        pkgs.openssl
       ];
     in
     {
@@ -66,7 +65,7 @@
         environmentFile = lib.mkOption {
           type = lib.types.nullOr lib.types.path;
           default = null;
-          description = "Optional systemd EnvironmentFile for overriding generated acp-chat environment.";
+          description = "Optional systemd EnvironmentFile; set ACP_CHAT_AUTH_TOKEN here to require browser WebSocket auth.";
         };
 
         agentServers = lib.mkOption {
@@ -126,16 +125,8 @@
             set -eu
             install -d -m 0700 -o acp-chat -g acp-chat '${cfg.workDir}' '${cfg.workDir}/.vscode'
 
-            if [ ! -f '${cfg.workDir}/acp-chat.env' ]; then
-              token="$(${pkgs.openssl}/bin/openssl rand -hex 32)"
-              umask 077
-              printf 'ACP_CHAT_AUTH_TOKEN=%s\n' "$token" > '${cfg.workDir}/acp-chat.env'
-            fi
-
             ln -sfn '${settingsFile}' '${cfg.workDir}/.vscode/settings.json'
             chown -h acp-chat:acp-chat '${cfg.workDir}/.vscode/settings.json'
-            chown acp-chat:acp-chat '${cfg.workDir}/acp-chat.env'
-            chmod 0600 '${cfg.workDir}/acp-chat.env'
           '';
 
           serviceConfig = {
@@ -144,10 +135,7 @@
             Group = "acp-chat";
             WorkingDirectory = cfg.workDir;
             ExecStart = lib.getExe cfg.package;
-            EnvironmentFile = [
-              "-${cfg.workDir}/acp-chat.env"
-            ]
-            ++ lib.optional (cfg.environmentFile != null) cfg.environmentFile;
+            EnvironmentFile = lib.optional (cfg.environmentFile != null) cfg.environmentFile;
             Restart = "on-failure";
             RestartSec = "5s";
             StateDirectory = "acp-chat";

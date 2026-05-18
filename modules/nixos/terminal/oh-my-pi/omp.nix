@@ -20,12 +20,14 @@
       ompDirectory = "${homeDirectory}/.omp";
       ompAgentDirectory = "${ompDirectory}/agent";
       ompModelsFile = "${ompAgentDirectory}/models.yml";
+      ompQuestionConfigFile = "${ompAgentDirectory}/config-q.yml";
       shellUser = lib.escapeShellArg user;
       shellHomeDirectory = lib.escapeShellArg homeDirectory;
       shellConfigDirectory = lib.escapeShellArg configDirectory;
       shellOmpDirectory = lib.escapeShellArg ompDirectory;
       shellOmpAgentDirectory = lib.escapeShellArg ompAgentDirectory;
       shellOmpModelsFile = lib.escapeShellArg ompModelsFile;
+      shellOmpQuestionConfigFile = lib.escapeShellArg ompQuestionConfigFile;
 
       # Persist the whole OpenAgent/OMP tree because local inspection shows it mixes
       # mutable DBs, logs, plugins, and editable YAML under ~/.omp and ~/.omp/agent.
@@ -55,12 +57,34 @@
             install -d -m 0700 -o ${shellUser} -g users ${shellOmpAgentDirectory}/terminal-sessions
             install -d -m 0700 -o ${shellUser} -g users ${shellOmpDirectory}/logs
             install -d -m 0700 -o ${shellUser} -g users ${shellOmpDirectory}/plugins
+            install -m 0600 -o ${shellUser} -g users ${pkgs.writeText "omp-question-config.yml" ''
+              edit:
+                mode: hashline
+              tools:
+                discoveryMode: off
+                essentialOverride:
+                  - web_search
+              find:
+                enabled: false
+              search:
+                enabled: false
+              astGrep:
+                enabled: false
+              astEdit:
+                enabled: false
+              lsp:
+                enabled: false
+              browser:
+                enabled: false
+              bashInterceptor:
+                enabled: true
+            ''} ${shellOmpQuestionConfigFile}
 
             if [ ! -e ${shellOmpModelsFile} ]; then
               ${pkgs.util-linux}/bin/runuser -u ${shellUser} -- env \
                 HOME=${shellHomeDirectory} \
                 MODELS_OMP_FILE=${shellOmpModelsFile} \
-                MODELS_OPENCODE_REPO_DIR=${shellConfigDirectory}/modules/nixos/terminal/opencode \
+                MODELS_STATE_DIR=${shellConfigDirectory}/modules/nixos/terminal/opencode \
                 ${modelsCommand}/bin/models sync-omp >/dev/null
               chmod 0600 ${shellOmpModelsFile}
               chown ${shellUser}:users ${shellOmpModelsFile}
@@ -75,6 +99,13 @@
         };
 
         fileSystems = ompPersistence.fileSystems;
+
+        preferences.zsh = {
+          aliases.q = "PI_CODING_AGENT_DIR=${ompAgentDirectory} omp --no-session --no-skills --no-rules --no-title --no-lsp --tools web_search -p";
+          history.ignorePatterns = [
+            "q(|[[:space:]]*)"
+          ];
+        };
       };
     };
 }

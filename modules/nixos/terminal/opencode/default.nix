@@ -394,10 +394,9 @@
         )}
       '';
 
-      # Compatibility entrypoint for callers that still use the old command name.
       # The implementation lives in modules/nixos/scripts/models.nix so OMP and
       # OpenCode share one model sync path while preserving local mutable files.
-      opencodeModelSwitch = self.packages.${pkgs.stdenv.hostPlatform.system}.opencode-models;
+      modelsCommand = self.packages.${pkgs.stdenv.hostPlatform.system}.models;
 
       opencodeEnv = pkgs.buildEnv {
         name = "opencode-env";
@@ -422,11 +421,7 @@
           fi
         fi
 
-        if command -v models >/dev/null 2>&1; then
-          models sync-config >/dev/null 2>&1 || true
-        elif command -v opencode-models >/dev/null 2>&1; then
-          opencode-models sync-config >/dev/null 2>&1 || true
-        fi
+        models sync-config >/dev/null 2>&1 || true
 
         exec ${opencode}/bin/opencode "$@"
       '';
@@ -486,7 +481,7 @@
     {
       environment.systemPackages = [
         opencodeWrapped
-        opencodeModelSwitch
+        modelsCommand
         opencodeObsidianProjectMcp
       ]
       ++ languages.packages;
@@ -582,7 +577,7 @@
               permissions = "0644";
             };
 
-            ".config/models/opencode/opencode-models-metadata.json" = {
+            ".config/models/opencode/models-metadata.json" = {
               text = builtins.toJSON opencodeModelsMetadata;
               type = "copy";
               permissions = "0644";

@@ -3,7 +3,7 @@
   perSystem =
     { pkgs, self', ... }:
     let
-      opencodeStateAssetsDir = pkgs.runCommand "models-opencode-state-assets" { } ''
+      modelStateAssetsDir = pkgs.runCommand "models-state-assets" { } ''
         mkdir -p "$out"
         cp ${../terminal/opencode/models.json} "$out/models.json"
         cp ${../terminal/opencode/state.json} "$out/state.json"
@@ -20,11 +20,11 @@
         inherit pkgs;
         package = pkgs.writeShellScriptBin "models" ''
           # shell
-          REPO_DIR="''${MODELS_OPENCODE_REPO_DIR:-$HOME/nixconf/modules/nixos/terminal/opencode}"
-          MODELS_FILE="$REPO_DIR/models.json"
-          STATE_FILE="$REPO_DIR/state.json"
-          PRESETS_FILE="$REPO_DIR/presets.json"
-          PATCHES_FILE="$REPO_DIR/_model-local-patches.json"
+          MODELS_STATE_DIR="''${MODELS_STATE_DIR:-$HOME/nixconf/modules/nixos/terminal/opencode}"
+          MODELS_FILE="$MODELS_STATE_DIR/models.json"
+          STATE_FILE="$MODELS_STATE_DIR/state.json"
+          PRESETS_FILE="$MODELS_STATE_DIR/presets.json"
+          PATCHES_FILE="$MODELS_STATE_DIR/_model-local-patches.json"
           OPENCODE_CONFIG_FILE="$HOME/.config/opencode/config.json"
           OMO_CONFIG_FILE="$HOME/.config/opencode/oh-my-opencode.jsonc"
           # Compatibility alias used by some OpenCode plugin/runtime paths.
@@ -32,11 +32,12 @@
           OMO_OPENAGENT_CONFIG_FILE="$HOME/.config/opencode/oh-my-openagent.jsonc"
           OPENCODE_MEM_FILE="$HOME/.config/opencode/opencode-mem.jsonc"
           LOCAL_JSONC_FILE="$PWD/opencode.jsonc"
-          TEMPLATES_DIR="''${MODELS_OPENCODE_TEMPLATES_DIR:-$HOME/.config/models/opencode/templates}"
-          OPENCODE_BASE_CONFIG_FILE="''${MODELS_OPENCODE_BASE_CONFIG:-$HOME/.config/models/opencode/opencode-base.json}"
-          OMO_BASE_CONFIG_FILE="''${MODELS_OPENCODE_BASE_OMA:-$HOME/.config/models/opencode/oh-my-opencode-base.json}"
-          OPENCODE_MEM_BASE_FILE="''${MODELS_OPENCODE_BASE_MEM:-$HOME/.config/models/opencode/opencode-mem-base.json}"
-          OPENCODE_METADATA_FILE="''${MODELS_OPENCODE_METADATA:-$HOME/.config/models/opencode/opencode-models-metadata.json}"
+          MODELS_CONFIG_DIR="''${MODELS_CONFIG_DIR:-$HOME/.config/models/opencode}"
+          TEMPLATES_DIR="''${MODELS_TEMPLATES_DIR:-$MODELS_CONFIG_DIR/templates}"
+          OPENCODE_BASE_CONFIG_FILE="''${MODELS_BASE_CONFIG_FILE:-$MODELS_CONFIG_DIR/opencode-base.json}"
+          OMO_BASE_CONFIG_FILE="''${MODELS_OMA_BASE_CONFIG:-$MODELS_CONFIG_DIR/oh-my-opencode-base.json}"
+          OPENCODE_MEM_BASE_FILE="''${MODELS_MEM_BASE_CONFIG:-$MODELS_CONFIG_DIR/opencode-mem-base.json}"
+          OPENCODE_METADATA_FILE="''${MODELS_METADATA_FILE:-$MODELS_CONFIG_DIR/models-metadata.json}"
           JQ="${pkgs.jq}/bin/jq"
           GUM="${pkgs.gum}/bin/gum"
           CURL="${pkgs.curl}/bin/curl"
@@ -53,22 +54,22 @@
           log_error() { $GUM style --foreground 196 "[models:error] $*"; }
 
           ensure_repo_state_files() {
-            mkdir -p "$REPO_DIR"
+            mkdir -p "$MODELS_STATE_DIR"
 
             if [ ! -f "$MODELS_FILE" ]; then
-              cp "${opencodeStateAssetsDir}/models.json" "$MODELS_FILE"
+              cp "${modelStateAssetsDir}/models.json" "$MODELS_FILE"
             fi
 
             if [ ! -f "$STATE_FILE" ]; then
-              cp "${opencodeStateAssetsDir}/state.json" "$STATE_FILE"
+              cp "${modelStateAssetsDir}/state.json" "$STATE_FILE"
             fi
 
             if [ ! -f "$PRESETS_FILE" ]; then
-              cp "${opencodeStateAssetsDir}/presets.json" "$PRESETS_FILE"
+              cp "${modelStateAssetsDir}/presets.json" "$PRESETS_FILE"
             fi
 
             if [ ! -f "$PATCHES_FILE" ]; then
-              cp "${opencodeStateAssetsDir}/_model-local-patches.json" "$PATCHES_FILE"
+              cp "${modelStateAssetsDir}/_model-local-patches.json" "$PATCHES_FILE"
             fi
           }
 
@@ -1307,13 +1308,6 @@
       packages.m = inputs.wrappers.lib.makeWrapper {
         inherit pkgs;
         package = pkgs.writeShellScriptBin "m" ''
-          exec ${self'.packages.models}/bin/models "$@"
-        '';
-      };
-
-      packages.opencode-models = inputs.wrappers.lib.makeWrapper {
-        inherit pkgs;
-        package = pkgs.writeShellScriptBin "opencode-models" ''
           exec ${self'.packages.models}/bin/models "$@"
         '';
       };

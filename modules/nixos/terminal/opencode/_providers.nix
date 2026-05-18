@@ -1,7 +1,7 @@
 { self, lib, ... }:
 let
   publicBaseDomain = self.secrets.PUBLIC_BASE_DOMAIN;
-  # models.json is the reviewed cache written by opencode-models sync. It keeps
+  # models.json is the reviewed cache written by `models sync`. It keeps
   # upstream metadata local while the provider config uses the same model IDs.
   modelsFile = ./models.json;
   # Local patches are reserved for exact model facts the sync API omits or gets
