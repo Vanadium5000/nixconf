@@ -126,25 +126,26 @@ let
 
   mkMenuMetadata = {
     menu = {
-      title = "🤖 OpenCode Configuration Manager";
-      syncAction = "Sync Models from API";
-      syncConfigAction = "Sync Config from State";
-      changeCategoriesAction = "Change Category Models";
-      replaceModelAction = "Replace Model Across Categories";
-      presetSaveAction = "Save Current Config as Preset";
-      presetManageAction = "Preset Manager";
-      initAction = "Init Project MCPs (Current Dir)";
+      title = "🤖 Model Configuration Manager";
+      syncAction = "General: Sync Model Cache from API";
+      syncConfigAction = "General: Sync OpenCode + OMP Runtime Configs";
+      changeCategoriesAction = "OpenCode/Oh My OpenAgent: Change Category Models";
+      replaceModelAction = "OpenCode/Oh My OpenAgent: Replace Model Across Categories";
+      presetSaveAction = "OpenCode/Oh My OpenAgent: Save Category Preset";
+      presetManageAction = "OpenCode/Oh My OpenAgent: Category Preset Manager";
+      initAction = "OpenCode: Init Project MCPs (Current Dir)";
+      syncOmpAction = "OMP: Sync ~/.omp/agent/models.yml";
       exitAction = "Exit";
-      categoryHeader = "Select categories to update (Space to select, Enter to confirm)";
-      categoryMultiHeader = "Select one or more categories to update (Space to select, Enter to confirm)";
-      modelHeaderPrefix = "Select model for";
-      modelHeaderMultiple = "Select model for selected categories";
-      replaceSourceHeader = "Select current model to replace";
+      categoryHeader = "Select OpenCode/Oh My OpenAgent categories to update (Space to select, Enter to confirm)";
+      categoryMultiHeader = "Select one or more OpenCode/Oh My OpenAgent categories to update (Space to select, Enter to confirm)";
+      modelHeaderPrefix = "Select model for OpenCode/Oh My OpenAgent category";
+      modelHeaderMultiple = "Select model for selected OpenCode/Oh My OpenAgent categories";
+      replaceSourceHeader = "Select current OpenCode/Oh My OpenAgent category model to replace";
       replaceTargetHeader = "Select replacement model";
-      presetNamePrompt = "Preset name";
-      presetManagerHeader = "Select preset";
-      presetActionHeader = "Preset action";
-      categoryStatePrefix = "Category presets";
+      presetNamePrompt = "Category preset name";
+      presetManagerHeader = "Select category preset";
+      presetActionHeader = "Category preset action";
+      categoryStatePrefix = "OpenCode/Oh My OpenAgent category presets";
     };
     categories = mapAttrs (
       categoryId: category:

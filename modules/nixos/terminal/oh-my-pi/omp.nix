@@ -42,9 +42,11 @@
       options.programs.omp.enable = mkEnableOption "OpenAgent/OMP mutable state persistence";
 
       config = mkIf cfg.enable {
-        # Create only directories and a first-run model catalog; config.yml, DBs,
-        # sessions, logs, and plugins remain regular mutable files for the app.
-        # `models sync-omp` reads the repo model cache and does not fetch network data.
+        # Create only directories and OMP's first-run custom model catalog; config.yml,
+        # DBs, sessions, logs, and plugins remain regular mutable files for the app.
+        # `models sync-omp` writes the documented ~/.omp/agent/models.yml schema
+        # from the repo model cache without fetching network data.
+        # Source: https://github.com/can1357/oh-my-pi/blob/main/docs/models.md.
         system.activationScripts.omp-user-files = {
           text = ''
             install -d -m 0700 -o ${shellUser} -g users ${shellOmpDirectory}

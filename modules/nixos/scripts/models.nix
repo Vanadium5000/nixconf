@@ -11,10 +11,11 @@
         cp ${../terminal/opencode/_model-local-patches.json} "$out/_model-local-patches.json"
       '';
 
-      # The shared command keeps model switching outside the OpenCode module, while
-      # env overrides let host modules point at copied runtime assets for mutable tests.
-      # Sources: OpenCode config schema https://opencode.ai/docs/config/ and local
-      # OMP state shape observed at ~/.omp/agent/models.yml.
+      # The shared command keeps model discovery and runtime config generation out
+      # of individual terminal modules, while env overrides let activation tests
+      # point each target at copied mutable assets. Sources: OpenCode config
+      # schema https://opencode.ai/docs/config/ and OMP models.yml schema
+      # https://github.com/can1357/oh-my-pi/blob/main/docs/models.md.
       modelsPackage = inputs.wrappers.lib.makeWrapper {
         inherit pkgs;
         package = pkgs.writeShellScriptBin "models" ''
@@ -24,23 +25,26 @@
           STATE_FILE="$REPO_DIR/state.json"
           PRESETS_FILE="$REPO_DIR/presets.json"
           PATCHES_FILE="$REPO_DIR/_model-local-patches.json"
-          GLOBAL_CONFIG_FILE="$HOME/.config/opencode/config.json"
-          GLOBAL_OMA_FILE="$HOME/.config/opencode/oh-my-opencode.jsonc"
-          # Compatibility alias used by some OpenCode/Oh-My-* plugin paths.
+          OPENCODE_CONFIG_FILE="$HOME/.config/opencode/config.json"
+          OMO_CONFIG_FILE="$HOME/.config/opencode/oh-my-opencode.jsonc"
+          # Compatibility alias used by some OpenCode plugin/runtime paths.
           # Keep both files in sync so runtime cannot silently read stale models.
-          GLOBAL_OPENAGENT_FILE="$HOME/.config/opencode/oh-my-openagent.jsonc"
-          GLOBAL_MEM_FILE="$HOME/.config/opencode/opencode-mem.jsonc"
+          OMO_OPENAGENT_CONFIG_FILE="$HOME/.config/opencode/oh-my-openagent.jsonc"
+          OPENCODE_MEM_FILE="$HOME/.config/opencode/opencode-mem.jsonc"
           LOCAL_JSONC_FILE="$PWD/opencode.jsonc"
           TEMPLATES_DIR="''${MODELS_OPENCODE_TEMPLATES_DIR:-$HOME/.config/models/opencode/templates}"
-          BASE_CONFIG_FILE="''${MODELS_OPENCODE_BASE_CONFIG:-$HOME/.config/models/opencode/opencode-base.json}"
-          BASE_OMA_FILE="''${MODELS_OPENCODE_BASE_OMA:-$HOME/.config/models/opencode/oh-my-opencode-base.json}"
-          BASE_MEM_FILE="''${MODELS_OPENCODE_BASE_MEM:-$HOME/.config/models/opencode/opencode-mem-base.json}"
-          METADATA_FILE="''${MODELS_OPENCODE_METADATA:-$HOME/.config/models/opencode/opencode-models-metadata.json}"
+          OPENCODE_BASE_CONFIG_FILE="''${MODELS_OPENCODE_BASE_CONFIG:-$HOME/.config/models/opencode/opencode-base.json}"
+          OMO_BASE_CONFIG_FILE="''${MODELS_OPENCODE_BASE_OMA:-$HOME/.config/models/opencode/oh-my-opencode-base.json}"
+          OPENCODE_MEM_BASE_FILE="''${MODELS_OPENCODE_BASE_MEM:-$HOME/.config/models/opencode/opencode-mem-base.json}"
+          OPENCODE_METADATA_FILE="''${MODELS_OPENCODE_METADATA:-$HOME/.config/models/opencode/opencode-models-metadata.json}"
           JQ="${pkgs.jq}/bin/jq"
           GUM="${pkgs.gum}/bin/gum"
-          SYSTEMCTL="${pkgs.systemd}/bin/systemctl"
           CURL="${pkgs.curl}/bin/curl"
           OMP_MODELS_FILE="''${MODELS_OMP_FILE:-$HOME/.omp/agent/models.yml}"
+          OMP_PROVIDER_ID="''${MODELS_OMP_PROVIDER_ID:-omniroute}"
+          OMP_PROVIDER_NAME="''${MODELS_OMP_PROVIDER_NAME:-OmniRoute}"
+          OMP_API_KEY="''${MODELS_OMP_API_KEY:-''${OMNIROUTE_OPENCODE_API_KEY:-${self.secrets.OMNIROUTE_OPENCODE_API_KEY}}}"
+          OMP_BASE_URL="''${MODELS_OMP_BASE_URL:-''${OMNIROUTE_BASE_URL:-https://omniroute.${self.secrets.PUBLIC_BASE_DOMAIN}/v1}}"
 
           log_general() { $GUM style --foreground 212 "[models:general] $*"; }
           log_opencode() { $GUM style --foreground 39 "[models:opencode] $*"; }
@@ -169,7 +173,7 @@
 
           get_menu_text() {
             local key="$1"
-            $JQ -r --arg key "$key" '.menu[$key]' "$METADATA_FILE"
+            $JQ -r --arg key "$key" '.menu[$key]' "$OPENCODE_METADATA_FILE"
           }
 
           get_group_model() {
@@ -185,7 +189,7 @@
                 printf '%s\n' "$data"
               fi
             else
-              $JQ -r --arg category_id "$group_id" '.categories[$category_id].defaultModel' "$METADATA_FILE"
+              $JQ -r --arg category_id "$group_id" '.categories[$category_id].defaultModel' "$OPENCODE_METADATA_FILE"
             fi
           }
 
@@ -228,7 +232,7 @@
                 mismatch=1
                 break
               fi
-            done < <($JQ -r '.categories | keys[]' "$METADATA_FILE")
+            done < <($JQ -r '.categories | keys[]' "$OPENCODE_METADATA_FILE")
 
             [ "$mismatch" -eq 0 ]
           }
@@ -257,7 +261,7 @@
 
             local base_provider
             local config_provider
-            base_provider=$($JQ -cS '.provider.omniroute | del(.models)' "$BASE_CONFIG_FILE")
+            base_provider=$($JQ -cS '.provider.omniroute | del(.models)' "$OPENCODE_BASE_CONFIG_FILE")
             config_provider=$($JQ -cS '.provider.omniroute | del(.models)' "$cfg_file")
 
             [ "$base_provider" = "$config_provider" ]
@@ -272,7 +276,7 @@
 
             local base_static
             local config_static
-            base_static=$($JQ -cS 'del(.provider.omniroute.models)' "$BASE_CONFIG_FILE")
+            base_static=$($JQ -cS 'del(.provider.omniroute.models)' "$OPENCODE_BASE_CONFIG_FILE")
             config_static=$($JQ -cS 'del(.provider.omniroute.models)' "$cfg_file")
 
             [ "$base_static" = "$config_static" ]
@@ -295,51 +299,62 @@
 
           config_out_of_date() {
             ensure_state_file
-            if ! config_file_matches_static_base "$GLOBAL_CONFIG_FILE"; then
+            if ! config_file_matches_static_base "$OPENCODE_CONFIG_FILE"; then
               # Language/LSP/formatter and other static config changes should
               # refresh ~/.config/opencode/config.json without waiting for an
               # unrelated provider/model state change.
               return 0
             fi
 
-            if ! config_file_matches_provider_metadata "$GLOBAL_CONFIG_FILE"; then
+            if ! config_file_matches_provider_metadata "$OPENCODE_CONFIG_FILE"; then
               # Default sync check only compared model data; provider-level fixes
               # such as timeout/chunkTimeout would otherwise wait for an unrelated
               # model/state change before reaching ~/.config/opencode/config.json.
               return 0
             fi
 
-            if ! config_file_matches_effective_models "$GLOBAL_CONFIG_FILE"; then
+            if ! config_file_matches_effective_models "$OPENCODE_CONFIG_FILE"; then
               return 0
             fi
 
-            if ! config_file_matches_state "$GLOBAL_OMA_FILE"; then
+            if ! config_file_matches_state "$OMO_CONFIG_FILE"; then
               return 0
             fi
 
-            if ! config_file_matches_state "$GLOBAL_OPENAGENT_FILE"; then
+            if ! config_file_matches_state "$OMO_OPENAGENT_CONFIG_FILE"; then
               return 0
             fi
 
-            if ! mem_config_matches_state "$GLOBAL_MEM_FILE"; then
+            if ! mem_config_matches_state "$OPENCODE_MEM_FILE"; then
               return 0
             fi
 
             return 1
           }
 
-          sync_config_from_state() {
+          sync_opencode_config_from_state() {
             local quiet="''${1:-0}"
 
             if config_out_of_date; then
-              rebuild_runtime_configs
+              rebuild_opencode_runtime_configs
               if [ "$quiet" -ne 1 ]; then
-                $GUM style --foreground 212 "✅ Synced OpenCode config from state"
+                log_opencode "Synced OpenCode + Oh My OpenAgent config from category state"
               fi
             fi
           }
 
-          rebuild_runtime_configs() {
+          sync_all_runtime_configs_from_state() {
+            local quiet="''${1:-0}"
+
+            sync_opencode_config_from_state "$quiet"
+            sync_omp_models "$quiet"
+          }
+
+          sync_config_from_state() {
+            sync_all_runtime_configs_from_state "''${1:-0}"
+          }
+
+          rebuild_opencode_runtime_configs() {
             ensure_state_file
 
             local effective_models_file
@@ -350,16 +365,16 @@
             opencode_tmp=$(mktemp)
             $JQ --slurpfile models "$effective_models_file" '
               .provider.omniroute.models = $models[0]
-            ' "$BASE_CONFIG_FILE" > "$opencode_tmp"
+            ' "$OPENCODE_BASE_CONFIG_FILE" > "$opencode_tmp"
             rm -f "$effective_models_file"
 
-            mkdir -p "$(dirname "$GLOBAL_CONFIG_FILE")"
-            mv "$opencode_tmp" "$GLOBAL_CONFIG_FILE"
-            chmod 0600 "$GLOBAL_CONFIG_FILE"
+            mkdir -p "$(dirname "$OPENCODE_CONFIG_FILE")"
+            mv "$opencode_tmp" "$OPENCODE_CONFIG_FILE"
+            chmod 0600 "$OPENCODE_CONFIG_FILE"
 
             local oma_tmp
             oma_tmp=$(mktemp)
-            cp "$BASE_OMA_FILE" "$oma_tmp"
+            cp "$OMO_BASE_CONFIG_FILE" "$oma_tmp"
 
             while IFS=$'\t' read -r category_id; do
               local model
@@ -379,25 +394,25 @@
                   "$oma_tmp" > "$next_tmp"
               fi
               mv "$next_tmp" "$oma_tmp"
-            done < <($JQ -r '.categories | keys[]' "$METADATA_FILE")
+            done < <($JQ -r '.categories | keys[]' "$OPENCODE_METADATA_FILE")
 
-            mkdir -p "$(dirname "$GLOBAL_OMA_FILE")"
-            cp "$oma_tmp" "$GLOBAL_OMA_FILE"
-            chmod 0600 "$GLOBAL_OMA_FILE"
+            mkdir -p "$(dirname "$OMO_CONFIG_FILE")"
+            cp "$oma_tmp" "$OMO_CONFIG_FILE"
+            chmod 0600 "$OMO_CONFIG_FILE"
 
             # Keep compatibility alias in lock-step with the canonical OMO file.
-            cp "$oma_tmp" "$GLOBAL_OPENAGENT_FILE"
-            chmod 0600 "$GLOBAL_OPENAGENT_FILE"
+            cp "$oma_tmp" "$OMO_OPENAGENT_CONFIG_FILE"
+            chmod 0600 "$OMO_OPENAGENT_CONFIG_FILE"
 
             rm -f "$oma_tmp"
 
             local mem_tmp
             mem_tmp=$(mktemp)
-            $JQ --arg model "$(get_group_model "deep")" '.memoryModel = $model' "$BASE_MEM_FILE" > "$mem_tmp"
+            $JQ --arg model "$(get_group_model "deep")" '.memoryModel = $model' "$OPENCODE_MEM_BASE_FILE" > "$mem_tmp"
 
-            mkdir -p "$(dirname "$GLOBAL_MEM_FILE")"
-            mv "$mem_tmp" "$GLOBAL_MEM_FILE"
-            chmod 0644 "$GLOBAL_MEM_FILE"
+            mkdir -p "$(dirname "$OPENCODE_MEM_FILE")"
+            mv "$mem_tmp" "$OPENCODE_MEM_FILE"
+            chmod 0644 "$OPENCODE_MEM_FILE"
 
           }
 
@@ -726,15 +741,15 @@
             fi
 
             log_general "Remember to git add repo state changes if you want them committed."
-            rebuild_runtime_configs
-            sync_omp_models
+            sync_all_runtime_configs_from_state
           }
 
-          # Write OMP/OpenAgent's mutable model catalog from the effective OmniRoute cache.
-          # Source: observed local OpenAgent/OMP state at ~/.omp/agent/models.yml.
+          # Write OMP's mutable model catalog from the effective OmniRoute cache.
+          # OMP loads custom providers from ~/.omp/agent/models.yml and expects
+          # contextWindow/maxTokens instead of OpenCode's limit object.
+          # Source: https://github.com/can1357/oh-my-pi/blob/main/docs/models.md.
           sync_omp_models() {
-            local api_key="''${OMNIROUTE_OPENCODE_API_KEY:-${self.secrets.OMNIROUTE_OPENCODE_API_KEY}}"
-            local base_url="''${OMNIROUTE_BASE_URL:-https://omniroute.${self.secrets.PUBLIC_BASE_DOMAIN}/v1}"
+            local quiet="''${1:-0}"
 
             ensure_repo_state_files
 
@@ -744,19 +759,37 @@
 
             {
               printf '%s\n' '# Managed by `models sync-omp`; edit for local OMP experiments, then rerun sync when refreshing OmniRoute.'
-              get_effective_models_json | $JQ -r --arg base_url "$base_url" --arg api_key "$api_key" '
+              get_effective_models_json | $JQ -r \
+                --arg provider_id "$OMP_PROVIDER_ID" \
+                --arg provider_name "$OMP_PROVIDER_NAME" \
+                --arg base_url "$OMP_BASE_URL" \
+                --arg api_key "$OMP_API_KEY" '
                 def q: @json;
-                "providers:\n  omniroute:\n    baseUrl: \($base_url | q)\n    apiKey: \($api_key | q)\n    api: openai-completions\n    models:\n" +
+                def cost:
+                  (.cost // {}) as $cost
+                  | (.metadata.pricing // {}) as $pricing
+                  | {
+                      input: (($cost.input // $pricing.prompt // $pricing.input // 0) | tonumber?),
+                      output: (($cost.output // $pricing.completion // $pricing.output // 0) | tonumber?),
+                      cacheRead: (($cost.cacheRead // $cost.cache_read // $pricing.cache_read // $pricing.cacheRead // 0) | tonumber?),
+                      cacheWrite: (($cost.cacheWrite // $cost.cache_write // $pricing.cache_write // $pricing.cacheWrite // 0) | tonumber?)
+                    };
+                "providers:\n  \($provider_id):\n    name: \($provider_name | q)\n    baseUrl: \($base_url | q)\n    apiKey: \($api_key | q)\n    api: openai-completions\n    models:\n" +
                 (to_entries | sort_by(.key) | map(
-                  "      - id: \(.key | q)\n        name: \((.value.name // .key) | q)" +
-                  (if .value.reasoning == true then "\n        reasoning: true" else "" end)
+                  .value as $model
+                  | "      - id: \(.key | q)\n        name: \(($model.name // .key) | q)\n        api: openai-completions\n        provider: \($provider_id | q)\n        baseUrl: \($base_url | q)\n        input: \(($model.modalities.input // ["text"]) | q)\n        cost: \(($model | cost) | q)" +
+                    (if $model.reasoning == true then "\n        reasoning: true" else "" end) +
+                    (if $model.limit.context? != null then "\n        contextWindow: \($model.limit.context)" else "" end) +
+                    (if $model.limit.output? != null then "\n        maxTokens: \($model.limit.output)" else "" end)
                 ) | join("\n"))
               '
             } > "$tmp"
 
             mv "$tmp" "$OMP_MODELS_FILE"
             chmod 0600 "$OMP_MODELS_FILE"
-            log_omp "Synced OMP model catalog to $OMP_MODELS_FILE"
+            if [ "$quiet" -ne 1 ]; then
+              log_omp "Synced OMP model catalog to $OMP_MODELS_FILE"
+            fi
           }
 
           update_group_state() {
@@ -777,7 +810,7 @@
             fi
             
             mv "$temp_state" "$STATE_FILE"
-            rebuild_runtime_configs
+            sync_all_runtime_configs_from_state 1
           }
 
           update_multiple_groups_state() {
@@ -813,7 +846,7 @@
             fi
 
             mv "$temp_state" "$STATE_FILE"
-            rebuild_runtime_configs
+            sync_all_runtime_configs_from_state 1
           }
 
           get_model_name() {
@@ -863,7 +896,7 @@
           }
 
           category_picker_lines() {
-            $JQ -r '.categories | to_entries[] | "\(.key)\t\(.value.label) [\(.key)] (\(.value.description))"' "$METADATA_FILE"
+            $JQ -r '.categories | to_entries[] | "\(.key)\t\(.value.label) [\(.key)] (\(.value.description))"' "$OPENCODE_METADATA_FILE"
           }
 
           choose_categories() {
@@ -917,7 +950,7 @@
 
           preset_summary() {
             local preset_name="$1"
-            $JQ -r --slurpfile meta "$METADATA_FILE" --arg name "$preset_name" '
+            $JQ -r --slurpfile meta "$OPENCODE_METADATA_FILE" --arg name "$preset_name" '
               def model_of($value):
                 if $value == null then "unset"
                 elif ($value | type) == "object" then ($value.model // "unset")
@@ -997,7 +1030,7 @@
               $GUM style --foreground 196 "Error: Failed to apply preset"
               return 1
             fi
-            rebuild_runtime_configs
+            sync_all_runtime_configs_from_state 1
             $GUM style --foreground 212 "✅ Applied preset $preset_name"
           }
 
@@ -1086,7 +1119,7 @@
                 local model_name
                 model_name=$(get_model_name "$model_id")
                 printf '%s\t%s [%s]\n' "$model_id" "$model_name" "$model_id"
-              done < <($JQ -r '.categories | to_entries[] | "\(.key)\t\(.value.label)"' "$METADATA_FILE")
+              done < <($JQ -r '.categories | to_entries[] | "\(.key)\t\(.value.label)"' "$OPENCODE_METADATA_FILE")
             )
 
             local source_options
@@ -1138,7 +1171,7 @@
                  matched_categories+=("$category_id")
                  total_matched=$((total_matched + 1))
               fi
-            done < <($JQ -r '.categories | to_entries[] | "\(.key)\t\(.value.label)"' "$METADATA_FILE")
+            done < <($JQ -r '.categories | to_entries[] | "\(.key)\t\(.value.label)"' "$OPENCODE_METADATA_FILE")
 
             if [ "''${#matched_categories[@]}" -eq 0 ]; then
               $GUM style --foreground 214 "No changes needed: categories already match target model and effort"
@@ -1165,7 +1198,7 @@
                 fi
 
                 printf -- '- %s: %s%s\n' "$label" "$model" "$detail"
-              done < <($JQ -r '.categories | to_entries[] | "\(.value.label)\t\(.key)"' "$METADATA_FILE")
+              done < <($JQ -r '.categories | to_entries[] | "\(.value.label)\t\(.key)"' "$OPENCODE_METADATA_FILE")
             )
 
             printf '%s\n%s' \
@@ -1214,7 +1247,7 @@
               local context_msg="Context: Global"
               if [ -f "$LOCAL_JSONC_FILE" ]; then context_msg="Context: Local Project ($LOCAL_JSONC_FILE)"; fi
 
-              sync_config_from_state 1
+              sync_all_runtime_configs_from_state 1
 
               local sync_warning=""
               if [ ! -f "$MODELS_FILE" ] || [ ! -s "$MODELS_FILE" ]; then
@@ -1230,6 +1263,7 @@
                 "$(get_menu_text presetSaveAction)" \
                 "$(get_menu_text presetManageAction)" \
                 "$(get_menu_text initAction)" \
+                "$(get_menu_text syncOmpAction)" \
                 "$(get_menu_text exitAction)" \
                 --header "$(get_menu_text title)
           $context_msg
@@ -1246,6 +1280,7 @@
                 "$(get_menu_text presetSaveAction)") save_preset || true ;;
                 "$(get_menu_text presetManageAction)") preset_manager || true ;;
                 "$(get_menu_text initAction)") init_project || true ;;
+                "$(get_menu_text syncOmpAction)") sync_omp_models || true ;;
                 "$(get_menu_text exitAction)") return 0 ;;
                 *) return 0 ;;
               esac
@@ -1256,10 +1291,12 @@
 
           case "''${1:-}" in
             sync) sync_models ;;
+            sync-all) sync_all_runtime_configs_from_state ;;
+            sync-opencode) sync_opencode_config_from_state ;;
             sync-config) sync_config_from_state 1 ;;
             sync-omp) sync_omp_models ;;
             init) init_project ;;
-            *) echo "Usage: models [sync|sync-config|sync-omp|init]"; exit 1 ;;
+            *) echo "Usage: models [sync|sync-all|sync-opencode|sync-config|sync-omp|init]"; exit 1 ;;
           esac
         '';
       };
