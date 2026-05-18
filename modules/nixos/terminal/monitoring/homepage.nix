@@ -102,10 +102,10 @@
             {
               "Monitoring" = [
                 {
-                  "Ajenti — VPS" = {
+                  "Cockpit — VPS" = {
                     icon = "mdi-monitor-dashboard";
-                    href = mkPublicUrl "ajenti" "";
-                    description = "Systemd services, logs, and host actions";
+                    href = mkPublicUrl "cockpit" "";
+                    description = "Systemd services, journal logs, terminal, and host actions";
                   };
                 }
                 {
@@ -176,18 +176,18 @@
             {
               "Fleet" = [
                 {
-                  "Ajenti — Legion 5i" = [
+                  "Cockpit — Legion 5i" = [
                     {
                       icon = "mdi-laptop";
-                      href = "http://legion5i:8000";
+                      href = "http://legion5i:9090";
                     }
                   ];
                 }
                 {
-                  "Ajenti — MacBook" = [
+                  "Cockpit — MacBook" = [
                     {
                       icon = "mdi-laptop";
-                      href = "http://macbook:8000";
+                      href = "http://macbook:9090";
                     }
                   ];
                 }

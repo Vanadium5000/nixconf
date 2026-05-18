@@ -46,6 +46,7 @@
 
         # Opencode
         self.nixosModules.opencode
+        self.nixosModules.omp
 
         self.nixosModules.dev
         self.nixosModules.nix
@@ -59,6 +60,7 @@
         self.nixosModules.vpn-proxy-service
 
         # Server services (disabled by default, enable per-host)
+        self.nixosModules.acp-chat
         self.nixosModules.cliproxyapi
         self.nixosModules.cpa-usage-keeper
         self.nixosModules.omniroute
@@ -91,8 +93,21 @@
         programs.direnv.enable = true;
         programs.direnv.nix-direnv.enable = true;
 
+        # OMP/OpenAgent keeps mutable DBs, logs, plugins, and YAML under ~/.omp;
+        # enable the bootstrap with terminal hosts so impermanence preserves that tree.
+        # Source: local state layout observed at ~/.omp/agent/{config.yml,models.yml}.
+        programs.omp.enable = lib.mkDefault true;
+
         # Git-sync, a utility to sync folders via git
         services.git-sync.enable = true;
+
+        services.acp-chat = {
+          # User requested all-host LAN bind without opening the NixOS firewall;
+          # acp-chat consumes ACP_CHAT_HOST in server/src/index.ts upstream.
+          enable = true;
+          host = "0.0.0.0";
+          openFirewall = false;
+        };
 
         # Password-store folder
         services.git-sync.repositories = {

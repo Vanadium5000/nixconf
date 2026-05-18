@@ -19,7 +19,7 @@
 
       imports = [
         self.nixosModules.terminal
-        self.nixosModules.ajenti
+        self.nixosModules.cockpit
         inputs.nix-dokploy.nixosModules.default
 
         # Disko

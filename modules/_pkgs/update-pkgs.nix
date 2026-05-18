@@ -41,6 +41,7 @@ pkgs.writeShellApplication {
           }
 
           IMPORTANT_LIGHT_PACKAGES=(
+            acp-chat
             omniroute
             openchamber-web
             cpa-usage-keeper
@@ -51,13 +52,13 @@ pkgs.writeShellApplication {
           )
 
           IMPORTANT_MEDIUM_PACKAGES=(
-            ajenti
             cliproxyapi
             brave-origin
             patchright
             iloader
             playwright-cli
             cake-wallet-flatpak
+            limux
             dogecoin
             antigravity-manager
             waydroid-script
@@ -604,7 +605,7 @@ pkgs.writeShellApplication {
       printf '%s\n' '{ pkgs ? import <nixpkgs> {}, unstable ? import <nixpkgs-unstable> {} }:'
       printf '%s\n' '{'
       for pkg in "''${PACKAGES[@]}"; do
-          if [[ "$pkg" == "cliproxyapi" || "$pkg" == "omniroute" || "$pkg" == "openchamber-web" ]]; then
+          if [[ "$pkg" == "acp-chat" || "$pkg" == "cliproxyapi" || "$pkg" == "omniroute" || "$pkg" == "openchamber-web" ]]; then
             # Edge AI gateway packages intentionally build from nixpkgs-unstable
             # so fast-moving Go/Bun/Node dependencies follow upstream APIs. Keep
             # this in sync with modules/custom-packages.nix.
@@ -617,6 +618,9 @@ pkgs.writeShellApplication {
             echo " $pkg = pkgs.callPackage ./$pkg.nix {};"
           elif [ "$pkg" == "cake-wallet-flatpak" ]; then
             # Supported: versioned GitHub release asset for upstream Flatpak bundle
+            echo " $pkg = pkgs.callPackage ./$pkg.nix {};"
+          elif [ "$pkg" == "limux" ]; then
+            # Supported: versioned GitHub release AppImage from am-will/limux.
             echo " $pkg = pkgs.callPackage ./$pkg.nix {};"
           elif [ "$pkg" == "antigravity-manager" ]; then
             # Skip: RPM-wrapped AppImage with versioned URL pattern (manual update required)
@@ -721,6 +725,15 @@ pkgs.writeShellApplication {
         "cake-wallet-flatpak")
           # Upstream publishes a versioned Flatpak bundle on GitHub releases.
           if update_versioned_url_package "$pkg" "cake-tech" "cake_wallet"; then
+            UPDATED+=("$pkg")
+          else
+            SKIPPED+=("$pkg")
+          fi
+          ;;
+
+        "limux")
+          # Upstream publishes a versioned AppImage on GitHub releases.
+          if update_versioned_url_package "$pkg" "am-will" "limux"; then
             UPDATED+=("$pkg")
           else
             SKIPPED+=("$pkg")

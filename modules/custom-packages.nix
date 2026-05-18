@@ -4,6 +4,7 @@ let
   # routed through nixpkgs-unstable here so their package files can stay normal
   # callPackage derivations without ambient `{ unstable, ... }` parameters.
   edgeAiGatewayPackages = [
+    "acp-chat"
     "cliproxyapi"
     "omniroute"
     "openchamber-web"

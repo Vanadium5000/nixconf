@@ -122,9 +122,9 @@ let
         "vpn-proxy"
         "enable"
       ];
-      ajenti = [
+      cockpit = [
         "services"
-        "ajenti"
+        "cockpit-autologin"
         "enable"
       ];
     };
@@ -182,11 +182,12 @@ in
         netdata-monitor = self.nixosModules.netdata-monitor;
         nix = self.nixosModules.nix;
         opencode = self.nixosModules.opencode;
+        omp = self.nixosModules.omp;
         tailscale = self.nixosModules.tailscale;
         unison = self.nixosModules.unison;
         virtualisation = self.nixosModules.virtualisation;
         vpn-proxy-service = self.nixosModules.vpn-proxy-service;
-        ajenti = self.nixosModules.ajenti;
+        cockpit = self.nixosModules.cockpit;
       };
 
       hosts = {

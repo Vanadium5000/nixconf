@@ -16,7 +16,7 @@
     {
       imports = [
         self.nixosModules.desktop
-        self.nixosModules.ajenti
+        self.nixosModules.cockpit
 
         # Drivers and settings, https://github.com/NixOS/nixos-hardware/blob/master/flake.nix
         inputs.nixos-hardware.nixosModules.common-cpu-intel
@@ -119,11 +119,10 @@
       # HTTPS traffic analyzer — on-demand: systemctl start mitmproxy
       services.mitmproxy.enable = true;
       services.mitmproxy.trustCA = true;
-      services.ajenti = {
+      services.cockpit-autologin = {
         enable = true;
         host = "0.0.0.0";
-        port = 8000;
-        autologin = true;
+        port = 9090;
         openFirewall = false;
       };
       services.ntfy-sh = {
