@@ -10,6 +10,17 @@
     {
       imports = [
         inputs.nix-index-database.nixosModules.nix-index
+        {
+          options.preferences.system.temporaryNixpkgsOverrides = lib.mkOption {
+            description = "Temporary package overrides with built-in expiry checks.";
+            type = lib.types.attrsOf (
+              lib.types.submodule {
+                options = self.lib.nixpkgs.temporaryOverrideModule;
+              }
+            );
+            default = self.lib.nixpkgs.temporaryOverrides;
+          };
+        }
       ];
       programs.nix-index-database.comma.enable = true;
 
@@ -131,85 +142,62 @@
           xorg.libxshmfence
         ];
       };
-      nixpkgs.config = {
-        # Disable if you don't want unfree packages
+      nixpkgs.config = self.lib.nixpkgs.mkNixpkgsConfig {
         allowUnfree = false;
+        allowedUnfree = [
+          "nvidia-x11"
+          "nvidia-settings"
+          "torch"
+          "triton"
 
-        # CVE-2024-23342: ecdsa timing side-channel attack allowing private key recovery.
-        # Required by electrum-ltc (litecoin-wallet). Low-value wallet, acceptable risk.
-        permittedInsecurePackages = [
-          "python3.13-ecdsa-0.19.1"
-        ];
+          # Nvidia CUDA
+          "cuda_cudart"
+          "cuda_cccl"
+          "libnpp"
+          "libcublas"
+          "libcufft"
+          "cuda_nvcc"
+          "cuda-merged"
+          "cuda_cuobjdump"
+          "cuda_gdb"
+          "cuda_nvdisasm"
+          "cuda_nvprune"
+          "cuda_cupti"
+          "cuda_cuxxfilt"
+          "cuda_nvml_dev"
+          "cuda_nvrtc"
+          "cuda_nvtx"
+          "cuda_profiler_api"
+          "cuda_sanitizer_api"
+          "libcurand"
+          "libcusolver"
+          "libnvjitlink"
+          "libcusparse"
+          "cudnn"
 
-        # Exceptions
-        allowUnfreePredicate =
-          pkg:
-          builtins.elem (lib.getName pkg) (
-            [
-              "nvidia-x11"
-              "nvidia-settings"
-              "torch"
-              "triton"
+          # Dictation CUDA deps
+          "libcufile"
+          "libcusparse_lt"
 
-              # Nvidia CUDA
-              "cuda_cudart"
-              "cuda_cccl"
-              "libnpp"
-              "libcublas"
-              "libcufft"
-              "cuda_nvcc"
-              "cuda-merged"
-              "cuda_cuobjdump"
-              "cuda_gdb"
-              "cuda_nvdisasm"
-              "cuda_nvprune"
-              "cuda_cupti"
-              "cuda_cuxxfilt"
-              "cuda_nvml_dev"
-              "cuda_nvrtc"
-              "cuda_nvtx"
-              "cuda_profiler_api"
-              "cuda_sanitizer_api"
-              "libcurand"
-              "libcusolver"
-              "libnvjitlink"
-              "libcusparse"
-              "cudnn"
+          # Antigravity Manager
+          "antigravity-manager"
 
-              # Dictation CUDA deps
-              "libcufile"
-              "libcusparse_lt"
-
-              # Antigravity Manager
-              "antigravity-manager"
-
-              # Firmware
-              "intel-ocl"
-              "broadcom-bt-firmware"
-              "b43-firmware"
-              "xow_dongle-firmware"
-              "facetimehd-calibration"
-              "facetimehd-firmware"
-            ]
-            ++ config.preferences.allowedUnfree
-          );
+          # Firmware
+          "intel-ocl"
+          "broadcom-bt-firmware"
+          "b43-firmware"
+          "xow_dongle-firmware"
+          "facetimehd-calibration"
+          "facetimehd-firmware"
+        ]
+        ++ config.preferences.allowedUnfree;
       };
 
-      # Add overlays
-      nixpkgs.overlays = [
-        # Keep this helper parameterized because NixOS hosts must pass final.config
-        # into unstable, while flake-parts intentionally keeps its own pkgs import policy.
-        (
-          final: prev:
-          (self.lib.nixpkgs.mkSharedOverlay {
-            inherit inputs self;
-            unstableConfig = final.config; # Inherit nixpkgs config
-          })
-            final
-            prev
-        )
-        inputs.nix4vscode.overlays.default
-      ];
+      nixpkgs.overlays = self.lib.nixpkgs.mkSharedOverlays {
+        inherit inputs self;
+        unstableConfig = finalConfig: finalConfig;
+        temporaryOverrides = config.preferences.system.temporaryNixpkgsOverrides;
+      };
 
       # Historical Waydroid override kept with its overlay wrapper so `prev` is in scope
       # if the temporary multi-instance fork needs to be revived.

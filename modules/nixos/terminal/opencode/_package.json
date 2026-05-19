@@ -1,1 +1,5 @@
-{}
+{
+  "dependencies": {
+    "oh-my-opencode-slim": "^1.1.1"
+  }
+}

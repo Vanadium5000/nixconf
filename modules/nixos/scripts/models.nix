@@ -26,16 +26,13 @@
           PRESETS_FILE="$MODELS_STATE_DIR/presets.json"
           PATCHES_FILE="$MODELS_STATE_DIR/_model-local-patches.json"
           OPENCODE_CONFIG_FILE="$HOME/.config/opencode/config.json"
-          OMO_CONFIG_FILE="$HOME/.config/opencode/oh-my-opencode.jsonc"
-          # Compatibility alias used by some OpenCode plugin/runtime paths.
-          # Keep both files in sync so runtime cannot silently read stale models.
-          OMO_OPENAGENT_CONFIG_FILE="$HOME/.config/opencode/oh-my-openagent.jsonc"
+          OMO_SLIM_CONFIG_FILE="$HOME/.config/opencode/oh-my-opencode-slim.jsonc"
           OPENCODE_MEM_FILE="$HOME/.config/opencode/opencode-mem.jsonc"
           LOCAL_JSONC_FILE="$PWD/opencode.jsonc"
           MODELS_CONFIG_DIR="''${MODELS_CONFIG_DIR:-$HOME/.config/models/opencode}"
           TEMPLATES_DIR="''${MODELS_TEMPLATES_DIR:-$MODELS_CONFIG_DIR/templates}"
           OPENCODE_BASE_CONFIG_FILE="''${MODELS_BASE_CONFIG_FILE:-$MODELS_CONFIG_DIR/opencode-base.json}"
-          OMO_BASE_CONFIG_FILE="''${MODELS_OMA_BASE_CONFIG:-$MODELS_CONFIG_DIR/oh-my-opencode-base.json}"
+          OMO_SLIM_BASE_CONFIG_FILE="''${MODELS_OMO_SLIM_BASE_CONFIG:-$MODELS_CONFIG_DIR/oh-my-opencode-slim-base.json}"
           OPENCODE_MEM_BASE_FILE="''${MODELS_MEM_BASE_CONFIG:-$MODELS_CONFIG_DIR/opencode-mem-base.json}"
           OPENCODE_METADATA_FILE="''${MODELS_METADATA_FILE:-$MODELS_CONFIG_DIR/models-metadata.json}"
           JQ="${pkgs.jq}/bin/jq"
@@ -204,7 +201,7 @@
             fi
           }
 
-          config_file_matches_state() {
+          slim_config_matches_state() {
             local cfg_file="$1"
 
             if [ ! -f "$cfg_file" ] || [ ! -s "$cfg_file" ]; then
@@ -212,7 +209,7 @@
             fi
 
             local mismatch=0
-            while IFS=$'\t' read -r category_id; do
+            while IFS=$'\t' read -r path_json category_id; do
               local state_model
               local state_effort
               local config_model
@@ -220,20 +217,14 @@
               state_model=$(get_group_model "$category_id")
               state_effort=$(get_group_reasoning_effort "$category_id")
 
-              config_model=$($JQ -r --arg category_id "$category_id" '
-                .categories[$category_id]
-                | if type == "object" then .model else . end
-              ' "$cfg_file")
-              config_effort=$($JQ -r --arg category_id "$category_id" '
-                .categories[$category_id]
-                | if type == "object" then (.reasoningEffort // "") else "" end
-              ' "$cfg_file")
+              config_model=$($JQ -r --argjson path "$path_json" 'getpath($path).model // empty' "$cfg_file")
+              config_effort=$($JQ -r --argjson path "$path_json" 'getpath($path).variant // ""' "$cfg_file")
 
               if [ "$state_model" != "$config_model" ] || [ "$state_effort" != "$config_effort" ]; then
                 mismatch=1
                 break
               fi
-            done < <($JQ -r '.categories | keys[]' "$OPENCODE_METADATA_FILE")
+            done < <($JQ -r '.slimModelBindings[] | "\(.path | @json)\t\(.category)"' "$OPENCODE_METADATA_FILE")
 
             [ "$mismatch" -eq 0 ]
           }
@@ -318,11 +309,7 @@
               return 0
             fi
 
-            if ! config_file_matches_state "$OMO_CONFIG_FILE"; then
-              return 0
-            fi
-
-            if ! config_file_matches_state "$OMO_OPENAGENT_CONFIG_FILE"; then
+            if ! slim_config_matches_state "$OMO_SLIM_CONFIG_FILE"; then
               return 0
             fi
 
@@ -339,7 +326,7 @@
             if config_out_of_date; then
               rebuild_opencode_runtime_configs
               if [ "$quiet" -ne 1 ]; then
-                log_opencode "Synced OpenCode + Oh My OpenAgent config from category state"
+                log_opencode "Synced OpenCode + OMO Slim config from model-group state"
               fi
             fi
           }
@@ -373,11 +360,11 @@
             mv "$opencode_tmp" "$OPENCODE_CONFIG_FILE"
             chmod 0600 "$OPENCODE_CONFIG_FILE"
 
-            local oma_tmp
-            oma_tmp=$(mktemp)
-            cp "$OMO_BASE_CONFIG_FILE" "$oma_tmp"
+            local slim_tmp
+            slim_tmp=$(mktemp)
+            cp "$OMO_SLIM_BASE_CONFIG_FILE" "$slim_tmp"
 
-            while IFS=$'\t' read -r category_id; do
+            while IFS=$'\t' read -r path_json category_id; do
               local model
               model=$(get_group_model "$category_id")
               local effort
@@ -386,26 +373,20 @@
               local next_tmp
               next_tmp=$(mktemp)
               if [ -n "$effort" ]; then
-                $JQ --arg category_id "$category_id" --arg model "$model" --arg effort "$effort" \
-                  '.categories[$category_id].model = $model | .categories[$category_id].reasoningEffort = $effort' \
-                  "$oma_tmp" > "$next_tmp"
+                $JQ --argjson path "$path_json" --arg model "$model" --arg effort "$effort" \
+                  'setpath($path + ["model"]; $model) | setpath($path + ["variant"]; $effort)' \
+                  "$slim_tmp" > "$next_tmp"
               else
-                $JQ --arg category_id "$category_id" --arg model "$model" \
-                  '.categories[$category_id].model = $model' \
-                  "$oma_tmp" > "$next_tmp"
+                $JQ --argjson path "$path_json" --arg model "$model" \
+                  'setpath($path + ["model"]; $model) | delpaths([$path + ["variant"]])' \
+                  "$slim_tmp" > "$next_tmp"
               fi
-              mv "$next_tmp" "$oma_tmp"
-            done < <($JQ -r '.categories | keys[]' "$OPENCODE_METADATA_FILE")
+              mv "$next_tmp" "$slim_tmp"
+            done < <($JQ -r '.slimModelBindings[] | "\(.path | @json)\t\(.category)"' "$OPENCODE_METADATA_FILE")
 
-            mkdir -p "$(dirname "$OMO_CONFIG_FILE")"
-            cp "$oma_tmp" "$OMO_CONFIG_FILE"
-            chmod 0600 "$OMO_CONFIG_FILE"
-
-            # Keep compatibility alias in lock-step with the canonical OMO file.
-            cp "$oma_tmp" "$OMO_OPENAGENT_CONFIG_FILE"
-            chmod 0600 "$OMO_OPENAGENT_CONFIG_FILE"
-
-            rm -f "$oma_tmp"
+            mkdir -p "$(dirname "$OMO_SLIM_CONFIG_FILE")"
+            mv "$slim_tmp" "$OMO_SLIM_CONFIG_FILE"
+            chmod 0600 "$OMO_SLIM_CONFIG_FILE"
 
             local mem_tmp
             mem_tmp=$(mktemp)

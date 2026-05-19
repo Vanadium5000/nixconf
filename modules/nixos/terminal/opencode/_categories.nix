@@ -1,16 +1,11 @@
 { lib }:
 let
-  inherit (lib) mapAttrs;
+  inherit (lib) mapAttrs mapAttrsToList optionalAttrs;
 
-  # Source of category IDs and supported agent keys:
-  # https://raw.githubusercontent.com/code-yeongyu/oh-my-opencode/dev/assets/oh-my-opencode.schema.json
-  #
-  # Local compatibility assumptions:
-  # - Keep only official category IDs in generated OMO config.
-  # - Continue accepting legacy local state keys used previously in this repo
-  #   (`orchestrator`, `coding`, `research`, `multimodal`) via mkState fallback.
-  # - Prompt guidance is centralized in AGENTS.md, so we intentionally do not
-  #   duplicate it as per-category `prompt_append` fields here.
+  # These are local model-selection groups, not oh-my-opencode-slim schema
+  # fields. The generated plugin config binds slim agents to these groups.
+  # Source: https://github.com/alvinunreal/oh-my-opencode-slim/blob/master/docs/configuration.md
+  presetName = "nixconf";
 
   categories = {
     "visual-engineering" = {
@@ -55,6 +50,136 @@ let
     };
   };
 
+  # Built-in slim agents and allowed MCP/skill surfaces. Keep this mapping aligned
+  # with upstream agent names and defaults, then override only repo-specific model
+  # groups. Sources:
+  # - https://github.com/alvinunreal/oh-my-opencode-slim/blob/master/src/config/constants.ts
+  # - https://github.com/alvinunreal/oh-my-opencode-slim/blob/master/src/cli/providers.ts
+  agentAssignments = {
+    orchestrator = {
+      category = "unspecified-high";
+      skills = [ "*" ];
+      mcps = [
+        "*"
+        "!context7"
+      ];
+    };
+    oracle = {
+      category = "ultrabrain";
+      skills = [ "simplify" ];
+      mcps = [ ];
+    };
+    librarian = {
+      category = "quick";
+      skills = [ ];
+      mcps = [
+        "websearch"
+        "context7"
+        "grep_app"
+      ];
+    };
+    explorer = {
+      category = "quick";
+      skills = [ ];
+      mcps = [ ];
+    };
+    designer = {
+      category = "visual-engineering";
+      skills = [ "agent-browser" ];
+      mcps = [ ];
+    };
+    fixer = {
+      category = "deep";
+      skills = [ ];
+      mcps = [ ];
+    };
+    observer = {
+      category = "deep";
+      skills = [ ];
+      mcps = [ ];
+    };
+    council = {
+      category = "ultrabrain";
+      skills = [ ];
+      mcps = [ ];
+    };
+  };
+
+  councilAssignments = {
+    architect = {
+      category = "ultrabrain";
+      prompt = "Architecture, risk, invariants, and long-term maintainability.";
+    };
+    implementer = {
+      category = "deep";
+      prompt = "Implementation feasibility, callsites, tests, and migration mechanics.";
+    };
+    reviewer = {
+      category = "ultrabrain";
+      prompt = "Correctness, security, edge cases, and failure modes.";
+    };
+    designer = {
+      category = "visual-engineering";
+      prompt = "Frontend, UX, visual quality, accessibility, and interaction details.";
+    };
+  };
+
+  extractSelection =
+    raw: fallbackModel:
+    if builtins.isString raw then
+      { model = raw; }
+    else if builtins.isAttrs raw && raw ? model then
+      raw
+    else
+      { model = fallbackModel; };
+
+  selectionVariant = selection: selection.variant or selection.reasoningEffort or null;
+
+  mkAgentConfig =
+    state: _agentName: assignment:
+    let
+      selection = state.categories.${assignment.category};
+      variant = selectionVariant selection;
+    in
+    {
+      model = selection.model;
+    }
+    // optionalAttrs (variant != null && variant != "") { inherit variant; }
+    // optionalAttrs (assignment ? skills) { skills = assignment.skills; }
+    // optionalAttrs (assignment ? mcps) { mcps = assignment.mcps; };
+
+  mkCouncilMember =
+    state: _memberName: assignment:
+    let
+      selection = state.categories.${assignment.category};
+      variant = selectionVariant selection;
+    in
+    {
+      model = selection.model;
+      inherit (assignment) prompt;
+    }
+    // optionalAttrs (variant != null && variant != "") { inherit variant; };
+
+  agentBindings = mapAttrsToList (agentName: assignment: {
+    path = [
+      "presets"
+      presetName
+      agentName
+    ];
+    category = assignment.category;
+  }) agentAssignments;
+
+  councilBindings = mapAttrsToList (memberName: assignment: {
+    path = [
+      "council"
+      "presets"
+      "default"
+      memberName
+    ];
+    category = assignment.category;
+  }) councilAssignments;
+in
+{
   mkState =
     { stateFile }:
     let
@@ -62,65 +187,56 @@ let
       content = if exists then builtins.readFile stateFile else "";
       isValid = exists && content != "" && content != " " && content != "{}";
       data = if isValid then builtins.fromJSON content else { };
-
-      # Helper to extract full category config from either string or object format
-      # Handles: "omniroute/model" or { model = "omniroute/model"; reasoningEffort = "high" }
-      # Returns full object to preserve reasoningEffort, not just the model string
-      extractModel =
-        raw:
-        if builtins.isString raw then
-          { model = raw; }
-        else if builtins.isAttrs raw && raw ? model then
-          raw
-        else
-          { model = null; };
+      dataCategories = data.categories or { };
 
       legacyAdvanced = data.advanced or categories.ultrabrain.defaultModel;
       legacyMedium = data.medium or categories.deep.defaultModel;
       legacyFast = data.fast or categories.quick.defaultModel;
 
-      legacyOrchestrator = data.categories.orchestrator or legacyAdvanced;
-      legacyCoding = data.categories.coding or legacyAdvanced;
-      legacyResearch = data.categories.research or legacyMedium;
-      legacyWriting = data.categories.writing or legacyMedium;
-      legacyMultimodal = data.categories.multimodal or legacyFast;
+      legacyOrchestrator = dataCategories.orchestrator or legacyAdvanced;
+      legacyCoding = dataCategories.coding or legacyAdvanced;
+      legacyResearch = dataCategories.research or legacyMedium;
+      legacyWriting = dataCategories.writing or legacyMedium;
+      legacyMultimodal = dataCategories.multimodal or legacyFast;
 
-      # Extract model strings from state, falling back to legacy defaults
-      rawVisualEngineering = data.categories."visual-engineering" or null;
-      rawUltrabrain = data.categories.ultrabrain or null;
-      rawDeep = data.categories.deep or null;
-      rawArtistry = data.categories.artistry or null;
-      rawQuick = data.categories.quick or null;
-      rawWriting = data.categories.writing or null;
-      rawUnspecifiedLow = data.categories."unspecified-low" or null;
-      rawUnspecifiedHigh = data.categories."unspecified-high" or null;
-
-      catVisualEngineering =
-        if rawVisualEngineering == null then legacyMultimodal else extractModel rawVisualEngineering;
-      catUltrabrain = if rawUltrabrain == null then legacyOrchestrator else extractModel rawUltrabrain;
-      catDeep =
-        if rawDeep == null then
-          (if data.categories ? coding then legacyCoding else legacyResearch)
-        else
-          extractModel rawDeep;
-      catArtistry = if rawArtistry == null then legacyMultimodal else extractModel rawArtistry;
-      catQuick = if rawQuick == null then legacyFast else extractModel rawQuick;
-      catWriting = if rawWriting == null then legacyWriting else extractModel rawWriting;
-      catUnspecifiedLow =
-        if rawUnspecifiedLow == null then legacyMedium else extractModel rawUnspecifiedLow;
-      catUnspecifiedHigh =
-        if rawUnspecifiedHigh == null then legacyAdvanced else extractModel rawUnspecifiedHigh;
+      rawVisualEngineering = dataCategories."visual-engineering" or null;
+      rawUltrabrain = dataCategories.ultrabrain or null;
+      rawDeep = dataCategories.deep or null;
+      rawArtistry = dataCategories.artistry or null;
+      rawQuick = dataCategories.quick or null;
+      rawWriting = dataCategories.writing or null;
+      rawUnspecifiedLow = dataCategories."unspecified-low" or null;
+      rawUnspecifiedHigh = dataCategories."unspecified-high" or null;
     in
     {
       categories = {
-        "visual-engineering" = catVisualEngineering;
-        ultrabrain = catUltrabrain;
-        deep = catDeep;
-        artistry = catArtistry;
-        quick = catQuick;
-        writing = catWriting;
-        "unspecified-low" = catUnspecifiedLow;
-        "unspecified-high" = catUnspecifiedHigh;
+        "visual-engineering" = extractSelection (
+          if rawVisualEngineering == null then legacyMultimodal else rawVisualEngineering
+        ) categories."visual-engineering".defaultModel;
+        ultrabrain = extractSelection (
+          if rawUltrabrain == null then legacyOrchestrator else rawUltrabrain
+        ) categories.ultrabrain.defaultModel;
+        deep = extractSelection (
+          if rawDeep == null then
+            (if dataCategories ? coding then legacyCoding else legacyResearch)
+          else
+            rawDeep
+        ) categories.deep.defaultModel;
+        artistry = extractSelection (
+          if rawArtistry == null then legacyMultimodal else rawArtistry
+        ) categories.artistry.defaultModel;
+        quick = extractSelection (
+          if rawQuick == null then legacyFast else rawQuick
+        ) categories.quick.defaultModel;
+        writing = extractSelection (
+          if rawWriting == null then legacyWriting else rawWriting
+        ) categories.writing.defaultModel;
+        "unspecified-low" = extractSelection (
+          if rawUnspecifiedLow == null then legacyMedium else rawUnspecifiedLow
+        ) categories."unspecified-low".defaultModel;
+        "unspecified-high" = extractSelection (
+          if rawUnspecifiedHigh == null then legacyAdvanced else rawUnspecifiedHigh
+        ) categories."unspecified-high".defaultModel;
       };
     };
 
@@ -128,232 +244,84 @@ let
     menu = {
       title = "🤖 Model Configuration Manager";
       syncAction = "General: Sync Model Cache from API";
-      syncConfigAction = "General: Sync OpenCode + OMP Runtime Configs";
-      changeCategoriesAction = "OpenCode/Oh My OpenAgent: Change Category Models";
-      replaceModelAction = "OpenCode/Oh My OpenAgent: Replace Model Across Categories";
-      presetSaveAction = "OpenCode/Oh My OpenAgent: Save Category Preset";
-      presetManageAction = "OpenCode/Oh My OpenAgent: Category Preset Manager";
+      syncConfigAction = "General: Sync OpenCode + OMO Slim Runtime Configs";
+      changeCategoriesAction = "OpenCode/OMO Slim: Change Model Groups";
+      replaceModelAction = "OpenCode/OMO Slim: Replace Model Across Groups";
+      presetSaveAction = "OpenCode/OMO Slim: Save Model-Group Preset";
+      presetManageAction = "OpenCode/OMO Slim: Model-Group Preset Manager";
       initAction = "OpenCode: Init Project MCPs (Current Dir)";
       syncOmpAction = "OMP: Sync ~/.omp/agent/models.yml";
       exitAction = "Exit";
-      categoryHeader = "Select OpenCode/Oh My OpenAgent categories to update (Space to select, Enter to confirm)";
-      categoryMultiHeader = "Select one or more OpenCode/Oh My OpenAgent categories to update (Space to select, Enter to confirm)";
-      modelHeaderPrefix = "Select model for OpenCode/Oh My OpenAgent category";
-      modelHeaderMultiple = "Select model for selected OpenCode/Oh My OpenAgent categories";
-      replaceSourceHeader = "Select current OpenCode/Oh My OpenAgent category model to replace";
+      categoryHeader = "Select OpenCode/OMO Slim model groups to update (Space to select, Enter to confirm)";
+      categoryMultiHeader = "Select one or more OpenCode/OMO Slim model groups to update (Space to select, Enter to confirm)";
+      modelHeaderPrefix = "Select model for OpenCode/OMO Slim model group";
+      modelHeaderMultiple = "Select model for selected OpenCode/OMO Slim model groups";
+      replaceSourceHeader = "Select current OpenCode/OMO Slim group model to replace";
       replaceTargetHeader = "Select replacement model";
-      presetNamePrompt = "Category preset name";
-      presetManagerHeader = "Select category preset";
-      presetActionHeader = "Category preset action";
-      categoryStatePrefix = "OpenCode/Oh My OpenAgent category presets";
+      presetNamePrompt = "Model-group preset name";
+      presetManagerHeader = "Select model-group preset";
+      presetActionHeader = "Model-group preset action";
+      categoryStatePrefix = "OpenCode/OMO Slim model-group presets";
     };
-    categories = mapAttrs (
-      categoryId: category:
-      category
-      // {
-        id = categoryId;
-      }
-    ) categories;
+    categories = mapAttrs (categoryId: category: category // { id = categoryId; }) categories;
+    slimModelBindings = agentBindings ++ councilBindings;
   };
 
-  mkOhMyConfig =
+  mkSlimConfig =
     { state }:
-    let
-      # Extract category config, handling both legacy string format and new object format
-      extractCategory =
-        categoryId:
-        let
-          raw = state.categories.${categoryId};
-        in
-        if builtins.isString raw then { model = raw; } else raw;
-
-      # Get reasoning effort from category config
-      getReasoningEffort =
-        categoryId:
-        let
-          cat = extractCategory categoryId;
-        in
-        cat.reasoningEffort or null;
-    in
     {
-      "$schema" =
-        "https://raw.githubusercontent.com/code-yeongyu/oh-my-opencode/dev/assets/oh-my-opencode.schema.json";
-      categories = mapAttrs (categoryId: _: extractCategory categoryId) categories;
-      agents = {
-        # Main orchestrator — Claude Opus (communicator type, 1100-line prompt)
-        sisyphus = {
-          category = "unspecified-high";
-        }
-        // (lib.optionalAttrs (getReasoningEffort "unspecified-high" != null) {
-          variant = getReasoningEffort "unspecified-high";
-        });
-        # Task executor — category overridden dynamically per-task by orchestrator
-        "sisyphus-junior" = {
-          category = "unspecified-low";
-        }
-        // (lib.optionalAttrs (getReasoningEffort "unspecified-low" != null) {
-          variant = getReasoningEffort "unspecified-low";
-        });
-        # Autonomous deep worker — requires GPT-5.3 Codex (no fallback)
-        hephaestus = {
-          category = "deep";
-        }
-        // (lib.optionalAttrs (getReasoningEffort "deep" != null) {
-          variant = getReasoningEffort "deep";
-        });
-        # Strategic planner — Claude-optimized dual-prompt agent
-        prometheus = {
-          category = "unspecified-high";
-        }
-        // (lib.optionalAttrs (getReasoningEffort "unspecified-high" != null) {
-          variant = getReasoningEffort "unspecified-high";
-        });
-        # Todo orchestrator/conductor — Sonnet-class sufficient
-        atlas = {
-          category = "unspecified-low";
-        }
-        // (lib.optionalAttrs (getReasoningEffort "unspecified-low" != null) {
-          variant = getReasoningEffort "unspecified-low";
-        });
-        # Architecture consultant — GPT-5.4 for deep reasoning (read-only)
-        oracle = {
-          category = "ultrabrain";
-        }
-        // (lib.optionalAttrs (getReasoningEffort "ultrabrain" != null) {
-          variant = getReasoningEffort "ultrabrain";
-        });
-        # Docs/code search — utility runner, speed over intelligence
-        librarian = {
-          category = "quick";
-        }
-        // (lib.optionalAttrs (getReasoningEffort "quick" != null) {
-          variant = getReasoningEffort "quick";
-        });
-        # Fast codebase grep — utility runner, fire many in parallel
-        explore = {
-          category = "quick";
-        }
-        // (lib.optionalAttrs (getReasoningEffort "quick" != null) {
-          variant = getReasoningEffort "quick";
-        });
-        # Gap analyzer — Claude-optimized communicator type
-        metis = {
-          category = "unspecified-high";
-        }
-        // (lib.optionalAttrs (getReasoningEffort "unspecified-high" != null) {
-          variant = getReasoningEffort "unspecified-high";
-        });
-        # Ruthless plan reviewer — GPT-5.4 for deep verification
-        momus = {
-          category = "ultrabrain";
-        }
-        // (lib.optionalAttrs (getReasoningEffort "ultrabrain" != null) {
-          variant = getReasoningEffort "ultrabrain";
-        });
-        # Vision/screenshots — GPT-5.3 Codex preferred (multimodal)
-        "multimodal-looker" = {
-          category = "deep";
-        }
-        // (lib.optionalAttrs (getReasoningEffort "deep" != null) {
-          variant = getReasoningEffort "deep";
-        });
-      };
-      disabled_mcps = [
-        # Example Content:
-        # "websearch"
-        # "context7"
-        # "grep_app"
-      ];
-      # Built-in skills are resolved on demand via the skill tool, so leaving the
-      # Source: https://opencode.ai/docs/skills/
-      # Keep Playwright repo-owned so built-in skill lifecycle does not compete
-      # with per-repository setup managed outside the shared host config.
-      disabled_skills = [ "playwright" ];
+      # JSONC is preferred by upstream and project overrides use
+      # `.opencode/oh-my-opencode-slim.jsonc`. Source:
+      # https://github.com/alvinunreal/oh-my-opencode-slim/blob/master/docs/configuration.md
+      "$schema" = "https://unpkg.com/oh-my-opencode-slim@latest/oh-my-opencode-slim.schema.json";
+      preset = presetName;
+      autoUpdate = false;
+      setDefaultAgent = true;
 
-      team_mode = {
-        # Team mode is opt-in upstream; enable it so `team_*` tools are present
-        # after restart while keeping official 4/8 worker limits.
-        # Source: https://github.com/code-yeongyu/oh-my-openagent/blob/dev/docs/guide/team-mode.md
+      # Observer is disabled upstream by default; enable it because the deep group
+      # is assigned to image-capable OmniRoute models in this repo's state/cache.
+      disabled_agents = [ ];
+      disabled_mcps = [ ];
+
+      websearch = {
+        provider = "exa";
+      };
+
+      sessionManager = {
+        maxSessionsPerAgent = 3;
+        readContextMinLines = 10;
+        readContextMaxFiles = 8;
+      };
+
+      todoContinuation = {
+        maxContinuations = 5;
+        cooldownMs = 3000;
+        autoEnable = false;
+        autoEnableThreshold = 4;
+      };
+
+      multiplexer = {
+        type = "none";
+        layout = "main-vertical";
+        main_pane_size = 60;
+      };
+
+      fallback = {
         enabled = true;
-        max_parallel_members = 4;
-        max_members = 8;
+        timeoutMs = 15000;
+        retryDelayMs = 500;
+        retry_on_empty = true;
+        chains = { };
       };
-      background_task = {
-        providerConcurrency = {
-          # Codex-family GPT workers route through OpenAI-compatible model IDs;
-          # cap that provider without over-throttling normal parallel fan-out.
-          # Sources: ./models.json and https://raw.githubusercontent.com/code-yeongyu/oh-my-openagent/dev/assets/oh-my-opencode.schema.json
-          openai = 6;
-        };
-        modelConcurrency = {
-          # Include local GPT-5/Codex-family IDs present in both capability patches
-          # and synced metadata, including non-`codex` suffixed Codex aliases.
-          # Sources: ./_model-local-patches.json and ./models.json.
-          "gpt-5.2" = 4;
-          "gpt-5.3-codex" = 4;
-          "gpt-5.4" = 4;
-          "openai/gpt-5" = 4;
-          "openai/gpt-5-chat" = 4;
-          "openai/gpt-5-codex" = 4;
-          "openai/gpt-5-pro" = 4;
-          "openai/gpt-5.1" = 4;
-          "openai/gpt-5.1-chat" = 4;
-          "openai/gpt-5.1-codex" = 4;
-          "openai/gpt-5.2" = 4;
-          "openai/gpt-5.2-chat" = 4;
-          "openai/gpt-5.2-codex" = 4;
-          "openai/gpt-5.2-pro" = 4;
-          "openai/gpt-5.3-chat" = 4;
-          "openai/gpt-5.3-codex" = 4;
-          "openai/gpt-5.4" = 4;
-          "openai/gpt-5.4-pro" = 4;
-          "openai/gpt-5.5" = 4;
-          "openai/gpt-5.5-pro" = 4;
-        };
-      };
-      browser_automation_engine = {
-        provider = "agent-browser";
-      };
-      experimental = {
-        task_system = true;
-        dynamic_context_pruning = {
-          enabled = true;
-          notification = "detailed";
-          turn_protection = {
-            enabled = true;
-            turns = 3;
-          };
-          protected_tools = [
-            "task"
-            "todowrite"
-            "todoread"
-            "lsp_rename"
-            "session_read"
-            "session_write"
-            "session_search"
-          ];
-          strategies = {
-            deduplication = {
-              enabled = true;
-            };
-            supersede_writes = {
-              enabled = true;
-              aggressive = false;
-            };
-            purge_errors = {
-              enabled = true;
-              turns = 5;
-            };
-          };
-        };
+
+      presets.${presetName} = mapAttrs (mkAgentConfig state) agentAssignments;
+
+      council = {
+        default_preset = "default";
+        timeout = 180000;
+        councillor_execution_mode = "parallel";
+        councillor_retries = 3;
+        presets.default = mapAttrs (mkCouncilMember state) councilAssignments;
       };
     };
-in
-{
-  inherit
-    categories
-    mkMenuMetadata
-    mkOhMyConfig
-    mkState
-    ;
 }

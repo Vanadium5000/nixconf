@@ -2,6 +2,7 @@
   lib,
   inputs,
   self,
+  config,
   ...
 }:
 {
@@ -30,34 +31,29 @@
     default = { };
   };
 
-  # Add the unstable pkgs to the global pkgs overlay
+  options.flake.temporaryNixpkgsOverrides = lib.mkOption {
+    description = "Temporary package overrides with built-in expiry checks.";
+    type = lib.types.attrsOf (
+      lib.types.submodule {
+        options = self.lib.nixpkgs.temporaryOverrideModule;
+      }
+    );
+    default = self.lib.nixpkgs.temporaryOverrides;
+  };
+
   config.perSystem =
     { system, ... }:
     {
-      _module.args.pkgs = import inputs.nixpkgs {
-        inherit system;
-        config = {
-          # HACK: this sucks
-          allowUnfree = true;
-          # CVE-2024-23342: ecdsa timing side-channel attack allowing private key recovery.
-          # Required by electrum-ltc (litecoin-wallet). Low-value wallet, acceptable risk.
-          permittedInsecurePackages = [
-            "python3.13-ecdsa-0.19.1"
-          ];
+      _module.args.pkgs = self.lib.nixpkgs.mkPkgs {
+        inherit inputs self system;
+        temporaryOverrides = config.flake.temporaryNixpkgsOverrides;
+        extraPythonOverrides = _python-final: python-prev: {
+          mcp = python-prev.mcp.overridePythonAttrs (_old: {
+            # Disable flaky SSE/HTTP server tests (ClosedResourceError, server startup timeouts)
+            # that fail in the Nix sandbox due to async race conditions.
+            doCheck = false;
+          });
         };
-        overlays = [
-          (self.lib.nixpkgs.mkSharedOverlay {
-            inherit inputs self system;
-            extraPythonOverrides = _python-final: python-prev: {
-              mcp = python-prev.mcp.overridePythonAttrs (_old: {
-                # Disable flaky SSE/HTTP server tests (ClosedResourceError, server startup timeouts)
-                # that fail in the Nix sandbox due to async race conditions.
-                doCheck = false;
-              });
-            };
-          })
-          inputs.nix4vscode.overlays.default
-        ];
       };
 
       apps = {

@@ -8,23 +8,30 @@
       ...
     }:
     let
-      # These path helpers are reused across generated configs, persistence, and
-      # the TUI wrapper, so keep them close to the top-level module inputs.
       user = config.preferences.user.username;
       homeDirectory = config.preferences.paths.homeDirectory;
       configDirectory = config.preferences.paths.configDirectory;
       publicBaseDomain = self.secrets.PUBLIC_BASE_DOMAIN;
+      system = pkgs.stdenv.hostPlatform.system;
 
-      # Existing adjacent helpers already split stable data domains cleanly.
-      # Keep those imports, but keep the runtime assembly in this file so future
-      # contract-sensitive changes stay visible in one place.
       languages = import ./_languages.nix { inherit pkgs self; };
-      providers = import ./_providers.nix {
-        inherit self lib;
-      };
+      providers = import ./_providers.nix { inherit self lib; };
       pluginsConfig = import ./_plugins.nix;
-      categoriesConfig = import ./_categories.nix { inherit lib; };
-      opencode = inputs.opencode.packages.${pkgs.stdenv.hostPlatform.system}.opencode;
+      modelGroups = import ./_categories.nix { inherit lib; };
+
+      opencode = inputs.opencode.packages.${system}.opencode;
+      modelsCommand = self.packages.${system}.models;
+
+      # State is repo-owned so model-group choices survive wrapper runs and can
+      # be reviewed/committed like any other configuration change.
+      stateFile = ./state.json;
+      state = modelGroups.mkState { inherit stateFile; };
+      slimConfig = modelGroups.mkSlimConfig { inherit state; };
+      opencodeModelsMetadata = modelGroups.mkMenuMetadata // {
+        menu = modelGroups.mkMenuMetadata.menu // {
+          reasoningEffortHeader = "Select reasoning effort for this model";
+        };
+      };
 
       # OpenCode scans `~/.config/opencode/skills/<name>/SKILL.md`; install each
       # skill file explicitly so activation can preserve the expected tree shape.
@@ -39,206 +46,6 @@
           };
         }) (lib.attrNames (lib.filterAttrs (_: type: type == "directory") (builtins.readDir ./skill)))
       );
-
-      # TODO: SETUP SKILLS BETTER
-      # mattpocockSkills = pkgs.customPackages.mattpocock-skills;
-      # mattpocockSkillFiles =
-      #   let
-      #     sourceRoot = "${mattpocockSkills}/share/opencode/skills";
-      #     listRelativeFiles =
-      #       dir:
-      #       lib.flatten (
-      #         lib.mapAttrsToList (
-      #           name: type:
-      #           if type == "regular" then
-      #             [ name ]
-      #           else if type == "directory" then
-      #             map (child: "${name}/${child}") (listRelativeFiles (dir + "/${name}"))
-      #           else
-      #             [ ]
-      #         ) (builtins.readDir dir)
-      #       );
-      #     skillNames = lib.attrNames (
-      #       lib.filterAttrs (_: type: type == "directory") (builtins.readDir sourceRoot)
-      #     );
-      #   in
-      #   builtins.listToAttrs (
-      #     lib.flatten (
-      #       map (
-      #         skillName:
-      #         map (relativeFile: {
-      #           name = ".config/opencode/skills/${skillName}/${relativeFile}";
-      #           value = {
-      #             source = sourceRoot + "/${skillName}/${relativeFile}";
-      #             type = "copy";
-      #             permissions = "0644";
-      #           };
-      #         }) (listRelativeFiles (sourceRoot + "/${skillName}"))
-      #       ) skillNames
-      #     )
-      #   );
-
-      # state.json is repo-owned so model/category choices survive wrapper runs
-      # and can be reviewed/committed like any other configuration change.
-      stateFile = ./state.json;
-      state = categoriesConfig.mkState { inherit stateFile; };
-
-      # MCP server configuration is shared by the global OpenCode config and the
-      # project template generator, so keep one source of truth here.
-      mcpConfig = {
-        gh_grep = {
-          # grep.app is the default public code-search MCP used across this repo.
-          type = "remote";
-          url = "https://mcp.grep.app/";
-          enabled = true;
-          timeout = 20000;
-        };
-
-        context7 = {
-          # Context7 keeps API docs current without bundling snapshots locally.
-          type = "remote";
-          url = "https://mcp.context7.com/mcp";
-          enabled = true;
-          timeout = 20000;
-        };
-
-        markdown_lint = {
-          # Enabled globally so repo guidance and generated plans stay lintable.
-          type = "local";
-          command = [
-            "${inputs.self.packages.${pkgs.stdenv.hostPlatform.system}.markdown-lint-mcp}/bin/markdown-lint-mcp"
-          ];
-          enabled = true;
-          timeout = 10000;
-        };
-
-        # Remote tool: High-quality parallel web search with deep research capabilities.
-        # Already declared by Oh-My-OpenAgent.
-        # websearch = {
-        #   type = "remote";
-        #   url = "https://mcp.exa.ai/mcp?exaApiKey=${self.secrets.EXA_API_KEY}&tools=web_search_exa,deep_search_exa,get_code_context_exa,crawling_exa,deep_researcher_start,deep_researcher_check";
-        #   enabled = true;
-        #   timeout = 30000;
-        # };
-
-        image_gen = {
-          # Resolve the first image-capable model at runtime so model sync stays
-          # authoritative and repo-owned modality patches apply immediately
-          # without requiring a rebuild.
-          type = "local";
-          command = [
-            (pkgs.writeShellScript "image-gen-mcp-wrapper" ''
-              export OMNIROUTE_OPENCODE_API_KEY="${self.secrets.OMNIROUTE_OPENCODE_API_KEY}"
-              export OMNIROUTE_BASE_URL="https://omniroute.${publicBaseDomain}/v1"
-              MODELS_FILE="${configDirectory}/modules/nixos/terminal/opencode/models.json"
-              PATCHES_FILE="${configDirectory}/modules/nixos/terminal/opencode/_model-local-patches.json"
-
-              # Prefer the first runtime-effective model that advertises image output.
-              # Source of truth is the repo models cache plus repo-owned JSON patches.
-              if [ -f "$PATCHES_FILE" ] && [ -s "$PATCHES_FILE" ]; then
-                IMAGE_MODEL="$(${pkgs.jq}/bin/jq -r --slurpfile patches "$PATCHES_FILE" '
-                  first(
-                    def normalize_model:
-                      . as $model
-                      | ($model | del(.context, .output))
-                        + (if (($model.context // null) != null) or (($model.output // null) != null) then
-                            {
-                              limit: (($model.limit // {})
-                                + (if (($model.context // null) != null) then { context: $model.context } else {} end)
-                                + (if (($model.output // null) != null) then { output: $model.output } else {} end))
-                            }
-                          else
-                            {}
-                          end);
-                    (.providers.omniroute.models // {}) as $models
-                    | $models * (($patches[0] // {}) | with_entries(select($models[.key] != null)))
-                    | map_values(normalize_model)
-                    | to_entries[]
-                    | select(((.value.modalities.output // []) | index("image")) != null)
-                    | "omniroute/\(.key)"
-                  ) // empty
-                ' "$MODELS_FILE")"
-              else
-                export IMAGE_MODEL="$(${pkgs.jq}/bin/jq -r '
-                  first(
-                    (.providers.omniroute.models // {})
-                    | to_entries[]
-                    | select(((.value.modalities.output // []) | index("image")) != null)
-                    | "omniroute/\(.key)"
-                  ) // empty
-                ' "$MODELS_FILE")"
-              fi
-
-              exec ${inputs.self.packages.${pkgs.stdenv.hostPlatform.system}.image-gen-mcp}/bin/image-gen-mcp
-            '')
-          ];
-          enabled = true;
-          timeout = 60000;
-        };
-      };
-
-      # Base configuration containing non-dynamic parts
-      baseConfig = {
-        "$schema" = "https://opencode.ai/config.json";
-        plugin = pluginsConfig.plugins;
-        small_model = "omniroute/kilocode/kilo-auto/free";
-        autoupdate = false;
-        share = "disabled";
-        permission = {
-          read = {
-            "*.redacted.*" = "deny";
-          };
-        };
-        disabled_providers = [
-          "amazon-bedrock"
-          "anthropic"
-          "azure-openai"
-          "azure-cognitive-services"
-          "baseten"
-          "cerebras"
-          "cloudflare-ai-gateway"
-          "cortecs"
-          "deepseek"
-          "deep-infra"
-          "fireworks-ai"
-          "github-copilot"
-          "google-vertex-ai"
-          "groq"
-          "hugging-face"
-          "helicone"
-          "llama.cpp"
-          "io-net"
-          "lmstudio"
-          "moonshot-ai"
-          "nebius-token-factory"
-          "openai"
-          "sap-ai-core"
-          "ovhcloud-ai-endpoints"
-          "together-ai"
-          "venice-ai"
-          "xai"
-          "zai"
-          "zenmux"
-        ];
-        enabled_providers = [
-          "opencode"
-          "omniroute"
-        ];
-        mcp = mcpConfig;
-        inherit (languages) formatter lsp;
-        provider = providers.config;
-      };
-
-      # Generate initial fallback config so opencode has *something* to launch with if modified
-      initialConfig = baseConfig;
-
-      ohMyOpencodeConfig = categoriesConfig.mkOhMyConfig { inherit state; };
-
-      opencodeModelsMetadata = categoriesConfig.mkMenuMetadata // {
-        menu = categoriesConfig.mkMenuMetadata.menu // {
-          reasoningEffortHeader = "Select reasoning effort for this model";
-        };
-      };
 
       # The Obsidian skill invokes this wrapper instead of a raw MCP command so
       # each coding project is confined to ~/Vault/Projects/<slug>, never the
@@ -312,71 +119,206 @@
         ]
       );
 
-      # Templates live in the store so the TUI can switch project bootstraps
-      # without mutating repo files or recomputing JSONC snippets by hand.
-      mcpTemplates =
-        let
-          allMcpNames = lib.attrNames mcpConfig;
-
-          mkTemplateJsonC =
-            _: enabledMcpNames:
-            let
-              globallyEnabledNotInTemplate = lib.filterAttrs (
-                name: cfg: (cfg.enabled or false) && !(builtins.elem name enabledMcpNames)
-              ) mcpConfig;
-
-              availableNotInTemplate = lib.filterAttrs (
-                name: cfg: !(builtins.elem name enabledMcpNames) && !(cfg.enabled or false)
-              ) mcpConfig;
-
-              globalNames = lib.attrNames globallyEnabledNotInTemplate;
-              availableNames = lib.attrNames availableNotInTemplate;
-              allDataNames = globalNames ++ availableNames ++ enabledMcpNames;
-              lastIdx = lib.length allDataNames - 1;
-
-              mkLine =
-                i: text:
-                let
-                  comma = if i == lastIdx then "" else ",";
-                in
-                "    ${text}${comma}";
-
-              globalSection =
-                if globalNames == [ ] then
-                  [ ]
-                else
-                  [ "    // Globally enabled by default - disable if not needed" ]
-                  ++ (lib.imap0 (i: name: mkLine i "// \"${name}\": { \"enabled\": false }") globalNames);
-
-              availableSection =
-                if availableNames == [ ] then
-                  [ ]
-                else
-                  [ "    // Available: uncomment to enable" ]
-                  ++ (lib.imap0 (
-                    i: name: mkLine (i + lib.length globalNames) "// \"${name}\": { \"enabled\": true }"
-                  ) availableNames);
-
-              enabledSection = lib.imap0 (
-                i: name:
-                mkLine (i + lib.length globalNames + lib.length availableNames) "\"${name}\": { \"enabled\": true }"
-              ) enabledMcpNames;
-
-              result =
-                globalSection
-                ++ lib.optional (globalSection != [ ] && (availableSection != [ ] || enabledSection != [ ])) ""
-                ++ availableSection
-                ++ lib.optional (availableSection != [ ] && enabledSection != [ ]) ""
-                ++ enabledSection;
-            in
-            "{\n  \"mcp\": {\n${lib.concatStringsSep "\n" result}\n  }\n}";
-        in
-        {
-          "All MCPs" = mkTemplateJsonC "All MCPs" allMcpNames;
-          "No MCPs" = mkTemplateJsonC "No MCPs" [ ];
-          "Custom MCP File" = mkTemplateJsonC "Custom MCP File" [ ];
+      # oh-my-opencode-slim registers websearch/context7/grep_app itself; keep
+      # repo-specific MCPs here so OpenCode's global config remains concise and
+      # the plugin can merge its built-ins at runtime. Source:
+      # https://github.com/alvinunreal/oh-my-opencode-slim/blob/master/src/mcp/index.ts
+      mcpConfig = {
+        markdown_lint = {
+          # Enabled globally so repo guidance and generated plans stay lintable.
+          type = "local";
+          command = [
+            "${inputs.self.packages.${system}.markdown-lint-mcp}/bin/markdown-lint-mcp"
+          ];
+          enabled = true;
+          timeout = 10000;
         };
 
+        image_gen = {
+          # Resolve the first image-capable model at runtime so model sync stays
+          # authoritative and repo-owned modality patches apply immediately
+          # without requiring a rebuild.
+          type = "local";
+          command = [
+            (pkgs.writeShellScript "image-gen-mcp-wrapper" ''
+              export OMNIROUTE_OPENCODE_API_KEY="${self.secrets.OMNIROUTE_OPENCODE_API_KEY}"
+              export OMNIROUTE_BASE_URL="https://omniroute.${publicBaseDomain}/v1"
+              MODELS_FILE="${configDirectory}/modules/nixos/terminal/opencode/models.json"
+              PATCHES_FILE="${configDirectory}/modules/nixos/terminal/opencode/_model-local-patches.json"
+
+              # Prefer the first runtime-effective model that advertises image output.
+              # Source of truth is the repo models cache plus repo-owned JSON patches.
+              if [ -f "$PATCHES_FILE" ] && [ -s "$PATCHES_FILE" ]; then
+                IMAGE_MODEL="$(${pkgs.jq}/bin/jq -r --slurpfile patches "$PATCHES_FILE" '
+                  first(
+                    def normalize_model:
+                      . as $model
+                      | ($model | del(.context, .output))
+                        + (if (($model.context // null) != null) or (($model.output // null) != null) then
+                            {
+                              limit: (($model.limit // {})
+                                + (if (($model.context // null) != null) then { context: $model.context } else {} end)
+                                + (if (($model.output // null) != null) then { output: $model.output } else {} end))
+                            }
+                          else
+                            {}
+                          end);
+                    (.providers.omniroute.models // {}) as $models
+                    | $models * (($patches[0] // {}) | with_entries(select($models[.key] != null)))
+                    | map_values(normalize_model)
+                    | to_entries[]
+                    | select(((.value.modalities.output // []) | index("image")) != null)
+                    | "omniroute/\(.key)"
+                  ) // empty
+                ' "$MODELS_FILE")"
+              else
+                export IMAGE_MODEL="$(${pkgs.jq}/bin/jq -r '
+                  first(
+                    (.providers.omniroute.models // {})
+                    | to_entries[]
+                    | select(((.value.modalities.output // []) | index("image")) != null)
+                    | "omniroute/\(.key)"
+                  ) // empty
+                ' "$MODELS_FILE")"
+              fi
+
+              exec ${inputs.self.packages.${system}.image-gen-mcp}/bin/image-gen-mcp
+            '')
+          ];
+          enabled = true;
+          timeout = 60000;
+        };
+      };
+
+      baseConfig = {
+        "$schema" = "https://opencode.ai/config.json";
+        plugin = pluginsConfig.plugins;
+        small_model = "omniroute/kilocode/kilo-auto/free";
+        autoupdate = false;
+        share = "disabled";
+        permission = {
+          read = {
+            "*.redacted.*" = "deny";
+          };
+        };
+        disabled_providers = [
+          "amazon-bedrock"
+          "anthropic"
+          "azure-openai"
+          "azure-cognitive-services"
+          "baseten"
+          "cerebras"
+          "cloudflare-ai-gateway"
+          "cortecs"
+          "deepseek"
+          "deep-infra"
+          "fireworks-ai"
+          "github-copilot"
+          "google-vertex-ai"
+          "groq"
+          "hugging-face"
+          "helicone"
+          "llama.cpp"
+          "io-net"
+          "lmstudio"
+          "moonshot-ai"
+          "nebius-token-factory"
+          "openai"
+          "sap-ai-core"
+          "ovhcloud-ai-endpoints"
+          "together-ai"
+          "venice-ai"
+          "xai"
+          "zai"
+          "zenmux"
+        ];
+        enabled_providers = [
+          "opencode"
+          "omniroute"
+        ];
+        mcp = mcpConfig;
+        inherit (languages) formatter lsp;
+        provider = providers.config;
+      };
+
+      tuiConfig = {
+        # The slim installer registers the same package in `tui.json` for its
+        # sidebar. Source:
+        # https://github.com/alvinunreal/oh-my-opencode-slim/blob/master/src/cli/config-io.ts
+        "$schema" = "https://opencode.ai/tui.json";
+        plugin = [ "oh-my-opencode-slim" ];
+      };
+
+      opencodeMemConfig = {
+        storagePath = "${homeDirectory}/.opencode-mem/data";
+        embeddingModel = "Xenova/nomic-embed-text-v1";
+        memoryProvider = "openai-chat";
+        memoryModel = state.categories.deep.model;
+        memoryApiUrl = "https://omniroute.${publicBaseDomain}/v1";
+        memoryApiKey = self.secrets.OMNIROUTE_OPENCODE_API_KEY;
+        autoCaptureEnabled = true;
+        webServerEnabled = true;
+        webServerPort = 4747;
+        chatMessage = {
+          enabled = true;
+          maxMemories = 3;
+          injectOn = "first";
+        };
+      };
+
+      mkTemplateJsonC =
+        enabledMcpNames:
+        let
+          globallyEnabledNotInTemplate = lib.filterAttrs (
+            name: cfg: (cfg.enabled or false) && !(builtins.elem name enabledMcpNames)
+          ) mcpConfig;
+          availableNotInTemplate = lib.filterAttrs (
+            name: cfg: !(builtins.elem name enabledMcpNames) && !(cfg.enabled or false)
+          ) mcpConfig;
+          globalNames = lib.attrNames globallyEnabledNotInTemplate;
+          availableNames = lib.attrNames availableNotInTemplate;
+          allDataNames = globalNames ++ availableNames ++ enabledMcpNames;
+          lastIdx = lib.length allDataNames - 1;
+          mkLine =
+            i: text:
+            let
+              comma = if i == lastIdx then "" else ",";
+            in
+            "    ${text}${comma}";
+          globalSection =
+            if globalNames == [ ] then
+              [ ]
+            else
+              [ "    // Globally enabled by default - disable if not needed" ]
+              ++ (lib.imap0 (i: name: mkLine i "// \"${name}\": { \"enabled\": false }") globalNames);
+          availableSection =
+            if availableNames == [ ] then
+              [ ]
+            else
+              [ "    // Available: uncomment to enable" ]
+              ++ (lib.imap0 (
+                i: name: mkLine (i + lib.length globalNames) "// \"${name}\": { \"enabled\": true }"
+              ) availableNames);
+          enabledSection = lib.imap0 (
+            i: name:
+            mkLine (i + lib.length globalNames + lib.length availableNames) "\"${name}\": { \"enabled\": true }"
+          ) enabledMcpNames;
+          result =
+            globalSection
+            ++ lib.optional (globalSection != [ ] && (availableSection != [ ] || enabledSection != [ ])) ""
+            ++ availableSection
+            ++ lib.optional (availableSection != [ ] && enabledSection != [ ]) ""
+            ++ enabledSection;
+        in
+        "{\n  \"mcp\": {\n${lib.concatStringsSep "\n" result}\n  }\n}";
+
+      # Templates live in the store so the TUI can switch project bootstraps
+      # without mutating repo files or recomputing JSONC snippets by hand.
+      mcpTemplates = {
+        "All MCPs" = mkTemplateJsonC (lib.attrNames mcpConfig);
+        "No MCPs" = mkTemplateJsonC [ ];
+        "Custom MCP File" = mkTemplateJsonC [ ];
+      };
       configVariantsDir = pkgs.runCommand "opencode-configs" { } ''
         mkdir -p $out/templates
         ${lib.concatStringsSep "\n" (
@@ -393,10 +335,6 @@
           ) mcpTemplates
         )}
       '';
-
-      # The implementation lives in modules/nixos/scripts/models.nix so OMP and
-      # OpenCode share one model sync path while preserving local mutable files.
-      modelsCommand = self.packages.${pkgs.stdenv.hostPlatform.system}.models;
 
       opencodeEnv = pkgs.buildEnv {
         name = "opencode-env";
@@ -430,7 +368,8 @@
         mkdir -p $out/bin
         makeWrapper ${opencodeInitScript} $out/bin/opencode \
           --prefix PATH : ${opencodeEnv}/bin \
-          --set OPENCODE_LIBC ${pkgs.glibc}/lib/libc.so.6
+          --set OPENCODE_LIBC ${pkgs.glibc}/lib/libc.so.6 \
+          --set EXA_API_KEY ${lib.escapeShellArg self.secrets.EXA_API_KEY}
       '';
 
       # Bind mounts are used instead of symlinks so applications see regular
@@ -443,7 +382,6 @@
         targetFile = "${homeDirectory}/.antigravity_tools";
         isDirectory = true;
       };
-
       opencodePersistence = self.lib.persistence.mkPersistent {
         method = "bind";
         inherit user;
@@ -451,7 +389,6 @@
         targetFile = "${homeDirectory}/.local/share/opencode";
         isDirectory = true;
       };
-
       opencodeMemPersistence = self.lib.persistence.mkPersistent {
         method = "bind";
         inherit user;
@@ -460,23 +397,11 @@
         isDirectory = true;
       };
 
-      opencodeMemConfig = {
-        storagePath = "${homeDirectory}/.opencode-mem/data";
-        embeddingModel = "Xenova/nomic-embed-text-v1";
-        memoryProvider = "openai-chat";
-        memoryModel = state.categories.deep.model;
-        memoryApiUrl = "https://omniroute.${publicBaseDomain}/v1";
-        memoryApiKey = self.secrets.OMNIROUTE_OPENCODE_API_KEY;
-        autoCaptureEnabled = true;
-        webServerEnabled = true;
-        webServerPort = 4747;
-        chatMessage = {
-          enabled = true;
-          maxMemories = 3;
-          injectOn = "first";
-        };
-      };
-
+      cleanupLegacyHarnessFiles = ''
+        rm -f ${lib.escapeShellArg "${homeDirectory}/.config/opencode/oh-my-opencode.jsonc"}
+        rm -f ${lib.escapeShellArg "${homeDirectory}/.config/opencode/oh-my-openagent.jsonc"}
+        rm -f ${lib.escapeShellArg "${homeDirectory}/.config/models/opencode/oh-my-opencode-base.json"}
+      '';
     in
     {
       environment.systemPackages = [
@@ -502,99 +427,86 @@
         // opencodeMemPersistence.fileSystems;
 
       system.activationScripts.opencode-user-files = {
-        text = self.lib.userFiles.mkActivationScript {
-          inherit user homeDirectory;
-          inherit pkgs;
-          files = {
-            ".config/opencode/config.json" = {
-              text = builtins.toJSON initialConfig;
-              type = "copy";
-              permissions = "0600";
-            };
+        text =
+          cleanupLegacyHarnessFiles
+          + self.lib.userFiles.mkActivationScript {
+            inherit user homeDirectory pkgs;
+            files = {
+              ".config/opencode/opencode.json" = {
+                text = builtins.toJSON baseConfig;
+                type = "copy";
+                permissions = "0600";
+              };
+              ".config/opencode/tui.json" = {
+                text = builtins.toJSON tuiConfig;
+                type = "copy";
+                permissions = "0600";
+              };
+              ".config/opencode/oh-my-opencode-slim.jsonc" = {
+                text = builtins.toJSON slimConfig;
+                type = "copy";
+                permissions = "0600";
+              };
+              ".config/opencode/command" = {
+                source = ./command;
+                type = "copy";
+                permissions = "0755";
+              };
+              ".config/opencode/plugin" = {
+                source = ./plugin;
+                type = "copy";
+                permissions = "0755";
+              };
+              ".config/opencode/AGENTS.md" = {
+                source = ./_AGENTS.md;
+                type = "copy";
+                permissions = "0644";
+              };
+              ".config/opencode/package.json" = {
+                source = ./_package.json;
+                type = "copy";
+                permissions = "0644";
+              };
+              ".config/opencode/opencode-mem.jsonc" = {
+                text = builtins.toJSON opencodeMemConfig;
+                type = "copy";
+                permissions = "0644";
+              };
 
-            ".config/opencode/oh-my-opencode.jsonc" = {
-              text = builtins.toJSON ohMyOpencodeConfig;
-              type = "copy";
-              permissions = "0600";
-            };
-
-            # Compatibility alias used by some OpenCode plugin/runtime paths.
-            # Keep this synced with oh-my-opencode.jsonc to avoid stale model picks.
-            ".config/opencode/oh-my-openagent.jsonc" = {
-              text = builtins.toJSON ohMyOpencodeConfig;
-              type = "copy";
-              permissions = "0600";
-            };
-
-            ".config/opencode/command" = {
-              source = ./command;
-              type = "copy";
-              permissions = "0755";
-            };
-
-            ".config/opencode/plugin" = {
-              source = ./plugin;
-              type = "copy";
-              permissions = "0755";
-            };
-
-            ".config/opencode/AGENTS.md" = {
-              source = ./_AGENTS.md;
-              type = "copy";
-              permissions = "0644";
-            };
-
-            ".config/opencode/package.json" = {
-              source = ./_package.json;
-              type = "copy";
-              permissions = "0644";
-            };
-
-            ".config/opencode/opencode-mem.jsonc" = {
-              text = builtins.toJSON opencodeMemConfig;
-              type = "copy";
-              permissions = "0644";
-            };
-
-            # Shared `models` reads OpenCode bases from regular files so local
-            # experiments can edit them, while activation refreshes from this module.
-            # Source: OpenCode config schema https://opencode.ai/docs/config/.
-            ".config/models/opencode/opencode-base.json" = {
-              text = builtins.toJSON baseConfig;
-              type = "copy";
-              permissions = "0644";
-            };
-
-            ".config/models/opencode/oh-my-opencode-base.json" = {
-              text = builtins.toJSON ohMyOpencodeConfig;
-              type = "copy";
-              permissions = "0644";
-            };
-
-            ".config/models/opencode/opencode-mem-base.json" = {
-              text = builtins.toJSON opencodeMemConfig;
-              type = "copy";
-              permissions = "0644";
-            };
-
-            ".config/models/opencode/models-metadata.json" = {
-              text = builtins.toJSON opencodeModelsMetadata;
-              type = "copy";
-              permissions = "0644";
-            };
-
-            # Project template copies are intentionally mutable for trial runs;
-            # `models init` consumes these by basename from ~/.config/models/opencode/templates.
-            # Source templates: modules/nixos/terminal/opencode configVariantsDir.
-            ".config/models/opencode/templates" = {
-              source = "${configVariantsDir}/templates";
-              type = "copy";
-              permissions = "0644";
-            };
-          }
-          # // mattpocockSkillFiles # TODO: SETUP SKILLS BETTER
-          // opencodeSkillFiles;
-        };
+              # Shared `models` reads OpenCode bases from regular files so local
+              # experiments can edit them, while activation refreshes from this module.
+              # Source: OpenCode config schema https://opencode.ai/docs/config/.
+              ".config/models/opencode/opencode-base.json" = {
+                text = builtins.toJSON baseConfig;
+                type = "copy";
+                permissions = "0644";
+              };
+              ".config/models/opencode/oh-my-opencode-slim-base.json" = {
+                text = builtins.toJSON slimConfig;
+                type = "copy";
+                permissions = "0644";
+              };
+              ".config/models/opencode/opencode-mem-base.json" = {
+                text = builtins.toJSON opencodeMemConfig;
+                type = "copy";
+                permissions = "0644";
+              };
+              ".config/models/opencode/models-metadata.json" = {
+                text = builtins.toJSON opencodeModelsMetadata;
+                type = "copy";
+                permissions = "0644";
+              };
+              # Project template copies are intentionally mutable for trial runs;
+              # `models init` consumes these by basename from ~/.config/models/opencode/templates.
+              # Source templates: modules/nixos/terminal/opencode configVariantsDir.
+              ".config/models/opencode/templates" = {
+                source = "${configVariantsDir}/templates";
+                type = "copy";
+                permissions = "0644";
+              };
+            }
+            // opencodeSkillFiles;
+          };
         deps = [ "users" ];
       };
     };
