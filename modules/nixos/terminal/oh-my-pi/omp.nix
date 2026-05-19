@@ -21,12 +21,14 @@
       ompDirectory = "${homeDirectory}/.omp";
       ompAgentDirectory = "${ompDirectory}/agent";
       ompModelsFile = "${ompAgentDirectory}/models.yml";
+      ompConfigFile = "${ompAgentDirectory}/config.yml";
       shellUser = lib.escapeShellArg user;
       shellHomeDirectory = lib.escapeShellArg homeDirectory;
       shellConfigDirectory = lib.escapeShellArg configDirectory;
       shellOmpDirectory = lib.escapeShellArg ompDirectory;
       shellOmpAgentDirectory = lib.escapeShellArg ompAgentDirectory;
       shellOmpModelsFile = lib.escapeShellArg ompModelsFile;
+      shellOmpConfigFile = lib.escapeShellArg ompConfigFile;
 
       qSystemPrompt = "You are q. Answer directly in plain text, concise by default. Use web_search for current web facts, read for URLs, and python for calculations or code evaluation. Cite web sources when used. Say when you do not know.";
       qCommand = lib.escapeShellArgs [
@@ -62,10 +64,11 @@
       options.programs.omp.enable = mkEnableOption "OMOS/OMP mutable state persistence";
 
       config = mkIf cfg.enable {
-        # Create only directories and OMP's first-run custom model catalog; config.yml,
-        # DBs, sessions, logs, and plugins remain regular mutable files for the app.
-        # `models sync-omp` writes the documented ~/.omp/agent/models.yml schema
-        # from the repo model cache without fetching network data.
+        # Create only directories and OMP's provider timeout baseline; existing
+        # config.yml, DBs, sessions, logs, and plugins remain regular mutable
+        # files for the app. `models sync-omp` writes the documented
+        # ~/.omp/agent/models.yml schema from the repo model cache without
+        # fetching network data.
         # Source: https://github.com/can1357/oh-my-pi/blob/main/docs/models.md.
         system.activationScripts.omp-user-files = {
           text = ''
@@ -75,6 +78,14 @@
             install -d -m 0700 -o ${shellUser} -g users ${shellOmpAgentDirectory}/terminal-sessions
             install -d -m 0700 -o ${shellUser} -g users ${shellOmpDirectory}/logs
             install -d -m 0700 -o ${shellUser} -g users ${shellOmpDirectory}/plugins
+
+            if [ ! -e ${shellOmpConfigFile} ]; then
+              printf '{}\n' > ${shellOmpConfigFile}
+            fi
+
+            ${pkgs.yq-go}/bin/yq -i '.retry.provider.timeoutMs = 200000' ${shellOmpConfigFile}
+            chmod 0600 ${shellOmpConfigFile}
+            chown ${shellUser}:users ${shellOmpConfigFile}
 
             if [ ! -e ${shellOmpModelsFile} ]; then
               if [ -z ${lib.escapeShellArg piApiKey} ]; then

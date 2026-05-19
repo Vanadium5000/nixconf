@@ -45,6 +45,10 @@
           OMP_PROVIDER_NAME="''${MODELS_OMP_PROVIDER_NAME:-OmniRoute}"
           OMNIROUTE_OPENCODE_API_KEY="''${OMNIROUTE_OPENCODE_API_KEY:-${opencodeApiKey}}"
           OMP_BASE_URL="''${MODELS_OMP_BASE_URL:-''${OMNIROUTE_BASE_URL:-https://omniroute.${self.secrets.PUBLIC_BASE_DOMAIN}/v1}}"
+          # OMP's first-event stream watchdog defaults to 100000ms; OmniRoute
+          # can legitimately spend longer routing/cold-starting upstreams before
+          # the first SSE event, so use 2x that default for generated configs.
+          PROVIDER_TIMEOUT_MS="''${MODELS_PROVIDER_TIMEOUT_MS:-200000}"
 
           log_general() { $GUM style --foreground 212 "[models:general] $*"; }
           log_opencode() { $GUM style --foreground 39 "[models:opencode] $*"; }
@@ -732,6 +736,8 @@
           # OMP loads custom providers from ~/.omp/agent/models.yml and expects
           # contextWindow/maxTokens instead of OpenCode's limit object.
           # Source: https://github.com/can1357/oh-my-pi/blob/main/docs/models.md.
+          # Provider timeout maps to OMP retry.provider.timeoutMs and is shared with
+          # OpenCode's provider timeout so both clients tolerate slow first tokens.
           sync_omp_models() {
             local quiet="''${1:-0}"
             local pi_api_key="''${MODELS_OMP_API_KEY:-''${OMNIROUTE_PI_API_KEY:-${
@@ -755,7 +761,8 @@
                 --arg provider_id "$OMP_PROVIDER_ID" \
                 --arg provider_name "$OMP_PROVIDER_NAME" \
                 --arg base_url "$OMP_BASE_URL" \
-                --arg api_key "$pi_api_key" '
+                --arg api_key "$pi_api_key" \
+                --argjson provider_timeout_ms "$PROVIDER_TIMEOUT_MS" '
                 def q: @json;
                 def cost:
                   (.cost // {}) as $cost
@@ -766,7 +773,7 @@
                       cacheRead: (($cost.cacheRead // $cost.cache_read // $pricing.cache_read // $pricing.cacheRead // 0) | tonumber?),
                       cacheWrite: (($cost.cacheWrite // $cost.cache_write // $pricing.cache_write // $pricing.cacheWrite // 0) | tonumber?)
                     };
-                "providers:\n  \($provider_id):\n    name: \($provider_name | q)\n    baseUrl: \($base_url | q)\n    apiKey: \($api_key | q)\n    api: openai-completions\n    models:\n" +
+                "providers:\n  \($provider_id):\n    name: \($provider_name | q)\n    baseUrl: \($base_url | q)\n    apiKey: \($api_key | q)\n    api: openai-completions\n    timeoutMs: \($provider_timeout_ms)\n    models:\n" +
                 (to_entries | sort_by(.key) | map(
                   .value as $model
                   | "      - id: \(.key | q)\n        name: \(($model.name // .key) | q)\n        api: openai-completions\n        provider: \($provider_id | q)\n        baseUrl: \($base_url | q)\n        input: \(($model.modalities.input // ["text"]) | q)\n        cost: \(($model | cost) | q)" +

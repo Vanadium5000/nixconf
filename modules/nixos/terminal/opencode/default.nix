@@ -1,4 +1,4 @@
-{ self, ... }:
+{ inputs, self, ... }:
 {
   flake.nixosModules.opencode =
     {
@@ -13,14 +13,13 @@
       configDirectory = config.preferences.paths.configDirectory;
       publicBaseDomain = self.secrets.PUBLIC_BASE_DOMAIN;
       system = pkgs.stdenv.hostPlatform.system;
-      jsPkgs = pkgs.unstable;
 
       languages = import ./_languages.nix { inherit pkgs self; };
       providers = import ./_providers.nix { inherit self lib; };
       pluginsConfig = import ./_plugins.nix;
       modelGroups = import ./_categories.nix { inherit lib; };
 
-      opencode = jsPkgs.opencode;
+      opencode = inputs.llm-agents.packages.${system}.opencode;
       modelsCommand = self.packages.${system}.models;
 
       # State is repo-owned so model-group choices survive wrapper runs and can

@@ -645,6 +645,7 @@ in
 
             # Syntax highlighting styles (must be set AFTER sourcing the plugin)
             ZSH_HIGHLIGHT_STYLES[comment]='fg=#7f849c'  # Visible gray for comments (Catppuccin overlay1)
+            ZSH_HIGHLIGHT_STYLES[alias]='fg=#89b4fa,bold'  # Keep generated aliases visually distinct from unknown commands.
 
             # ══════════════════════════════════════════════════════════════════
             # Aliases and functions

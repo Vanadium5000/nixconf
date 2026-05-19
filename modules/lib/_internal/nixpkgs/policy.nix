@@ -1,25 +1,5 @@
-{ lib }:
+_:
 
-let
-  bun_1_3_14_sources = pkgs: {
-    "aarch64-darwin" = pkgs.fetchurl {
-      url = "https://github.com/oven-sh/bun/releases/download/bun-v1.3.14/bun-darwin-aarch64.zip";
-      hash = "sha256-2LliIYKK1vl6x6wKt+lYcjQa92MAHogD6CZ2UsJlJiA=";
-    };
-    "aarch64-linux" = pkgs.fetchurl {
-      url = "https://github.com/oven-sh/bun/releases/download/bun-v1.3.14/bun-linux-aarch64.zip";
-      hash = "sha256-on/7Y6gxA3WDbg1vZorhf6jY0YuIw3yCHGUzGXOhmjs=";
-    };
-    "x86_64-darwin" = pkgs.fetchurl {
-      url = "https://github.com/oven-sh/bun/releases/download/bun-v1.3.14/bun-darwin-x64-baseline.zip";
-      hash = "sha256-PjWtb1OXGpg0v55nhuKt9ytfGSHMmpxf3gc9KXKUQHY=";
-    };
-    "x86_64-linux" = pkgs.fetchurl {
-      url = "https://github.com/oven-sh/bun/releases/download/bun-v1.3.14/bun-linux-x64.zip";
-      hash = "sha256-lR7iruhV8IWVruxiJSJqKY0/6oOj3NZGXAnLzN9+hI8=";
-    };
-  };
-in
 {
   commonConfig = {
     # Flake/package evaluation must be permissive enough to expose all package
@@ -80,38 +60,7 @@ in
     "facetimehd-firmware"
   ];
 
-  temporaryOverrides = {
-    bun = {
-      enable = true;
-      target = "unstable";
-      finalVersion = "1.3.14";
-      removeWhen = _final: prev: lib.versionAtLeast prev.bun.version "1.3.14";
-      action = "fail";
-      reason = "nixpkgs-unstable bun is at least 1.3.14; remove the local 1.3.14 binary override.";
-      package =
-        _final: prev:
-        let
-          system = prev.stdenvNoCC.hostPlatform.system;
-          sources = bun_1_3_14_sources prev;
-        in
-        prev.bun.overrideAttrs (old: {
-          version = "1.3.14";
-          src = sources.${system} or (throw "Unsupported bun system: ${system}");
-          passthru = (old.passthru or { }) // {
-            inherit sources;
-          };
-        });
-    };
-    opencode = {
-      enable = true;
-      target = "opencode";
-      finalVersion = "1.15.5+4ad261d";
-      removeWhen = _final: _prev: false;
-      action = "fail";
-      reason = "opencode flake input can build with nixpkgs-unstable bun without this routed input overlay.";
-      package = { source, final, ... }: (final.extend source.overlays.default).opencode;
-    };
-  };
+  temporaryOverrides = { };
 
   pythonPackageOverrides = python-final: python-prev: {
     tenacity = python-prev.tenacity.overridePythonAttrs (_old: {

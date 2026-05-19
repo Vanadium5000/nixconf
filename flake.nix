@@ -69,10 +69,11 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # OpenCode upstream flake; use this instead of the nixpkgs unstable package
-    # so the installed CLI tracks anomalyco/opencode's own build output.
-    opencode = {
-      url = "github:anomalyco/opencode";
+    # LLM agent package set. OpenCode comes from this flake rather than a
+    # local release override or the upstream opencode source flake.
+    # Source: https://github.com/numtide/llm-agents.nix
+    llm-agents = {
+      url = "github:numtide/llm-agents.nix";
       inputs.nixpkgs.follows = "nixpkgs-unstable";
     };
 
@@ -100,7 +101,8 @@
     max-substitution-jobs = 96;
     extra-substituters = [
       # Project/CDN caches are incomplete; query them only after official misses.
-      # Sources: https://cachix.org/ https://cache.numtide.com/ https://cache.nixos.org/nix-cache-info
+      # Numtide's cache is required by llm-agents.nix binary packages.
+      # Sources: https://github.com/numtide/llm-agents.nix#binary-cache https://cache.nixos.org/nix-cache-info
       "https://cache.numtide.com?priority=20"
       "https://cache.nixos.org?priority=40"
       "https://cache.nixos-cuda.org?priority=45"

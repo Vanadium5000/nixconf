@@ -14,7 +14,7 @@
 - **Impermanence**: Root is wiped on boot. Persist critical data (config, keys) in `impermanence.nixos.directories` and caches (llama.cpp, browser) in `.cache` paths.
 - **Secrets**: Auto-injected by `rebuild.sh` from `pass` into `secrets.nix`. Access via `self.secrets.NAME`. Never commit `secrets.nix`.
 - **Nix Evaluation**: Always use `path:.#` (not `.#`) to include untracked/dirty files.
-- **Binary Caches**: Do not prioritize China-hosted or low-trust mirrors. Prefer official `cache.nixos.org` plus reputable CDN/project caches; verify `.narinfo` hit/miss and one large NAR before changing priorities.
+- **Binary Caches**: Do not prioritize China-hosted or low-trust mirrors. Prefer official `cache.nixos.org` plus reputable CDN/project caches; put substituters and trusted public keys only in root `flake.nix` `nixConfig`, not host/module `nix.settings`; verify `.narinfo` hit/miss and one large NAR before changing priorities.
 - **Wayland Clipboard**: Always use `wl-copy --type text/plain` when piping stdin.
 
 ## 🏠 Server Services (public server host)

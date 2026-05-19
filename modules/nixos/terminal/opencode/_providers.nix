@@ -69,11 +69,11 @@ let
       baseURL = "https://omniroute.${publicBaseDomain}/v1";
       apiKey = self.secrets.OMNIROUTE_OPENCODE_API_KEY;
 
-      # OpenCode default: provider requests time out after 300000ms. Keep that
-      # default explicit here because OmniRoute is a gateway and a hung upstream
-      # should fail visibly instead of looking like an OpenCode deadlock.
+      # OpenCode's request timeout covers slow first events from gateway-routed
+      # providers; 200000ms matches the shared models timeout and is 2x OMP's
+      # first-event stream watchdog default, while still failing visibly.
       # Source: https://github.com/anomalyco/opencode/blob/dev/packages/opencode/src/config/provider.ts
-      timeout = 300000;
+      timeout = 200000;
 
       # OpenCode default: no SSE idle watchdog unless `chunkTimeout` is set.
       # OmniRoute/OpenAI-compatible tool streams have had chunk-shape/finish
