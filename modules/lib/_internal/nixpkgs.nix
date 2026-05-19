@@ -18,12 +18,15 @@ rec {
     };
 
     target = lib.mkOption {
-      type = lib.types.enum [
-        "stable"
-        "unstable"
+      type = lib.types.oneOf [
+        (lib.types.enum [
+          "stable"
+          "unstable"
+        ])
+        lib.types.str
       ];
       default = "stable";
-      description = "Package set where this override is applied.";
+      description = "Package set or flake input where this override is applied.";
     };
 
     finalVersion = lib.mkOption {
@@ -53,9 +56,16 @@ rec {
 
     package = lib.mkOption {
       type = lib.types.raw;
-      description = "Override function called as final: prev: package.";
+      description = "Override function called as final: prev: package. Flake input overlays may also pass source: final: prev: package.";
     };
   };
+
+  callTemporaryOverridePackage =
+    override: final: prev: source:
+    if (builtins.functionArgs override.package) ? final then
+      override.package { inherit final prev source; }
+    else
+      override.package final prev;
 
   evalTemporaryOverrides =
     target: overrides: final: prev:
@@ -93,7 +103,7 @@ rec {
               throw "temporary nixpkgs override `${target}.${name}` is obsolete: ${override.reason}"
             else
               let
-                package = override.package final prev;
+                package = callTemporaryOverridePackage override final prev null;
                 actualVersion = package.version or null;
                 checkedPackage =
                   if actualVersion != override.finalVersion then
@@ -165,6 +175,41 @@ rec {
       };
     };
 
+  mkTemporaryFlakeInputOverlay =
+    target: source: overrides: final: prev:
+    builtins.foldl' (
+      acc: name:
+      let
+        override = overrides.${name};
+      in
+      if !override.enable || override.target != target then
+        acc
+      else
+        acc
+        // {
+          ${name} =
+            let
+              isObsolete = override.removeWhen final prev;
+            in
+            if isObsolete && override.action == "fail" then
+              throw "temporary nixpkgs override `${target}.${name}` is obsolete: ${override.reason}"
+            else
+              let
+                package = callTemporaryOverridePackage override final prev source;
+                actualVersion = package.version or null;
+                checkedPackage =
+                  if actualVersion != override.finalVersion then
+                    throw "temporary nixpkgs override `${target}.${name}` produced version ${toString actualVersion}, expected ${override.finalVersion}"
+                  else
+                    package;
+              in
+              if isObsolete then
+                builtins.trace "temporary nixpkgs override `${target}.${name}` is obsolete: ${override.reason}" checkedPackage
+              else
+                checkedPackage;
+        }
+    ) { } (builtins.attrNames overrides);
+
   mkSharedOverlay =
     {
       inputs,
@@ -177,16 +222,20 @@ rec {
     final: prev:
     let
       overlaySystem = if system == null then final.stdenv.hostPlatform.system else system;
+      config = if builtins.isFunction unstableConfig then unstableConfig final.config else unstableConfig;
+      inputTemporaryOverrides = lib.filterAttrs (
+        _name: override: override.enable && override.target != "stable" && override.target != "unstable"
+      ) temporaryOverrides;
+      inputOverlays = lib.mapAttrsToList (
+        target: source: mkTemporaryFlakeInputOverlay target source temporaryOverrides
+      ) (lib.filterAttrs (name: _source: builtins.hasAttr name inputTemporaryOverrides) inputs);
     in
     {
       customPackages = self.packages.${overlaySystem};
       unstable = import inputs.nixpkgs-unstable (
-        let
-          config = if builtins.isFunction unstableConfig then unstableConfig final.config else unstableConfig;
-        in
         {
           system = overlaySystem;
-          overlays = [ (mkTemporaryOverridesOverlay "unstable" temporaryOverrides) ];
+          overlays = [ (mkTemporaryOverridesOverlay "unstable" temporaryOverrides) ] ++ inputOverlays;
         }
         // lib.optionalAttrs (config != null) {
           # NixOS hosts pass final.config so pkgs.unstable observes the same nixpkgs

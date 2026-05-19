@@ -3,6 +3,8 @@
   perSystem =
     { pkgs, self', ... }:
     let
+      opencodeApiKey = self.secrets.OMNIROUTE_OPENCODE_API_KEY;
+
       modelStateAssetsDir = pkgs.runCommand "models-state-assets" { } ''
         mkdir -p "$out"
         cp ${../terminal/opencode/models.json} "$out/models.json"
@@ -41,9 +43,7 @@
           OMP_MODELS_FILE="''${MODELS_OMP_FILE:-$HOME/.omp/agent/models.yml}"
           OMP_PROVIDER_ID="''${MODELS_OMP_PROVIDER_ID:-omniroute}"
           OMP_PROVIDER_NAME="''${MODELS_OMP_PROVIDER_NAME:-OmniRoute}"
-          OMNIROUTE_OPENCODE_API_KEY="''${OMNIROUTE_OPENCODE_API_KEY:-${self.secrets.OMNIROUTE_OPENCODE_API_KEY}}"
-          OMNIROUTE_PI_API_KEY="''${OMNIROUTE_PI_API_KEY:-${self.secrets.OMNIROUTE_PI_API_KEY}}"
-          OMP_API_KEY="''${MODELS_OMP_API_KEY:-$OMNIROUTE_PI_API_KEY}"
+          OMNIROUTE_OPENCODE_API_KEY="''${OMNIROUTE_OPENCODE_API_KEY:-${opencodeApiKey}}"
           OMP_BASE_URL="''${MODELS_OMP_BASE_URL:-''${OMNIROUTE_BASE_URL:-https://omniroute.${self.secrets.PUBLIC_BASE_DOMAIN}/v1}}"
 
           log_general() { $GUM style --foreground 212 "[models:general] $*"; }
@@ -734,6 +734,14 @@
           # Source: https://github.com/can1357/oh-my-pi/blob/main/docs/models.md.
           sync_omp_models() {
             local quiet="''${1:-0}"
+            local pi_api_key="''${MODELS_OMP_API_KEY:-''${OMNIROUTE_PI_API_KEY:-${
+              self.secrets.OMNIROUTE_PI_API_KEY or ""
+            }}}"
+            if [ -z "$pi_api_key" ]; then
+              $GUM style --foreground 196 "Error: OMNIROUTE_PI_API_KEY is required for OMP model sync. Add system/omniroute/pi-api-key to pass and rerun rebuild.sh."
+              return 1
+            fi
+
 
             ensure_repo_state_files
 
@@ -747,7 +755,7 @@
                 --arg provider_id "$OMP_PROVIDER_ID" \
                 --arg provider_name "$OMP_PROVIDER_NAME" \
                 --arg base_url "$OMP_BASE_URL" \
-                --arg api_key "$OMP_API_KEY" '
+                --arg api_key "$pi_api_key" '
                 def q: @json;
                 def cost:
                   (.cost // {}) as $cost

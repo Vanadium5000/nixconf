@@ -102,6 +102,15 @@ in
           };
         });
     };
+    opencode = {
+      enable = true;
+      target = "opencode";
+      finalVersion = "1.15.5+4ad261d";
+      removeWhen = _final: _prev: false;
+      action = "fail";
+      reason = "opencode flake input can build with nixpkgs-unstable bun without this routed input overlay.";
+      package = { source, final, ... }: (final.extend source.overlays.default).opencode;
+    };
   };
 
   pythonPackageOverrides = python-final: python-prev: {

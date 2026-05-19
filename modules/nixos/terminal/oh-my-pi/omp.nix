@@ -16,6 +16,7 @@
       configDirectory = config.preferences.paths.configDirectory;
       system = pkgs.stdenv.hostPlatform.system;
       modelsCommand = self.packages.${system}.models;
+      piApiKey = self.secrets.OMNIROUTE_PI_API_KEY or "";
 
       ompDirectory = "${homeDirectory}/.omp";
       ompAgentDirectory = "${ompDirectory}/agent";
@@ -76,10 +77,15 @@
             install -d -m 0700 -o ${shellUser} -g users ${shellOmpDirectory}/plugins
 
             if [ ! -e ${shellOmpModelsFile} ]; then
+              if [ -z ${lib.escapeShellArg piApiKey} ]; then
+                echo "OMNIROUTE_PI_API_KEY is required for OMP models; add system/omniroute/pi-api-key to pass and rerun rebuild.sh." >&2
+                exit 1
+              fi
+
               ${pkgs.util-linux}/bin/runuser -u ${shellUser} -- env \
                 HOME=${shellHomeDirectory} \
                 MODELS_OMP_FILE=${shellOmpModelsFile} \
-                MODELS_OMP_API_KEY=${lib.escapeShellArg self.secrets.OMNIROUTE_PI_API_KEY} \
+                MODELS_OMP_API_KEY=${lib.escapeShellArg piApiKey} \
                 MODELS_STATE_DIR=${shellConfigDirectory}/modules/nixos/terminal/opencode \
                 ${modelsCommand}/bin/models sync-omp >/dev/null
               chmod 0600 ${shellOmpModelsFile}

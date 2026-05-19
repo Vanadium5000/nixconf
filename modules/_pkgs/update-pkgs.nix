@@ -57,7 +57,6 @@ pkgs.writeShellApplication {
             patchright
             iloader
             playwright-cli
-            opencode
             cake-wallet-flatpak
             limux
             dogecoin
@@ -538,43 +537,6 @@ pkgs.writeShellApplication {
           return 0
         }
 
-          update_opencode_package() {
-            local pkg="opencode"
-            local file
-            file=$(package_file "$pkg")
-            local current_version latest_tag latest_version src_hash
-            current_version=$(grep -oP 'version = "\K[^"]+' "$file" | head -1 || true)
-            latest_tag=$(get_latest_release "anomalyco" "opencode")
-            latest_version="''${latest_tag#v}"
-            latest_version="''${latest_version#V}"
-
-            if [ -z "$current_version" ] || [ -z "$latest_version" ]; then
-              echo "    Could not determine OpenCode release version"
-              return 1
-            fi
-
-            echo "    Current version: $current_version"
-            echo "    Latest version: $latest_version"
-
-            if [ "$current_version" = "$latest_version" ]; then
-              echo "    Already up to date"
-              return 1
-            fi
-
-            src_hash=$(prefetch_github "anomalyco" "opencode" "v$latest_version")
-            if [ -z "$src_hash" ]; then
-              echo "    Could not prefetch OpenCode source"
-              return 1
-            fi
-
-            sed -i "s|version = \"$current_version\"|version = \"$latest_version\"|" "$file"
-            sed -i "s|rev = \"v$current_version\"|rev = \"v$latest_version\"|" "$file"
-            set_first_hash_after "$file" 'repo = "opencode"' "$src_hash"
-
-            echo "    Refreshing nodeModules hash..."
-            refresh_fake_hash_from_build "$file" x86_64-linux nix-build -E 'let unstable = import <nixpkgs-unstable> {}; in (unstable.callPackage ./opencode.nix {}).nodeModules'
-            return 0
-          }
 
           update_openchamber_web_package() {
             local pkg="openchamber-web"
@@ -679,7 +641,7 @@ pkgs.writeShellApplication {
       printf '%s\n' '{ pkgs ? import <nixpkgs> {}, unstable ? import <nixpkgs-unstable> {} }:'
       printf '%s\n' '{'
       for pkg in "''${PACKAGES[@]}"; do
-          if [[ "$pkg" == "acp-chat" || "$pkg" == "cliproxyapi" || "$pkg" == "omniroute" || "$pkg" == "openchamber-web" || "$pkg" == "opencode" ]]; then
+          if [[ "$pkg" == "acp-chat" || "$pkg" == "cliproxyapi" || "$pkg" == "omniroute" || "$pkg" == "openchamber-web" ]]; then
             # Edge AI/web packages intentionally build from nixpkgs-unstable so
             # fast-moving Go/Bun/Node dependencies follow upstream APIs. Keep this
             # in sync with modules/custom-packages.nix.
@@ -878,19 +840,6 @@ pkgs.writeShellApplication {
       fi
       ;;
 
-    "opencode")
-      # OpenCode mirrors upstream's Bun build; refresh source and node_modules
-      # fixed-output hash together.
-      if update_opencode_package; then
-        if nix-build -E 'let unstable = import <nixpkgs-unstable> {}; in unstable.callPackage ./opencode.nix {}' >/dev/null; then
-          UPDATED+=("$pkg")
-        else
-          FAILED+=("$pkg")
-        fi
-      else
-        SKIPPED+=("$pkg")
-      fi
-      ;;
 
         "services-auth-gateway")
           # Skip: local generated Python application with no upstream source URL,
