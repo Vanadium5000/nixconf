@@ -6,13 +6,13 @@
 
 stdenv.mkDerivation {
   pname = "mattpocock-skills";
-  version = "0-unstable-2026-05-13";
+  version = "0-unstable-2026-05-19";
 
   src = fetchFromGitHub {
     owner = "mattpocock";
     repo = "skills";
-    rev = "e74f0061bb67222181640effa98c675bdb2fdaa7";
-    hash = "sha256-5Rr5BQe8bdQXWt/H6QjYpoM4X+GuWPK26rU2VSqTZVI=";
+    rev = "d54c497aa94400a496d3f2c38be10fa5f284c5a9";
+    hash = "sha256-XIC1bJQVtV82KmCnh6OTIL3ENWAAajA/TzcdcwBKl7k=";
   };
 
   installPhase = ''
