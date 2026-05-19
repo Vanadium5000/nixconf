@@ -69,13 +69,6 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # OpenCode upstream flake; use this instead of the nixpkgs unstable package
-    # so the installed CLI tracks anomalyco/opencode's own build output.
-    opencode = {
-      url = "github:anomalyco/opencode";
-      inputs.nixpkgs.follows = "nixpkgs-unstable";
-    };
-
     # Dokploy NixOS module for self-hosted deployment orchestration.
     # Follow the main nixpkgs input so option defaults stay in the same package universe.
     nix-dokploy = {

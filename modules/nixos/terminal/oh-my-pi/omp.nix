@@ -46,7 +46,7 @@
         qSystemPrompt
         "-p"
       ];
-      # Persist the whole OpenAgent/OMP tree because local inspection shows it mixes
+      # Persist the whole OMOS/OMP tree because local inspection shows it mixes
       # mutable DBs, logs, plugins, and editable YAML under ~/.omp and ~/.omp/agent.
       # Source: observed local paths ~/.omp/{agent,logs,plugins,gpu_cache.json}.
       ompPersistence = self.lib.persistence.mkPersistent {
@@ -58,7 +58,7 @@
       };
     in
     {
-      options.programs.omp.enable = mkEnableOption "OpenAgent/OMP mutable state persistence";
+      options.programs.omp.enable = mkEnableOption "OMOS/OMP mutable state persistence";
 
       config = mkIf cfg.enable {
         # Create only directories and OMP's first-run custom model catalog; config.yml,
@@ -79,6 +79,7 @@
               ${pkgs.util-linux}/bin/runuser -u ${shellUser} -- env \
                 HOME=${shellHomeDirectory} \
                 MODELS_OMP_FILE=${shellOmpModelsFile} \
+                MODELS_OMP_API_KEY=${lib.escapeShellArg self.secrets.OMNIROUTE_PI_API_KEY} \
                 MODELS_STATE_DIR=${shellConfigDirectory}/modules/nixos/terminal/opencode \
                 ${modelsCommand}/bin/models sync-omp >/dev/null
               chmod 0600 ${shellOmpModelsFile}

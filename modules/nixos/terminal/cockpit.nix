@@ -1,4 +1,4 @@
-{ ... }:
+{ self, ... }:
 {
   flake.nixosModules.cockpit =
     {
@@ -11,6 +11,7 @@
       cfg = config.services.cockpit-autologin;
       cockpitPackage = config.services.cockpit.package;
       cockpitWs = "${cockpitPackage}/libexec/cockpit-ws";
+      publicBaseDomain = self.secrets.PUBLIC_BASE_DOMAIN;
       cockpitBridge = "${cockpitPackage}/bin/cockpit-bridge";
     in
     {
@@ -58,8 +59,8 @@
           openFirewall = false;
           showBanner = false;
           allowed-origins = [
-            "https://*.my-website.space"
-            "http://*.my-website.space"
+            "https://*.${publicBaseDomain}"
+            "http://*.${publicBaseDomain}"
             "http://localhost:${toString cfg.port}"
             "http://127.0.0.1:${toString cfg.port}"
           ];

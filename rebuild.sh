@@ -121,6 +121,7 @@ declare -A SECRETS_MAP=(
     ["MONGO_EXPRESS_PASSWORD"]="system/mongo_express_password"
     ["CLIPROXYAPI_KEY"]="system/cliproxyapi-key"
     ["OMNIROUTE_OPENCODE_API_KEY"]="system/omniroute/opencode-api-key"
+    ["OMNIROUTE_PI_API_KEY"]="system/omniroute/pi-api-key"
     ["EXA_API_KEY"]="system/exa-api-key"
     ["MITMPROXY_CA_KEY"]="system/mitmproxy-ca-key"
     ["MITMPROXY_CA_CERT"]="system/mitmproxy-ca-cert"

@@ -41,7 +41,9 @@
           OMP_MODELS_FILE="''${MODELS_OMP_FILE:-$HOME/.omp/agent/models.yml}"
           OMP_PROVIDER_ID="''${MODELS_OMP_PROVIDER_ID:-omniroute}"
           OMP_PROVIDER_NAME="''${MODELS_OMP_PROVIDER_NAME:-OmniRoute}"
-          OMP_API_KEY="''${MODELS_OMP_API_KEY:-''${OMNIROUTE_OPENCODE_API_KEY:-${self.secrets.OMNIROUTE_OPENCODE_API_KEY}}}"
+          OMNIROUTE_OPENCODE_API_KEY="''${OMNIROUTE_OPENCODE_API_KEY:-${self.secrets.OMNIROUTE_OPENCODE_API_KEY}}"
+          OMNIROUTE_PI_API_KEY="''${OMNIROUTE_PI_API_KEY:-${self.secrets.OMNIROUTE_PI_API_KEY}}"
+          OMP_API_KEY="''${MODELS_OMP_API_KEY:-$OMNIROUTE_PI_API_KEY}"
           OMP_BASE_URL="''${MODELS_OMP_BASE_URL:-''${OMNIROUTE_BASE_URL:-https://omniroute.${self.secrets.PUBLIC_BASE_DOMAIN}/v1}}"
 
           log_general() { $GUM style --foreground 212 "[models:general] $*"; }
@@ -403,7 +405,7 @@
           # metadata such as limits, modalities, pricing, and supported parameters.
           # Source: https://omniroute.${self.secrets.PUBLIC_BASE_DOMAIN}/v1/models
           sync_models() {
-            local api_key="''${OMNIROUTE_OPENCODE_API_KEY:-${self.secrets.OMNIROUTE_OPENCODE_API_KEY}}"
+            local api_key="$OMNIROUTE_OPENCODE_API_KEY"
             local url="''${OMNIROUTE_MODELS_URL:-https://omniroute.${self.secrets.PUBLIC_BASE_DOMAIN}/v1/models}"
 
             ensure_repo_state_files
@@ -648,7 +650,7 @@
                       npm: "@ai-sdk/openai-compatible",
                       name: "OmniRoute",
                       options: {
-                        baseURL: "https://omniroute.${self.secrets.PUBLIC_BASE_DOMAIN}/v1"
+                        baseURL: "https://omniroute.''${PUBLIC_BASE_DOMAIN}/v1"
                       },
                       syncedAt: (now | todateiso8601),
                       models: ($entries | from_entries)

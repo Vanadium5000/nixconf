@@ -1,4 +1,4 @@
-{ inputs, self, ... }:
+{ self, ... }:
 {
   flake.nixosModules.opencode =
     {
@@ -19,7 +19,7 @@
       pluginsConfig = import ./_plugins.nix;
       modelGroups = import ./_categories.nix { inherit lib; };
 
-      opencode = inputs.opencode.packages.${system}.opencode;
+      opencode = self.packages.${system}.opencode;
       modelsCommand = self.packages.${system}.models;
 
       # State is repo-owned so model-group choices survive wrapper runs and can
@@ -128,7 +128,7 @@
           # Enabled globally so repo guidance and generated plans stay lintable.
           type = "local";
           command = [
-            "${inputs.self.packages.${system}.markdown-lint-mcp}/bin/markdown-lint-mcp"
+            "${self.packages.${system}.markdown-lint-mcp}/bin/markdown-lint-mcp"
           ];
           enabled = true;
           timeout = 10000;
@@ -182,7 +182,7 @@
                 ' "$MODELS_FILE")"
               fi
 
-              exec ${inputs.self.packages.${system}.image-gen-mcp}/bin/image-gen-mcp
+              exec ${self.packages.${system}.image-gen-mcp}/bin/image-gen-mcp
             '')
           ];
           enabled = true;

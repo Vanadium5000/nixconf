@@ -1514,7 +1514,7 @@
       "name": "OmniRoute",
       "npm": "@ai-sdk/openai-compatible",
       "options": {
-        "baseURL": "https://omniroute.my-website.space/v1"
+        "baseURL": "https://omniroute.${PUBLIC_BASE_DOMAIN}/v1"
       },
       "syncedAt": "2026-05-17T16:01:30Z"
     }

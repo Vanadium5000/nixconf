@@ -9,6 +9,7 @@ let
     "cliproxyapi"
     "omniroute"
     "openchamber-web"
+    "opencode"
     "limux"
   ];
 

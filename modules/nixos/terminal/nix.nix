@@ -144,53 +144,7 @@
       };
       nixpkgs.config = self.lib.nixpkgs.mkNixpkgsConfig {
         allowUnfree = false;
-        allowedUnfree = [
-          "nvidia-x11"
-          "nvidia-settings"
-          "torch"
-          "triton"
-
-          # Nvidia CUDA
-          "cuda_cudart"
-          "cuda_cccl"
-          "libnpp"
-          "libcublas"
-          "libcufft"
-          "cuda_nvcc"
-          "cuda-merged"
-          "cuda_cuobjdump"
-          "cuda_gdb"
-          "cuda_nvdisasm"
-          "cuda_nvprune"
-          "cuda_cupti"
-          "cuda_cuxxfilt"
-          "cuda_nvml_dev"
-          "cuda_nvrtc"
-          "cuda_nvtx"
-          "cuda_profiler_api"
-          "cuda_sanitizer_api"
-          "libcurand"
-          "libcusolver"
-          "libnvjitlink"
-          "libcusparse"
-          "cudnn"
-
-          # Dictation CUDA deps
-          "libcufile"
-          "libcusparse_lt"
-
-          # Antigravity Manager
-          "antigravity-manager"
-
-          # Firmware
-          "intel-ocl"
-          "broadcom-bt-firmware"
-          "b43-firmware"
-          "xow_dongle-firmware"
-          "facetimehd-calibration"
-          "facetimehd-firmware"
-        ]
-        ++ config.preferences.allowedUnfree;
+        allowedUnfree = self.lib.nixpkgs.allowedUnfree ++ config.preferences.allowedUnfree;
       };
 
       nixpkgs.overlays = self.lib.nixpkgs.mkSharedOverlays {

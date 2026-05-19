@@ -94,7 +94,7 @@
         programs.direnv.enable = true;
         programs.direnv.nix-direnv.enable = true;
 
-        # OMP/OpenAgent keeps mutable DBs, logs, plugins, and YAML under ~/.omp;
+        # OMP/OMOS keeps mutable DBs, logs, plugins, and YAML under ~/.omp;
         # enable the bootstrap with terminal hosts so impermanence preserves that tree.
         # Source: local state layout observed at ~/.omp/agent/{config.yml,models.yml}.
         programs.omp.enable = lib.mkDefault true;
