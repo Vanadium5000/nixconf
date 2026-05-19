@@ -1,13 +1,15 @@
 { ... }:
 let
-  # Stable is the default package universe. Edge AI/web gateway packages are
-  # routed through nixpkgs-unstable here so their package files can stay normal
-  # callPackage derivations without ambient `{ unstable, ... }` parameters.
-  edgeAiGatewayPackages = [
+  # Stable is the default package universe. Edge AI/web gateway and fast-moving
+  # GUI packages are routed through nixpkgs-unstable here so their package
+  # files can stay normal callPackage derivations without ambient
+  # `{ unstable, ... }` parameters.
+  edgePackages = [
     "acp-chat"
     "cliproxyapi"
     "omniroute"
     "openchamber-web"
+    "limux"
   ];
 
   getPackages =
@@ -26,11 +28,7 @@ let
       ) (builtins.attrNames entries);
 
       callPackageFor =
-        name:
-        if builtins.elem name edgeAiGatewayPackages then
-          unstablePkgs.callPackage
-        else
-          stablePkgs.callPackage;
+        name: if builtins.elem name edgePackages then unstablePkgs.callPackage else stablePkgs.callPackage;
 
       # Turn filename.nix → name = callPackage ./filename.nix {};
       toPackage =

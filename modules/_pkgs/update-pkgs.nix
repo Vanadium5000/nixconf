@@ -655,7 +655,7 @@ pkgs.writeShellApplication {
             # Supported: versioned GitHub release asset for upstream Flatpak bundle
             echo " $pkg = pkgs.callPackage ./$pkg.nix {};"
           elif [ "$pkg" == "limux" ]; then
-            # Supported: versioned GitHub release AppImage from am-will/limux.
+            # Supported: versioned GitHub release tarball from am-will/limux.
             echo " $pkg = pkgs.callPackage ./$pkg.nix {};"
           elif [ "$pkg" == "antigravity-manager" ]; then
             # Skip: RPM-wrapped AppImage with versioned URL pattern (manual update required)
@@ -776,7 +776,7 @@ pkgs.writeShellApplication {
           ;;
 
         "limux")
-          # Upstream publishes a versioned AppImage on GitHub releases.
+          # Upstream publishes a versioned Linux tarball on GitHub releases.
           if update_versioned_url_package "$pkg" "am-will" "limux"; then
             UPDATED+=("$pkg")
           else

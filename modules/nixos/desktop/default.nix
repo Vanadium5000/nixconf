@@ -56,6 +56,7 @@
 
         environment.systemPackages = [
           selfpkgs.terminal
+          pkgs.unstable.ghostty
         ]
         ++ (with pkgs; [
           # Tools
