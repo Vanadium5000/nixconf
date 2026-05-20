@@ -119,6 +119,18 @@
           desktop-file-utils
           glib # Provides `gio trash`; Electron/VSCodium needs it on PATH for Trash deletes.
 
+          # GTK/WebKit runtime stack used by browser-capable GTK4 apps such as Limux.
+          # Keeps GI modules, schemas, TLS, media plugins, and WebKitGTK on graphical hosts.
+          # Ref: https://github.com/am-will/limux/blob/main/PKGBUILD.template
+          gtk4
+          libadwaita
+          webkitgtk_6_0
+          gst_all_1.gst-plugins-base
+          gst_all_1.gst-plugins-good
+          gst_all_1.gst-plugins-bad
+          gst_all_1.gst-libav
+          glib-networking
+
           # GTK icon themes
           # morewaita-icon-theme - Removed
           # adwaita-icon-theme - Removed

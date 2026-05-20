@@ -70,6 +70,7 @@
         targetFile = "${homeDirectory}/.config/DankMaterialShell";
         isDirectory = true;
       };
+      dmsStatePersistence = [ ".local/state/DankMaterialShell" ];
       hyprDmsPersistence = self.lib.persistence.mkPersistent {
         method = "bind";
         inherit user;
@@ -223,10 +224,12 @@
           enableClipboardPaste = true;
         };
 
-        # DMS stores editable shell settings and Hyprland fragments under
-        # ~/.config; bind them into Shared/Data like opencode so UI changes
-        # survive the impermanent root. Source:
+        # DMS stores editable shell settings and Hyprland fragments under ~/.config;
+        # plugin runtime state is XDG state, so persist it without Shared/Data sync.
+        # Sources:
         # https://github.com/AvengeMedia/DankMaterialShell/blob/eb5afcdc40ea5446c27e18552ff4a19f9daf9484/core/internal/config/deployer.go#L562-L567
+        # https://github.com/AvengeMedia/DankMaterialShell/blob/0e9b21d359e754313a9aad17d2b619d616fd643e/quickshell/Common/Paths.qml#L11-L14
+        # https://github.com/AvengeMedia/DankMaterialShell/blob/0e9b21d359e754313a9aad17d2b619d616fd643e/quickshell/Services/PluginService.qml#L604-L668
         system.activationScripts.dank-material-shell-persistence = {
           text =
             dmsConfigPersistence.activationScript
@@ -236,7 +239,11 @@
             + ''
               HYPR_DMS_DIR="${homeDirectory}/.config/hypr/dms"
               mkdir -p "$HYPR_DMS_DIR"
-              ${lib.concatMapStringsSep "\n" (fragment: ''touch "$HYPR_DMS_DIR/${fragment}"'') hyprDmsFragments}
+              ${lib.concatMapStringsSep "\n" (fragment: ''
+                if [ ! -e "$HYPR_DMS_DIR/${fragment}" ]; then
+                  install -D -m 0644 /dev/null "$HYPR_DMS_DIR/${fragment}"
+                fi
+              '') hyprDmsFragments}
               chown -R ${user}:users "$HYPR_DMS_DIR"
 
               # ~/.config/DankMaterialShell is itself a persisted bind mount, so
@@ -250,6 +257,8 @@
             '';
           deps = [ "users" ];
         };
+
+        impermanence.home.directories = dmsStatePersistence;
 
         fileSystems =
           dmsConfigPersistence.fileSystems

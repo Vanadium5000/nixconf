@@ -623,19 +623,21 @@
 
       # Hyprland treats missing `source` targets as config errors, while
       # impermanence persists these editable files only after they exist. Create
-      # empty placeholders without overwriting user/nwg-displays changes.
-      # Source list below in this file; Hyprland source behavior:
-      # https://wiki.hyprland.org/Configuring/Keywords/#sourcing-multi-file
+      # missing placeholders without touching existing files: Hyprland watches
+      # sourced paths and can autoreload while activation is still rewriting
+      # configs, leaving defaults active until a later manual reload.
       system.activationScripts.hyprland-source-placeholders = {
         text = ''
           HYPR_DIR="${homeDirectory}/.config/hypr"
           HYPR_DMS_DIR="$HYPR_DIR/dms"
           mkdir -p "$HYPR_DMS_DIR"
-          touch "$HYPR_DIR/monitors.conf" "$HYPR_DIR/workspaces.conf"
-          ${lib.concatMapStringsSep "
-          " (
-            fragment: ''touch "$HYPR_DMS_DIR/${fragment}"''
-          ) hyprDmsFragments}
+          for source_file in "$HYPR_DIR/monitors.conf" "$HYPR_DIR/workspaces.conf" ${
+            lib.concatMapStringsSep " " (fragment: ''"$HYPR_DMS_DIR/${fragment}"'') hyprDmsFragments
+          }; do
+            if [ ! -e "$source_file" ]; then
+              install -D -m 0644 /dev/null "$source_file"
+            fi
+          done
           chown -R ${user}:users "$HYPR_DIR"
         '';
         deps = [ "users" ];

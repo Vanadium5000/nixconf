@@ -9,7 +9,6 @@ let
     "cliproxyapi"
     "omniroute"
     "openchamber-web"
-    "limux"
   ];
 
   getPackages =

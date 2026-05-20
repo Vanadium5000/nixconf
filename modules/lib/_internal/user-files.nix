@@ -45,12 +45,21 @@ let
         ${
           if copy then
             ''
-              rm -rf "$target"
               if [ -d "$source" ]; then
+                rm -rf "$target"
                 mkdir -p "$target"
                 cp -Lr --no-preserve=mode "$source"/. "$target"/
               else
-                install -D ${optionalString (mode != null) "-m ${quotedMode}"} "$source" "$target"
+                if [ -L "$target" ] || [ -d "$target" ]; then
+                  rm -rf "$target"
+                fi
+                if [ -f "$target" ] && cmp -s "$source" "$target"; then
+                  :
+                else
+                  tmp="$target.tmp.$$"
+                  install -D ${optionalString (mode != null) "-m ${quotedMode}"} "$source" "$tmp"
+                  mv -f "$tmp" "$target"
+                fi
               fi
             ''
           else if recursive then

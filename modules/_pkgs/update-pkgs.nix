@@ -405,7 +405,7 @@ pkgs.writeShellApplication {
               # Evaluate the URL with the new version (simple substitution)
               local new_url
               # shellcheck disable=SC2001
-              new_url=$(echo "$url_pattern" | sed "s/\''${version}/$latest_version/g")
+              new_url=$(echo "$url_pattern" | sed -e "s/\''${version}/$latest_version/g" -e "s/\''${finalAttrs.version}/$latest_version/g")
 
               echo "    Prefetching new URL: $new_url"
 
@@ -656,8 +656,8 @@ pkgs.writeShellApplication {
             # Supported: versioned GitHub release asset for upstream Flatpak bundle
             echo " $pkg = pkgs.callPackage ./$pkg.nix {};"
           elif [ "$pkg" == "limux" ]; then
-            # Supported: versioned GitHub release tarball from am-will/limux.
-            echo " $pkg = pkgs.callPackage ./$pkg.nix {};"
+            # Supported: versioned GitHub tarball release asset from am-will/limux.
+            echo " $pkg = unstable.callPackage ./$pkg.nix {};"
           elif [ "$pkg" == "antigravity-manager" ]; then
             # Skip: RPM-wrapped AppImage with versioned URL pattern (manual update required)
             echo " # $pkg = (pkgs.callPackage ./$pkg.nix {}).unwrapped; # skipped - RPM-wrapped, versioned URL (manual update)"
