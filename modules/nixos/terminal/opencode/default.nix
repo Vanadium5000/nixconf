@@ -238,6 +238,7 @@
         ];
         mcp = mcpConfig;
         inherit (languages) formatter lsp;
+        agent = modelGroups.mkOpenCodeAgent { inherit state; };
         provider = providers.config;
       };
 

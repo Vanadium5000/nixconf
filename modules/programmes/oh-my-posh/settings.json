@@ -100,7 +100,7 @@
       ]
     },
     {
-      "type": "prompt",
+      "type": "rprompt",
       "alignment": "right",
       "overflow": "hide",
       "segments": [

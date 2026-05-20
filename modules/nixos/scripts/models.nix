@@ -235,6 +235,34 @@
             [ "$mismatch" -eq 0 ]
           }
 
+          opencode_agent_config_matches_state() {
+            local cfg_file="$1"
+
+            if [ ! -f "$cfg_file" ] || [ ! -s "$cfg_file" ]; then
+              return 1
+            fi
+
+            local mismatch=0
+            while IFS=$'\t' read -r path_json category_id; do
+              local state_model
+              local state_effort
+              local config_model
+              local config_effort
+              state_model=$(get_group_model "$category_id")
+              state_effort=$(get_group_reasoning_effort "$category_id")
+
+              config_model=$($JQ -r --argjson path "$path_json" 'getpath($path).model // empty' "$cfg_file")
+              config_effort=$($JQ -r --argjson path "$path_json" 'getpath($path).variant // ""' "$cfg_file")
+
+              if [ "$state_model" != "$config_model" ] || [ "$state_effort" != "$config_effort" ]; then
+                mismatch=1
+                break
+              fi
+            done < <($JQ -r '.opencodeModelBindings[] | "\(.path | @json)\t\(.category)"' "$OPENCODE_METADATA_FILE")
+
+            [ "$mismatch" -eq 0 ]
+          }
+
           config_file_matches_effective_models() {
             local cfg_file="$1"
 
@@ -272,10 +300,19 @@
               return 1
             fi
 
+            local static_filter
+            static_filter='
+              (($meta[0].opencodeModelBindings // [])
+                | map([.path + ["model"], .path + ["variant"]])
+                | add // []) as $agent_model_paths
+              | del(.provider.omniroute.models)
+              | delpaths($agent_model_paths)
+            '
+
             local base_static
             local config_static
-            base_static=$($JQ -cS 'del(.provider.omniroute.models)' "$OPENCODE_BASE_CONFIG_FILE")
-            config_static=$($JQ -cS 'del(.provider.omniroute.models)' "$cfg_file")
+            base_static=$($JQ -cS --slurpfile meta "$OPENCODE_METADATA_FILE" "$static_filter" "$OPENCODE_BASE_CONFIG_FILE")
+            config_static=$($JQ -cS --slurpfile meta "$OPENCODE_METADATA_FILE" "$static_filter" "$cfg_file")
 
             [ "$base_static" = "$config_static" ]
           }
@@ -316,6 +353,10 @@
             fi
 
             if ! slim_config_matches_state "$OMO_SLIM_CONFIG_FILE"; then
+              return 0
+            fi
+
+            if ! opencode_agent_config_matches_state "$OPENCODE_CONFIG_FILE"; then
               return 0
             fi
 
@@ -362,10 +403,6 @@
             ' "$OPENCODE_BASE_CONFIG_FILE" > "$opencode_tmp"
             rm -f "$effective_models_file"
 
-            mkdir -p "$(dirname "$OPENCODE_CONFIG_FILE")"
-            mv "$opencode_tmp" "$OPENCODE_CONFIG_FILE"
-            chmod 0600 "$OPENCODE_CONFIG_FILE"
-
             local slim_tmp
             slim_tmp=$(mktemp)
             cp "$OMO_SLIM_BASE_CONFIG_FILE" "$slim_tmp"
@@ -389,6 +426,30 @@
               fi
               mv "$next_tmp" "$slim_tmp"
             done < <($JQ -r '.slimModelBindings[] | "\(.path | @json)\t\(.category)"' "$OPENCODE_METADATA_FILE")
+
+            while IFS=$'\t' read -r path_json category_id; do
+              local model
+              model=$(get_group_model "$category_id")
+              local effort
+              effort=$(get_group_reasoning_effort "$category_id")
+
+              local next_tmp
+              next_tmp=$(mktemp)
+              if [ -n "$effort" ]; then
+                $JQ --argjson path "$path_json" --arg model "$model" --arg effort "$effort" \
+                  'setpath($path + ["model"]; $model) | setpath($path + ["variant"]; $effort)' \
+                  "$opencode_tmp" > "$next_tmp"
+              else
+                $JQ --argjson path "$path_json" --arg model "$model" \
+                  'setpath($path + ["model"]; $model) | delpaths([$path + ["variant"]])' \
+                  "$opencode_tmp" > "$next_tmp"
+              fi
+              mv "$next_tmp" "$opencode_tmp"
+            done < <($JQ -r '.opencodeModelBindings[] | "\(.path | @json)\t\(.category)"' "$OPENCODE_METADATA_FILE")
+
+            mkdir -p "$(dirname "$OPENCODE_CONFIG_FILE")"
+            mv "$opencode_tmp" "$OPENCODE_CONFIG_FILE"
+            chmod 0600 "$OPENCODE_CONFIG_FILE"
 
             mkdir -p "$(dirname "$OMO_SLIM_CONFIG_FILE")"
             mv "$slim_tmp" "$OMO_SLIM_CONFIG_FILE"

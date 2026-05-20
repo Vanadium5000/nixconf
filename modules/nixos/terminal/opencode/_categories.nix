@@ -105,6 +105,30 @@ let
     };
   };
 
+  # OpenCode still ships native Build/Plan primary agents plus General/Explore
+  # subagents. Slim's installer disables General/Explore because its own
+  # specialist team replaces them; keep models assigned so disabled entries
+  # never surface as model-less if OpenCode inspects all built-ins.
+  # Sources:
+  # - https://opencode.ai/docs/agents/
+  # - https://github.com/alvinunreal/oh-my-opencode-slim/blob/master/src/cli/config-io.ts
+  opencodeAgentAssignments = {
+    build = {
+      category = "deep";
+    };
+    plan = {
+      category = "ultrabrain";
+    };
+    general = {
+      category = "deep";
+      disable = true;
+    };
+    explore = {
+      category = "quick";
+      disable = true;
+    };
+  };
+
   councilAssignments = {
     architect = {
       category = "ultrabrain";
@@ -148,6 +172,18 @@ let
     // optionalAttrs (assignment ? skills) { skills = assignment.skills; }
     // optionalAttrs (assignment ? mcps) { mcps = assignment.mcps; };
 
+  mkOpenCodeAgentConfig =
+    state: _agentName: assignment:
+    let
+      selection = state.categories.${assignment.category};
+      variant = selectionVariant selection;
+    in
+    {
+      model = selection.model;
+    }
+    // optionalAttrs (variant != null && variant != "") { inherit variant; }
+    // optionalAttrs (assignment.disable or false) { disable = true; };
+
   mkCouncilMember =
     state: _memberName: assignment:
     let
@@ -168,6 +204,14 @@ let
     ];
     category = assignment.category;
   }) agentAssignments;
+
+  opencodeAgentBindings = mapAttrsToList (agentName: assignment: {
+    path = [
+      "agent"
+      agentName
+    ];
+    category = assignment.category;
+  }) opencodeAgentAssignments;
 
   councilBindings = mapAttrsToList (memberName: assignment: {
     path = [
@@ -264,8 +308,11 @@ in
       categoryStatePrefix = "OpenCode/OMO Slim model-group presets";
     };
     categories = mapAttrs (categoryId: category: category // { id = categoryId; }) categories;
+    opencodeModelBindings = opencodeAgentBindings;
     slimModelBindings = agentBindings ++ councilBindings;
   };
+
+  mkOpenCodeAgent = { state }: mapAttrs (mkOpenCodeAgentConfig state) opencodeAgentAssignments;
 
   mkSlimConfig =
     { state }:
