@@ -8,6 +8,7 @@ rec {
     allowedUnfree
     commonConfig
     temporaryOverrides
+    unstablePackageOverrides
     ;
 
   temporaryOverrideModule = {
@@ -255,5 +256,5 @@ rec {
           // extraPythonOverrides python-final python-prev
         )
       ];
-    };
+    } // unstablePackageOverrides final prev;
 }

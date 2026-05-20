@@ -143,24 +143,6 @@ let
     yaml = "${pkgs.yaml-language-server}/bin/yaml-language-server";
   };
 
-  qmlImportPackages = [
-    pkgs.quickshell
-    pkgs.kdePackages.qtdeclarative
-    pkgs.kdePackages.qtwayland
-    pkgs.qt6.qt5compat
-  ];
-  qmlPluginPackages = [
-    pkgs.kdePackages.qtbase
-    pkgs.kdePackages.qtdeclarative
-    pkgs.kdePackages.qtwayland
-  ];
-  qmlImportPath = lib.makeSearchPath "lib/qt-6/qml" qmlImportPackages;
-  qtPluginPath = lib.makeSearchPath "lib/qt-6/plugins" qmlPluginPackages;
-  qmlImportArgs = lib.concatMap (pkg: [
-    "-I"
-    "${pkg}/lib/qt-6/qml"
-  ]) qmlImportPackages;
-
   formatterDefinitions = {
     clang-format = {
       command = [
@@ -460,16 +442,7 @@ let
         "-E" # Read QML import paths from the environment.
         "--ignore-settings"
         "--no-cmake-calls"
-      ]
-      ++ qmlImportArgs;
-      env = {
-        # qmlls uses QML_IMPORT_PATH for Qt 6; QML2_IMPORT_PATH is kept for older
-        # tooling compatibility. Quickshell modules live under lib/qt-6/qml in
-        # the Nix package, while Qt plugins must also be discoverable in Nix.
-        QML_IMPORT_PATH = qmlImportPath;
-        QML2_IMPORT_PATH = qmlImportPath;
-        QT_PLUGIN_PATH = qtPluginPath;
-      };
+      ];
       extensions = [ ".qml" ];
     };
     rust = {
@@ -525,10 +498,6 @@ in
       lua-language-server
       luau-lsp
       marksman
-      kdePackages.qtdeclarative # Provides qmlls for QML/Quickshell language-server support
-      kdePackages.qtwayland
-      qt6.qt5compat
-      quickshell
       nodePackages.markdownlint-cli
       nixfmt-rfc-style
       nodePackages.prettier

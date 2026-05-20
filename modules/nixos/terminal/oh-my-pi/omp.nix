@@ -61,7 +61,7 @@
       };
     in
     {
-      options.programs.omp.enable = mkEnableOption "OMOS/OMP mutable state persistence";
+      options.programs.omp.enable = mkEnableOption "OMP mutable state persistence";
 
       config = mkIf cfg.enable {
         # Create only directories and OMP's provider timeout baseline; existing
@@ -114,6 +114,8 @@
         fileSystems = ompPersistence.fileSystems;
 
         preferences.zsh = {
+          aliases.o = "omp";
+
           aliases.q = qCommand;
           history.ignorePatterns = [
             "q(|[[:space:]]*)"

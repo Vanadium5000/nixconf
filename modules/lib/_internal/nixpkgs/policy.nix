@@ -62,6 +62,12 @@ _:
 
   temporaryOverrides = { };
 
+  unstablePackageOverrides = final: _prev: {
+    # Quickshell is a fast-moving shell runtime; route stable pkgs.quickshell
+    # through nixpkgs-unstable so every caller uses the same current package.
+    quickshell = final.unstable.quickshell;
+  };
+
   pythonPackageOverrides = python-final: python-prev: {
     tenacity = python-prev.tenacity.overridePythonAttrs (_old: {
       # Disable flaky tests (AssertionError: 4 not less than 1.1)

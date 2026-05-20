@@ -220,6 +220,8 @@ in
       };
 
       config = mkIf config.programs.fresh.enable {
+        preferences.zsh.aliases.f = "fresh";
+
         system.activationScripts.fresh-user-config = {
           text = self.lib.userFiles.mkActivationScript {
             inherit user homeDirectory pkgs;
