@@ -14,6 +14,9 @@
       hostPackageExclusions = {
         macbook = [
           "sora-watermark-cleaner"
+          "omniroute"
+          "cliproxyapi"
+          "cpa-usage-keeper"
         ];
         main_vps = [
           "antigravity-manager"
@@ -25,8 +28,13 @@
           "sideloader"
           "sora-watermark-cleaner"
           "waydroid-total-spoof"
+          "limux"
         ];
-        legion5i = [ ];
+        legion5i = [
+          "omniroute"
+          "cliproxyapi"
+          "cpa-usage-keeper"
+        ];
         # Example: Add more hosts as needed
         # server_host = [ "some-gui-package" ];
       };

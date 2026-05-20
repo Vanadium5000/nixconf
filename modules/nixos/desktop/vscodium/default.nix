@@ -88,9 +88,9 @@
         commandLineArgs = editorWaylandArgs;
       };
 
-      # antigravityWayland = editorEdgePkgs.antigravity.override {
-      #   commandLineArgs = editorWaylandArgs;
-      # };
+      antigravityWayland = editorEdgePkgs.antigravity.override {
+        commandLineArgs = editorWaylandArgs;
+      };
 
       extensionsJson = pkgs.writeText "extensions.json" (
         pkgs.vscode-utils.toExtensionJson vscodeExtensions
@@ -99,7 +99,7 @@
     {
       environment.systemPackages = with pkgs; [
         vscodiumWayland
-        # antigravityWayland
+        antigravityWayland
 
         # LSPs/Dependencies
         nixd
