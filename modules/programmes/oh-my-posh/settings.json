@@ -78,7 +78,7 @@
           "background": "#334155",
           "template": "  {{ .FormattedMs }} ",
           "options": {
-            "threshold": 500,
+            "threshold": 300,
             "style": "austin"
           }
         },
@@ -88,9 +88,7 @@
           "powerline_symbol": "",
           "foreground": "#ecfeff",
           "background": "#16a34a",
-          "background_templates": [
-            "{{ if .Error }}#dc2626{{ end }}"
-          ],
+          "background_templates": ["{{ if .Error }}#dc2626{{ end }}"],
           "template": "{{ if .Error }} ✗ {{ .String }} {{ else }} ✓ {{ end }}",
           "options": {
             "always_enabled": true,

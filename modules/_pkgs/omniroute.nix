@@ -14,7 +14,7 @@
 }:
 
 let
-  version = "3.7.9";
+  version = "3.8.0";
   betterSqlite3Src = fetchurl {
     url = "https://registry.npmjs.org/better-sqlite3/-/better-sqlite3-12.9.0.tgz";
     hash = "sha256-rQ4pZQFAxJ0DNbHTVllqqBZvErdY9BiphEYTDjJ48lA=";
@@ -23,7 +23,7 @@ let
     owner = "diegosouzapw";
     repo = "OmniRoute";
     rev = "v${version}";
-    hash = "sha256-TMtMunbWNbHsjUcBCVtfMyjjdrRL10p/XdjM79RC4qA=";
+    hash = "sha256-yDLv1yWY0Mr+46JylbElNTPgBtKkh6KpsH/bRAfqeEI=";
   };
   wreqJsSrc = fetchurl {
     url = "https://registry.npmjs.org/wreq-js/-/wreq-js-2.3.0.tgz";
@@ -36,10 +36,10 @@ stdenv.mkDerivation (finalAttrs: {
 
   # Use the npm tarball because it is the supported CLI install artifact and
   # already contains the Next.js standalone app that upstream publishes.
-  # Source: https://www.npmjs.com/package/omniroute/v/3.7.9
+  # Source: https://www.npmjs.com/package/omniroute
   src = fetchurl {
     url = "https://registry.npmjs.org/omniroute/-/omniroute-${finalAttrs.version}.tgz";
-    hash = "sha256-Pqh5/neqEIMWgvbliSXox79iBxdHwpoUk9SCXkw2wPc=";
+    hash = "sha256-UraSGU4LM+gD3feq2ExcB97e2CnDSBePwC3Jo1hLlDM=";
   };
 
   sourceRoot = "package";
@@ -61,7 +61,7 @@ stdenv.mkDerivation (finalAttrs: {
 
   # The npm standalone artifact includes koffi binaries for musl/OpenBSD; they
   # are not selected on this glibc Linux package but autoPatchelf still scans them.
-  # Source: app/node_modules/koffi/build/koffi inside omniroute-3.7.9.tgz.
+  # Source: app/node_modules/koffi/build/koffi inside the published npm tarball.
   autoPatchelfIgnoreMissingDeps = [
     "libc.musl-x86_64.so.1"
     "libc++.so.9.0"

@@ -36,6 +36,7 @@ let
       quotedSource = escapeShellArg source;
       quotedTarget = escapeShellArg target;
       quotedMode = if mode == null then null else escapeShellArg mode;
+      cmpCommand = if pkgs == null then "cmp" else "${pkgs.diffutils}/bin/cmp";
     in
     ''
       target=${quotedTarget}
@@ -53,7 +54,7 @@ let
                 if [ -L "$target" ] || [ -d "$target" ]; then
                   rm -rf "$target"
                 fi
-                if [ -f "$target" ] && cmp -s "$source" "$target"; then
+                if [ -f "$target" ] && ${cmpCommand} -s "$source" "$target"; then
                   :
                 else
                   tmp="$target.tmp.$$"

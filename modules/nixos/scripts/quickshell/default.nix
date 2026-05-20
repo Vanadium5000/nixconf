@@ -41,7 +41,7 @@
 
           QML_FILE="${mkQml "crosshair.qml" ./crosshair.qml}"
           QS_BIN="${pkgs.quickshell}/bin/qs"
-          export QML2_IMPORT_PATH="${pkgs.qt6.qt5compat}/lib/qt-6/qml:$QML2_IMPORT_PATH"
+          export QML2_IMPORT_PATH="${pkgs.qt6.qt5compat}/lib/qt-6/qml''${QML2_IMPORT_PATH:+:$QML2_IMPORT_PATH}"
 
           # Try to kill existing instance (toggling)
           if ! "$QS_BIN" kill -p "$QML_FILE"; then
@@ -92,7 +92,7 @@
 
           QML_FILE="${mkQml "lyrics-overlay.qml" ./lyrics-overlay.qml}"
           QS_BIN="${pkgs.quickshell}/bin/qs"
-          export QML2_IMPORT_PATH="${pkgs.qt6.qt5compat}/lib/qt-6/qml:$QML2_IMPORT_PATH"
+          export QML2_IMPORT_PATH="${pkgs.qt6.qt5compat}/lib/qt-6/qml''${QML2_IMPORT_PATH:+:$QML2_IMPORT_PATH}"
 
           case "''${1:-toggle}" in
             show)
@@ -329,7 +329,7 @@
 
           QML_FILE="${mkQml "dmenu.qml" ./dmenu.qml}"
           QS_BIN="${pkgs.quickshell}/bin/qs"
-          export QML2_IMPORT_PATH="${pkgs.qt6.qt5compat}/lib/qt-6/qml:$QML2_IMPORT_PATH"
+          export QML2_IMPORT_PATH="${pkgs.qt6.qt5compat}/lib/qt-6/qml''${QML2_IMPORT_PATH:+:$QML2_IMPORT_PATH}"
 
           # Run Quickshell and capture stdout
           # We filter for our specific result prefix to ignore all logs

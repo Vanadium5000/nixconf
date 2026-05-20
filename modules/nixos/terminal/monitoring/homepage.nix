@@ -19,6 +19,8 @@
       inherit (lib)
         attrByPath
         mapAttrs
+        mapAttrs'
+        nameValuePair
         mkEnableOption
         mkOption
         mkIf
@@ -65,6 +67,7 @@
         mongo = ports.mongo;
       };
       mkTraefikServiceName = name: "local-${name}";
+      mkTraefikRouterName = name: "local-${name}";
     in
     {
       options.services.homepage-monitor = {
@@ -414,11 +417,14 @@
         };
 
         services.traefik.dynamicConfigOptions.http = mkIf traefikEnabled {
-          routers = mapAttrs (name: _: {
-            rule = "Host(`${name}`)";
-            service = mkTraefikServiceName name;
-            entryPoints = [ "web" ];
-          }) shortHostnames;
+          routers = mapAttrs' (
+            name: _:
+            nameValuePair (mkTraefikRouterName name) {
+              rule = "Host(`${name}`)";
+              service = mkTraefikServiceName name;
+              entryPoints = [ "web" ];
+            }
+          ) shortHostnames;
           services = mapAttrs (_name: port: {
             loadBalancer.servers = [
               { url = "http://127.0.0.1:${toString port}"; }

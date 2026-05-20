@@ -193,6 +193,22 @@ pkgs.writeShellApplication {
             curl -s "https://registry.npmjs.org/$package/latest" | jq -r '.version // empty'
           }
 
+          get_github_release_version() {
+            local owner="$1"
+            local repo="$2"
+            local tag version
+            tag=$(get_latest_release "$owner" "$repo")
+            version="''${tag#v}"
+            version="''${version#V}"
+            printf '%s\n' "$version"
+          }
+
+          get_npm_package_version() {
+            local package="$1"
+            local version="$2"
+            curl -fs "https://registry.npmjs.org/$package/$version" 2>/dev/null | jq -r '.version // empty' || true
+          }
+
           # Function to get latest commit SHA for a branch
           get_latest_commit() {
             local owner="$1"
@@ -467,20 +483,29 @@ pkgs.writeShellApplication {
             local pkg="omniroute"
             local file
             file=$(package_file "$pkg")
-            local current_version latest_version npm_hash docs_hash
+            local current_version latest_version npm_version release_version npm_hash docs_hash
             current_version=$(grep -oP 'version = "\K[^"]+' "$file" | head -1 || true)
-            latest_version=$(get_latest_npm_version "$pkg")
+            npm_version=$(get_latest_npm_version "$pkg")
+            release_version=$(get_github_release_version "diegosouzapw" "OmniRoute")
+            latest_version="''${release_version:-$npm_version}"
 
             if [ -z "$current_version" ] || [ -z "$latest_version" ]; then
-              echo "    Could not determine npm version"
+              echo "    Could not determine OmniRoute version"
               return 1
             fi
 
             echo "    Current version: $current_version"
-            echo "    Latest version: $latest_version"
+            echo "    Latest GitHub release: ''${release_version:-unknown}"
+            echo "    Latest npm artifact: ''${npm_version:-unknown}"
 
             if [ "$current_version" = "$latest_version" ]; then
               echo "    Already up to date"
+              return 1
+            fi
+
+            if [ "$(get_npm_package_version "$pkg" "$latest_version")" != "$latest_version" ]; then
+              echo "    GitHub release $latest_version is available, but npm has not published omniroute@$latest_version yet"
+              echo "    Skipping: this package builds from the npm CLI tarball, not raw GitHub source"
               return 1
             fi
 
