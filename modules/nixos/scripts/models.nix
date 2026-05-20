@@ -837,9 +837,9 @@
                 "providers:\n  \($provider_id):\n    name: \($provider_name | q)\n    baseUrl: \($base_url | q)\n    apiKey: \($api_key | q)\n    api: openai-completions\n    timeoutMs: \($provider_timeout_ms)\n    models:\n" +
                 (to_entries | sort_by(.key) | map(
                   .value as $model
-                  | "      - id: \(.key | q)\n        name: \(($model.name // .key) | q)\n        api: openai-completions\n        provider: \($provider_id | q)\n        baseUrl: \($base_url | q)\n        input: \(($model.modalities.input // ["text"]) | q)\n        cost: \(($model | cost) | q)" +
+                  | "      - id: \(($model.name // .key) | q)\n        name: \(.key | q)\n        api: openai-completions\n        provider: \($provider_id | q)\n        baseUrl: \($base_url | q)\n        input: \(($model.modalities.input // ["text"]) | map(select(. == "text" or . == "image")) | if length > 0 then . else ["text"] end | q)\n        cost: \(($model | cost) | q)" +
                     (if $model.reasoning == true then "\n        reasoning: true" else "" end) +
-                    (if $model.limit.context? != null then "\n        contextWindow: \($model.limit.context)" else "" end) +
+                    (if $model.limit.context? != null and $model.limit.context > 0 then "\n        contextWindow: \($model.limit.context)" else "" end) +
                     (if $model.limit.output? != null then "\n        maxTokens: \($model.limit.output)" else "" end)
                 ) | join("\n"))
               '
