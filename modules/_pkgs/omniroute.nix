@@ -59,7 +59,7 @@ buildNpmPackage (finalAttrs: {
   '';
 
   # Hash of the dependencies from package-lock.json
-  npmDepsHash = "sha256-DKFMF4Bj+aWu/ORDpdYv+JP2ck3IrtQG4FkAeV2SheE=";
+  npmDepsHash = "sha256-QN3crKzDqcwaJ7+Bs8HjgmGV634P/CxA1nqNg+sEzUc=";
   npmFlags = [ "--legacy-peer-deps" ];
 
   dontNpmBuild = true;

@@ -90,6 +90,14 @@ pkgs.writeShellApplication {
             printf '\n\n'
           }
 
+          usage() {
+            printf '%s\n' \
+              "Usage: update-pkgs [PACKAGE ...]" \
+              "" \
+              "Without PACKAGE arguments, choose one of the built-in update sets." \
+              "With PACKAGE arguments, update only those package files from modules/_pkgs."
+          }
+
           show_update_menu_intro() {
             gum style \
               --border rounded \
@@ -108,6 +116,12 @@ pkgs.writeShellApplication {
           }
 
           select_update_packages() {
+            if [ "$#" -gt 0 ]; then
+              SELECTED_LABEL="explicit package arguments"
+              SELECTED_PACKAGES=("$@")
+              return
+            fi
+
             local choice=""
             local status=0
 
@@ -484,6 +498,7 @@ pkgs.writeShellApplication {
             local file
             file=$(package_file "$pkg")
             local current_version latest_version npm_version release_version npm_hash docs_hash
+            local changed=false
             current_version=$(grep -oP 'version = "\K[^"]+' "$file" | head -1 || true)
             npm_version=$(get_latest_npm_version "$pkg")
             release_version=$(get_github_release_version "diegosouzapw" "OmniRoute")
@@ -498,15 +513,16 @@ pkgs.writeShellApplication {
             echo "    Latest GitHub release: ''${release_version:-unknown}"
             echo "    Latest npm artifact: ''${npm_version:-unknown}"
 
-            if [ "$current_version" = "$latest_version" ]; then
-              echo "    Already up to date"
-              return 1
-            fi
-
             if [ "$(get_npm_package_version "$pkg" "$latest_version")" != "$latest_version" ]; then
-              echo "    GitHub release $latest_version is available, but npm has not published omniroute@$latest_version yet"
-              echo "    Skipping: this package builds from the npm CLI tarball, not raw GitHub source"
-              return 1
+              if [ -n "$npm_version" ] && [ "$(get_npm_package_version "$pkg" "$npm_version")" = "$npm_version" ]; then
+                echo "    GitHub release $latest_version is available, but npm has not published omniroute@$latest_version yet"
+                echo "    Falling back to npm artifact $npm_version"
+                latest_version="$npm_version"
+              else
+                echo "    GitHub release $latest_version is available, but npm has not published omniroute@$latest_version yet"
+                echo "    Skipping: this package builds from the npm CLI tarball, not raw GitHub source"
+                return 1
+              fi
             fi
 
             npm_hash=$(prefetch_npm_tarball "$pkg" "$latest_version")
@@ -516,9 +532,27 @@ pkgs.writeShellApplication {
               return 1
             fi
 
-            sed -i "s|version = \"$current_version\"|version = \"$latest_version\"|" "$file"
+            if [ "$current_version" != "$latest_version" ]; then
+              echo "    Updating version: $current_version -> $latest_version"
+              sed -i "s|version = \"$current_version\"|version = \"$latest_version\"|" "$file"
+              changed=true
+            else
+              echo "    Version unchanged; refreshing source and npm dependency hashes"
+            fi
+
             set_first_hash_after "$file" 'repo = "OmniRoute"' "$docs_hash"
             set_first_hash_after "$file" 'registry.npmjs.org/omniroute' "$npm_hash"
+
+            echo "    Refreshing npmDepsHash..."
+            if refresh_fake_hash_from_build "$file" npmDepsHash nix-build -E 'let unstable = import <nixpkgs-unstable> {}; in unstable.callPackage ./omniroute.nix {}'; then
+              changed=true
+            else
+              return 1
+            fi
+
+            if ! $changed; then
+              return 1
+            fi
             return 0
           }
 
@@ -636,7 +670,12 @@ pkgs.writeShellApplication {
             return 0
           }
 
-          select_update_packages
+          if [ "''${1:-}" = "-h" ] || [ "''${1:-}" = "--help" ]; then
+            usage
+            exit 0
+          fi
+
+          select_update_packages "$@"
 
           notify "Scanning for packages..."
 
