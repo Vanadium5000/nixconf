@@ -323,37 +323,49 @@
             esac
           done
 
-          # Save stdin to temp file
+          # Save stdin and return value through files: Quickshell writes logs to stdout
+          # in some launch contexts, so stdout parsing is not a reliable IPC channel.
           INPUT_FILE=$(mktemp)
+          OUTPUT_FILE=$(mktemp)
+          LOG_FILE=$(mktemp)
+          : > "$OUTPUT_FILE"
+          trap 'rm -f "$INPUT_FILE" "$OUTPUT_FILE" "$LOG_FILE"' EXIT
           cat > "$INPUT_FILE"
 
           QML_FILE="${mkQml "dmenu.qml" ./dmenu.qml}"
           QS_BIN="${pkgs.quickshell}/bin/qs"
           export QML2_IMPORT_PATH="${pkgs.qt6.qt5compat}/lib/qt-6/qml''${QML2_IMPORT_PATH:+:$QML2_IMPORT_PATH}"
 
-          # Run Quickshell and capture stdout
-          # We filter for our specific result prefix to ignore all logs
+          # Run Quickshell and print only the explicit selection written by QML.
           DMENU_INPUT_FILE="$INPUT_FILE" \
-          DMENU_PROMPT="$PROMPT" \
-          DMENU_LINES="$LINES" \
-          DMENU_PASSWORD="$PASSWORD" \
-          DMENU_CASE_INSENSITIVE="$CASE_INSENSITIVE" \
-          DMENU_SELECTED="$SELECTED" \
-          DMENU_INITIAL_INPUT="$INITIAL_INPUT" \
-          DMENU_MARK_INPUT="$MARK_INPUT" \
-          DMENU_PLACEHOLDER="$PLACEHOLDER" \
-          DMENU_FILTER="$FILTER" \
-          DMENU_MESSAGE="$MESSAGE" \
-          DMENU_KEYBINDS="$KEYBINDS" \
-          "$QS_BIN" -p "$QML_FILE" 2>&1 | grep -E "QS_DMENU_(RESULT|INPUT|KEYBIND|DROPDOWN):" | sed 's/^.*QS_DMENU_RESULT://; s/^.*QS_DMENU_INPUT:/INPUT:/; s/^.*QS_DMENU_KEYBIND:/KEYBIND:/; s/^.*QS_DMENU_DROPDOWN:/DROPDOWN:/'
+            DMENU_OUTPUT_FILE="$OUTPUT_FILE" \
+            DMENU_PROMPT="$PROMPT" \
+            DMENU_LINES="$LINES" \
+            DMENU_PASSWORD="$PASSWORD" \
+            DMENU_CASE_INSENSITIVE="$CASE_INSENSITIVE" \
+            DMENU_SELECTED="$SELECTED" \
+            DMENU_INITIAL_INPUT="$INITIAL_INPUT" \
+            DMENU_MARK_INPUT="$MARK_INPUT" \
+            DMENU_PLACEHOLDER="$PLACEHOLDER" \
+            DMENU_FILTER="$FILTER" \
+            DMENU_MESSAGE="$MESSAGE" \
+            DMENU_KEYBINDS="$KEYBINDS" \
+            "$QS_BIN" -p "$QML_FILE" >"$LOG_FILE" 2>&1
+          QS_STATUS=$?
+          if [ "$QS_STATUS" -ne 0 ]; then
+            exit "$QS_STATUS"
+          fi
 
-          # Cleanup
-          rm -f "$INPUT_FILE"
+          if [ -s "$OUTPUT_FILE" ]; then
+            cat "$OUTPUT_FILE"
+            printf '\n'
+          fi
+
+          # Cleanup is handled by the EXIT trap.
         '';
         runtimeInputs = [
           pkgs.quickshell
           pkgs.coreutils
-          pkgs.gnused
         ];
       };
 

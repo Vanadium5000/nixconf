@@ -16,12 +16,12 @@
 }:
 
 let
-  version = "3.8.0";
+  version = "3.8.1";
   docsSrc = fetchFromGitHub {
     owner = "diegosouzapw";
     repo = "OmniRoute";
     rev = "v${version}";
-    hash = "sha256-yDLv1yWY0Mr+46JylbElNTPgBtKkh6KpsH/bRAfqeEI=";
+    hash = "sha256-amLPFIDcG7TlO/tbHBZzKvd/yJbK2mkDogd2aMVqvJc=";
   };
 in
 buildNpmPackage (finalAttrs: {
@@ -32,7 +32,7 @@ buildNpmPackage (finalAttrs: {
   # already contains the Next.js standalone app that upstream publishes.
   src = fetchurl {
     url = "https://registry.npmjs.org/omniroute/-/omniroute-${finalAttrs.version}.tgz";
-    hash = "sha256-UraSGU4LM+gD3feq2ExcB97e2CnDSBePwC3Jo1hLlDM=";
+    hash = "sha256-/sSg8FuuYRGmW1fLS8pYmdVnYVSmz2Hbcz0dJU0Pdfc=";
   };
 
   sourceRoot = "package";

@@ -269,6 +269,7 @@
         environment.systemPackages = [
           shellEdgePkgs.voxtype
           selfpkgs.dms-idle-inhibit
+          selfpkgs.dms-suspend-after
         ];
 
         # DMS registry themes are loaded from <theme>/theme.json; generating only

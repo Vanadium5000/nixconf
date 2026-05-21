@@ -6,6 +6,7 @@
  *
  * Environment Variables:
  *   DMENU_INPUT_FILE      - Path to file containing menu items (one per line)
+ *   DMENU_OUTPUT_FILE     - Path to file where the selected value is written
  *   DMENU_PROMPT          - Prompt text (default: "Select")
  *   DMENU_LINES           - Number of visible lines (default: 15)
  *   DMENU_PASSWORD        - "true" for password mode (hides input, no list)
@@ -23,7 +24,7 @@
  *   label\0dropdown\x1f{"expanded":false,"subItems":["sub1","sub2"]}
  *
  *   Click the > arrow or press Alt+Enter to expand/collapse.
- *   Sub-item selection outputs: QS_DMENU_DROPDOWN:parentIndex:subIndex:value
+ *   Sub-item selection outputs: DROPDOWN:parentIndex:subIndex:value
  */
 
 import QtQuick
@@ -42,6 +43,7 @@ Scope {
     // =========================================================================
 
     property string inputFile: Quickshell.env("DMENU_INPUT_FILE") ?? ""
+    property string outputFile: Quickshell.env("DMENU_OUTPUT_FILE") ?? ""
     property string promptText: Quickshell.env("DMENU_PROMPT") ?? "Select"
     property int lineCount: parseInt(Quickshell.env("DMENU_LINES") ?? "15")
     property bool passwordMode: (Quickshell.env("DMENU_PASSWORD") ?? "false") === "true"
@@ -75,6 +77,11 @@ Scope {
     // =========================================================================
 
     ListModel { id: itemsModel }
+    FileView {
+        id: outputWriter
+        path: root.outputFile
+        blockWrites: true
+    }
     ListModel { id: filteredModel }
 
     function resolveIconSource(iconSource) {
@@ -406,8 +413,7 @@ Scope {
                                         if (matchedKeybind) {
                                             var selectedItem = viewLoader.getCurrentItem();
                                             if (selectedItem) {
-                                                console.log("QS_DMENU_KEYBIND:" + matchedKey + ":" + matchedKeybind + ":" + (selectedItem.originalText || selectedItem.text));
-                                                Qt.quit();
+                                                writeOutputAndQuit("KEYBIND:" + matchedKey + ":" + matchedKeybind + ":" + (selectedItem.originalText || selectedItem.text));
                                             }
                                             event.accepted = true;
                                         }
@@ -712,17 +718,24 @@ Scope {
     // =========================================================================
 
     /**
-     * Output the selected text to stdout and exit.
-     * We use a special prefix to distinguish real output from logs.
+     * Output the selected text and exit.
+     * File output is the data channel; stdout/stderr are Quickshell logs.
      */
-    function outputAndQuit(text) {
-        console.log("QS_DMENU_RESULT:" + text);
+    function writeOutputAndQuit(text) {
+        if (root.outputFile !== "") {
+            outputWriter.setText(text);
+        } else {
+            console.log("QS_DMENU_RESULT:" + text);
+        }
         Qt.quit();
     }
 
+    function outputAndQuit(text) {
+        writeOutputAndQuit(text);
+    }
+
     function outputInputAndQuit(text) {
-        console.log((root.markInput ? "QS_DMENU_INPUT:" : "QS_DMENU_RESULT:") + text);
-        Qt.quit();
+        writeOutputAndQuit((root.markInput ? "INPUT:" : "") + text);
     }
 
     /**
@@ -899,9 +912,8 @@ Scope {
         var item = filteredModel.get(index);
         if (!item || !item.isSubItem) return false;
 
-        // Output format: DROPDOWN_RESULT:parentIndex:subIndex:value
-        console.log("QS_DMENU_DROPDOWN:" + item.parentIndex + ":" + item.subItemIndex + ":" + item.text);
-        Qt.quit();
+        // Output format: DROPDOWN:parentIndex:subIndex:value
+        writeOutputAndQuit("DROPDOWN:" + item.parentIndex + ":" + item.subItemIndex + ":" + item.text);
         return true;
     }
 }

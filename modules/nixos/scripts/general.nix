@@ -374,6 +374,7 @@
           SYSTEMD_INHIBIT="${pkgs.systemd}/bin/systemd-inhibit"
           SLEEP="${pkgs.coreutils}/bin/sleep"
           NOTIFY_SEND="${pkgs.libnotify}/bin/notify-send"
+          SYSTEMD_RUN="${pkgs.systemd}/bin/systemd-run"
 
           mkdir -p "$STATE_DIR"
 
@@ -399,6 +400,95 @@
 
           notify() {
             "$NOTIFY_SEND" "Idle Inhibitor" "$1" 2>/dev/null || true
+          }
+
+          duration_seconds() {
+            local input="''${1:-}"
+            local rest="$input"
+            local value unit total=0 matched=0
+
+            if [[ "$input" =~ ^[0-9]+$ ]]; then
+              local seconds=$((10#$input))
+              (( seconds > 0 )) || return 1
+              printf '%s\n' "$seconds"
+              return 0
+            fi
+
+            while [[ -n "$rest" ]]; do
+              if [[ "$rest" =~ ^([0-9]+)([hHmMsS])(.*)$ ]]; then
+                value="''${BASH_REMATCH[1]}"
+                unit="''${BASH_REMATCH[2]}"
+                rest="''${BASH_REMATCH[3]}"
+                matched=1
+
+                case "''${unit,,}" in
+                  h)
+                    (( total += 10#$value * 3600 ))
+                    ;;
+                  m)
+                    (( total += 10#$value * 60 ))
+                    ;;
+                  s)
+                    (( total += 10#$value ))
+                    ;;
+                esac
+              else
+                return 1
+              fi
+            done
+
+            (( matched == 1 && total > 0 )) || return 1
+            printf '%s\n' "$total"
+          }
+
+          wait_until_inactive() {
+            local deadline=$((SECONDS + 10))
+
+            while active; do
+              (( SECONDS < deadline )) || return 1
+              "$SLEEP" 0.1
+            done
+          }
+
+          suspend_now() {
+            disable >/dev/null
+            if ! wait_until_inactive; then
+              notify "Timed suspend cancelled: idle inhibitor did not stop"
+              return 1
+            fi
+
+            notify "Suspending now"
+            exec "$SYSTEMCTL" suspend
+          }
+
+          schedule_suspend() {
+            if [[ $# -ne 1 ]]; then
+              printf 'Usage: dms-idle-inhibit suspend-after DURATION\n' >&2
+              printf 'Use a positive duration such as 90s, 15m, 1h59m, or bare seconds.\n' >&2
+              exit 64
+            fi
+
+            local duration="$1"
+            local seconds
+            if ! seconds="$(duration_seconds "$duration")"; then
+              printf 'Invalid duration: %s\n' "$duration" >&2
+              printf 'Use a positive duration such as 90s, 15m, 1h59m, or bare seconds.\n' >&2
+              exit 64
+            fi
+
+            local unit="dms-idle-inhibit-suspend-after"
+            "$SYSTEMCTL" --user stop "$unit.timer" "$unit.service" 2>/dev/null || true
+            "$SYSTEMCTL" --user reset-failed "$unit.timer" "$unit.service" 2>/dev/null || true
+            "$SYSTEMD_RUN" \
+              --user \
+              --collect \
+              --unit="$unit" \
+              --description="Disable DMS idle inhibitor and suspend" \
+              --on-active="''${seconds}s" \
+              --timer-property=AccuracySec=1s \
+              "$0" suspend-now
+            notify "Suspend scheduled in $duration"
+            printf 'Suspend scheduled in %s (%s seconds)\n' "$duration" "$seconds"
           }
 
           case "''${1:-toggle}" in
@@ -440,16 +530,30 @@
             is-active)
               active
               ;;
+            suspend-after)
+              schedule_suspend "''${@:2}"
+              ;;
+            suspend-now)
+              suspend_now
+              ;;
             *)
               cat <<'EOF'
-          Usage: dms-idle-inhibit [enable|disable|toggle|status|is-enabled|is-active|daemon]
+          Usage: dms-idle-inhibit [enable|disable|toggle|status|is-enabled|is-active|daemon|suspend-after DURATION]
 
           Persistent systemd-inhibit controller for idle and sleep inhibition.
           The enabled/disabled preference survives shell refreshes, relogins, and reboots.
+          suspend-after accepts durations such as 90s, 15m, 1h59m, or bare seconds; it schedules a user timer that disables inhibition, waits until the inhibitor is inactive, then suspends.
           EOF
               exit 64
               ;;
           esac
+        '';
+      };
+
+      packages.dms-suspend-after = inputs.wrappers.lib.makeWrapper {
+        inherit pkgs;
+        package = pkgs.writeShellScriptBin "dms-suspend-after" ''
+          exec ${self'.packages.dms-idle-inhibit}/bin/dms-idle-inhibit suspend-after "$@"
         '';
       };
 
