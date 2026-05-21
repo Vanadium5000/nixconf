@@ -75,36 +75,58 @@ buildNpmPackage (finalAttrs: {
   ];
 
   installPhase = ''
-    runHook preInstall
+        runHook preInstall
 
-    mkdir -p "$out/lib/omniroute" "$out/bin"
-    cp -R . "$out/lib/omniroute"
-    chmod +x "$out/lib/omniroute"/bin/*.mjs
-    chmod +x "$out/lib/omniroute"/bin/cli/commands/*.mjs
+        mkdir -p "$out/lib/omniroute" "$out/bin"
+        cp -R . "$out/lib/omniroute"
+        chmod +x "$out/lib/omniroute"/bin/*.mjs
+        chmod +x "$out/lib/omniroute"/bin/cli/commands/*.mjs
 
-    # Add the markdown docs missing from the tarball
-    rm -rf "$out/lib/omniroute/app/docs"
-    cp -R ${docsSrc}/docs "$out/lib/omniroute/app/docs"
+        # The docs app renders frontmatter values directly; gray-matter turns
+        # unquoted YAML dates into Date objects, which React 19 rejects as children.
+        rm -rf "$out/lib/omniroute/app/docs"
+        cp -R ${docsSrc}/docs "$out/lib/omniroute/app/docs"
+        python3 -c '
+    import re
+    import sys
+    from pathlib import Path
 
-    # Remove the pruned wreq-js and better-sqlite3 copies shipped in the standalone app.
-    # Node will fallback to the fully-compiled ones in the root node_modules we built.
-    rm -rf "$out/lib/omniroute/app/node_modules/wreq-js"
-    rm -rf "$out/lib/omniroute/app/node_modules/better-sqlite3"
+    docs_root = Path(sys.argv[1])
+    frontmatter = re.compile(r"\A---\n(.*?)\n---", re.S)
+    last_updated = re.compile(r"(?m)^lastUpdated:\\s*(\\d{4}-\\d{2}-\\d{2})\\s*$")
 
-    # Upstream's CLI forces the spawned Next.js server to 0.0.0.0. Keep that
-    # default for CLI users, but give the NixOS service an explicit bind knob.
-    substituteInPlace "$out/lib/omniroute/bin/cli/commands/serve.mjs" \
-      --replace-fail 'HOSTNAME: "0.0.0.0",' 'HOSTNAME: process.env.OMNIROUTE_HOST || "0.0.0.0",'
+    def patch_frontmatter(match):
+        body = last_updated.sub(lambda date: f"lastUpdated: \"{date.group(1)}\"", match.group(1))
+        return f"---\n{body}\n---"
 
-    makeWrapper ${nodejs}/bin/node "$out/bin/omniroute" \
-      --add-flags "$out/lib/omniroute/bin/omniroute.mjs" \
-      --prefix PATH : ${lib.makeBinPath [ nodejs ]}
+    for path in docs_root.rglob("*"):
+        if path.suffix not in {".md", ".mdx"}:
+            continue
+        content = path.read_text(encoding="utf-8")
+        patched = frontmatter.sub(patch_frontmatter, content, count=1)
+        if patched != content:
+            path.write_text(patched, encoding="utf-8")
+    ' "$out/lib/omniroute/app/docs"
 
-    makeWrapper ${nodejs}/bin/node "$out/bin/omniroute-reset-password" \
-      --add-flags "$out/lib/omniroute/bin/reset-password.mjs" \
-      --prefix PATH : ${lib.makeBinPath [ nodejs ]}
+        # Remove the pruned wreq-js and better-sqlite3 copies shipped in the standalone app.
+        # Node will fallback to the fully-compiled ones in the root node_modules we built.
+        rm -rf "$out/lib/omniroute/app/node_modules/wreq-js"
+        rm -rf "$out/lib/omniroute/app/node_modules/better-sqlite3"
 
-    runHook postInstall
+        # Upstream's CLI forces the spawned Next.js server to 0.0.0.0. Keep that
+        # default for CLI users, but give the NixOS service an explicit bind knob.
+        substituteInPlace "$out/lib/omniroute/bin/cli/commands/serve.mjs" \
+          --replace-fail 'HOSTNAME: "0.0.0.0",' 'HOSTNAME: process.env.OMNIROUTE_HOST || "0.0.0.0",'
+
+        makeWrapper ${nodejs}/bin/node "$out/bin/omniroute" \
+          --add-flags "$out/lib/omniroute/bin/omniroute.mjs" \
+          --prefix PATH : ${lib.makeBinPath [ nodejs ]}
+
+        makeWrapper ${nodejs}/bin/node "$out/bin/omniroute-reset-password" \
+          --add-flags "$out/lib/omniroute/bin/reset-password.mjs" \
+          --prefix PATH : ${lib.makeBinPath [ nodejs ]}
+
+        runHook postInstall
   '';
 
   meta = {

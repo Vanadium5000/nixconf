@@ -65,7 +65,26 @@ _:
   unstablePackageOverrides = final: _prev: {
     # Quickshell is a fast-moving shell runtime; route stable pkgs.quickshell
     # through nixpkgs-unstable so every caller uses the same current package.
-    quickshell = final.unstable.quickshell;
+    quickshell =
+      let
+        quickshell = final.unstable.quickshell;
+      in
+      final.symlinkJoin {
+        name = "${quickshell.pname or "quickshell"}-${quickshell.version or "unstable"}-sanitized";
+        paths = [ quickshell ];
+        nativeBuildInputs = [ final.makeWrapper ];
+        postBuild = ''
+          for bin in quickshell qs; do
+            if [ -x ${quickshell}/bin/$bin ]; then
+              rm -f $out/bin/$bin
+              makeWrapper ${quickshell}/bin/$bin $out/bin/$bin \
+                --unset __QUICKSHELL_CRASH_INFO_FD \
+                --unset __QUICKSHELL_CRASH_DUMP_PID
+            fi
+          done
+        '';
+        meta = quickshell.meta;
+      };
   };
 
   pythonPackageOverrides = python-final: python-prev: {
