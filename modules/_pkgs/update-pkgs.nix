@@ -59,6 +59,7 @@ pkgs.writeShellApplication {
             playwright-cli
             cake-wallet-flatpak
             limux
+            seance
             dogecoin
             antigravity-manager
             waydroid-script
@@ -245,12 +246,37 @@ pkgs.writeShellApplication {
             nix-prefetch-url "$url" 2>/dev/null | xargs nix-hash --type sha256 --to-sri 2>/dev/null || echo ""
           }
 
+          prefetch_url_unpack() {
+            local url="$1"
+            nix-prefetch-url --unpack "$url" 2>/dev/null | tail -1 | xargs nix-hash --type sha256 --to-sri 2>/dev/null || echo ""
+          }
+
           prefetch_npm_tarball() {
             local package="$1"
             local version="$2"
             prefetch_url "https://registry.npmjs.org/$package/-/$package-$version.tgz"
           }
 
+          get_tag_commit() {
+            local owner="$1"
+            local repo="$2"
+            local tag="$3"
+            local ref object_sha object_type
+
+            ref=$(curl -s "https://api.github.com/repos/$owner/$repo/git/ref/tags/$tag")
+            object_sha=$(printf '%s\n' "$ref" | jq -r '.object.sha // empty')
+            object_type=$(printf '%s\n' "$ref" | jq -r '.object.type // empty')
+
+            if [ -z "$object_sha" ]; then
+              return 1
+            fi
+
+            if [ "$object_type" = "tag" ]; then
+              curl -s "https://api.github.com/repos/$owner/$repo/git/tags/$object_sha" | jq -r '.object.sha // empty'
+            else
+              printf '%s\n' "$object_sha"
+            fi
+          }
           # Function to update a single hash in a file
           update_hash_in_file() {
             local file="$1"
@@ -635,6 +661,50 @@ pkgs.writeShellApplication {
             return 0
           }
 
+          update_seance_package() {
+            local pkg="seance"
+            local file
+            file=$(package_file "$pkg")
+            local current_version current_revision latest_tag latest_version latest_commit latest_revision url src_hash unpacked_hash
+
+            current_version=$(grep -oP 'version = "\K[^"]+' "$file" | head -1 || true)
+            current_revision=$(grep -oP 'revision \? "\K[^"]+' "$file" | head -1 || true)
+            latest_tag=$(get_latest_release "no1msd" "seance")
+            latest_version="''${latest_tag#v}"
+            latest_version="''${latest_version#V}"
+            latest_commit=$(get_tag_commit "no1msd" "seance" "$latest_tag")
+            latest_revision="''${latest_commit:0:7}"
+
+            if [ -z "$current_version" ] || [ -z "$latest_version" ] || [ -z "$latest_revision" ]; then
+              echo "    Could not determine Seance release version or tag revision"
+              return 1
+            fi
+
+            echo "    Current version: $current_version-$current_revision"
+            echo "    Latest version: $latest_version-$latest_revision"
+
+            if [ "$current_version" = "$latest_version" ] && [ "$current_revision" = "$latest_revision" ]; then
+              echo "    Already up to date"
+              return 1
+            fi
+
+            url="https://github.com/no1msd/seance/releases/download/v$latest_version/seance-$latest_version-src.tar.gz"
+            src_hash=$(prefetch_url "$url")
+            unpacked_hash=$(prefetch_url_unpack "$url")
+
+            if [ -z "$src_hash" ] || [ -z "$unpacked_hash" ]; then
+              echo "    Could not prefetch Seance source tarball"
+              return 1
+            fi
+
+            sed -i "s|version = \"$current_version\"|version = \"$latest_version\"|" "$file"
+            sed -i "s|revision ? \"$current_revision\"|revision ? \"$latest_revision\"|" "$file"
+            set_attr_hash "$file" hash "$src_hash"
+            set_attr_hash "$file" unpackedHash "$unpacked_hash"
+
+            return 0
+          }
+
           update_acp_chat_package() {
             local pkg="acp-chat"
             local file
@@ -721,6 +791,10 @@ pkgs.writeShellApplication {
             echo " $pkg = pkgs.callPackage ./$pkg.nix {};"
           elif [ "$pkg" == "limux" ]; then
             # Supported: versioned GitHub release tarball from am-will/limux.
+            echo " $pkg = pkgs.callPackage ./$pkg.nix {};"
+          elif [ "$pkg" == "seance" ]; then
+            # Supported via custom updater because the release source tarball is
+            # fixed twice: compressed fetchurl hash plus unpacked fetchTarball hash.
             echo " $pkg = pkgs.callPackage ./$pkg.nix {};"
           elif [ "$pkg" == "antigravity-manager" ]; then
             # Skip: RPM-wrapped AppImage with versioned URL pattern (manual update required)
@@ -885,6 +959,20 @@ pkgs.writeShellApplication {
       # lockstep, then the normal build serves as the native-module smoke test.
       if update_omniroute_package; then
         if nix-build -E 'let unstable = import <nixpkgs-unstable> {}; in unstable.callPackage ./omniroute.nix {}' >/dev/null; then
+          UPDATED+=("$pkg")
+        else
+          FAILED+=("$pkg")
+        fi
+      else
+        SKIPPED+=("$pkg")
+      fi
+      ;;
+
+    "seance")
+      # Custom updater refreshes version, tag revision, compressed source hash,
+      # and unpacked source hash, then builds the package as a smoke test.
+      if update_seance_package; then
+        if nix-build -E 'let pkgs = import <nixpkgs> {}; in pkgs.callPackage ./seance.nix {}' >/dev/null; then
           UPDATED+=("$pkg")
         else
           FAILED+=("$pkg")

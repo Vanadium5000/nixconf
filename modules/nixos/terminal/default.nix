@@ -29,6 +29,7 @@
           "sora-watermark-cleaner"
           "waydroid-total-spoof"
           "limux"
+          "seance"
         ];
         legion5i = [
           "omniroute"
