@@ -39,6 +39,18 @@
           '';
         };
 
+        configFiles = {
+          source = mkOption {
+            type = types.enum (builtins.attrValues self.lib.configFiles.sourceNames);
+            default = "checkout";
+            description = ''
+              Source for repo-owned config files consumed by programs.
+              `checkout` keeps symlinks to preferences.paths.configDirectory for local editing;
+              `store` copies the flake inputs from the Nix store for hosts without ~/nixconf.
+            '';
+          };
+        };
+
         hostName = mkOption {
           type = types.str;
           description = "Host name exported to networking and shell tooling.";
@@ -74,6 +86,12 @@
             type = types.str;
             readOnly = true;
             description = "Final config checkout path after applying defaults.";
+          };
+
+          configSourceDirectory = mkOption {
+            type = types.str;
+            readOnly = true;
+            description = "Effective repo-owned config source: checkout on editable hosts, Nix store on sealed hosts.";
           };
 
           sharedDirectory = mkOption {
@@ -164,10 +182,16 @@
           homeDirectory = "/home/${cfg.user.username}";
           configDirectory =
             if cfg.configDirectory != null then cfg.configDirectory else "${homeDirectory}/nixconf";
+          configFilesStore = self.lib.configFiles.mkStoreRoot { inherit pkgs; };
         in
         {
           preferences.paths = {
             inherit homeDirectory configDirectory;
+            configSourceDirectory = self.lib.configFiles.mkSourceDirectory {
+              source = cfg.configFiles.source;
+              checkoutDirectory = configDirectory;
+              storeDirectory = configFilesStore;
+            };
             sharedDirectory = "${homeDirectory}/Shared";
             vpnDirectory = "${homeDirectory}/Shared/VPNs";
           };

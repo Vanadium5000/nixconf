@@ -213,6 +213,7 @@
       # Preferences
       preferences = {
         hostName = "main_vps";
+        configFiles.source = "store"; # main_vps has no ~/nixconf checkout; install repo-owned configs from the flake store copy.
         profiles = {
           terminal.enable = true;
           server.enable = true;

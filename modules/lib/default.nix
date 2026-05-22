@@ -17,6 +17,13 @@
     # NixOS activation-script helper for managing files in the primary user's home.
     userFiles = import ./_internal/user-files.nix { inherit lib; };
 
+    # Repo-owned config file helpers decide between live checkout paths and
+    # immutable flake-store paths consistently across wrappers and activation.
+    configFiles = import ./_internal/config-files.nix {
+      inherit lib;
+      root = ../..;
+    };
+
     # Generator functions for various config formats
     generators = import ./_internal/generators.nix { inherit lib; };
 

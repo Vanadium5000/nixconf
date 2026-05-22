@@ -13,7 +13,7 @@
 
       user = config.preferences.user.username;
       homeDirectory = config.preferences.paths.homeDirectory;
-      configDirectory = config.preferences.paths.configDirectory;
+      configSourceDirectory = config.preferences.paths.configSourceDirectory;
       system = pkgs.stdenv.hostPlatform.system;
       modelsCommand = self.packages.${system}.models;
       piApiKey = self.secrets.OMNIROUTE_PI_API_KEY or "";
@@ -24,7 +24,7 @@
       ompConfigFile = "${ompAgentDirectory}/config.yml";
       shellUser = lib.escapeShellArg user;
       shellHomeDirectory = lib.escapeShellArg homeDirectory;
-      shellConfigDirectory = lib.escapeShellArg configDirectory;
+      shellConfigSourceDirectory = lib.escapeShellArg configSourceDirectory;
       shellOmpDirectory = lib.escapeShellArg ompDirectory;
       shellOmpAgentDirectory = lib.escapeShellArg ompAgentDirectory;
       shellOmpModelsFile = lib.escapeShellArg ompModelsFile;
@@ -97,7 +97,7 @@
                 HOME=${shellHomeDirectory} \
                 MODELS_OMP_FILE=${shellOmpModelsFile} \
                 MODELS_OMP_API_KEY=${lib.escapeShellArg piApiKey} \
-                MODELS_STATE_DIR=${shellConfigDirectory}/modules/nixos/terminal/opencode \
+                MODELS_STATE_DIR=${shellConfigSourceDirectory}/modules/nixos/terminal/opencode \
                 ${modelsCommand}/bin/models sync-omp >/dev/null
               chmod 0600 ${shellOmpModelsFile}
               chown ${shellUser}:users ${shellOmpModelsFile}

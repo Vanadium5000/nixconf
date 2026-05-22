@@ -112,7 +112,7 @@
         services.git-sync.enable = true;
 
         preferences.zsh.aliases.gi = "git-identity setup";
-        preferences.zsh.aliases.gid = "git-identity setup";
+        preferences.zsh.aliases.g = "git-identity setup";
 
         services.acp-chat = {
           # User requested all-host LAN bind without opening the NixOS firewall;
@@ -154,6 +154,7 @@
           # PASSWORD_STORE_DIR for stuff like qs-passmenu
           PASSWORD_STORE_DIR = "$HOME/.local/share/password-store";
           FLAKE = config.preferences.paths.configDirectory; # Config Directory
+          NIXCONF_CONFIG_SOURCE = config.preferences.paths.configSourceDirectory;
         };
 
         # Add environment packages to system packages

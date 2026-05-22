@@ -10,7 +10,7 @@
     let
       user = config.preferences.user.username;
       homeDirectory = config.preferences.paths.homeDirectory;
-      configDirectory = config.preferences.paths.configDirectory;
+      configSourceDirectory = config.preferences.paths.configSourceDirectory;
       publicBaseDomain = self.secrets.PUBLIC_BASE_DOMAIN;
       system = pkgs.stdenv.hostPlatform.system;
 
@@ -143,8 +143,8 @@
             (pkgs.writeShellScript "image-gen-mcp-wrapper" ''
               export OMNIROUTE_OPENCODE_API_KEY="${self.secrets.OMNIROUTE_OPENCODE_API_KEY}"
               export OMNIROUTE_BASE_URL="https://omniroute.${publicBaseDomain}/v1"
-              MODELS_FILE="${configDirectory}/modules/nixos/terminal/opencode/models.json"
-              PATCHES_FILE="${configDirectory}/modules/nixos/terminal/opencode/_model-local-patches.json"
+              MODELS_FILE="${configSourceDirectory}/modules/nixos/terminal/opencode/models.json"
+              PATCHES_FILE="${configSourceDirectory}/modules/nixos/terminal/opencode/_model-local-patches.json"
 
               # Prefer the first runtime-effective model that advertises image output.
               # Source of truth is the repo models cache plus repo-owned JSON patches.

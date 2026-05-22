@@ -4,6 +4,7 @@
     { pkgs, self', ... }:
     let
       opencodeApiKey = self.secrets.OMNIROUTE_OPENCODE_API_KEY;
+      opencodeStateDirectory = self.lib.configFiles.known.opencodeStateDirectory;
 
       modelStateAssetsDir = pkgs.runCommand "models-state-assets" { } ''
         mkdir -p "$out"
@@ -22,7 +23,7 @@
         inherit pkgs;
         package = pkgs.writeShellScriptBin "models" ''
           # shell
-          MODELS_STATE_DIR="''${MODELS_STATE_DIR:-$HOME/nixconf/modules/nixos/terminal/opencode}"
+          MODELS_STATE_DIR="''${MODELS_STATE_DIR:-''${NIXCONF_CONFIG_SOURCE:-$HOME/nixconf}/${opencodeStateDirectory.relativePath}}"
           MODELS_FILE="$MODELS_STATE_DIR/models.json"
           STATE_FILE="$MODELS_STATE_DIR/state.json"
           PRESETS_FILE="$MODELS_STATE_DIR/presets.json"

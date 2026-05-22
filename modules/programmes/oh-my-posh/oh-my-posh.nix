@@ -1,9 +1,13 @@
-{ inputs, ... }:
+{ inputs, self, ... }:
 {
+  flake.ohMyPosh = {
+    themeFile = self.lib.configFiles.known.ohMyPoshTheme;
+  };
+
   perSystem =
     { pkgs, ... }:
     let
-      theme = "$FLAKE/modules/programmes/oh-my-posh/settings.json";
+      theme = self.ohMyPosh.themeFile.storePath;
     in
     {
       packages.oh-my-posh = inputs.wrappers.lib.makeWrapper {

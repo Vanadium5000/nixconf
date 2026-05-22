@@ -82,6 +82,8 @@
 
       inherit (self) colors;
 
+      settingsFile = self.lib.configFiles.known.vscodiumSettings;
+
       editorWaylandArgs = "--ozone-platform-hint=auto --enable-features=WaylandWindowDecorations --enable-wayland-ime=true --wayland-text-input-version=3";
 
       vscodiumWayland = editorEdgePkgs.vscodium.override {
@@ -174,10 +176,16 @@
           inherit pkgs;
           homeDirectory = config.preferences.paths.homeDirectory;
           files = {
-            ".config/VSCodium/User/settings.json".source =
-              "${config.preferences.paths.configDirectory}/modules/nixos/desktop/vscodium/settings.json";
-            ".config/Antigravity/User/settings.json".source =
-              "${config.preferences.paths.configDirectory}/modules/nixos/desktop/vscodium/settings.json";
+            ".config/VSCodium/User/settings.json" = self.lib.configFiles.mkUserFile {
+              inherit config;
+              inherit (settingsFile) relativePath storePath;
+              file.permissions = "0644";
+            };
+            ".config/Antigravity/User/settings.json" = self.lib.configFiles.mkUserFile {
+              inherit config;
+              inherit (settingsFile) relativePath storePath;
+              file.permissions = "0644";
+            };
           };
         };
         deps = [ "users" ];

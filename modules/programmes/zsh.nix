@@ -246,6 +246,7 @@ in
     }:
     let
       userPackageZshSetup = self.lib.userPackages.zshSetup;
+      ohMyPoshStoreTheme = self.ohMyPosh.themeFile.storePath;
       fallbackConfig = pkgs.writeText "nixconf-zsh-defaults.zsh" (
         renderConfig (defaultZshPreferences pkgs)
       );
@@ -641,8 +642,12 @@ in
             # Oh My Posh Prompt
             # ══════════════════════════════════════════════════════════════════
             export POSH_NO_TERM_QUERIES=1
-            eval "$(${self'.packages.oh-my-posh}/bin/oh-my-posh init zsh --config ${self'.packages.oh-my-posh.theme})"
-            _omp_config=${self'.packages.oh-my-posh.theme}
+            _omp_config="''${POSH_THEME:-${ohMyPoshStoreTheme}}"
+            if [[ -n "''${NIXCONF_CONFIG_SOURCE:-}" && -r "$NIXCONF_CONFIG_SOURCE/${self.ohMyPosh.themeFile.relativePath}" ]]; then
+              _omp_config="$NIXCONF_CONFIG_SOURCE/${self.ohMyPosh.themeFile.relativePath}"
+            fi
+            export POSH_THEME="$_omp_config"
+            eval "$(${self'.packages.oh-my-posh}/bin/oh-my-posh init zsh --config "$_omp_config")"
           '';
 
       # Create a directory with .zshrc file for ZDOTDIR
