@@ -11,6 +11,7 @@
         package = pkgs.oh-my-posh;
         env = {
           POSH_THEME = theme;
+          POSH_NO_TERM_QUERIES = "1";
         };
         passthru = {
           inherit theme;

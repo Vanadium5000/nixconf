@@ -672,6 +672,7 @@ in
             # ══════════════════════════════════════════════════════════════════
             # Oh My Posh Prompt
             # ══════════════════════════════════════════════════════════════════
+            export POSH_NO_TERM_QUERIES=1
             eval "$(${self'.packages.oh-my-posh}/bin/oh-my-posh init zsh --config ${self'.packages.oh-my-posh.theme})"
             _omp_config=${self'.packages.oh-my-posh.theme}
           '';
