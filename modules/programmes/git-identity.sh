@@ -3,44 +3,120 @@ set -euo pipefail
 git_bin=@git@
 gum_bin=@gum@
 config_home="${XDG_CONFIG_HOME:-$HOME/.config}"
-generated_identity_dir="$config_home/git/identities"
 manager_dir="$config_home/git/identity-manager"
-custom_identity_dir="$manager_dir/identities"
-global_rules="$manager_dir/includes.gitconfig"
-selected_identity_name=""
-selected_identity_source=""
+identity_dir="$manager_dir/identities"
 selected_identity_path=""
+selected_identity_name=""
+selected_identity_email=""
 
 usage() {
   cat <<'EOF'
 usage: git-identity [command] [args]
 
 commands:
-  setup [repo]             show current identity and interactively fix/change it
-  current [repo]           show effective identity and config origins
-  doctor [repo]            fail if a repo has no explicit identity
-  use <identity> [repo]    set repo-local identity using an existing identity
-  global <identity> [repo] set a persistent global gitdir rule for this repo
-  add                      interactively add a mutable identity
-  list                     list generated and mutable identities
-  manage [repo]            open the full identity manager menu
+  setup [repo]          open the identity picker; default command for gi/gid
+  manage [repo]         alias for setup
+  current [repo]        show the current repo identity
+  doctor [repo]         fail if the repo has no effective user.name/user.email
+  list                  list saved git-identity user/email pairs
+  add [repo]            add a saved pair; optionally use it for the current repo
+  use <identity> [repo] set repo-local user.name/user.email from a saved pair
+  edit <identity>       edit a saved pair
+  delete <identity>     delete a saved pair
 EOF
 }
 
 ensure_manager() {
-  mkdir -p "$custom_identity_dir"
-  if [ ! -e "$global_rules" ]; then
-    {
-      printf '# Managed by git-identity. This file is included by ~/.gitconfig.\n'
-      printf '%s\n' '# Add includeIf rules here manually or through git-identity global.'
-    } >"$global_rules"
+  mkdir -p "$identity_dir"
+}
+
+has_tui() {
+  [ -t 0 ] && [ -t 2 ] && [ -x "$gum_bin" ]
+}
+
+require_tui() {
+  if ! has_tui; then
+    printf 'error: interactive git-identity requires gum and an interactive terminal\n' >&2
+    return 2
   fi
+}
+
+style() {
+  if has_tui; then
+    "$gum_bin" style "$@"
+  else
+    shift $(( $# - 1 ))
+    printf '%s\n' "$1"
+  fi
+}
+
+paint() {
+  local color="$1" text="$2"
+  if has_tui; then
+    "$gum_bin" style --foreground "$color" "$text"
+  else
+    printf '%s\n' "$text"
+  fi
+}
+
+paint_bold() {
+  local color="$1" text="$2"
+  if has_tui; then
+    "$gum_bin" style --foreground "$color" --bold "$text"
+  else
+    printf '%s\n' "$text"
+  fi
+}
+
+choose_index() {
+  local header="$1"
+  shift
+
+  require_tui || return $?
+  if [ "$#" -eq 0 ]; then
+    return 1
+  fi
+
+  local selected index
+  selected="$(
+    "$gum_bin" choose \
+      --header "$header" \
+      --height 16 \
+      --cursor "› " \
+      --cursor.foreground 212 \
+      --header.foreground 63 \
+      --item.foreground 252 \
+      --selected.foreground 212 \
+      "$@"
+  )" || return 1
+
+  index=0
+  for option in "$@"; do
+    if [ "$option" = "$selected" ]; then
+      printf '%s\n' "$index"
+      return 0
+    fi
+    index=$((index + 1))
+  done
+
+  return 1
+}
+
+confirm_default_yes() {
+  local prompt="$1"
+  require_tui || return $?
+  "$gum_bin" confirm \
+    --default=true \
+    --prompt.foreground 63 \
+    --selected.foreground 212 \
+    --unselected.foreground 246 \
+    "$prompt"
 }
 
 repo_arg() {
   if [ "$#" -gt 1 ]; then
     usage >&2
-    exit 2
+    return 2
   fi
 
   if [ "$#" -eq 1 ]; then
@@ -55,9 +131,15 @@ git_repo_root() {
   "$git_bin" -C "$target" rev-parse --show-toplevel 2>/dev/null
 }
 
+maybe_repo_root() {
+  local target
+  target="$(repo_arg "$@")" || return $?
+  git_repo_root "$target" || true
+}
+
 require_repo_root() {
   local target root
-  target="$(repo_arg "$@")"
+  target="$(repo_arg "$@")" || return $?
   root="$(git_repo_root "$target")" || {
     printf 'error: not a git repository: %s\n' "$target" >&2
     return 2
@@ -65,524 +147,329 @@ require_repo_root() {
   printf '%s\n' "$root"
 }
 
-identity_rows() {
-  ensure_manager
-  local dir path name source
-  for dir in "$generated_identity_dir" "$custom_identity_dir"; do
-    if [ "$dir" = "$generated_identity_dir" ]; then
-      source="generated"
-    else
-      source="mutable"
-    fi
-
-    for path in "$dir"/*.gitconfig; do
-      [ -e "$path" ] || continue
-      name="${path##*/}"
-      name="${name%.gitconfig}"
-      printf '%s\t%s\t%s\n' "$name" "$source" "$path"
-    done
-  done
+identity_path_for_key() {
+  printf '%s/%s.gitconfig\n' "$identity_dir" "$1"
 }
 
-custom_identity_rows() {
+validate_key() {
+  case "$1" in
+    ''|*[!A-Za-z0-9._-]*) return 1 ;;
+    *) return 0 ;;
+  esac
+}
+
+identity_rows() {
   ensure_manager
-  local path name
-  for path in "$custom_identity_dir"/*.gitconfig; do
+  local path key name email
+  for path in "$identity_dir"/*.gitconfig; do
     [ -e "$path" ] || continue
-    name="${path##*/}"
-    name="${name%.gitconfig}"
-    printf '%s\tmutable\t%s\n' "$name" "$path"
+    key="${path##*/}"
+    key="${key%.gitconfig}"
+    name="$($git_bin config -f "$path" --get user.name 2>/dev/null || true)"
+    email="$($git_bin config -f "$path" --get user.email 2>/dev/null || true)"
+    [ -n "$name" ] || [ -n "$email" ] || continue
+    printf '%s\t%s\t%s\t%s\n' "$key" "$path" "$name" "$email"
   done
 }
 
 parse_identity_row() {
-  IFS=$'\t' read -r selected_identity_name selected_identity_source selected_identity_path <<<"$1"
+  local row="$1"
+  row="${row#*$'\t'}"
+  IFS=$'\t' read -r selected_identity_path selected_identity_name selected_identity_email <<<"$row"
 }
 
-identity_display() {
-  local row name source path git_name git_email
-  row="$1"
-  IFS=$'\t' read -r name source path <<<"$row"
-  git_name="$($git_bin config -f "$path" --get user.name 2>/dev/null || true)"
-  git_email="$($git_bin config -f "$path" --get user.email 2>/dev/null || true)"
-  printf '%s [%s] — %s <%s>\t%s\n' "$name" "$source" "$git_name" "$git_email" "$row"
-}
-
-choose_line() {
-  local prompt="$1"
-  shift
-
-  if [ "$#" -eq 0 ]; then
-    return 1
-  fi
-
-  if [ -t 0 ] && [ -t 1 ] && [ -x "$gum_bin" ]; then
-    "$gum_bin" choose \
-      --header "$prompt" \
-      --height 12 \
-      --cursor "➜ " \
-      --cursor.foreground 212 \
-      --header.foreground 63 \
-      --item.foreground 246 \
-      --selected.foreground 212 \
-      "$@"
-    return
-  fi
-
-  if [ ! -r /dev/tty ] || [ ! -w /dev/tty ]; then
-    return 1
-  fi
-
-  local index=1 choice line
-  for line in "$@"; do
-    printf '%2d) %s\n' "$index" "$line" >/dev/tty
-    index=$((index + 1))
-  done
-
-  printf '%s' "$prompt" >/dev/tty
-  IFS= read -r choice </dev/tty || return 1
-  case "$choice" in
-    ''|*[!0-9]*) return 1 ;;
-  esac
-
-  if [ "$choice" -lt 1 ] || [ "$choice" -gt "$#" ]; then
-    return 1
-  fi
-
-  index=1
-  for line in "$@"; do
-    if [ "$index" -eq "$choice" ]; then
-      printf '%s\n' "$line"
+find_identity_by_key() {
+  local wanted="$1" key path name email
+  while IFS=$'\t' read -r key path name email; do
+    if [ "$key" = "$wanted" ]; then
+      selected_identity_path="$path"
+      selected_identity_name="$name"
+      selected_identity_email="$email"
       return 0
     fi
-    index=$((index + 1))
-  done
-
+  done < <(identity_rows)
   return 1
 }
 
-choose_identity() {
-  local rows=() display_rows=() row selected selected_display
+identity_option() {
+  local row key path name email styled_name styled_email styled_key
+  row="$1"
+  IFS=$'\t' read -r key path name email <<<"$row"
+
+  styled_name="$(paint_bold 212 "${name:-<missing name>}")"
+  styled_email="$(paint 86 "<${email:-missing email}>")"
+  styled_key="$(paint 246 "$key")"
+  printf '%s  %s  %s\n' "$styled_name" "$styled_email" "$styled_key"
+}
+
+print_repo_card() {
+  local root="$1" name email origin name_origin email_origin body
+
+  if [ -z "$root" ]; then
+    body="$(printf 'Repo:  not in a git repository\nMode:  manage saved identities only')"
+  else
+    name="$($git_bin -C "$root" config --get user.name 2>/dev/null || true)"
+    email="$($git_bin -C "$root" config --get user.email 2>/dev/null || true)"
+    name_origin="$($git_bin -C "$root" config --show-origin --get user.name 2>/dev/null || true)"
+    email_origin="$($git_bin -C "$root" config --show-origin --get user.email 2>/dev/null || true)"
+    name_origin="${name_origin%%$'\t'*}"
+    email_origin="${email_origin%%$'\t'*}"
+
+    if [ -n "$name_origin" ] && [ "$name_origin" = "$email_origin" ]; then
+      origin="${name_origin#file:}"
+    elif [ -n "$name_origin" ] || [ -n "$email_origin" ]; then
+      origin="mixed git config origins"
+    else
+      origin="not set"
+    fi
+
+    body="$(printf 'Repo:  %s\nName:  %s\nEmail: %s\nFrom:  %s' "$root" "${name:-<missing>}" "${email:-<missing>}" "$origin")"
+  fi
+
+  if has_tui; then
+    "$gum_bin" style \
+      --border rounded \
+      --border-foreground 63 \
+      --padding '0 1' \
+      --margin '0 0 1 0' \
+      "$body"
+  else
+    printf '%s\n' "$body"
+  fi
+}
+
+print_identity_list() {
+  local rows=() row key path name email
   mapfile -t rows < <(identity_rows)
 
   if [ "${#rows[@]}" -eq 0 ]; then
-    printf 'No identities exist yet.\n' >&2
-    return 1
+    printf 'No saved git-identity pairs.\n'
+    return 0
   fi
 
-  for row in "${rows[@]}"; do
-    display_rows+=("$(identity_display "$row")")
-  done
-
-  selected_display="$(choose_line 'identity> ' "${display_rows[@]}")" || return 1
-  selected="${selected_display##*$'\t'}"
-  parse_identity_row "$selected"
-}
-
-choose_custom_identity() {
-  local rows=() display_rows=() row selected selected_display
-  mapfile -t rows < <(custom_identity_rows)
-
-  if [ "${#rows[@]}" -eq 0 ]; then
-    printf 'No mutable identities exist yet. Generated identities are managed by Nix.\n' >&2
-    return 1
-  fi
-
-  for row in "${rows[@]}"; do
-    display_rows+=("$(identity_display "$row")")
-  done
-
-  selected_display="$(choose_line 'mutable identity> ' "${display_rows[@]}")" || return 1
-  selected="${selected_display##*$'\t'}"
-  parse_identity_row "$selected"
-}
-
-find_identity_by_name() {
-  local wanted="$1" row name source path
-
-  while IFS=$'\t' read -r name source path; do
-    if [ "$source" = "mutable" ] && [ "$name" = "$wanted" ]; then
-      selected_identity_name="$name"
-      selected_identity_source="$source"
-      selected_identity_path="$path"
-      return 0
-    fi
-  done < <(identity_rows)
-
-  while IFS=$'\t' read -r name source path; do
-    if [ "$name" = "$wanted" ]; then
-      selected_identity_name="$name"
-      selected_identity_source="$source"
-      selected_identity_path="$path"
-      return 0
-    fi
-  done < <(identity_rows)
-
-  return 1
-}
-
-prompt_value() {
-  local label="$1" default="${2:-}" value
-  if [ -t 0 ] && [ -t 1 ] && [ -x "$gum_bin" ]; then
-    if [ -n "$default" ]; then
-      "$gum_bin" input \
-        --prompt "$label: " \
-        --value "$default" \
-        --cursor.foreground 212 \
-        --prompt.foreground 63
-    else
-      "$gum_bin" input \
-        --prompt "$label: " \
-        --cursor.foreground 212 \
-        --prompt.foreground 63
-    fi
-    return
-  fi
-
-  if [ ! -r /dev/tty ] || [ ! -w /dev/tty ]; then
-    printf 'error: interactive input requires a tty\n' >&2
-    return 2
-  fi
-
-  if [ -n "$default" ]; then
-    printf '%s [%s]: ' "$label" "$default" >/dev/tty
+  if has_tui; then
+    paint_bold 63 'Saved identities'
   else
-    printf '%s: ' "$label" >/dev/tty
-  fi
-  IFS= read -r value </dev/tty || return 2
-  printf '%s\n' "${value:-$default}"
-}
-
-confirm() {
-  local label="$1" answer
-  if [ -t 0 ] && [ -t 1 ] && [ -x "$gum_bin" ]; then
-    "$gum_bin" confirm \
-      --prompt.foreground 63 \
-      --selected.foreground 212 \
-      --unselected.foreground 246 \
-      "$label"
-    return
+    printf 'Saved identities\n'
   fi
 
-  if [ ! -r /dev/tty ] || [ ! -w /dev/tty ]; then
-    return 1
-  fi
-  printf '%s [y/N]: ' "$label" >/dev/tty
-  IFS= read -r answer </dev/tty || return 1
-  case "$answer" in
-    y|Y|yes|YES) return 0 ;;
-    *) return 1 ;;
-  esac
-}
-
-add_identity() {
-  ensure_manager
-  local key name email signing_key gpg_format sign_by_default path
-
-  while true; do
-    key="$(prompt_value 'identity key (letters, numbers, dot, dash, underscore)')" || return 2
-    case "$key" in
-      '') printf 'identity key cannot be empty\n' >&2 ;;
-      *[!A-Za-z0-9._-]*) printf 'identity key contains invalid characters\n' >&2 ;;
-      *) break ;;
-    esac
-  done
-
-  if find_identity_by_name "$key"; then
-    printf 'error: identity already exists: %s (%s)\n' "$selected_identity_name" "$selected_identity_source" >&2
-    return 1
-  fi
-
-  name="$(prompt_value 'user.name')" || return 2
-  email="$(prompt_value 'user.email')" || return 2
-  signing_key="$(prompt_value 'user.signingKey (optional)')" || return 2
-  gpg_format=""
-  sign_by_default="false"
-
-  if [ -n "$signing_key" ]; then
-    gpg_format="$(prompt_value 'gpg.format' 'ssh')" || return 2
-    if confirm 'sign commits by default for this identity?'; then
-      sign_by_default="true"
+  for row in "${rows[@]}"; do
+    IFS=$'\t' read -r key path name email <<<"$row"
+    if has_tui; then
+      printf '%s  %s\n' "$(paint_bold 212 "${name:-<missing name>}")" "$(paint 86 "<${email:-missing email}>")"
+      printf '  %s  %s\n' "$(paint 246 "$key")" "$(paint 240 "$path")"
+    else
+      printf '%s <%s> [%s]\n  %s\n' "${name:-<missing name>}" "${email:-missing email}" "$key" "$path"
     fi
-  fi
+  done
+}
 
-  path="$custom_identity_dir/$key.gitconfig"
+prompt_required() {
+  local label="$1" default="${2:-}" value
+  require_tui || return $?
+  while true; do
+    if [ -n "$default" ]; then
+      value="$("$gum_bin" input --prompt "$label: " --value "$default" --prompt.foreground 63 --cursor.foreground 212)" || return 1
+    else
+      value="$("$gum_bin" input --prompt "$label: " --prompt.foreground 63 --cursor.foreground 212)" || return 1
+    fi
+
+    if [ -n "$value" ]; then
+      printf '%s\n' "$value"
+      return 0
+    fi
+
+    "$gum_bin" style --foreground 196 'Required.' >&2
+  done
+}
+
+write_identity() {
+  local key="$1" name="$2" email="$3" path
+  ensure_manager
+  path="$(identity_path_for_key "$key")"
   : >"$path"
   "$git_bin" config -f "$path" user.name "$name"
   "$git_bin" config -f "$path" user.email "$email"
-  "$git_bin" config -f "$path" user.useConfigOnly true
+}
 
-  if [ -n "$signing_key" ]; then
-    "$git_bin" config -f "$path" user.signingKey "$signing_key"
-    "$git_bin" config -f "$path" gpg.format "$gpg_format"
-    "$git_bin" config -f "$path" commit.gpgSign "$sign_by_default"
+add_identity() {
+  local root="${1:-}" key name email default_key path
+  require_tui || return $?
+
+  if has_tui; then
+    "$gum_bin" style --foreground 63 --bold 'Add new identity'
   fi
 
-  printf 'created mutable identity: %s\n' "$path"
-  selected_identity_name="$key"
-  selected_identity_source="mutable"
-  selected_identity_path="$path"
-}
+  name="$(prompt_required 'Name')" || return $?
+  email="$(prompt_required 'Email')" || return $?
+  default_key="${email%@*}"
+  default_key="${default_key// /-}"
 
-show_identities() {
-  local row name source path git_name git_email signing_key
-  while IFS=$'\t' read -r name source path; do
-    git_name="$($git_bin config -f "$path" --get user.name 2>/dev/null || true)"
-    git_email="$($git_bin config -f "$path" --get user.email 2>/dev/null || true)"
-    signing_key="$($git_bin config -f "$path" --get user.signingKey 2>/dev/null || true)"
-    printf '%-20s %-9s %s <%s>' "$name" "$source" "$git_name" "$git_email"
-    if [ -n "$signing_key" ]; then
-      printf ' signingKey=%s' "$signing_key"
+  while true; do
+    key="$(prompt_required 'Label' "$default_key")" || return $?
+    if ! validate_key "$key"; then
+      "$gum_bin" style --foreground 196 'Use only letters, numbers, dot, dash, or underscore.' >&2
+      continue
     fi
-    printf '\n  %s\n' "$path"
-  done < <(identity_rows)
+
+    path="$(identity_path_for_key "$key")"
+    if [ -e "$path" ]; then
+      "$gum_bin" style --foreground 196 'That label already exists.' >&2
+      continue
+    fi
+
+    break
+  done
+
+  write_identity "$key" "$name" "$email"
+  find_identity_by_key "$key"
+
+  if [ -n "$root" ] && confirm_default_yes 'Use this identity for the current repo?'; then
+    set_repo_identity_values "$root" "$name" "$email"
+  fi
 }
 
-identity_origin_label() {
-  local root="$1" line origin path base
-  line="$($git_bin -C "$root" config --show-origin --get user.email 2>/dev/null || true)"
-  [ -n "$line" ] || return 1
-  origin="${line%%$'\t'*}"
-  case "$origin" in
-    file:*)
-      path="${origin#file:}"
-      base="${path##*/}"
-      base="${base%.gitconfig}"
-      printf '%s (%s)\n' "$base" "$path"
-      ;;
-    *)
-      printf '%s\n' "$origin"
-      ;;
+legacy_repo_identity_config_path() {
+  local root="$1" git_dir
+  git_dir="$($git_bin -C "$root" rev-parse --absolute-git-dir)"
+  printf '%s/nixconf-identity.gitconfig\n' "$git_dir"
+}
+
+remove_legacy_repo_include() {
+  local root="$1" include_file
+  include_file="$(legacy_repo_identity_config_path "$root")"
+  "$git_bin" -C "$root" config --local --fixed-value --unset-all include.path "$include_file" 2>/dev/null || true
+  rm -f "$include_file"
+}
+
+set_repo_identity_values() {
+  local root="$1" name="$2" email="$3"
+  remove_legacy_repo_include "$root"
+  "$git_bin" -C "$root" config --local user.name "$name"
+  "$git_bin" -C "$root" config --local user.email "$email"
+  "$git_bin" -C "$root" config --local user.useConfigOnly true
+
+  if has_tui; then
+    "$gum_bin" style --foreground 42 --bold 'Saved to this repo.'
+  else
+    printf 'saved to repo: %s <%s>\n' "$name" "$email"
+  fi
+}
+
+set_repo_identity_by_key() {
+  local key="$1" root="$2"
+  if ! find_identity_by_key "$key"; then
+    printf 'error: unknown identity: %s\n' "$key" >&2
+    return 2
+  fi
+  set_repo_identity_values "$root" "$selected_identity_name" "$selected_identity_email"
+}
+
+edit_identity_by_key() {
+  local key="$1" name email
+  require_tui || return $?
+  if ! find_identity_by_key "$key"; then
+    printf 'error: unknown identity: %s\n' "$key" >&2
+    return 2
+  fi
+
+  name="$(prompt_required 'Name' "$selected_identity_name")" || return $?
+  email="$(prompt_required 'Email' "$selected_identity_email")" || return $?
+  write_identity "$key" "$name" "$email"
+  "$gum_bin" style --foreground 42 --bold 'Updated saved identity.'
+}
+
+delete_identity_by_key() {
+  local key="$1"
+  require_tui || return $?
+  if ! find_identity_by_key "$key"; then
+    printf 'error: unknown identity: %s\n' "$key" >&2
+    return 2
+  fi
+
+  if confirm_default_yes "Delete $selected_identity_name <$selected_identity_email>?"; then
+    rm -f "$selected_identity_path"
+    "$gum_bin" style --foreground 42 --bold 'Deleted saved identity.'
+  fi
+}
+
+identity_actions() {
+  local root="$1" row="$2" action_index options=() key path name email
+  IFS=$'\t' read -r key path name email <<<"$row"
+
+  print_repo_card "$root"
+  if has_tui; then
+    "$gum_bin" style \
+      --border rounded \
+      --border-foreground 212 \
+      --padding '0 1' \
+      --margin '0 0 1 0' \
+      "$(printf 'Identity\n%s <%s>\n%s' "$name" "$email" "$key")"
+  fi
+
+  if [ -n "$root" ]; then
+    options+=("Use for this repo")
+  fi
+  options+=("Edit" "Delete")
+
+  action_index="$(choose_index 'Identity action' "${options[@]}")" || return 0
+  case "${options[$action_index]}" in
+    'Use for this repo') set_repo_identity_values "$root" "$name" "$email" ;;
+    'Edit') edit_identity_by_key "$key" ;;
+    'Delete') delete_identity_by_key "$key" ;;
   esac
 }
 
-show_summary() {
-  local root="$1" name email signing_key origin_label
-  name="$($git_bin -C "$root" config --get user.name 2>/dev/null || true)"
-  email="$($git_bin -C "$root" config --get user.email 2>/dev/null || true)"
-  signing_key="$($git_bin -C "$root" config --get user.signingKey 2>/dev/null || true)"
-  origin_label="$(identity_origin_label "$root" || true)"
+setup_repo() {
+  local root rows=() options=() row selected_index add_option
+  require_tui || return $?
+  root="$(maybe_repo_root "$@")" || return $?
 
-  printf 'repo:        %s\n' "$root"
-  if [ -n "$name" ] && [ -n "$email" ]; then
-    printf 'status:      configured\n'
-    printf 'identity:    %s\n' "${origin_label:-unknown origin}"
-    printf 'name:        %s\n' "$name"
-    printf 'email:       %s\n' "$email"
-    if [ -n "$signing_key" ]; then
-      printf 'signingKey:  %s\n' "$signing_key"
-    fi
+  print_repo_card "$root"
+
+  mapfile -t rows < <(identity_rows)
+  for row in "${rows[@]}"; do
+    options+=("$(identity_option "$row")")
+  done
+
+  add_option="$(paint_bold 42 'Add new identity')"
+  options+=("$add_option")
+
+  selected_index="$(choose_index 'Select an identity' "${options[@]}")" || return 0
+  if [ "$selected_index" -eq "${#rows[@]}" ]; then
+    add_identity "$root"
   else
-    printf 'status:      missing identity\n'
-    printf 'name:        %s\n' "${name:-<missing>}"
-    printf 'email:       %s\n' "${email:-<missing>}"
+    identity_actions "$root" "${rows[$selected_index]}"
   fi
 }
 
 show_current() {
   local root
   root="$(require_repo_root "$@")" || return $?
-  show_summary "$root"
+  print_repo_card "$root"
+}
+
+show_current_with_origins() {
+  local root
+  root="$(require_repo_root "$@")" || return $?
+  print_repo_card "$root"
   printf '\norigins:\n'
   "$git_bin" -C "$root" config --show-origin --get-regexp '^(user|commit|gpg)\.' || true
 }
 
-repo_identity_config_path() {
-  local root="$1" git_dir
-  git_dir="$($git_bin -C "$root" rev-parse --absolute-git-dir)"
-  printf '%s/nixconf-identity.gitconfig\n' "$git_dir"
-}
-
-ensure_repo_identity_include() {
-  local root="$1" include_file="$2" existing has_include=0
-  while IFS= read -r existing; do
-    if [ "$existing" = "$include_file" ]; then
-      has_include=1
-      break
-    fi
-  done < <("$git_bin" -C "$root" config --local --get-all include.path 2>/dev/null || true)
-
-  if [ "$has_include" -eq 0 ]; then
-    "$git_bin" -C "$root" config --local --add include.path "$include_file"
-  fi
-}
-
-set_repo_identity_path() {
-  local root="$1" identity_path="$2" include_file
-  include_file="$(repo_identity_config_path "$root")"
-  mkdir -p "${include_file%/*}"
-  : >"$include_file"
-  "$git_bin" config -f "$include_file" include.path "$identity_path"
-  ensure_repo_identity_include "$root" "$include_file"
-  printf 'repo-local identity include set: %s -> %s\n' "$include_file" "$identity_path"
-}
-
-set_repo_identity() {
-  local root="$1"
-  choose_identity || return 1
-  set_repo_identity_path "$root" "$selected_identity_path"
-  show_summary "$root"
-}
-
-set_repo_identity_by_name() {
-  local identity="$1" root="$2"
-  if ! find_identity_by_name "$identity"; then
-    printf 'error: unknown identity: %s\n' "$identity" >&2
-    printf 'known identities:\n' >&2
-    show_identities >&2
-    return 2
-  fi
-  set_repo_identity_path "$root" "$selected_identity_path"
-  show_summary "$root"
-}
-
-set_global_identity_path() {
-  local root="$1" identity_path="$2" condition key
-  ensure_manager
-  condition="gitdir:${root%/}/"
-  key="includeIf.${condition}.path"
-  "$git_bin" config -f "$global_rules" --replace-all "$key" "$identity_path"
-  printf 'global gitdir rule set in %s\n' "$global_rules"
-  printf '%s -> %s\n' "$condition" "$identity_path"
-}
-
-set_global_identity() {
-  local root="$1"
-  choose_identity || return 1
-  set_global_identity_path "$root" "$selected_identity_path"
-  show_summary "$root"
-}
-
-set_global_identity_by_name() {
-  local identity="$1" root="$2"
-  if ! find_identity_by_name "$identity"; then
-    printf 'error: unknown identity: %s\n' "$identity" >&2
-    printf 'known identities:\n' >&2
-    show_identities >&2
-    return 2
-  fi
-  set_global_identity_path "$root" "$selected_identity_path"
-  show_summary "$root"
-}
-
 doctor() {
-  local root missing=0
+  local root name email
   root="$(require_repo_root "$@")" || return $?
-
-  if ! "$git_bin" -C "$root" config --get user.name >/dev/null; then
-    printf 'error: user.name is not configured for %s\n' "$root" >&2
-    missing=1
-  fi
-
-  if ! "$git_bin" -C "$root" config --get user.email >/dev/null; then
-    printf 'error: user.email is not configured for %s\n' "$root" >&2
-    missing=1
-  fi
-
-  if [ "$missing" -ne 0 ]; then
-    printf '%s\n' 'hint: run gid or git-identity setup to choose/create an identity for this repo' >&2
-    return 1
-  fi
-
-  printf 'ok: %s\n' "$root"
-  show_summary "$root"
-}
-
-edit_identity() {
-  choose_custom_identity || return 1
-  "${EDITOR:-vi}" "$selected_identity_path"
-}
-
-delete_identity() {
-  choose_custom_identity || return 1
-  printf 'selected mutable identity: %s (%s)\n' "$selected_identity_name" "$selected_identity_path"
-  if confirm 'delete this identity file?'; then
-    rm -f "$selected_identity_path"
-    printf 'deleted %s\n' "$selected_identity_path"
-  fi
-}
-
-setup_repo() {
-  local root action name email
-  root="$(require_repo_root "$@")" || return $?
-  show_summary "$root"
-  printf '\n'
-
   name="$($git_bin -C "$root" config --get user.name 2>/dev/null || true)"
   email="$($git_bin -C "$root" config --get user.email 2>/dev/null || true)"
 
   if [ -z "$name" ] || [ -z "$email" ]; then
-    action="$(choose_line 'setup> ' \
-      'Set repo-local identity' \
-      'Set persistent global rule for this repo path' \
-      'Add a new identity, then set it repo-local' \
-      'Add a new identity, then set it globally for this repo path' \
-      'List identities' \
-      'Quit')" || return 1
-  else
-    action="$(choose_line 'manage> ' \
-      'Change repo-local identity' \
-      'Set/replace persistent global rule for this repo path' \
-      'Add a new identity' \
-      'List identities' \
-      'Show full origins' \
-      'Quit')" || return 1
+    printf 'error: %s has no complete Git identity\n' "$root" >&2
+    printf 'hint: run gi, gid, or git-identity setup\n' >&2
+    return 1
   fi
 
-  case "$action" in
-    'Set repo-local identity'|'Change repo-local identity') set_repo_identity "$root" ;;
-    'Set persistent global rule for this repo path'|'Set/replace persistent global rule for this repo path') set_global_identity "$root" ;;
-    'Add a new identity, then set it repo-local') add_identity && set_repo_identity_path "$root" "$selected_identity_path" && show_summary "$root" ;;
-    'Add a new identity, then set it globally for this repo path') add_identity && set_global_identity_path "$root" "$selected_identity_path" && show_summary "$root" ;;
-    'Add a new identity') add_identity ;;
-    'List identities') show_identities ;;
-    'Show full origins') show_current "$root" ;;
-    'Quit') return 0 ;;
-  esac
-}
-
-manage() {
-  local root="" action
-  if root="$(git_repo_root "$(repo_arg "$@")")"; then
-    :
-  else
-    root=""
-  fi
-
-  while true; do
-    if [ -n "$root" ]; then
-      show_summary "$root"
-      printf '\n'
-      action="$(choose_line 'git-identity> ' \
-        'Set repo-local identity' \
-        'Set persistent global rule for this repo path' \
-        'Add identity' \
-        'Edit mutable identity' \
-        'Delete mutable identity' \
-        'List identities' \
-        'Show full origins' \
-        'Quit')" || return 1
-    else
-      action="$(choose_line 'git-identity> ' \
-        'Add identity' \
-        'Edit mutable identity' \
-        'Delete mutable identity' \
-        'List identities' \
-        'Quit')" || return 1
-    fi
-
-    case "$action" in
-      'Set repo-local identity') set_repo_identity "$root" ;;
-      'Set persistent global rule for this repo path') set_global_identity "$root" ;;
-      'Add identity') add_identity ;;
-      'Edit mutable identity') edit_identity ;;
-      'Delete mutable identity') delete_identity ;;
-      'List identities') show_identities ;;
-      'Show full origins') show_current "$root" ;;
-      'Quit') return 0 ;;
-    esac
-    printf '\n'
-  done
+  printf 'ok: %s <%s>\n' "$name" "$email"
 }
 
 main() {
@@ -597,35 +484,45 @@ main() {
   shift
 
   case "$command" in
-    setup) setup_repo "$@" ;;
-    manage) manage "$@" ;;
+    setup|manage) setup_repo "$@" ;;
     current) show_current "$@" ;;
+    origins) show_current_with_origins "$@" ;;
     doctor) doctor "$@" ;;
-    list) show_identities ;;
-    add) add_identity ;;
+    list) print_identity_list ;;
+    add)
+      local root
+      root="$(maybe_repo_root "$@")" || return $?
+      add_identity "$root"
+      ;;
     use)
       if [ "$#" -lt 1 ] || [ "$#" -gt 2 ]; then
         printf 'usage: git-identity use <identity> [repo]\n' >&2
         return 2
       fi
-      local identity="$1" target="${2:-.}" root
-      root="$(git_repo_root "$target")" || {
+      local identity="$1" target="${2:-.}" repo_root
+      repo_root="$(git_repo_root "$target")" || {
         printf 'error: not a git repository: %s\n' "$target" >&2
         return 2
       }
-      set_repo_identity_by_name "$identity" "$root"
+      set_repo_identity_by_key "$identity" "$repo_root"
       ;;
-    global)
-      if [ "$#" -lt 1 ] || [ "$#" -gt 2 ]; then
-        printf 'usage: git-identity global <identity> [repo]\n' >&2
+    edit)
+      if [ "$#" -ne 1 ]; then
+        printf 'usage: git-identity edit <identity>\n' >&2
         return 2
       fi
-      local identity="$1" target="${2:-.}" root
-      root="$(git_repo_root "$target")" || {
-        printf 'error: not a git repository: %s\n' "$target" >&2
+      edit_identity_by_key "$1"
+      ;;
+    delete|rm)
+      if [ "$#" -ne 1 ]; then
+        printf 'usage: git-identity delete <identity>\n' >&2
         return 2
-      }
-      set_global_identity_by_name "$identity" "$root"
+      fi
+      delete_identity_by_key "$1"
+      ;;
+    global)
+      printf 'error: global git-identity rules were removed; use "git-identity use <identity> [repo]" for repo-local user.name/user.email\n' >&2
+      return 2
       ;;
     -h|--help|help) usage ;;
     *)

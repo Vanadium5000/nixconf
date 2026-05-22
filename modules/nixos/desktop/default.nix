@@ -82,6 +82,7 @@
           kdePackages.ark # Archive Manager
           kdePackages.okular # Document Viewer
           kdePackages.gwenview # Image Viewer
+          kdePackages.kmail # Email Client
 
           # KDE / Qt System Administration
           kdePackages.plasma-systemmonitor # System Monitor GUI

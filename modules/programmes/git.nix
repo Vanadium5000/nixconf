@@ -98,9 +98,6 @@ let
       mutableIncludes = ''
         [include]
           path = "~/.config/git/common.gitconfig"
-
-        [include]
-          path = "~/.config/git/identity-manager/includes.gitconfig"
       '';
       identityIncludes = concatMapStringsSep "\n" renderConditionalInclude cfg.includes;
     in
@@ -112,14 +109,37 @@ let
 
   mkIdentityFiles =
     cfg:
-    mapAttrs' (
-      name: identity:
-      nameValuePair ".config/git/identities/${name}.gitconfig" {
-        text = gitLib.mkIdentityConfig identity;
-        type = "copy";
-        permissions = "0644";
-      }
-    ) cfg.identities;
+    let
+      renderIdentityPair =
+        identity: ''
+          [user]
+            name = "${gitLib.escapeGitString identity.name}"
+            email = "${gitLib.escapeGitString identity.email}"
+        '';
+    in
+    (mapAttrs'
+      (
+        name: identity:
+        nameValuePair ".config/git/identities/${name}.gitconfig" {
+          text = gitLib.mkIdentityConfig identity;
+          type = "copy";
+          permissions = "0644";
+        }
+      )
+      cfg.identities
+    )
+    // (mapAttrs'
+      (
+        name: identity:
+        nameValuePair ".config/git/identity-manager/identities/${name}.gitconfig" {
+          text = renderIdentityPair identity;
+          type = "copy";
+          clobber = false;
+          permissions = "0644";
+        }
+      )
+      cfg.identities
+    );
 
   mkHelper =
     pkgs:
@@ -245,16 +265,6 @@ in
               ".config/git/common.gitconfig" = {
                 text = gitLib.renderConfigAttrs cfg.commonConfig;
                 type = "copy";
-                permissions = "0644";
-              };
-
-              ".config/git/identity-manager/includes.gitconfig" = {
-                text = ''
-                  # Managed by git-identity. This mutable file is persisted and
-                  # included by ~/.gitconfig for ad-hoc per-project gitdir rules.
-                '';
-                type = "copy";
-                clobber = false;
                 permissions = "0644";
               };
             }
