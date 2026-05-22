@@ -82,7 +82,6 @@
           kdePackages.ark # Archive Manager
           kdePackages.okular # Document Viewer
           kdePackages.gwenview # Image Viewer
-          kdePackages.kmail # Email Client
 
           # KDE / Qt System Administration
           kdePackages.plasma-systemmonitor # System Monitor GUI
@@ -138,6 +137,14 @@
         ])
         # GPU monitoring
         ++ (lib.optional config.nixpkgs.config.cudaSupport pkgs.nvtopPackages.full);
+
+        # KMail needs the full KDE PIM base on the system profile so Akonadi
+        # agents, resources, and the account wizard are discoverable outside Plasma.
+        # Ref: nixos/modules/programs/kde-pim.nix; NixOS/nixpkgs#292450.
+        programs.kde-pim = {
+          enable = true;
+          kmail = true;
+        };
 
         services = {
           # D-Bus activation for KDE services (SolidUiServer requires plasma-workspace)
@@ -229,17 +236,30 @@
           };
         };
 
-        # Browser persistence
-        # Keep profile/settings in normal persistence because cookies, extensions,
-        # and preferences are user state; cache remains in the cache tier so
-        # regenerated Chromium data stays out of backups.
-        # Refs: modules/common/impermanence.nix home/cache split;
-        # modules/_pkgs/brave-origin/make-brave.nix mainProgram = "brave-origin".
+        # Browser and mail persistence
+        # Keep GUI profile/account state in normal persistence; browser caches and
+        # the Akonadi DB/search index are reproducible cache. KMail/Akonadi keep
+        # account/resource config in XDG config and local mail/contact data under
+        # XDG data. Sources: KDE UserBase KMail migration + Akonadi storage docs.
         impermanence.home.directories = [
+          ".config/akonadi"
           ".config/BraveSoftware/Brave-Origin-Nightly"
+          ".local/share/contacts"
+          ".local/share/emailidentities"
+          ".local/share/kmail2"
+          ".local/share/local-mail"
+          ".local/share/mail"
         ];
         impermanence.home.cache.directories = [
+          ".cache/akonadi"
           ".cache/BraveSoftware/Brave-Origin-Nightly"
+          ".local/share/akonadi"
+        ];
+        impermanence.home.files = [
+          ".config/emaildefaults"
+          ".config/emailidentities"
+          ".config/kmail2rc"
+          ".config/mailtransports"
         ];
 
         # XDG Integration

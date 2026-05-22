@@ -77,7 +77,13 @@ choose_index() {
     return 1
   fi
 
-  local selected index
+  local selected selected_number index option display_options=()
+  index=0
+  for option in "$@"; do
+    display_options+=("$(printf '%2d  %s' "$((index + 1))" "$option")")
+    index=$((index + 1))
+  done
+
   selected="$(
     "$gum_bin" choose \
       --header "$header" \
@@ -87,19 +93,20 @@ choose_index() {
       --header.foreground 63 \
       --item.foreground 252 \
       --selected.foreground 212 \
-      "$@"
+      "${display_options[@]}"
   )" || return 1
 
-  index=0
-  for option in "$@"; do
-    if [ "$option" = "$selected" ]; then
-      printf '%s\n' "$index"
-      return 0
-    fi
-    index=$((index + 1))
-  done
+  selected_number="${selected%%  *}"
+  selected_number="${selected_number//[[:space:]]/}"
+  case "$selected_number" in
+    ''|*[!0-9]*) return 1 ;;
+  esac
 
-  return 1
+  if [ "$selected_number" -lt 1 ] || [ "$selected_number" -gt "$#" ]; then
+    return 1
+  fi
+
+  printf '%s\n' "$((selected_number - 1))"
 }
 
 confirm_default_yes() {
@@ -111,6 +118,28 @@ confirm_default_yes() {
     --selected.foreground 212 \
     --unselected.foreground 246 \
     "$prompt"
+}
+
+show_status() {
+  local message="$1"
+  if has_tui; then
+    "$gum_bin" style --foreground 42 --bold "$message"
+  else
+    printf '%s\n' "$message"
+  fi
+}
+
+pause_after_action() {
+  has_tui || return 0
+  "$gum_bin" input \
+    --placeholder 'Press Enter to continue' \
+    --prompt '' \
+    --cursor.foreground 212 >/dev/null || true
+}
+
+clear_screen() {
+  has_tui || return 0
+  printf '\033[2J\033[3J\033[H'
 }
 
 repo_arg() {
@@ -350,7 +379,7 @@ set_repo_identity_values() {
   "$git_bin" -C "$root" config --local user.useConfigOnly true
 
   if has_tui; then
-    "$gum_bin" style --foreground 42 --bold 'Saved to this repo.'
+    show_status 'Saved to this repo.'
   else
     printf 'saved to repo: %s <%s>\n' "$name" "$email"
   fi
@@ -376,7 +405,7 @@ edit_identity_by_key() {
   name="$(prompt_required 'Name' "$selected_identity_name")" || return $?
   email="$(prompt_required 'Email' "$selected_identity_email")" || return $?
   write_identity "$key" "$name" "$email"
-  "$gum_bin" style --foreground 42 --bold 'Updated saved identity.'
+  show_status 'Updated saved identity.'
 }
 
 delete_identity_by_key() {
@@ -389,7 +418,7 @@ delete_identity_by_key() {
 
   if confirm_default_yes "Delete $selected_identity_name <$selected_identity_email>?"; then
     rm -f "$selected_identity_path"
-    "$gum_bin" style --foreground 42 --bold 'Deleted saved identity.'
+    show_status 'Deleted saved identity.'
   fi
 }
 
@@ -397,7 +426,6 @@ identity_actions() {
   local root="$1" row="$2" action_index options=() key path name email
   IFS=$'\t' read -r key path name email <<<"$row"
 
-  print_repo_card "$root"
   if has_tui; then
     "$gum_bin" style \
       --border rounded \
@@ -425,22 +453,31 @@ setup_repo() {
   require_tui || return $?
   root="$(maybe_repo_root "$@")" || return $?
 
-  print_repo_card "$root"
+  while true; do
+    clear_screen
+    print_repo_card "$root"
 
-  mapfile -t rows < <(identity_rows)
-  for row in "${rows[@]}"; do
-    options+=("$(identity_option "$row")")
+    rows=()
+    options=()
+    mapfile -t rows < <(identity_rows)
+    for row in "${rows[@]}"; do
+      options+=("$(identity_option "$row")")
+    done
+
+    add_option="$(paint_bold 42 'Add new identity')"
+    options+=("$add_option" "Exit")
+
+    selected_index="$(choose_index 'Select an identity' "${options[@]}")" || return 0
+    if [ "$selected_index" -eq "${#rows[@]}" ]; then
+      add_identity "$root"
+      pause_after_action
+    elif [ "$selected_index" -eq "$(( ${#rows[@]} + 1 ))" ]; then
+      return 0
+    else
+      identity_actions "$root" "${rows[$selected_index]}"
+      pause_after_action
+    fi
   done
-
-  add_option="$(paint_bold 42 'Add new identity')"
-  options+=("$add_option")
-
-  selected_index="$(choose_index 'Select an identity' "${options[@]}")" || return 0
-  if [ "$selected_index" -eq "${#rows[@]}" ]; then
-    add_identity "$root"
-  else
-    identity_actions "$root" "${rows[$selected_index]}"
-  fi
 }
 
 show_current() {
