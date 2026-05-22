@@ -1,4 +1,4 @@
-{ ... }:
+{ self, ... }:
 {
   flake.nixosModules.terminal =
     {
@@ -17,6 +17,7 @@
 
       cfg = config.services.git-sync;
       user = config.preferences.user.username;
+      gitLib = self.lib.git;
 
       # Pre-start script to ensure GPG agent is ready and can show pinentry GUI
       # This is critical for SSH key authentication via gpg-agent
@@ -36,75 +37,90 @@
         echo "git-sync pre-start: GPG/SSH environment ready"
       '';
 
+      mkServiceGitConfig =
+        name: repo:
+        pkgs.writeText "git-sync-${name}-gitconfig" (
+          gitLib.mkIdentityConfig config.preferences.git.identities.${repo.identity}
+        );
+
       # Function to create a systemd unit configuration for Linux
-      mkUnit = name: repo: {
-        enable = true;
-        description = "Git Sync ${name}";
+      mkUnit =
+        name: repo:
+        let
+          serviceGitConfig = mkServiceGitConfig name repo;
+        in
+        {
+          enable = true;
+          description = "Git Sync ${name}";
 
-        # Start when graphical session is ready (ensures WAYLAND_DISPLAY etc. are set)
-        wantedBy = [ "graphical-session.target" ];
+          # Start when graphical session is ready (ensures WAYLAND_DISPLAY etc. are set)
+          wantedBy = [ "graphical-session.target" ];
 
-        # Tie lifecycle to graphical session
-        partOf = [ "graphical-session.target" ];
+          # Tie lifecycle to graphical session
+          partOf = [ "graphical-session.target" ];
 
-        # Wait for network to be online before starting
-        after = [
-          "graphical-session.target"
-          "network-online.target"
-        ];
-        wants = [ "network-online.target" ];
-
-        serviceConfig = {
-          Type = "simple";
-
-          # Environment variables for git-sync operation
-          Environment = [
-            "PATH=${
-              lib.makeBinPath (
-                with pkgs;
-                [
-                  openssh
-                  git
-                  gnupg
-                  coreutils
-                ]
-                ++ repo.extraPackages
-              )
-            }"
-            "GIT_SYNC_DIRECTORY=${lib.strings.escapeShellArg repo.path}"
-            "GIT_SYNC_COMMAND=${cfg.package}/bin/git-sync"
-            "GIT_SYNC_REPOSITORY=${lib.strings.escapeShellArg repo.uri}"
-            "GIT_SYNC_INTERVAL=${toString repo.interval}"
-            # GPG agent socket location (NixOS default)
-            "GNUPGHOME=/home/${user}/.gnupg"
+          # Wait for network to be online before starting
+          after = [
+            "graphical-session.target"
+            "network-online.target"
           ];
+          wants = [ "network-online.target" ];
 
-          # Import environment from graphical session for display/GPG/SSH access
-          # This is critical for pinentry-qt to show GUI prompts
-          PassEnvironment = [
-            "WAYLAND_DISPLAY"
-            "DISPLAY"
-            "XDG_RUNTIME_DIR"
-            "GPG_TTY"
-            "SSH_AUTH_SOCK"
-            "DBUS_SESSION_BUS_ADDRESS"
-          ];
+          serviceConfig = {
+            Type = "simple";
 
-          ExecStartPre = "${preStartScript}";
-          ExecStart = "${cfg.package}/bin/git-sync-on-inotify";
+            # Environment variables for git-sync operation
+            Environment = [
+              "PATH=${
+                lib.makeBinPath (
+                  with pkgs;
+                  [
+                    openssh
+                    git
+                    gnupg
+                    coreutils
+                  ]
+                  ++ repo.extraPackages
+                )
+              }"
+              "GIT_SYNC_DIRECTORY=${lib.strings.escapeShellArg repo.path}"
+              "GIT_SYNC_COMMAND=${cfg.package}/bin/git-sync"
+              "GIT_SYNC_REPOSITORY=${lib.strings.escapeShellArg repo.uri}"
+              "GIT_SYNC_INTERVAL=${toString repo.interval}"
+              # Keep background sync identity explicit so global includeIf changes
+              # cannot make automated commits fail or use an interactive identity.
+              "GIT_CONFIG_GLOBAL=${serviceGitConfig}"
+              # GPG agent socket location (NixOS default)
+              "GNUPGHOME=/home/${user}/.gnupg"
+            ]
+            ++ lib.optional (repo.sshCommand != null) "GIT_SSH_COMMAND=${repo.sshCommand}";
 
-          # Restart configuration for maximum reliability
-          Restart = "always";
-          RestartSec = "3min"; # 3 minute delay between restarts
+            # Import environment from graphical session for display/GPG/SSH access
+            # This is critical for pinentry-qt to show GUI prompts
+            PassEnvironment = [
+              "WAYLAND_DISPLAY"
+              "DISPLAY"
+              "XDG_RUNTIME_DIR"
+              "GPG_TTY"
+              "SSH_AUTH_SOCK"
+              "DBUS_SESSION_BUS_ADDRESS"
+            ];
 
-          WorkingDirectory = repo.path;
+            ExecStartPre = "${preStartScript}";
+            ExecStart = "${cfg.package}/bin/git-sync-on-inotify";
+
+            # Restart configuration for maximum reliability
+            Restart = "always";
+            RestartSec = "3min"; # 3 minute delay between restarts
+
+            WorkingDirectory = repo.path;
+          };
+
+          unitConfig = {
+            # No limit on restart attempts (survives long network outages)
+            StartLimitIntervalSec = 0;
+          };
         };
-
-        unitConfig = {
-          # No limit on restart attempts (survives long network outages)
-          StartLimitIntervalSec = 0;
-        };
-      };
 
       # Function to create a launchd daemon configuration for Darwin
       mkAgent = name: repo: {
@@ -177,6 +193,24 @@
                 The user as which to run the git-sync service.
               '';
             };
+            identity = mkOption {
+              type = types.str;
+              default = "bot";
+              description = ''
+                Git identity from preferences.git.identities used through a
+                service-local GIT_CONFIG_GLOBAL so background sync never relies
+                on the interactive user's ~/.gitconfig routing.
+              '';
+            };
+            sshCommand = mkOption {
+              type = types.nullOr types.str;
+              default = null;
+              example = "ssh -i /home/matrix/.ssh/id_ed25519_personal -o IdentitiesOnly=yes";
+              description = ''
+                Optional GIT_SSH_COMMAND for this repository, useful when
+                transport identity must be pinned independently of commit identity.
+              '';
+            };
           };
         }
       );
@@ -210,6 +244,16 @@
       # Module configuration
       config = mkIf cfg.enable (
         lib.mkMerge [
+          {
+            assertions = [
+              {
+                assertion = lib.all (repo: builtins.hasAttr repo.identity config.preferences.git.identities) (
+                  lib.attrValues cfg.repositories
+                );
+                message = "Every services.git-sync.repositories.*.identity must name an entry in preferences.git.identities.";
+              }
+            ];
+          }
           # Remove ".user." for a non user-level systemd service
           (mkIf pkgs.stdenv.isLinux { systemd.user.services = services; })
           # (mkIf pkgs.stdenv.isDarwin { launchd.daemons = services; })

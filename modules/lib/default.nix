@@ -20,6 +20,9 @@
     # Generator functions for various config formats
     generators = import ./_internal/generators.nix { inherit lib; };
 
+    # Git config rendering shared by the user config and background git services.
+    git = import ./_internal/git.nix { inherit lib; };
+
     # Nixpkgs overlay helpers keep duplicated package overrides in one place
     # while callers preserve their own NixOS or flake-parts evaluation policy.
     nixpkgs = import ./_internal/nixpkgs.nix { inherit lib; };

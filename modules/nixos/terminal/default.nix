@@ -111,6 +111,9 @@
         # Git-sync, a utility to sync folders via git
         services.git-sync.enable = true;
 
+        preferences.zsh.aliases.gi = "git-identity setup";
+        preferences.zsh.aliases.gid = "git-identity setup";
+
         services.acp-chat = {
           # User requested all-host LAN bind without opening the NixOS firewall;
           # ACP UI receives this through the service --host flag.
@@ -126,6 +129,7 @@
             path = "${config.preferences.paths.homeDirectory}/.local/share/password-store";
             interval = 300;
             user = config.preferences.user.username;
+            identity = "password-store";
           };
         };
 

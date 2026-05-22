@@ -22,6 +22,7 @@
       imports = [
         self.nixosModules.user-hyprland-config
         self.nixosModules.fresh
+        self.nixosModules.git
       ];
 
       options.preferences = {
@@ -229,21 +230,6 @@
           # Locales
           time.timeZone = cfg.timeZone;
           i18n.defaultLocale = cfg.locale;
-
-          # Git global config
-          system.activationScripts.git-user-config = {
-            text = self.lib.userFiles.mkActivationScript {
-              user = cfg.user.username;
-              inherit pkgs;
-              homeDirectory = cfg.paths.homeDirectory;
-              files.".gitconfig".text = ''
-                [user]
-                  name = ${cfg.git.username}
-                  email = ${cfg.git.email}
-              '';
-            };
-            deps = [ "users" ];
-          };
 
           # SSH
           # Enable GnuPG with SSH support

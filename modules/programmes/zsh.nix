@@ -84,6 +84,25 @@ let
     };
 
     functions = {
+      a = ''
+        emulate -L zsh
+        zmodload zsh/parameter
+
+        local name
+        local -a names
+        names=( ''${(ok)aliases} )
+        (( ''${#names[@]} )) || return 0
+
+        local width=0
+        for name in "''${names[@]}"; do
+          (( ''${#name} > width )) && width=''${#name}
+        done
+
+        for name in "''${names[@]}"; do
+          print -r -- "''${(r:$width:)name}  →  ''${aliases[$name]}"
+        done
+      '';
+
       unlock-host = ''
         if [[ $# -lt 1 || $# -gt 2 ]]; then
           print -u2 "usage: unlock-host <host> [port]"
@@ -252,8 +271,9 @@ in
             setopt HIST_EXPIRE_DUPS_FIRST # Drop duplicates before unique entries when trimming
             setopt HIST_NO_STORE          # Do not store history-manipulation commands
             setopt HIST_SAVE_NO_DUPS      # Rewrite history without duplicate commands
-            setopt INC_APPEND_HISTORY_TIME # Append after execution with duration metadata
             setopt EXTENDED_HISTORY       # Save timestamps (needed for correct history sharing)
+            # zshaddhistory cannot know exit status; the hook below returns non-zero
+            # for every candidate and commits only successful commands from precmd.
             setopt SHARE_HISTORY          # Share history between all sessions
             setopt HIST_FCNTL_LOCK        # Use robust file locking, better for shared history
             unsetopt HIST_SAVE_BY_COPY    # Don't use mv to rewrite history (breaks impermanence symlinks)
@@ -284,53 +304,6 @@ in
                 line="''${line#*;}"
               fi
               print -r -- "$line"
-            }
-
-            function nixconf_zsh_rewrite_history_file() {
-              emulate -L zsh
-              setopt EXTENDED_GLOB
-
-              [[ -n "$HISTFILE" && -r "$HISTFILE" && -w "$HISTFILE" ]] || return 0
-
-              local now cutoff tmp line key stamp keep drop_key="''${1:-}"
-              local -A newest
-              now=$EPOCHSECONDS
-              cutoff=$(( now - ''${ZSH_HISTORY_PRUNE_AFTER_DAYS:-30} * 86400 ))
-              tmp="''${HISTFILE}.nixconf-prune.$$"
-
-              while IFS= read -r line; do
-                key="$(nixconf_zsh_history_command_key "$line")"
-                [[ -n "$key" && "$key" != "$drop_key" ]] || continue
-                if [[ "$line" == :[[:space:]]##<->:[0-9]#\;* ]]; then
-                  stamp="''${line#:[[:space:]]#}"
-                  stamp="''${stamp%%:*}"
-                else
-                  stamp=$now
-                fi
-                if [[ -z "''${newest[$key]}" || $stamp -gt ''${newest[$key]} ]]; then
-                  newest[$key]=$stamp
-                fi
-              done < "$HISTFILE"
-
-              while IFS= read -r line; do
-                key="$(nixconf_zsh_history_command_key "$line")"
-                if [[ -z "$key" ]]; then
-                  print -r -- "$line"
-                  continue
-                fi
-                [[ "$key" == "$drop_key" ]] && continue
-                keep="''${newest[$key]:-$now}"
-                (( keep >= cutoff )) && print -r -- "$line"
-              done < "$HISTFILE" >| "$tmp"
-
-              if command cp -- "$tmp" "$HISTFILE"; then
-                command rm -f -- "$tmp"
-                fc -p -a "$HISTFILE" "$HISTSIZE" "$SAVEHIST"
-                fc -R "$HISTFILE"
-              else
-                command rm -f -- "$tmp"
-                return 1
-              fi
             }
 
             function nixconf_zsh_prune_history_async() {
@@ -405,10 +378,15 @@ in
               if (( $+functions[nixconf_zsh_history_should_ignore] )) && nixconf_zsh_history_should_ignore "$line"; then
                 return 1
               fi
+              case "$line" in
+                (history|history[[:space:]]*|fc[[:space:]]*-l*) return 1 ;;
+              esac
 
+              # zshaddhistory runs before command execution, before the final
+              # status is known. Keep the candidate out of in-memory and on-disk
+              # history now; precmd commits only successful commands with print -s.
               NIXCONF_ZSH_LAST_HISTORY_ACCEPTED=1
-
-              return 0
+              return 1
             }
             add-zsh-hook zshaddhistory nixconf_zshaddhistory
 
@@ -419,23 +397,13 @@ in
             add-zsh-hook preexec nixconf_zsh_history_preexec
 
             function nixconf_zsh_history_precmd() {
-              emulate -L zsh
               local command_status=$?
+              emulate -L zsh
               nixconf_zsh_prune_history
 
-              # zshaddhistory runs before execution; delete only commands that were first seen and failed.
-              # If the same command succeeded before, pruning by last successful use keeps that older entry.
-              if (( command_status != 0 && NIXCONF_ZSH_LAST_HISTORY_ACCEPTED )) && [[ -n "$NIXCONF_ZSH_LAST_HISTORY_LINE" ]]; then
-                local key="$(nixconf_zsh_history_command_key "$NIXCONF_ZSH_LAST_HISTORY_LINE")"
-                local existing=0 line
-                if [[ -r "$HISTFILE" ]]; then
-                  while IFS= read -r line; do
-                    [[ "$(nixconf_zsh_history_command_key "$line")" == "$key" ]] && (( existing++ ))
-                  done < "$HISTFILE"
-                fi
-                if (( existing <= 1 )); then
-                  nixconf_zsh_rewrite_history_file "$key"
-                fi
+              if (( command_status == 0 && NIXCONF_ZSH_LAST_HISTORY_ACCEPTED )) && [[ -n "$NIXCONF_ZSH_LAST_HISTORY_LINE" ]]; then
+                print -sr -- "$NIXCONF_ZSH_LAST_HISTORY_LINE"
+                fc -AI
               fi
 
               NIXCONF_ZSH_LAST_HISTORY_ACCEPTED=0
