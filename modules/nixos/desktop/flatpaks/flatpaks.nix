@@ -102,7 +102,7 @@
             sha256 = "sha256-w0YqBEbGqOZK29DhmsIQgo7ruI/pl5iueOC6zpxrnK4=";
           }
 
-          # "org.vinegarhq.Sober" # Sober
+          "org.vinegarhq.Sober" # Sober
         ];
       };
 

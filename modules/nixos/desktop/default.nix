@@ -77,6 +77,9 @@
           vlc
           mpv
 
+          # Tools
+          unstable.scanmem
+
           # KDE Core Apps
           kdePackages.dolphin # File Manager
           kdePackages.ark # Archive Manager
@@ -131,6 +134,12 @@
           gst_all_1.gst-libav
           glib-networking
 
+          # QtMultimedia dlopens libpipewire-0.3 for KMail's message viewer;
+          # putting PipeWire in the profile makes the library discoverable even
+          # when the app is not launched from a full Plasma environment.
+          # Ref: qt/multimedia/src/plugins/multimedia/ffmpeg/qffmpegsymbolsresolveutils.cpp.
+          pipewire
+
           # GTK icon themes
           # morewaita-icon-theme - Removed
           # adwaita-icon-theme - Removed
@@ -145,6 +154,13 @@
           enable = true;
           kmail = true;
         };
+
+        # Akonadi resource/agent definitions live under share/akonadi/agents.
+        # Link that tree into /run/current-system/sw so DBus-activated Akonadi
+        # can resolve default resources such as akonadi_maildir_resource; without
+        # it KMail aborts on startup with "Unable to obtain agent type ''.".
+        # Ref: akonadi src/core/jobs/agentinstancecreatejob.cpp.
+        environment.pathsToLink = [ "/share/akonadi" ];
 
         services = {
           # D-Bus activation for KDE services (SolidUiServer requires plasma-workspace)
@@ -237,13 +253,14 @@
         };
 
         # Browser and mail persistence
-        # Keep GUI profile/account state in normal persistence; browser caches and
-        # the Akonadi DB/search index are reproducible cache. KMail/Akonadi keep
-        # account/resource config in XDG config and local mail/contact data under
-        # XDG data. Sources: KDE UserBase KMail migration + Akonadi storage docs.
+        # Keep GUI profile/account state in normal persistence. KMail/Akonadi keep
+        # account/resource config in XDG config and mail/contact data plus Akonadi
+        # metadata under XDG data; browser and Akonadi cache dirs stay cache-tier.
+        # Sources: KDE UserBase KMail migration + Akonadi storage docs.
         impermanence.home.directories = [
           ".config/akonadi"
           ".config/BraveSoftware/Brave-Origin-Nightly"
+          ".local/share/akonadi"
           ".local/share/contacts"
           ".local/share/emailidentities"
           ".local/share/kmail2"
@@ -253,7 +270,6 @@
         impermanence.home.cache.directories = [
           ".cache/akonadi"
           ".cache/BraveSoftware/Brave-Origin-Nightly"
-          ".local/share/akonadi"
         ];
         impermanence.home.files = [
           ".config/emaildefaults"
@@ -301,11 +317,6 @@
           PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS = "true";
           # Keep Playwright aligned with the store-managed browser bundle above.
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "1";
-          # Add Flatpak exports to XDG_DATA_DIRS
-          XDG_DATA_DIRS = [
-            "/var/lib/flatpak/exports/share"
-            "$HOME/.local/share/flatpak/exports/share"
-          ];
         };
 
         # Rebuild KDE system configuration cache after rebuilds
