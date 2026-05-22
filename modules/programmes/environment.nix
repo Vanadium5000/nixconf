@@ -10,6 +10,10 @@
 
       edgePkgs = pkgs.unstable;
       userPackageEnv = self.lib.userPackages.environment;
+      pythonWithOmpStt = pkgs.python3.withPackages (ps: [
+        ps.openai-whisper
+        ps.pip
+      ]);
 
       rawPackages = [
         # Wrapped programmes
@@ -84,7 +88,11 @@
           ++
             # Language runtimes/compilers
             [
-              python3
+              # OMP STT probes `python -c 'import whisper'` before falling back to
+              # `python -m pip install openai-whisper`; provide both so NixOS never
+              # exposes an unbootstrapped store Python to that mutable setup path.
+              # Source: @oh-my-pi/pi-coding-agent src/{stt/setup,cli/setup-cli}.ts.
+              pythonWithOmpStt
               gcc
               #edgePkgs.bun # Replaced by "curl -fsSL https://bun.sh/install | bash"
               nodejs_latest

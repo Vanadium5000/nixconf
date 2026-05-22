@@ -15,10 +15,17 @@
       homeDirectory = config.preferences.paths.homeDirectory;
       selfpkgs = self.packages.${pkgs.stdenv.hostPlatform.system};
       inherit (self) colors;
+      dmsCommonSrc = pkgs.fetchFromGitHub {
+        owner = "hthienloc";
+        repo = "dms-common";
+        rev = "ae66a020129e6226d28dc6e581a21bf68087efc6";
+        hash = "sha256-nLY1oeSOocma2dOWMfU9Yz+wAFHYSg4MyZpjSi4I+pg=";
+      };
 
       idleInhibitPluginDir = ".config/DankMaterialShell/plugins/idleInhibit";
       toggleLidInhibitPluginDir = ".config/DankMaterialShell/plugins/toggleLidInhibit";
       voxtypeWidgetPluginDir = ".config/DankMaterialShell/plugins/voxtypeWidget";
+      dmsCommonPluginDir = ".config/DankMaterialShell/plugins/dms-common";
       idleInhibitPluginQml =
         builtins.replaceStrings [ "__DMS_IDLE_INHIBIT__" ] [ "${lib.getExe selfpkgs.dms-idle-inhibit}" ]
           (builtins.readFile ./dank-material-shell/idle-inhibit/IdleInhibitWidget.qml);
@@ -270,6 +277,9 @@
           shellEdgePkgs.voxtype
           selfpkgs.dms-idle-inhibit
           selfpkgs.dms-suspend-after
+          pkgs.qrencode # Runtime dependency for the user-installed DMS QR generator plugin.
+          pkgs.zbar # Optional QR image decoding path used by the same plugin.
+          pkgs.qt6Packages.qtmultimedia # DMS settings sound previews import QtMultimedia on Qt 6.
         ];
 
         # DMS registry themes are loaded from <theme>/theme.json; generating only
@@ -289,6 +299,7 @@
               # local widget there matches user-installed plugins and avoids stale
               # system-plugin component caches. Source:
               # https://github.com/AvengeMedia/DankMaterialShell/blob/eb5afcdc40ea5446c27e18552ff4a19f9daf9484/quickshell/Services/PluginService.qml#L21-L29
+              "${dmsCommonPluginDir}".source = dmsCommonSrc;
               "${idleInhibitPluginDir}/plugin.json".text =
                 builtins.readFile ./dank-material-shell/idle-inhibit/plugin.json;
               "${idleInhibitPluginDir}/IdleInhibitWidget.qml".text = idleInhibitPluginQml;
@@ -322,6 +333,7 @@
               "QT_QPA_PLATFORM=wayland"
               "QT_QPA_PLATFORMTHEME=hyprqt6engine"
               "QT_QUICK_CONTROLS_STYLE=org.kde.desktop"
+              "QML2_IMPORT_PATH=${pkgs.qt6Packages.qtmultimedia}/lib/qt-6/qml"
               "KDE_FULL_SESSION=true"
               "KDE_SESSION_VERSION=6"
             ];
