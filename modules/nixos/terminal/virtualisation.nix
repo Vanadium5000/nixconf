@@ -43,9 +43,12 @@
         package = pkgs.waydroid-nftables;
       };
 
-      # Pesist the waydroid data
+      # Persist Waydroid's Android /data as system state: Android numeric UIDs
+      # must survive untouched, while user persistence can chown entries to the
+      # host user and break core services such as keystore2; desktop entries are
+      # user-owned launchers regenerated from Android apps, so keep them in home.
       impermanence.home.cache.directories = [
-        ".local/share/waydroid"
+        ".local/share/applications"
         ".cache/waydroid-script"
 
         # VM Data
@@ -53,6 +56,12 @@
       ];
       impermanence.nixos.cache.directories = [
         "/var/lib/waydroid"
+        {
+          directory = "/home/${config.preferences.user.username}/.local/share/waydroid";
+          user = "root";
+          group = "root";
+          mode = "0755";
+        }
 
         # Docker & other VM Data
         "/var/lib/docker"

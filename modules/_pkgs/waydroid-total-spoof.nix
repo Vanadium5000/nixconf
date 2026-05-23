@@ -10,7 +10,6 @@
   makeWrapper,
   coreutils,
   gnused,
-  gnugrep,
   gawk,
   openssl,
 }:
@@ -122,7 +121,33 @@ stdenv.mkDerivation {
     tmp_prop="$(mktemp)"
     trap 'rm -f "$tmp_cfg" "$tmp_prop"' EXIT
 
-    ${gnugrep}/bin/grep -v '^\[properties\]$' "$BACKUP_CFG" > "$tmp_cfg" || true
+    # Waydroid reads this file with Python ConfigParser, which rejects duplicate
+    # keys inside a section. Previous wrapper versions only removed the exact
+    # `[properties]` header, leaving spoof keys behind when they were written
+    # into `[waydroid]`; strip the whole managed section, remove managed keys
+    # elsewhere, and keep only the first copy of any other duplicate key.
+    ${gawk}/bin/awk '
+      /^[[:space:]]*\[[^]]+\][[:space:]]*$/ {
+        header = $0
+        sub(/^[[:space:]]*/, "", header)
+        sub(/[[:space:]]*$/, "", header)
+        in_properties = (header == "[properties]")
+        if (in_properties) next
+      }
+
+      in_properties { next }
+
+      /^[[:space:]]*(ro\.product\.brand|ro\.product\.manufacturer|ro\.product\.model|ro\.product\.name|ro\.product\.device|ro\.system\.build\.product|ro\.build\.fingerprint|ro\.system\.build\.fingerprint|ro\.vendor\.build\.fingerprint|ro\.bootimage\.build\.fingerprint|ro\.build\.display\.id|ro\.system\.build\.flavor|ro\.system\.build\.description|ro\.build\.description|ro\.build\.tags|ro\.vendor\.build\.id|ro\.vendor\.build\.tags|ro\.vendor\.build\.type|ro\.odm\.build\.tags|ro\.boot\.verifiedbootstate|ro\.boot\.flash\.locked|ro\.secure|ro\.debuggable|ro\.adb\.secure|ro\.build\.type|ro\.build\.selinux|ro\.boot\.selinux|ro\.kernel\.qemu|persist\.sys\.usb\.config)[[:space:]]*=/ { next }
+
+      /^[[:space:]]*[^#;[:space:]][^=]*=/ {
+        option = $0
+        sub(/^[[:space:]]*/, "", option)
+        sub(/[[:space:]]*=.*/, "", option)
+        if (seen[header SUBSEP option]++) next
+      }
+
+      { print }
+    ' "$BACKUP_CFG" > "$tmp_cfg"
     cat >> "$tmp_cfg" <<EOF_CFG
     [properties]
     ro.product.brand=$brand
@@ -154,19 +179,24 @@ stdenv.mkDerivation {
     ro.boot.selinux=enforcing
     ro.kernel.qemu=0
     persist.sys.usb.config=none
-    debug.hwui.renderer=skiagl
-    debug.egl.hw=1
-    debug.composition.type=gpu
-    persist.sys.ui.hw=1
-    hwui.render_dirty_regions=false
-    persist.sys.gpu.force=1
-    ro.opengles.version=196610
-    persist.graphics.vulkan.disable=false
-    persist.vulkan.enabled=1
-    persist.sys.sf.color_saturation=1.1
     EOF_CFG
 
-    cat > "$tmp_prop" <<EOF_PROP
+    # Preserve Waydroid's base runtime properties (notably native-bridge ABI
+    # mapping); replacing this file with only spoof keys makes ARM-only apps
+    # fail with "Unsupported zygote ABI: arm64-v8a".
+    ${gawk}/bin/awk '
+      /^[[:space:]]*(ro\.product\.brand|ro\.product\.manufacturer|ro\.product\.model|ro\.product\.name|ro\.product\.device|ro\.system\.build\.product|ro\.build\.fingerprint|ro\.system\.build\.fingerprint|ro\.vendor\.build\.fingerprint|ro\.bootimage\.build\.fingerprint|ro\.build\.display\.id|ro\.system\.build\.flavor|ro\.system\.build\.description|ro\.build\.description|ro\.build\.tags|ro\.vendor\.build\.id|ro\.vendor\.build\.tags|ro\.vendor\.build\.type|ro\.odm\.build\.tags|ro\.boot\.verifiedbootstate|ro\.boot\.flash\.locked|ro\.secure|ro\.debuggable|ro\.adb\.secure|ro\.build\.type|ro\.build\.selinux|ro\.boot\.selinux|ro\.kernel\.qemu|persist\.sys\.usb\.config|debug\.hwui\.renderer|debug\.egl\.hw|debug\.composition\.type|persist\.sys\.ui\.hw|hwui\.render_dirty_regions|persist\.sys\.gpu\.force|ro\.opengles\.version|persist\.graphics\.vulkan\.disable|persist\.vulkan\.enabled|persist\.sys\.sf\.color_saturation|settings_secure_android_id|settings_secure_gsf_id)[[:space:]]*=/ { next }
+
+      /^[[:space:]]*[^#;[:space:]][^=]*=/ {
+        option = $0
+        sub(/^[[:space:]]*/, "", option)
+        sub(/[[:space:]]*=.*/, "", option)
+        if (seen[option]++) next
+      }
+
+      { print }
+    ' "$BACKUP_BASE_PROP" > "$tmp_prop"
+    cat >> "$tmp_prop" <<EOF_PROP
     ro.product.brand=$brand
     ro.product.manufacturer=$manufacturer
     ro.product.model=$model
@@ -196,16 +226,6 @@ stdenv.mkDerivation {
     ro.boot.selinux=enforcing
     ro.kernel.qemu=0
     persist.sys.usb.config=none
-    debug.hwui.renderer=skiagl
-    debug.egl.hw=1
-    debug.composition.type=gpu
-    persist.sys.ui.hw=1
-    hwui.render_dirty_regions=false
-    persist.sys.gpu.force=1
-    ro.opengles.version=196610
-    persist.graphics.vulkan.disable=false
-    persist.vulkan.enabled=1
-    persist.sys.sf.color_saturation=1.1
     settings_secure_android_id=$android_id
     settings_secure_gsf_id=$gsf_id
     EOF_PROP
@@ -227,7 +247,6 @@ stdenv.mkDerivation {
               bash
               coreutils
               gnused
-              gnugrep
               gawk
               openssl
             ]
@@ -241,7 +260,6 @@ stdenv.mkDerivation {
               bash
               coreutils
               gnused
-              gnugrep
               gawk
               openssl
             ]
