@@ -20,7 +20,7 @@ let
     inherit version src;
 
     sourceRoot = "${src.name}/web";
-    npmDepsHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+    npmDepsHash = "sha256-MHGGYiV4FY10niRYKOAi94Z9u8IwmVrEcOY+yxD93sk=";
 
     npmFlags = [ "--ignore-scripts" ];
 

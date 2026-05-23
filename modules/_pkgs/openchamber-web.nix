@@ -12,13 +12,13 @@
 }:
 
 let
-  version = "1.11.3";
+  version = "1.11.4";
 
   src = fetchFromGitHub {
     owner = "openchamber";
     repo = "openchamber";
     tag = "v${version}";
-    hash = "sha256-WGTsZTba1ECKjM1dI+ewYD1r0eR+Xc2gUvWXXSOldzE=";
+    hash = "sha256-F70V+U9OQ2/qyH8UcpIG2wHW6v8FI08s6UzT056dp1U=";
   };
 
   commonNativeBuildInputs = [

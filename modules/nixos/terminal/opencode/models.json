@@ -1221,20 +1221,6 @@
           "name": "nvidia/mistralai/mistral-small-4-119b-2603",
           "tool_call": true
         },
-        "mistralai/mixtral-8x22b-instruct-v0.1": {
-          "id": "nvidia/mistralai/mixtral-8x22b-instruct-v0.1",
-          "limit": {
-            "context": 128000,
-            "output": 8192
-          },
-          "metadata": {
-            "object": "model",
-            "owned_by": "nvidia",
-            "upstream_id": "nvidia/mistralai/mixtral-8x22b-instruct-v0.1"
-          },
-          "name": "nvidia/mistralai/mixtral-8x22b-instruct-v0.1",
-          "tool_call": true
-        },
         "mistralai/mixtral-8x22b-v0.1": {
           "id": "nvidia/mistralai/mixtral-8x22b-v0.1",
           "limit": {
@@ -2127,28 +2113,6 @@
           "name": "nvidia/qwen/qwen3-next-80b-a3b-instruct",
           "tool_call": true
         },
-        "qwen/qwen3-next-80b-a3b-thinking": {
-          "id": "nvidia/qwen/qwen3-next-80b-a3b-thinking",
-          "limit": {
-            "context": 262144,
-            "output": 16384
-          },
-          "metadata": {
-            "object": "model",
-            "owned_by": "nvidia",
-            "upstream_id": "nvidia/qwen/qwen3-next-80b-a3b-thinking"
-          },
-          "modalities": {
-            "input": [
-              "text"
-            ],
-            "output": [
-              "text"
-            ]
-          },
-          "name": "nvidia/qwen/qwen3-next-80b-a3b-thinking",
-          "tool_call": true
-        },
         "qwen/qwen3.5-122b-a10b": {
           "id": "nvidia/qwen/qwen3.5-122b-a10b",
           "limit": {
@@ -2391,7 +2355,7 @@
       "options": {
         "baseURL": "https://omniroute.${PUBLIC_BASE_DOMAIN}/v1"
       },
-      "syncedAt": "2026-05-20T22:54:53Z"
+      "syncedAt": "2026-05-23T18:16:55Z"
     }
   }
 }
