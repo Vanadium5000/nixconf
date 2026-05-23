@@ -30,6 +30,7 @@
           "waydroid-total-spoof"
           "limux"
           "seance"
+          "omp-desktop"
         ];
         legion5i = [
           "omniroute"

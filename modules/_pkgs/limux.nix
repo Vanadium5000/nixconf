@@ -1,9 +1,18 @@
 {
   lib,
   stdenv,
-  fetchurl,
+  callPackage,
+  fetchFromGitHub,
+  fetchpatch,
+  rustPlatform,
   autoPatchelfHook,
+  blueprint-compiler,
   wrapGAppsHook4,
+  git,
+  ncurses,
+  pkg-config,
+  python3,
+  zig_0_15,
   gtk4,
   libadwaita,
   webkitgtk_6_0,
@@ -22,26 +31,60 @@
   freetype,
   harfbuzz,
   glib-networking,
+  libxml2,
+  pkgs,
 }:
 
-stdenv.mkDerivation (finalAttrs: {
-  pname = "limux";
+let
   version = "0.1.19";
+  src = fetchFromGitHub {
+    owner = "am-will";
+    repo = "limux";
+    rev = "v${version}";
+    hash = "sha256-49UqeLUZF9bn3JGRi6vXi1LYCPRAvCR9CdMlqWelQwY=";
+    fetchSubmodules = true;
+  };
+  ghosttyBuildInputs = import (src + "/ghostty/nix/build-support/build-inputs.nix") {
+    inherit pkgs lib stdenv;
+  };
+  giTypelibPath = import (src + "/ghostty/nix/build-support/gi-typelib-path.nix") {
+    inherit pkgs lib stdenv;
+  };
+in
+rustPlatform.buildRustPackage (finalAttrs: {
+  pname = "limux";
+  inherit version src;
 
-  src = fetchurl {
-    # Use upstream's tarball, not the AppImage. The tarball layout is the one
-    # known to render terminal and WebKit surfaces correctly on this host.
-    # update-pkgs: upstream release asset is limux-${version}-linux-x86_64.tar.gz.
-    url = "https://github.com/am-will/limux/releases/download/v${finalAttrs.version}/limux-${finalAttrs.version}-linux-x86_64.tar.gz";
-    hash = "sha256-jPDHMIc7JlVf3IecqZejJjEyjnGPmFaUWDdaNitqaEY=";
+  # v0.1.19's release binaries render Ghostty into the wrong framebuffer size
+  # on Wayland fractional scaling. Carry the upstream PR until the next release.
+  # Ref: https://github.com/am-will/limux/pull/83
+  patches = [
+    (fetchpatch {
+      url = "https://github.com/am-will/limux/pull/83.patch";
+      hash = "sha256-859MfUFcyNF/WsLJXBJx4b78e7iTR9Kg443BXvFKu8o=";
+    })
+  ];
+
+  cargoHash = "sha256-CdGjtN3NYqVP3FBTSlpGOMaHOgzgpoSPusFh14n+HWc=";
+
+  deps = callPackage (src + "/ghostty/build.zig.zon.nix") {
+    zig_0_15 = zig_0_15;
+    name = "limux-zig-cache-${finalAttrs.version}";
   };
 
   nativeBuildInputs = [
     autoPatchelfHook
+    blueprint-compiler
+    git
+    libxml2
+    ncurses
+    pkg-config
+    python3
     wrapGAppsHook4
+    zig_0_15
   ];
 
-  buildInputs = [
+  buildInputs = ghosttyBuildInputs ++ [
     stdenv.cc.cc.lib
     gtk4
     libadwaita
@@ -67,27 +110,93 @@ stdenv.mkDerivation (finalAttrs: {
     glib-networking
   ];
 
-  dontConfigure = true;
-  dontBuild = true;
+  GI_TYPELIB_PATH = giTypelibPath;
+
+  cargoBuildFlags = [ "--workspace" ];
+  cargoTestFlags = [ "--workspace" ];
+
+  postPatch = ''
+    substituteInPlace .cargo/config.toml \
+      --replace-fail /usr/local/lib/limux "$out/lib/limux"
+    substituteInPlace ghostty/src/build/SharedDeps.zig \
+      --replace-fail 'if (step.kind != .lib) {' 'if (true) {'
+  '';
+
+  preBuild = ''
+    export ZIG_GLOBAL_CACHE_DIR=$TMPDIR/zig-global-cache
+    export ZIG_LOCAL_CACHE_DIR=$TMPDIR/zig-local-cache
+
+    ghosttyBuildFlags=(
+      --system ${finalAttrs.deps}
+      -Dcpu=baseline
+      -Doptimize=ReleaseFast
+      -Demit-docs=false
+      -Demit-terminfo=true
+      -fsys=fontconfig
+      -fno-sys=freetype
+      -fno-sys=harfbuzz
+      -fno-sys=libpng
+      -fno-sys=oniguruma
+      -fno-sys=zlib
+    )
+
+    (cd ghostty && zig build -Dapp-runtime=none "''${ghosttyBuildFlags[@]}")
+    (cd ghostty && DESTDIR=$TMPDIR/ghostty-install zig build --prefix /usr "''${ghosttyBuildFlags[@]}")
+
+    # Limux links libghostty as an embedded shared library. Ghostty normally
+    # compiles the GLAD OpenGL loader only into executables, so the patched
+    # SharedDeps condition above adds GLAD to libghostty itself.
+  '';
+
+  buildPhase = ''
+    runHook preBuild
+    cargoBuildHook
+    runHook postBuild
+  '';
+
+  preCheck = ''
+    export LD_LIBRARY_PATH=$PWD/ghostty/zig-out/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
+  '';
+
+  checkPhase = ''
+    runHook preCheck
+    cargo test --target ${stdenv.hostPlatform.rust.rustcTarget} --offline --target-dir target/check --profile release --workspace
+    runHook postCheck
+  '';
 
   installPhase = ''
     runHook preInstall
 
-    install -Dm755 limux $out/bin/limux
-    if [ -x libexec/limux/limux-host ]; then
-      install -Dm755 libexec/limux/limux-host $out/libexec/limux/limux-host
-    fi
-    install -Dm644 lib/libghostty.so $out/lib/limux/libghostty.so
+    cargoTargetDir=target/${stdenv.hostPlatform.rust.rustcTarget}/release
 
-    mkdir -p $out/share
-    cp -r share/limux $out/share/
-    install -Dm644 share/applications/dev.limux.linux.desktop \
+    install -Dm755 "$cargoTargetDir/limux-cli" $out/bin/limux
+    install -Dm755 "$cargoTargetDir/limux" $out/libexec/limux/limux-host
+    install -Dm644 ghostty/zig-out/lib/libghostty.so $out/lib/limux/libghostty.so
+
+    mkdir -p $out/share/limux
+    cp -r $TMPDIR/ghostty-install/usr/share/ghostty $out/share/limux/ghostty
+    mkdir -p $out/share/limux/terminfo
+    cp -r $TMPDIR/ghostty-install/usr/share/terminfo/g $out/share/limux/terminfo/
+    cp -r $TMPDIR/ghostty-install/usr/share/terminfo/x $out/share/limux/terminfo/
+    install -Dm644 rust/limux-host-linux/dev.limux.linux.desktop \
       $out/share/applications/dev.limux.linux.desktop
-    install -Dm644 share/metainfo/dev.limux.linux.metainfo.xml \
+    install -Dm644 rust/limux-host-linux/dev.limux.linux.metainfo.xml \
       $out/share/metainfo/dev.limux.linux.metainfo.xml
-    if [ -d share/icons ]; then
-      cp -r share/icons $out/share/
+
+    if [ -d rust/limux-host-linux/icons/hicolor ]; then
+      cp -r rust/limux-host-linux/icons/hicolor $out/share/icons/
     fi
+    for size in 16 32 128 256 512; do
+      icon=rust/limux-host-linux/icons/app/$size.png
+      if [ -f "$icon" ]; then
+        install -Dm644 "$icon" $out/share/icons/hicolor/''${size}x''${size}/apps/limux.png
+      fi
+    done
+    for icon in rust/limux-host-linux/icons/*.svg; do
+      if [ -f "$icon" ]; then
+        install -Dm644 "$icon" $out/share/icons/hicolor/scalable/actions/$(basename "$icon")
+      fi
+    done
 
     runHook postInstall
   '';
@@ -107,6 +216,6 @@ stdenv.mkDerivation (finalAttrs: {
     license = lib.licenses.mit;
     mainProgram = "limux";
     platforms = [ "x86_64-linux" ];
-    sourceProvenance = with lib.sourceTypes; [ binaryNativeCode ];
+    sourceProvenance = with lib.sourceTypes; [ fromSource ];
   };
 })

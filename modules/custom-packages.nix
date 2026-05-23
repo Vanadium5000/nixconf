@@ -7,8 +7,11 @@ let
   edgePackages = [
     "acp-chat"
     "cliproxyapi"
+    # Limux's GTK Rust bindings require rustc >= 1.92; keep it on unstable
+    # until the stable channel's Rust toolchain catches up.
     "omniroute"
     "openchamber-web"
+    "limux"
   ];
 
   getPackages =

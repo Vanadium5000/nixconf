@@ -43,6 +43,7 @@ pkgs.writeShellApplication {
           IMPORTANT_LIGHT_PACKAGES=(
             acp-chat
             omniroute
+            omp-desktop
             openchamber-web
             cpa-usage-keeper
             services-auth-gateway
@@ -238,6 +239,13 @@ pkgs.writeShellApplication {
             local repo="$2"
             local rev="$3"
             nix-prefetch-github "$owner" "$repo" --rev "$rev" 2>/dev/null | jq -r '.hash // .sha256 // empty'
+          }
+
+          prefetch_github_submodules() {
+            local owner="$1"
+            local repo="$2"
+            local rev="$3"
+            nix-prefetch-github "$owner" "$repo" --rev "$rev" --fetch-submodules 2>/dev/null | jq -r '.hash // .sha256 // empty'
           }
 
           # Function to prefetch URL and get hash
@@ -491,6 +499,12 @@ pkgs.writeShellApplication {
           python -c 'import pathlib, re, sys; path = pathlib.Path(sys.argv[1]); anchor = sys.argv[2]; new_hash = sys.argv[3]; text = path.read_text(); start = text.index(anchor); head, tail = text[:start], text[start:]; tail = re.sub(r"hash = \"sha256-[^\"]+\"", f"hash = \"{new_hash}\"", tail, count=1); path.write_text(head + tail)' "$file" "$anchor" "$new_hash"
         }
 
+        first_hash_after() {
+          local file="$1"
+          local anchor="$2"
+          python -c 'import pathlib, re, sys; text = pathlib.Path(sys.argv[1]).read_text(); tail = text[text.index(sys.argv[2]):]; match = re.search(r"hash = \"(sha256-[^\"]+)\"", tail); print(match.group(1) if match else "")' "$file" "$anchor"
+        }
+
         set_attr_hash() {
           local file="$1"
           local attr="$2"
@@ -661,6 +675,44 @@ pkgs.writeShellApplication {
             return 0
           }
 
+          update_omp_desktop_package() {
+            local pkg="omp-desktop"
+            local file
+            file=$(package_file "$pkg")
+            local current_version latest_tag latest_version src_hash
+
+            current_version=$(grep -oP 'version = "\K[^"]+' "$file" | head -1 || true)
+            latest_tag=$(get_latest_release "apoc" "omp-desktop")
+            latest_version="''${latest_tag#v}"
+            latest_version="''${latest_version#V}"
+
+            if [ -z "$current_version" ] || [ -z "$latest_version" ]; then
+              echo "    Could not determine OMP Desktop release version"
+              return 1
+            fi
+
+            echo "    Current version: $current_version"
+            echo "    Latest version: $latest_version"
+
+            if [ "$current_version" = "$latest_version" ]; then
+              echo "    Already up to date"
+              return 1
+            fi
+
+            src_hash=$(prefetch_github "apoc" "omp-desktop" "$latest_tag")
+            if [ -z "$src_hash" ]; then
+              echo "    Could not prefetch OMP Desktop source"
+              return 1
+            fi
+
+            sed -i "s|version = \"$current_version\"|version = \"$latest_version\"|" "$file"
+            set_first_hash_after "$file" 'repo = "omp-desktop"' "$src_hash"
+
+            echo "    Refreshing cargoHash..."
+            refresh_fake_hash_from_build "$file" cargoHash nix-build -E 'let pkgs = import <nixpkgs> {}; in pkgs.callPackage ./omp-desktop.nix {}'
+            return 0
+          }
+
           update_seance_package() {
             local pkg="seance"
             local file
@@ -740,6 +792,69 @@ pkgs.writeShellApplication {
             return 0
           }
 
+          update_limux_package() {
+            local pkg="limux"
+            local file
+            file=$(package_file "$pkg")
+            local current_version latest_tag latest_version src_hash patch_hash current_src_hash current_patch_hash
+            local changed=false
+
+            current_version=$(grep -oP 'version = "\K[^"]+' "$file" | head -1 || true)
+            latest_tag=$(get_latest_release "am-will" "limux")
+            latest_version="''${latest_tag#v}"
+            latest_version="''${latest_version#V}"
+
+            if [ -z "$current_version" ] || [ -z "$latest_version" ]; then
+              echo "    Could not determine Limux release version"
+              return 1
+            fi
+
+            echo "    Current version: $current_version"
+            echo "    Latest version: $latest_version"
+
+            src_hash=$(prefetch_github_submodules "am-will" "limux" "v$latest_version")
+            if [ -z "$src_hash" ]; then
+              echo "    Could not prefetch Limux source with submodules"
+              return 1
+            fi
+
+            current_src_hash=$(first_hash_after "$file" 'repo = "limux"')
+
+            # v0.1.19 carries the upstream fractional-scale GLArea fix until it
+            # lands in a release. If the PR changes, update its fixed-output hash
+            # and let the build refresh cargoHash against the patched source.
+            patch_hash=$(prefetch_url "https://github.com/am-will/limux/pull/83.patch")
+            current_patch_hash=$(first_hash_after "$file" 'pull/83.patch' || true)
+
+            if [ "$current_version" != "$latest_version" ]; then
+              echo "    Updating version: $current_version -> $latest_version"
+              sed -i "s|version = \"$current_version\"|version = \"$latest_version\"|" "$file"
+              changed=true
+            fi
+
+            if [ -n "$current_src_hash" ] && [ "$current_src_hash" != "$src_hash" ]; then
+              echo "    Updating source hash: $current_src_hash -> $src_hash"
+              set_first_hash_after "$file" 'repo = "limux"' "$src_hash"
+              changed=true
+            fi
+
+            if [ -n "$patch_hash" ] && [ -n "$current_patch_hash" ] && [ "$current_patch_hash" != "$patch_hash" ]; then
+              echo "    Updating fractional-scale patch hash: $current_patch_hash -> $patch_hash"
+              set_first_hash_after "$file" 'pull/83.patch' "$patch_hash"
+              changed=true
+            fi
+
+            if ! $changed; then
+              echo "    Already up to date"
+              return 1
+            fi
+
+            echo "    Refreshing cargoHash..."
+            refresh_fake_hash_from_build "$file" cargoHash nix-build -E 'let unstable = import <nixpkgs-unstable> {}; in unstable.callPackage ./limux.nix { pkgs = unstable; }'
+
+            return 0
+          }
+
           if [ "''${1:-}" = "-h" ] || [ "''${1:-}" = "--help" ]; then
             usage
             exit 0
@@ -790,7 +905,12 @@ pkgs.writeShellApplication {
             # Supported: versioned GitHub release asset for upstream Flatpak bundle
             echo " $pkg = pkgs.callPackage ./$pkg.nix {};"
           elif [ "$pkg" == "limux" ]; then
-            # Supported: versioned GitHub release tarball from am-will/limux.
+            # Supported via custom updater because source, Ghostty submodule,
+            # upstream render patch, and cargoHash must move together.
+            echo " $pkg = unstable.callPackage ./$pkg.nix { pkgs = unstable; };"
+          elif [ "$pkg" == "omp-desktop" ]; then
+            # Supported via custom updater because src and cargoHash must move
+            # together for the Tauri/Rust release source.
             echo " $pkg = pkgs.callPackage ./$pkg.nix {};"
           elif [ "$pkg" == "seance" ]; then
             # Supported via custom updater because the release source tarball is
@@ -915,9 +1035,14 @@ pkgs.writeShellApplication {
           ;;
 
         "limux")
-          # Upstream publishes a versioned Linux tarball on GitHub releases.
-          if update_versioned_url_package "$pkg" "am-will" "limux"; then
-            UPDATED+=("$pkg")
+          # Custom updater keeps source-with-submodules, carried upstream patch,
+          # and cargoHash in sync, then builds as a smoke test.
+          if update_limux_package; then
+            if nix-build -E 'let unstable = import <nixpkgs-unstable> {}; in unstable.callPackage ./limux.nix { pkgs = unstable; }' >/dev/null; then
+              UPDATED+=("$pkg")
+            else
+              FAILED+=("$pkg")
+            fi
           else
             SKIPPED+=("$pkg")
           fi
@@ -928,6 +1053,19 @@ pkgs.writeShellApplication {
           # release source hash and fixed-output dependency/build hash in sync.
           if update_openchamber_web_package; then
             UPDATED+=("$pkg")
+          else
+            SKIPPED+=("$pkg")
+          fi
+          ;;
+
+        "omp-desktop")
+          # OMP Desktop is a Tauri/Rust app; refresh source and cargo vendor hash together.
+          if update_omp_desktop_package; then
+            if nix-build -E 'let pkgs = import <nixpkgs> {}; in pkgs.callPackage ./omp-desktop.nix {}' >/dev/null; then
+              UPDATED+=("$pkg")
+            else
+              FAILED+=("$pkg")
+            fi
           else
             SKIPPED+=("$pkg")
           fi
