@@ -26,7 +26,7 @@
 
 stdenv.mkDerivation (finalAttrs: {
   pname = "limux";
-  version = "0.1.14";
+  version = "0.1.19";
 
   src = fetchurl {
     # Use upstream's tarball, not the AppImage. The tarball layout is the one

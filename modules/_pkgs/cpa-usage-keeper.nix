@@ -7,12 +7,12 @@
 }:
 
 let
-  version = "1.8.2";
+  version = "1.8.3";
   src = fetchFromGitHub {
     owner = "Willxup";
     repo = "cpa-usage-keeper";
     rev = "v${version}";
-    hash = "sha256-W6UfHWFrUkH/jP55a73oe/vcyY+ZZb3fZ7O4xh1VcpE=";
+    hash = "sha256-NbJZ4t027TnRPGj+6iewNP/3D2GVHUv8nd+FCA68xmw=";
   };
 
   web = buildNpmPackage {
@@ -20,7 +20,7 @@ let
     inherit version src;
 
     sourceRoot = "${src.name}/web";
-    npmDepsHash = "sha256-MHGGYiV4FY10niRYKOAi94Z9u8IwmVrEcOY+yxD93sk=";
+    npmDepsHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
 
     npmFlags = [ "--ignore-scripts" ];
 
