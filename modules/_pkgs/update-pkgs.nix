@@ -59,6 +59,7 @@ pkgs.writeShellApplication {
             iloader
             playwright-cli
             cake-wallet-flatpak
+            orca
             limux
             seance
             dogecoin
@@ -512,6 +513,43 @@ pkgs.writeShellApplication {
           python -c 'import pathlib, re, sys; path = pathlib.Path(sys.argv[1]); attr = sys.argv[2]; new_hash = sys.argv[3]; text = path.read_text(); text = re.sub(rf"{re.escape(attr)} = \"sha256-[^\"]+\"", f"{attr} = \"{new_hash}\"", text, count=1); path.write_text(text)' "$file" "$attr" "$new_hash"
         }
 
+        update_orca_package() {
+          local pkg="orca"
+          local file
+          file=$(package_file "$pkg")
+          local current_version latest_tag latest_version asset_url asset_hash
+
+          current_version=$(grep -oP 'version = "\K[^"]+' "$file" | head -1 || true)
+          latest_tag=$(get_latest_release "stablyai" "orca")
+          latest_version="''${latest_tag#v}"
+          latest_version="''${latest_version#V}"
+
+          if [ -z "$current_version" ] || [ -z "$latest_version" ]; then
+            echo "    Could not determine Orca release version"
+            return 1
+          fi
+
+          echo "    Current version: $current_version"
+          echo "    Latest version: $latest_version"
+
+          if [ "$current_version" = "$latest_version" ]; then
+            echo "    Already up to date"
+            return 1
+          fi
+
+          asset_url="https://github.com/stablyai/orca/releases/download/v$latest_version/orca-ide_$latest_version"'_amd64.deb'
+          echo "    Prefetching Linux .deb: $asset_url"
+          asset_hash=$(prefetch_url "$asset_url")
+          if [ -z "$asset_hash" ]; then
+            echo "    Could not prefetch Orca Linux .deb"
+            return 1
+          fi
+
+          sed -i "s|version = \"$current_version\"|version = \"$latest_version\"|" "$file"
+          set_attr_hash "$file" hash "$asset_hash"
+          return 0
+        }
+
           refresh_fake_hash_from_build() {
             local file="$1"
             local attr="$2"
@@ -904,6 +942,10 @@ pkgs.writeShellApplication {
           elif [ "$pkg" == "cake-wallet-flatpak" ]; then
             # Supported: versioned GitHub release asset for upstream Flatpak bundle
             echo " $pkg = pkgs.callPackage ./$pkg.nix {};"
+          elif [ "$pkg" == "orca" ]; then
+            # Supported via custom updater because upstream publishes a stable
+            # versioned Linux .deb, while NixOS needs package-specific wrapping.
+            echo " $pkg = pkgs.callPackage ./$pkg.nix {};"
           elif [ "$pkg" == "limux" ]; then
             # Supported via custom updater because source, Ghostty submodule,
             # upstream render patch, and cargoHash must move together.
@@ -1029,6 +1071,20 @@ pkgs.writeShellApplication {
           # Upstream publishes a versioned Flatpak bundle on GitHub releases.
           if update_versioned_url_package "$pkg" "cake-tech" "cake_wallet"; then
             UPDATED+=("$pkg")
+          else
+            SKIPPED+=("$pkg")
+          fi
+          ;;
+
+        "orca")
+          # Upstream publishes a versioned Linux .deb; refresh version and
+          # fixed-output hash together, then build the wrapped Electron app.
+          if update_orca_package; then
+            if nix-build -E 'let pkgs = import <nixpkgs> {}; in pkgs.callPackage ./orca.nix {}' >/dev/null; then
+              UPDATED+=("$pkg")
+            else
+              FAILED+=("$pkg")
+            fi
           else
             SKIPPED+=("$pkg")
           fi

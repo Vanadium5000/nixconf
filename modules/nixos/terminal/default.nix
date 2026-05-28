@@ -25,6 +25,7 @@
           "iloader"
           "powerpoint-mcp"
           "niri-screen-time"
+          "orca"
           "sideloader"
           "sora-watermark-cleaner"
           "waydroid-total-spoof"
@@ -165,6 +166,7 @@
           ++ (with pkgs; [
             parted
             exfatprogs
+            gh # Github CLI
 
             wtype
             monero-cli
