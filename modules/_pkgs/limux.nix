@@ -61,10 +61,16 @@ rustPlatform.buildRustPackage (finalAttrs: {
   patches = [
     (fetchpatch {
       url = "https://github.com/am-will/limux/pull/83.patch";
-      hash = "sha256-859MfUFcyNF/WsLJXBJx4b78e7iTR9Kg443BXvFKu8o=";
+      hash = "sha256-53LTuxLSq6xHsixHM3/7BIpUQD0TQlHXrBhhzE+nzPk=";
     })
   ];
 
+  # Keep cargoDepsName version-invariant so the vendored Rust dependency output
+  # stays cacheable across Limux version bumps when Cargo.lock is unchanged.
+  # `cargoLock` import would be cleaner, but this nixpkgs' importCargoLock emits
+  # a duplicate crates.io source for Limux's lockfile during cargo setup.
+  # Source: https://github.com/NixOS/nixpkgs/blob/master/doc/languages-frameworks/rust.section.md#compiling-rust-applications-with-cargo
+  cargoDepsName = "limux";
   cargoHash = "sha256-CdGjtN3NYqVP3FBTSlpGOMaHOgzgpoSPusFh14n+HWc=";
 
   deps = callPackage (src + "/ghostty/build.zig.zon.nix") {
