@@ -7,6 +7,7 @@
   at-spi2-atk,
   at-spi2-core,
   autoPatchelfHook,
+  bashInteractive,
   cairo,
   coreutils,
   cups,
@@ -124,6 +125,10 @@ stdenv.mkDerivation rec {
           xdg-utils
         ]
       }
+      # Orca's PTY daemon resolves `env.SHELL || process.env.SHELL || /bin/zsh`;
+      # desktop launches on NixOS can omit SHELL, and `/bin/zsh` does not exist.
+      # Source: resources/app.asar.unpacked/out/main/chunks/headless-emulator-*.js.
+      --run ${lib.escapeShellArg ''[ -x "''${SHELL:-}" ] || export SHELL=${bashInteractive}/bin/bash''}
       --add-flags "\''${NIXOS_OZONE_WL:+\''${WAYLAND_DISPLAY:+--ozone-platform-hint=auto --enable-features=WaylandWindowDecorations --enable-wayland-ime=true}}"
       --add-flags ${lib.escapeShellArg commandLineArgs}
     )

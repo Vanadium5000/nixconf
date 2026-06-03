@@ -4,6 +4,7 @@
     {
       lib,
       config,
+      pkgs,
       ...
     }:
     let
@@ -50,6 +51,45 @@
 
       cfg = config.impermanence;
       username = config.preferences.user.username;
+      rollbackRootScript = ''
+        mkdir -p /btrfs_tmp
+        for attempt in $(seq 1 30); do
+            if [ -e /dev/${cfg.volumeGroup}/root ]; then
+                break
+            fi
+            sleep 1
+        done
+
+        mount -t btrfs /dev/${cfg.volumeGroup}/root /btrfs_tmp
+        trap 'umount /btrfs_tmp 2>/dev/null || true' EXIT
+
+        if [[ -e /btrfs_tmp/root ]]; then
+            mkdir -p /btrfs_tmp/old_roots
+            timestamp=$(date --date="@$(stat -c %Y /btrfs_tmp/root)" "+%Y-%m-%-d_%H:%M:%S")
+            mv /btrfs_tmp/root "/btrfs_tmp/old_roots/$timestamp"
+        fi
+
+        delete_subvolume_recursively() {
+            IFS=$'\n'
+
+            # If we accidentally end up with a file or directory under old_roots,
+            # the code will enumerate all subvolumes under the main volume.
+            # We don't want to remove everything under true main volume. Only
+            # proceed if this path is a btrfs subvolume (inode=256).
+            if [ $(stat -c %i "$1") -ne 256 ]; then return; fi
+
+            for i in $(btrfs subvolume list -o "$1" | cut -f 9- -d ' '); do
+                delete_subvolume_recursively "/btrfs_tmp/$i"
+            done
+            btrfs subvolume delete "$1"
+        }
+
+        for i in $(find /btrfs_tmp/old_roots/ -maxdepth 1 -mtime +30); do
+            delete_subvolume_recursively "$i"
+        done
+
+        btrfs subvolume create /btrfs_tmp/root
+      '';
     in
     {
       imports = [
@@ -193,37 +233,39 @@
           "d /var/lib/private 0700 root root -"
         ];
 
-        boot.initrd.postResumeCommands = lib.mkAfter ''
-          mkdir /btrfs_tmp
-          mount /dev/${cfg.volumeGroup}/root /btrfs_tmp
-          if [[ -e /btrfs_tmp/root ]]; then
-              mkdir -p /btrfs_tmp/old_roots
-              timestamp=$(date --date="@$(stat -c %Y /btrfs_tmp/root)" "+%Y-%m-%-d_%H:%M:%S")
-              mv /btrfs_tmp/root "/btrfs_tmp/old_roots/$timestamp"
-          fi
+        boot.initrd.postResumeCommands = lib.mkIf (!config.boot.initrd.systemd.enable) (
+          lib.mkAfter rollbackRootScript
+        );
 
-          delete_subvolume_recursively() {
-              IFS=$'\n'
-
-              # If we accidentally end up with a file or directory under old_roots,
-              # the code will enumerate all subvolumes under the main volume.
-              # We don't want to remove everything under true main volume. Only
-              # proceed if this path is a btrfs subvolume (inode=256).
-              if [ $(stat -c %i "$1") -ne 256 ]; then return; fi
-
-              for i in $(btrfs subvolume list -o "$1" | cut -f 9- -d ' '); do
-                  delete_subvolume_recursively "/btrfs_tmp/$i"
-              done
-              btrfs subvolume delete "$1"
-          }
-
-          for i in $(find /btrfs_tmp/old_roots/ -maxdepth 1 -mtime +30); do
-              delete_subvolume_recursively "$i"
-          done
-
-          btrfs subvolume create /btrfs_tmp/root
-          umount /btrfs_tmp
-        '';
+        boot.initrd.systemd.services.rollback-root = lib.mkIf config.boot.initrd.systemd.enable {
+          description = "Reset impermanent Btrfs root subvolume";
+          requiredBy = [ "sysroot.mount" ];
+          before = [
+            "sysroot.mount"
+            "initrd-root-fs.target"
+            "shutdown.target"
+          ];
+          after = [
+            "cryptsetup.target"
+            "systemd-udev-settle.service"
+          ];
+          wants = [ "cryptsetup.target" ];
+          conflicts = [ "shutdown.target" ];
+          unitConfig.DefaultDependencies = false;
+          path = [
+            pkgs.btrfs-progs
+            pkgs.coreutils
+            pkgs.findutils
+            pkgs.gnugrep
+            pkgs.gnused
+            pkgs.util-linux
+          ];
+          serviceConfig = {
+            Type = "oneshot";
+            RemainAfterExit = true;
+          };
+          script = rollbackRootScript;
+        };
       };
     };
 }

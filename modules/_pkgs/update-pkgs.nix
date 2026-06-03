@@ -271,6 +271,20 @@ pkgs.writeShellApplication {
       fi
       echo "  Build result: $result"
 
+      if [ "$pkg" = "orca" ]; then
+        # The flake main program intentionally launches the Electron GUI, so
+        # smoke the packaged CLI entrypoint that Orca itself installs beside
+        # app.asar. This still exercises the patched Electron-as-Node runtime.
+        if "$result/opt/Orca/resources/bin/orca" --help >/dev/null; then
+          echo "  Smoke command passed: $result/opt/Orca/resources/bin/orca --help"
+          TESTED+=("$pkg")
+          return 0
+        fi
+        echo "  Build passed, but Orca CLI smoke command failed."
+        FAILED+=("$pkg")
+        return 1
+      fi
+
       main_program=$(nix eval --raw --expr "let p = $(package_build_expr "$pkg"); in p.meta.mainProgram or \"\"" 2>/dev/null || true)
       if [ -n "$main_program" ] && [ -x "$result/bin/$main_program" ]; then
         bin="$result/bin/$main_program"

@@ -74,30 +74,30 @@
         services.resolved = {
           enable = true;
 
-          # Fallback to common public DNS if dnscrypt-proxy is down (e.g. captive portals)
-          # These are ONLY used when primary DNS (127.0.0.1) fails
-          fallbackDns = [
-            "1.1.1.1"
-            "9.9.9.9"
-          ];
+          settings.Resolve = {
+            # Fallback to common public DNS if dnscrypt-proxy is down (e.g. captive portals).
+            # These are ONLY used when primary DNS (127.0.0.1) fails.
+            FallbackDNS = [
+              "1.1.1.1"
+              "9.9.9.9"
+            ];
 
-          # Route ALL queries through the global DNS servers (127.0.0.1 → dnscrypt-proxy)
-          # The "~." is a routing-only domain that captures all queries
-          domains = [ "~." ];
+            # Route ALL queries through the global DNS servers (127.0.0.1 → dnscrypt-proxy).
+            # The "~." routing-only domain captures all queries.
+            Domains = [ "~." ];
 
-          # Disable LLMNR and mDNS to prevent local network DNS leaks
-          llmnr = "false";
+            # Disable local multicast/name protocols to prevent local-network DNS leaks.
+            LLMNR = "no";
+            MulticastDNS = "no";
 
-          # DNSSEC breaks captive portals and some misconfigured domains
-          dnssec = "false";
+            # DNSSEC breaks captive portals and some misconfigured domains.
+            DNSSEC = "no";
 
-          extraConfig = ''
-            MulticastDNS=no
-            # Disable stub listener on port 53 - reserved for external service
-            DNSStubListener=no
-            DNSStubListenerExtra=
-            ResolveUnicastSingleLabel=no
-          '';
+            # Disable stub listener on port 53; that port is reserved for external service.
+            DNSStubListener = "no";
+            DNSStubListenerExtra = "";
+            ResolveUnicastSingleLabel = "no";
+          };
         };
 
         # Use non-stub resolv.conf since stub listener is disabled (port 53 reserved)

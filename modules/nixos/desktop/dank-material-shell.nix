@@ -291,7 +291,10 @@
             inherit user homeDirectory;
             inherit pkgs;
             files = {
-              ${dmsThemeFile}.text = builtins.toJSON dmsTheme;
+              ${dmsThemeFile} = {
+                text = builtins.toJSON dmsTheme;
+                type = "copy";
+              };
               ${voxtypeConfigFile}.text = voxtypeConfig;
 
               # DMS scans user plugins from ~/.config/DankMaterialShell/plugins and
@@ -299,7 +302,10 @@
               # local widget there matches user-installed plugins and avoids stale
               # system-plugin component caches. Source:
               # https://github.com/AvengeMedia/DankMaterialShell/blob/eb5afcdc40ea5446c27e18552ff4a19f9daf9484/quickshell/Services/PluginService.qml#L21-L29
-              "${dmsCommonPluginDir}".source = dmsCommonSrc;
+              "${dmsCommonPluginDir}" = {
+                source = dmsCommonSrc;
+                type = "copy";
+              };
               "${idleInhibitPluginDir}/plugin.json".text =
                 builtins.readFile ./dank-material-shell/idle-inhibit/plugin.json;
               "${idleInhibitPluginDir}/IdleInhibitWidget.qml".text = idleInhibitPluginQml;
@@ -311,7 +317,13 @@
               "${voxtypeWidgetPluginDir}/VoxtypeWidget.qml".text = voxtypeWidgetPluginQml;
             };
           };
-          deps = [ "users" ];
+          # Run after the impermanence bind mounts exist; otherwise boot-time
+          # activation writes into the hidden pre-mount ~/.config tree and DMS
+          # sees stale persisted files such as GC-collected theme symlinks.
+          deps = [
+            "users"
+            "specialfs"
+          ];
         };
 
         # Mirror the upstream user unit locally so installing `dms-shell` cannot

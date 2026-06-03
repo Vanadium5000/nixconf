@@ -46,10 +46,11 @@
           OMP_PROVIDER_NAME="''${MODELS_OMP_PROVIDER_NAME:-OmniRoute}"
           OMNIROUTE_OPENCODE_API_KEY="''${OMNIROUTE_OPENCODE_API_KEY:-${opencodeApiKey}}"
           OMP_BASE_URL="''${MODELS_OMP_BASE_URL:-''${OMNIROUTE_BASE_URL:-https://omniroute.${self.secrets.PUBLIC_BASE_DOMAIN}/v1}}"
-          # OMP's first-event stream watchdog defaults to 100000ms; OmniRoute
-          # can legitimately spend longer routing/cold-starting upstreams before
-          # the first SSE event, so use 2x that default for generated configs.
-          PROVIDER_TIMEOUT_MS="''${MODELS_PROVIDER_TIMEOUT_MS:-200000}"
+          # Keep generated OMP provider metadata aligned with the NixOS module's
+          # PI_STREAM_FIRST_EVENT_TIMEOUT_MS; OmniRoute can legitimately spend
+          # longer than OMP's 100s default routing/cold-starting upstreams before
+          # the first SSE event, but an infinite watchdog would strand sessions.
+          PROVIDER_TIMEOUT_MS="''${MODELS_PROVIDER_TIMEOUT_MS:-300000}"
 
           log_general() { $GUM style --foreground 212 "[models:general] $*"; }
           log_opencode() { $GUM style --foreground 39 "[models:opencode] $*"; }
@@ -798,8 +799,9 @@
           # OMP loads custom providers from ~/.omp/agent/models.yml and expects
           # contextWindow/maxTokens instead of OpenCode's limit object.
           # Source: https://github.com/can1357/oh-my-pi/blob/main/docs/models.md.
-          # Provider timeout maps to OMP retry.provider.timeoutMs and is shared with
-          # OpenCode's provider timeout so both clients tolerate slow first tokens.
+          # Provider timeout is retained for OMP versions that read generated
+          # metadata; the NixOS module also exports PI_STREAM_FIRST_EVENT_TIMEOUT_MS
+          # so current pi-ai stream watchdogs use the same finite first-event window.
           sync_omp_models() {
             local quiet="''${1:-0}"
             local pi_api_key="''${MODELS_OMP_API_KEY:-''${OMNIROUTE_PI_API_KEY:-${

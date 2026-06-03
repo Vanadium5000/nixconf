@@ -12,13 +12,13 @@
 }:
 
 let
-  version = "1.11.4";
+  version = "1.11.7";
 
   src = fetchFromGitHub {
     owner = "openchamber";
     repo = "openchamber";
     tag = "v${version}";
-    hash = "sha256-F70V+U9OQ2/qyH8UcpIG2wHW6v8FI08s6UzT056dp1U=";
+    hash = "sha256-yEgZXDjN9BjUDh5grpsXbyI4Ttjqtoc5DjxG84UFD8g=";
   };
 
   commonNativeBuildInputs = [
@@ -51,7 +51,7 @@ let
 
     outputHashMode = "recursive";
     outputHashAlgo = "sha256";
-    outputHash = "sha256-wySUZKxd1g1xPOTVWocaTQ2napFQRoN7kHWhAaKi1eo=";
+    outputHash = "sha256-vmS2XeLvPk82g0d+v14zyPsfmhXiyrJqucyZxkJbrGM=";
 
     dontBuild = true;
     dontFixup = true;

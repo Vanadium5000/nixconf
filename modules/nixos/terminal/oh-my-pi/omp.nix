@@ -22,6 +22,12 @@
       ompAgentDirectory = "${ompDirectory}/agent";
       ompModelsFile = "${ompAgentDirectory}/models.yml";
       ompConfigFile = "${ompAgentDirectory}/config.yml";
+      # OMP's pi-ai aborts OpenAI-family streams when no first SSE event arrives
+      # before PI_STREAM_FIRST_EVENT_TIMEOUT_MS. OmniRoute can exceed the 100s
+      # default during upstream routing/cold starts; keep a finite watchdog so a
+      # dead stream still aborts instead of hanging the session indefinitely.
+      # Source: @oh-my-pi/pi-ai src/utils/idle-iterator.ts and src/providers/openai-completions.ts.
+      streamFirstEventTimeoutMs = 300000;
       shellUser = lib.escapeShellArg user;
       shellHomeDirectory = lib.escapeShellArg homeDirectory;
       shellConfigSourceDirectory = lib.escapeShellArg configSourceDirectory;
@@ -64,7 +70,7 @@
       options.programs.omp.enable = mkEnableOption "OMP mutable state persistence";
 
       config = mkIf cfg.enable {
-        # Create only directories and OMP's provider timeout baseline; existing
+        # Create only directories and OMP's provider timeout hint; existing
         # config.yml, DBs, sessions, logs, and plugins remain regular mutable
         # files for the app. `models sync-omp` writes the documented
         # ~/.omp/agent/models.yml schema from the repo model cache without
@@ -83,7 +89,7 @@
               printf '{}\n' > ${shellOmpConfigFile}
             fi
 
-            ${pkgs.yq-go}/bin/yq -i '.retry.provider.timeoutMs = 200000' ${shellOmpConfigFile}
+            ${pkgs.yq-go}/bin/yq -i '.retry.provider.timeoutMs = ${toString streamFirstEventTimeoutMs}' ${shellOmpConfigFile}
             chmod 0600 ${shellOmpConfigFile}
             chown ${shellUser}:users ${shellOmpConfigFile}
 
@@ -112,6 +118,8 @@
         };
 
         fileSystems = ompPersistence.fileSystems;
+
+        environment.variables.PI_STREAM_FIRST_EVENT_TIMEOUT_MS = toString streamFirstEventTimeoutMs;
 
         preferences.zsh = {
           aliases.o = "omp";

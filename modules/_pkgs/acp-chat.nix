@@ -8,13 +8,13 @@
 
 buildNpmPackage rec {
   pname = "acp-chat";
-  version = "0.1.15";
+  version = "0.1.16";
 
   src = fetchFromGitHub {
     owner = "formulahendry";
     repo = "acp-ui";
     rev = "v${version}";
-    hash = "sha256-D/2AVbnRT32UYJz/AeK34uOTTdL9cLs3aVd+PkZ3Tyw=";
+    hash = "sha256-hJZIR3Py3Ihp64FZ9LJY96gDNVqHZ/9fDZ7CghB7Abg=";
   };
 
   npmDepsHash = "sha256-0aEvlOkYA60zBOzGMgTb2IHqjKK8MSDrY1lZkaBpVrQ=";

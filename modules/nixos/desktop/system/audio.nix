@@ -31,23 +31,24 @@
       ];
 
       preferences.autostart = [
-        "${pkgs.mpdris2}/bin/mpDris2 --music-dir=${config.services.mpd.musicDirectory}"
+        "${pkgs.mpdris2}/bin/mpDris2 --music-dir=${config.services.mpd.settings.music_directory}"
       ];
 
       # Music Player Daemon
       services.mpd = {
         enable = true;
         user = user; # Required so the musicDirectory can be accessed
-        musicDirectory = "${config.preferences.paths.sharedDirectory}/Music";
+        settings = {
+          music_directory = "${config.preferences.paths.sharedDirectory}/Music";
+          audio_output = [
+            {
+              type = "pipewire";
+              name = "My PipeWire Output";
+            }
+          ];
+        };
         # Make MPD only start when something actually tries to connect to it
         startWhenNeeded = true;
-
-        extraConfig = ''
-          audio_output {
-            type "pipewire"
-            name "My PipeWire Output"
-          }
-        '';
       };
 
       systemd.services.mpd.environment = {

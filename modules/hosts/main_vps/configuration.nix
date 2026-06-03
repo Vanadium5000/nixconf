@@ -74,6 +74,8 @@
         database.passwordFile = "${pkgs.writeText "dokploy-db-password" (
           builtins.hashString "sha256" "${self.secrets.SERVICES_AUTH_PASSWORD}:dokploy-db"
         )}";
+
+        auth.secretFile = "${pkgs.writeText "dokploy-auth-secret" self.secrets.DOKPLOY_AUTH_SECRET}";
       };
 
       systemd.services.dokploy-traefik.serviceConfig.ExecStart = lib.mkForce (

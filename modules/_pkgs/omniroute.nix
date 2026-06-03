@@ -16,12 +16,12 @@
 }:
 
 let
-  version = "3.8.2";
+  version = "3.8.5";
   docsSrc = fetchFromGitHub {
     owner = "diegosouzapw";
     repo = "OmniRoute";
     rev = "v${version}";
-    hash = "sha256-0vdtePpqWKHNKBL4eraOpPpUuStPCwR5QfzHPn4Rdxo=";
+    hash = "sha256-tcmHJD2qqE6TAItGGjQGPC8+4wZKldpa/4by8qREsLQ=";
   };
 in
 buildNpmPackage (finalAttrs: {
@@ -32,7 +32,7 @@ buildNpmPackage (finalAttrs: {
   # already contains the Next.js standalone app that upstream publishes.
   src = fetchurl {
     url = "https://registry.npmjs.org/omniroute/-/omniroute-${finalAttrs.version}.tgz";
-    hash = "sha256-oUdFHkmKCjdWAlIQe2NIOv315WEAgbbEP2z1dV84Flc=";
+    hash = "sha256-mnyGgwvUtVsITm0gBlNdR3/sPY6ZmCAeEMhTSc8NEpw=";
   };
 
   sourceRoot = "package";
@@ -59,7 +59,7 @@ buildNpmPackage (finalAttrs: {
   '';
 
   # Hash of the dependencies from package-lock.json
-  npmDepsHash = "sha256-FH84kJhkkRZA6nt3D5wf3AnXwNAi46SoXmrcC7jI5vU=";
+  npmDepsHash = "sha256-Htr3IiA9VO9GakAjjegHvnuH082/AkAPCJdII9TXiJk=";
   npmFlags = [ "--legacy-peer-deps" ];
 
   dontNpmBuild = true;

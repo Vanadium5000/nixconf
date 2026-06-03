@@ -110,7 +110,7 @@ in
             format_on_save = true;
           };
           json.formatter = {
-            command = "${pkgs.nodePackages.prettier}/bin/prettier";
+            command = "${pkgs.prettier}/bin/prettier";
             args = [
               "--write"
               "$FILE"
@@ -119,7 +119,7 @@ in
             timeout_ms = 10000;
           };
           yaml.formatter = {
-            command = "${pkgs.nodePackages.prettier}/bin/prettier";
+            command = "${pkgs.prettier}/bin/prettier";
             args = [
               "--write"
               "$FILE"
@@ -132,7 +132,7 @@ in
             page_view = true;
             page_width = 100;
             formatter = {
-              command = "${pkgs.nodePackages.prettier}/bin/prettier";
+              command = "${pkgs.prettier}/bin/prettier";
               args = [
                 "--write"
                 "$FILE"

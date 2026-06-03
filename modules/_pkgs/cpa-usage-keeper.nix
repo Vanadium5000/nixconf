@@ -7,12 +7,12 @@
 }:
 
 let
-  version = "1.8.3";
+  version = "1.8.6";
   src = fetchFromGitHub {
     owner = "Willxup";
     repo = "cpa-usage-keeper";
     rev = "v${version}";
-    hash = "sha256-NbJZ4t027TnRPGj+6iewNP/3D2GVHUv8nd+FCA68xmw=";
+    hash = "sha256-GBAMg413gE/K6RuaOp1/yeeIqkEU84psd87q7ynttIA=";
   };
 
   web = buildNpmPackage {
@@ -43,7 +43,7 @@ buildGoModule {
     cp -r ${web}/share/cpa-usage-keeper/web/dist web/dist
   '';
 
-  vendorHash = "sha256-3adkU3/TjS+kzeD2fONzyfxjMzphtEtBn5QRs24TCMQ=";
+  vendorHash = "sha256-XljXASi09nKdkXvCw3J2X0oX5vjC7s5IgVXr5x8SxUg=";
 
   subPackages = [ "cmd/server" ];
 

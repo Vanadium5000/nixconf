@@ -7,6 +7,15 @@ in
     { lib, pkgs, ... }:
     let
       initrdUnlockPort = 2222;
+      initrdUnlockShell = pkgs.writeTextFile {
+        name = "main-vps-initrd-unlock-shell";
+        destination = "/bin/main-vps-initrd-unlock-shell";
+        executable = true;
+        text = ''
+          #!/bin/sh
+          exec /bin/systemctl default
+        '';
+      };
       initrdUnlockHostKey = pkgs.writeText "main-vps-initrd-ssh-host-ed25519-key" (
         secrets.MAIN_VPS_INITRD_SSH_HOST_KEY
       );
@@ -17,17 +26,10 @@ in
     {
       boot.initrd.network = {
         # Remote unlock runs before NetworkManager and normal OpenSSH exist, so
-        # stage-1 networking must be enabled explicitly. Source:
-        # https://github.com/NixOS/nixpkgs/blob/4f90e32d9c535072f0a6a9ac4599f1e78b829eab/nixos/modules/system/boot/initrd-network.nix#L58-L70
+        # stage-1 networking must be enabled explicitly. With systemd stage 1,
+        # DHCP is handled by boot.initrd.systemd.network rather than udhcpc.
+        # Source: https://wiki.nixos.org/wiki/Remote_disk_unlocking
         enable = true;
-
-        udhcpc = {
-          # The live IONOS VPS uses DHCP on ens6, including a /32 IPv4 address and
-          # provider gateway; initrd cannot inherit that from normal boot.
-          # Assumption: provider DHCP is also available in initrd; if not, replace
-          # this with an explicit ip= kernel parameter after console testing.
-          enable = true;
-        };
 
         ssh = {
           # Open an initrd-only SSH daemon for LUKS unlock; normal post-boot SSH is
@@ -50,13 +52,21 @@ in
           # grant a post-boot login beyond the separate OpenSSH configuration.
           authorizedKeys = initrdUnlockAuthorizedKeys;
         };
+      };
 
-        # Drop directly into the NixOS LUKS passphrase helper after SSH login so a
-        # headless reboot needs only `ssh -p 2222 root@<host>`. Source:
-        # https://wiki.nixos.org/wiki/Remote_LUKS_Unlocking
-        postCommands = lib.mkAfter ''
-          echo 'cryptsetup-askpass' >> /root/.profile
-        '';
+      boot.initrd.systemd = {
+        shell.enable = true;
+        storePaths = [ "${initrdUnlockShell}/bin/main-vps-initrd-unlock-shell" ];
+        users.root.shell = "${initrdUnlockShell}/bin/main-vps-initrd-unlock-shell";
+
+        network = {
+          enable = true;
+          wait-online.anyInterface = true;
+          networks."10-initrd-ethernet" = {
+            matchConfig.Name = "ens* en* eth*";
+            networkConfig.DHCP = "ipv4";
+          };
+        };
       };
     };
 }

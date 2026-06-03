@@ -105,7 +105,7 @@ let
   formatterBins = {
     clang-format = "${pkgs.clang-tools}/bin/clang-format";
     nixfmt = "${pkgs.nixfmt-rfc-style}/bin/nixfmt";
-    prettier = "${pkgs.nodePackages.prettier}/bin/prettier";
+    prettier = "${pkgs.prettier}/bin/prettier";
     gofumpt = "${pkgs.gofumpt}/bin/gofumpt";
     ruff = "${pkgs.ruff}/bin/ruff";
     rustfmt = "${pkgs.rustfmt}/bin/rustfmt";
@@ -498,9 +498,9 @@ in
       lua-language-server
       luau-lsp
       marksman
-      nodePackages.markdownlint-cli
+      markdownlint-cli
       nixfmt-rfc-style
-      nodePackages.prettier
+      prettier
       ruff
       rust-analyzer
       rustfmt

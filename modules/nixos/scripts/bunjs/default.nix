@@ -270,7 +270,7 @@
         '';
         runtimeInputs = [
           jsPkgs.bun
-          pkgs.nodePackages.markdownlint-cli
+          pkgs.markdownlint-cli
           pkgs.coreutils
         ];
       };

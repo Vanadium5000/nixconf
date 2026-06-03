@@ -3,7 +3,7 @@
 
   inputs = {
     # Main Nix package repository providing stable channel packages
-    nixpkgs.url = "github:nixos/nixpkgs/nixos-25.11";
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-26.05";
 
     # Fallback Nix package repository providing unstable channel packages
     nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable";

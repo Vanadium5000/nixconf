@@ -129,6 +129,7 @@ declare -A SECRETS_MAP=(
     ["VPN_PROXY_API_KEY"]="system/vpn-proxy-api-key"
     ["SERVICES_AUTH_PASSWORD"]="system/services-auth-password"
     ["MAIN_VPS_INITRD_SSH_HOST_KEY"]="system/main-vps/initrd-ssh-host-ed25519-key"
+    ["DOKPLOY_AUTH_SECRET"]="system/dokploy/auth-secret"
 )
 
 # Load a single secret from password-store
