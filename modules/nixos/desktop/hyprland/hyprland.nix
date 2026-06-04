@@ -27,7 +27,6 @@
       user = config.preferences.user.username;
       homeDirectory = config.preferences.paths.homeDirectory;
 
-      makeScript = script: builtins.toString (pkgs.writeScriptBin "script" script) + "/bin/script";
       hyprDmsFragments = [
         "colors.conf"
         "outputs.conf"
@@ -183,7 +182,7 @@
 
       hyprClipboardExe = getExe hyprClipboard;
 
-      closeActiveWindowScript = makeScript ''
+      closeActiveWindow = pkgs.writeShellScriptBin "hypr-close-active-window" ''
         #!${pkgs.bash}/bin/bash
         set -euo pipefail
 
@@ -222,6 +221,7 @@
             "Press SUPER+Q again within ''${CONFIRM_WINDOW_SECONDS}s to close this app."
         ) >/dev/null 2>&1 < /dev/null &
       '';
+      closeActiveWindowScript = getExe closeActiveWindow;
 
       # ═══════════════════════════════════════════════════════════════════
       # UNIFIED KEYBIND DEFINITIONS - Single source of truth
@@ -1017,6 +1017,7 @@
         xdg-utils # Helps cliphist/wl-clipboard infer image MIME types.
         hyprScreenshot
         hyprClipboard
+        closeActiveWindow
         brightnessctl
         dconf # user-prefs
         adwaita-icon-theme # Provides the Adwaita cursor theme selected above

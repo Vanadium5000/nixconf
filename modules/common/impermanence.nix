@@ -55,9 +55,6 @@
     {
       imports = [
         inputs.impermanence.nixosModules.impermanence
-
-        # Tool for retroactive persistence in NixOS configurations
-        inputs.persist-retro.nixosModules.persist-retro
       ];
 
       options.impermanence = {
@@ -204,6 +201,7 @@
           pkgs.btrfs-progs
           pkgs.coreutils
           pkgs.findutils
+          pkgs.util-linux
         ];
 
         boot.initrd.systemd.services.rollback-root = {
@@ -220,6 +218,7 @@
             pkgs.btrfs-progs
             pkgs.coreutils
             pkgs.findutils
+            pkgs.util-linux
             "/bin"
             "/sbin"
           ];

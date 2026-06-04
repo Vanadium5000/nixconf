@@ -35,9 +35,6 @@
     # Module for managing impermanent (ephemeral) file systems
     impermanence.url = "github:nix-community/impermanence";
 
-    # Tool for retroactive persistence in NixOS configurations
-    persist-retro.url = "github:Geometer1729/persist-retro";
-
     # Declarative disk partitioning and formatting tool
     disko = {
       url = "github:nix-community/disko";

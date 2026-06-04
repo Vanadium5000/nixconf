@@ -17,10 +17,10 @@ in
         inherit pkgs;
         config = {
           enable_audio_bell = "no";
-          # kitty's config-reload watcher can consume hundreds of thousands of
-          # inotify watches when launched with generated Nix store configs; the
-          # config is rebuilt declaratively instead of edited live.
-          auto_reload_config = "no";
+          # kitty 0.43+ expects reload debounce seconds; negative disables the
+          # watcher so generated Nix-store configs do not consume inotify watches.
+          # Source: https://sw.kovidgoyal.net/kitty/conf/#opt-kitty.auto_reload_config
+          auto_reload_config = -1;
 
           font_family = theme.font;
           font_size = theme.font-size;

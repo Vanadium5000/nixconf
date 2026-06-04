@@ -37,8 +37,9 @@
         "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFsIUmSPfK9/ncfGjINjeI7sz+QK7wyaYJZtLhVpiU66 ssh-admin@legion5i"
       ];
 
-      # Use the latest kernel
-      boot.kernelPackages = pkgs.linuxPackages_latest; # 6.14+ for rtw89_8852bu USB support
+      # Stay on the stable channel kernel: linuxPackages_latest has hit inotify
+      # regressions while 6.14+ is still needed for rtw89_8852bu USB support.
+      boot.kernelPackages = pkgs.linuxPackages;
 
       # Preferences
       preferences = {

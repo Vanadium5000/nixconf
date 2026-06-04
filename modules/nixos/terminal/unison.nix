@@ -34,10 +34,7 @@
       };
 
       config = mkIf cfg.enable {
-        environment.systemPackages = [
-          pkgs.unison
-          pkgs.inotify-tools
-        ];
+        environment.systemPackages = [ pkgs.unison ];
 
         # SSH Configuration for the sync target
         programs.ssh.extraConfig = lib.mkIf (remoteDetails != null) ''
@@ -53,7 +50,7 @@
             ServerAliveCountMax 3
         '';
 
-        # Systemd User Service for continuous sync using file monitoring
+        # Systemd User Service for background sync
         systemd.user.services.unison-sync = lib.mkIf (remoteDetails != null) {
           description = "Unison Background Synchronization between ${config.preferences.hostName} and ${remoteDetails.name}";
           wantedBy = [ "default.target" ];
@@ -70,7 +67,6 @@
                 lib.makeBinPath [
                   pkgs.unison
                   pkgs.openssh
-                  pkgs.inotify-tools
                 ]
               }"
             ];
@@ -96,7 +92,9 @@
               # Robustness & Automation
               auto = true
               batch = true
-              repeat = watch
+              # Avoid recursive inotify over Shared developer trees; node_modules
+              # and browser/IDE workspaces can exhaust watchers even with high limits.
+              repeat = 60
               confirmbigdel = true
               prefer = newer
               times = true
