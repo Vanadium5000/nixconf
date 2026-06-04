@@ -202,6 +202,7 @@
         # boot.initrd.systemd.services/initrdBin option docs; bootup(7).
         boot.initrd.systemd.initrdBin = [
           pkgs.btrfs-progs
+          pkgs.coreutils
           pkgs.findutils
         ];
 
@@ -209,69 +210,98 @@
           description = "Rotate impermanent Btrfs root subvolume";
           wantedBy = [ "initrd-root-fs.target" ];
           before = [ "sysroot.mount" ];
-          requiredBy = [ "sysroot.mount" ];
           unitConfig.DefaultDependencies = false;
-          serviceConfig.Type = "oneshot";
+          serviceConfig = {
+            Type = "oneshot";
+            TimeoutSec = 30;
+          };
           after = [ "initrd-root-device.target" ];
           path = [
             pkgs.btrfs-progs
+            pkgs.coreutils
             pkgs.findutils
             "/bin"
             "/sbin"
           ];
           script = ''
-            set -euo pipefail
-
-            mkdir -p /btrfs_tmp
-            mount -o subvolid=5 /dev/${cfg.volumeGroup}/root /btrfs_tmp
-            trap 'umount /btrfs_tmp; rmdir /btrfs_tmp' EXIT
-
-            mkdir -p /btrfs_tmp/old_roots
-
-            if [ -e /btrfs_tmp/root ]; then
-                if [ "$(stat -c %i /btrfs_tmp/root)" -ne 256 ]; then
-                    echo "/btrfs_tmp/root exists but is not a Btrfs subvolume" >&2
-                    exit 1
-                fi
-
-                new_root="/btrfs_tmp/root-new-$$"
-                btrfs subvolume create "$new_root"
-
-                timestamp=$(date --date="@$(stat -c %Y /btrfs_tmp/root)" "+%Y-%m-%d_%H:%M:%S")
-                old_root="/btrfs_tmp/old_roots/$timestamp"
-                counter=0
-                while [ -e "$old_root" ]; do
-                    counter=$((counter + 1))
-                    old_root="/btrfs_tmp/old_roots/$timestamp-$counter"
-                done
-
-                mv /btrfs_tmp/root "$old_root"
-                mv "$new_root" /btrfs_tmp/root
-            else
-                btrfs subvolume create /btrfs_tmp/root
-            fi
-
-            delete_subvolume_recursively() {
-                IFS=$'\n'
-
-                # If we accidentally end up with a file or directory under old_roots,
-                # the code will enumerate all subvolumes under the main volume.
-                # We don't want to remove everything under true main volume. Only
-                # proceed if this path is a btrfs subvolume (inode=256).
-                if [ "$(stat -c %i "$1")" -ne 256 ]; then return; fi
-
-                for i in $(btrfs subvolume list -o "$1" | cut -f 9- -d ' '); do
-                    delete_subvolume_recursively "/btrfs_tmp/$i"
-                done
-                btrfs subvolume delete "$1"
+            cleanup() {
+                umount /btrfs_tmp || true
+                rmdir /btrfs_tmp || true
             }
 
-            # Pruning old snapshots is maintenance, not boot-critical.
-            if [ -d /btrfs_tmp/old_roots ]; then
-                find /btrfs_tmp/old_roots -mindepth 1 -maxdepth 1 -mtime +30 -print | while IFS= read -r i; do
-                    delete_subvolume_recursively "$i" || true
-                done
+            rollback_root() {
+                set -u
+
+                mkdir -p /btrfs_tmp || return 0
+                mount -o rw,subvolid=5 /dev/${cfg.volumeGroup}/root /btrfs_tmp || return 0
+                trap cleanup EXIT
+
+                mkdir -p /btrfs_tmp/old_roots || return 0
+
+                if [ -e /btrfs_tmp/root ]; then
+                    if [ "$(stat -c %i /btrfs_tmp/root)" -ne 256 ]; then
+                        echo "/btrfs_tmp/root exists but is not a Btrfs subvolume; keeping it for boot" >&2
+                        return 0
+                    fi
+
+                    new_root="/btrfs_tmp/root-new"
+                    counter=0
+                    while [ -e "$new_root" ]; do
+                        counter=$((counter + 1))
+                        new_root="/btrfs_tmp/root-new-$counter"
+                    done
+                    btrfs subvolume create "$new_root" || return 0
+
+                    timestamp=$(stat -c %Y /btrfs_tmp/root)
+                    old_root="/btrfs_tmp/old_roots/$timestamp"
+                    counter=0
+                    while [ -e "$old_root" ]; do
+                        counter=$((counter + 1))
+                        old_root="/btrfs_tmp/old_roots/$timestamp-$counter"
+                    done
+
+                    if ! mv /btrfs_tmp/root "$old_root"; then
+                        btrfs subvolume delete "$new_root" || true
+                        return 0
+                    fi
+
+                    if ! mv "$new_root" /btrfs_tmp/root; then
+                        mv "$old_root" /btrfs_tmp/root || true
+                        btrfs subvolume delete "$new_root" || true
+                        return 0
+                    fi
+                else
+                    btrfs subvolume create /btrfs_tmp/root || return 0
+                fi
+
+                delete_subvolume_recursively() {
+                    IFS=$'\n'
+
+                    # If we accidentally end up with a file or directory under old_roots,
+                    # the code will enumerate all subvolumes under the main volume.
+                    # We don't want to remove everything under true main volume. Only
+                    # proceed if this path is a btrfs subvolume (inode=256).
+                    if [ "$(stat -c %i "$1")" -ne 256 ]; then return; fi
+
+                    for i in $(btrfs subvolume list -o "$1" | cut -f 9- -d ' '); do
+                        delete_subvolume_recursively "/btrfs_tmp/$i"
+                    done
+                    btrfs subvolume delete "$1"
+                }
+
+                # Pruning old snapshots is maintenance, not boot-critical.
+                if [ -d /btrfs_tmp/old_roots ]; then
+                    find /btrfs_tmp/old_roots -mindepth 1 -maxdepth 1 -mtime +30 -print | while IFS= read -r i; do
+                        delete_subvolume_recursively "$i" || true
+                    done
+                fi
+            }
+
+            if ! rollback_root; then
+                echo "rollback-root failed; continuing boot without rotating root" >&2
             fi
+
+            exit 0
           '';
         };
       };

@@ -214,7 +214,7 @@
             font_size = theme."font-size";
             font_fixed = theme.font;
             font_fixed_size = theme.system."font-size";
-            color_scheme = hyprqt6engineColorScheme;
+            color_scheme = "${hyprqt6engineColorScheme}";
           };
           misc = {
             single_click_activate = 1;

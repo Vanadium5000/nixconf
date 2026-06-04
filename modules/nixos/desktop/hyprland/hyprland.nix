@@ -815,7 +815,6 @@
       preferences.autostart = [
         "${pkgs.wl-clipboard}/bin/wl-paste --type text --watch ${pkgs.cliphist}/bin/cliphist store" # Stores text with original MIME metadata.
         "${pkgs.wl-clipboard}/bin/wl-paste --type image --watch ${pkgs.cliphist}/bin/cliphist store" # Stores images byte-for-byte for later image/png recopy.
-        "${pkgs.kdePackages.polkit-kde-agent-1}/libexec/polkit-kde-authentication-agent-1"
         "${pkgs.kdePackages.kactivitymanagerd}/libexec/kactivitymanagerd"
       ];
 

@@ -67,7 +67,7 @@
       };
 
       # Plymouth
-      boot.plymouth.enable = true;
+      # boot.plymouth.enable = true;
 
       # (cdc_ncm, cdc_mbim) prevent networkmanager spam from unusable cdc devices
       # (hci_bcm4377) disable bluetooth as it's very buggy on a MacBookAir9,1

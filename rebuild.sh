@@ -185,6 +185,19 @@ write_secrets_nix() {
     success "Secrets written to ${secrets_file}"
 }
 
+existing_secrets_nix_complete() {
+    local secrets_file="${FLAKE_DIR}/secrets.nix"
+
+    [ -s "$secrets_file" ] || return 1
+
+    local env_var
+    for env_var in "${!SECRETS_MAP[@]}"; do
+        if ! grep -Eq "^[[:space:]]*${env_var}[[:space:]]*=" "$secrets_file"; then
+            return 1
+        fi
+    done
+}
+
 # Load all secrets from password-store
 load_secrets() {
     log "Loading secrets from password-store..."
@@ -216,6 +229,11 @@ load_secrets() {
         for failed in "${failed_secrets[@]}"; do
             warn "  - $failed"
         done
+
+        if existing_secrets_nix_complete; then
+            warn "Keeping existing complete secrets.nix instead of overwriting it with partial password-store output."
+            return 0
+        fi
     fi
 
     write_secrets_nix

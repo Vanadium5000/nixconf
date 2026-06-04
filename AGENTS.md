@@ -13,8 +13,8 @@
 
 - **Impermanence**: Root is wiped on boot. Persist critical data (config, keys) in `impermanence.nixos.directories` and caches (llama.cpp, browser) in `.cache` paths.
 - **Secrets**: Auto-injected by `rebuild.sh` from `pass` into `secrets.nix`. Access via `self.secrets.NAME`. Never commit `secrets.nix`.
-- **Nix Evaluation**: Always use `path:.#` (not `.#`) to include untracked/dirty files.
-- **Binary Caches**: Do not prioritize China-hosted or low-trust mirrors. Prefer official `cache.nixos.org` plus reputable CDN/project caches; put substituters and trusted public keys only in root `flake.nix` `nixConfig`, not host/module `nix.settings`; verify `.narinfo` hit/miss and one large NAR before changing priorities.
+- **Nix Evaluation**: Always use `path:.#` (not `.#`) to include untracked files.
+- **Binary Caches**: Do not use low-trust mirrors. Put substituters and trusted public keys only in root `flake.nix` `nixConfig`, not host/module `nix.settings`; verify `.narinfo` hit/miss and one large NAR before changing priorities.
 - **Wayland Clipboard**: Always use `wl-copy --type text/plain` when piping stdin.
 
 ## 🏠 Server Services (public server host)
@@ -38,8 +38,3 @@
   1. Add to `SECRETS_MAP` in `rebuild.sh`.
   2. `pass insert path/to/secret`.
   3. Secret becomes available as `self.secrets.VAR_NAME`.
-
-## 🔄 Plan Submission
-
-When a plan is ready, use `submit_plan`. Do NOT proceed until approved.
-Once approved, use `TaskCreate` to track atomic steps. Mark `in_progress` before starting and `completed` immediately after verification.
