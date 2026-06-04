@@ -28,6 +28,7 @@
   nspr,
   nss,
   pango,
+  trash-cli,
   udev,
   wayland,
   xdg-utils,
@@ -38,11 +39,11 @@
 
 stdenv.mkDerivation rec {
   pname = "orca";
-  version = "1.4.33";
+  version = "1.4.45";
 
   src = fetchurl {
     url = "https://github.com/stablyai/orca/releases/download/v${version}/orca-ide_${version}_amd64.deb";
-    hash = "sha256-8wwH3jAzuh+TKvYg0dH/FyOvcLt8QetdjfgWpybZWAQ=";
+    hash = "sha256-UK7LCXavjnLZ9i1YX7zyKo+CoZJPTJXWqPXEMNM0Efg=";
   };
 
   nativeBuildInputs = [
@@ -106,7 +107,10 @@ stdenv.mkDerivation rec {
       $out/opt/Orca/chrome_crashpad_handler \
       $out/opt/Orca/chrome-sandbox \
       $out/opt/Orca/resources/agent-browser-linux-x64
-    chmod +x $out/opt/Orca/resources/bin/orca
+    chmod +x $out/opt/Orca/resources/bin/orca-ide
+
+    substituteInPlace $out/opt/Orca/resources/bin/orca-ide \
+      --replace-fail '#!/usr/bin/env bash' '#!${bashInteractive}/bin/bash'
 
     substituteInPlace $out/share/applications/orca-ide.desktop \
       --replace-fail /opt/Orca/orca-ide $out/bin/orca-ide
@@ -122,9 +126,16 @@ stdenv.mkDerivation rec {
       --prefix PATH : ${
         lib.makeBinPath [
           coreutils
+          trash-cli
           xdg-utils
         ]
       }
+      # Electron's Linux shell.trashItem picks kioclient5 on KDE-like sessions;
+      # that binary is absent from this lightweight package closure on NixOS.
+      # Force the documented trash-cli backend instead. Ref: user log
+      # "LaunchProcess: failed to execvp: kioclient5" and Electron
+      # shell/common/platform_util_linux.cc MoveItemToTrash.
+      --set ELECTRON_TRASH trash-cli
       # Orca's PTY daemon resolves `env.SHELL || process.env.SHELL || /bin/zsh`;
       # desktop launches on NixOS can omit SHELL, and `/bin/zsh` does not exist.
       # Source: resources/app.asar.unpacked/out/main/chunks/headless-emulator-*.js.

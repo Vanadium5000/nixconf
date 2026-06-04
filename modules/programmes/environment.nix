@@ -33,7 +33,7 @@
             nil
             nixd
             statix
-            nixfmt-rfc-style # Nix formatter
+            nixfmt # Nix formatter
             manix
             nix-inspect
             nix-prefetch-github

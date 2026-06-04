@@ -106,9 +106,9 @@
         # LSPs/Dependencies
         nixd
         nil
-        nixfmt-rfc-style # Nixfmt
+        nixfmt # Nix formatter
         (pkgs.treefmt.withConfig {
-          runtimeInputs = [ pkgs.nixfmt-rfc-style ];
+          runtimeInputs = [ pkgs.nixfmt ];
         }) # Nixfmt-tree
         alejandra
         jq

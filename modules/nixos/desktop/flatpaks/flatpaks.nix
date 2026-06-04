@@ -101,6 +101,8 @@
             # Ref: https://github.com/gmodena/nix-flatpak#flatpak-bundles
             sha256 = "sha256-w0YqBEbGqOZK29DhmsIQgo7ruI/pl5iueOC6zpxrnK4=";
           }
+
+          "org.vinegarhq.Sober" # Sober
         ];
       };
 

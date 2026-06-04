@@ -14,6 +14,7 @@ _:
   };
 
   allowedUnfree = [
+    "nvidia-kernel-modules"
     "nvidia-x11"
     "nvidia-settings"
     "torch"

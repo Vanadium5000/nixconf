@@ -67,7 +67,7 @@ in
             use_tabs = false;
             tab_size = 2;
             formatter = {
-              command = "${pkgs.nixfmt-rfc-style}/bin/nixfmt";
+              command = "${pkgs.nixfmt}/bin/nixfmt";
               args = [
                 "$FILE"
               ];

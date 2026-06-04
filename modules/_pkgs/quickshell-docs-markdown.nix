@@ -31,6 +31,13 @@ let
     # We use the typegen directory from the fetched docs source
     src = "${docsSrc}/typegen";
     cargoHash = "sha256-vLj/EKfBzlfRdmVr114evJS+Owzz4PdARNGBE3aPUo4=";
+
+    postPatch = ''
+      substituteInPlace src/main.rs \
+        --replace-fail \
+        ".collect::<Result<_, _>>()?;" \
+        ".collect::<Result<(), _>>()?;"
+    '';
   };
 
 in
