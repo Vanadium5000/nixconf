@@ -4,6 +4,7 @@
     {
       lib,
       config,
+      pkgs,
       ...
     }:
     let
@@ -193,37 +194,86 @@
           "d /var/lib/private 0700 root root -"
         ];
 
-        boot.initrd.postResumeCommands = lib.mkAfter ''
-          mkdir /btrfs_tmp
-          mount /dev/${cfg.volumeGroup}/root /btrfs_tmp
-          if [[ -e /btrfs_tmp/root ]]; then
-              mkdir -p /btrfs_tmp/old_roots
-              timestamp=$(date --date="@$(stat -c %Y /btrfs_tmp/root)" "+%Y-%m-%-d_%H:%M:%S")
-              mv /btrfs_tmp/root "/btrfs_tmp/old_roots/$timestamp"
-          fi
+        # systemd stage-1 does not support postResumeCommands; run the Btrfs
+        # root rotation before systemd-fstab-generator mounts /sysroot. Tools
+        # used by this service must be copied into initrd explicitly via
+        # initrdBin, not assumed from the stage-2 system profile.
+        # Sources: impermanence README Btrfs subvolume recipe; nixpkgs
+        # boot.initrd.systemd.services/initrdBin option docs; bootup(7).
+        boot.initrd.systemd.initrdBin = [
+          pkgs.btrfs-progs
+          pkgs.findutils
+        ];
 
-          delete_subvolume_recursively() {
-              IFS=$'\n'
+        boot.initrd.systemd.services.rollback-root = {
+          description = "Rotate impermanent Btrfs root subvolume";
+          wantedBy = [ "initrd-root-fs.target" ];
+          before = [ "sysroot.mount" ];
+          requiredBy = [ "sysroot.mount" ];
+          unitConfig.DefaultDependencies = false;
+          serviceConfig.Type = "oneshot";
+          after = [ "initrd-root-device.target" ];
+          path = [
+            pkgs.btrfs-progs
+            pkgs.findutils
+            "/bin"
+            "/sbin"
+          ];
+          script = ''
+            set -euo pipefail
 
-              # If we accidentally end up with a file or directory under old_roots,
-              # the code will enumerate all subvolumes under the main volume.
-              # We don't want to remove everything under true main volume. Only
-              # proceed if this path is a btrfs subvolume (inode=256).
-              if [ $(stat -c %i "$1") -ne 256 ]; then return; fi
+            mkdir -p /btrfs_tmp
+            mount -o subvolid=5 /dev/${cfg.volumeGroup}/root /btrfs_tmp
+            trap 'umount /btrfs_tmp; rmdir /btrfs_tmp' EXIT
 
-              for i in $(btrfs subvolume list -o "$1" | cut -f 9- -d ' '); do
-                  delete_subvolume_recursively "/btrfs_tmp/$i"
-              done
-              btrfs subvolume delete "$1"
-          }
+            mkdir -p /btrfs_tmp/old_roots
 
-          for i in $(find /btrfs_tmp/old_roots/ -maxdepth 1 -mtime +30); do
-              delete_subvolume_recursively "$i"
-          done
+            if [ -e /btrfs_tmp/root ]; then
+                if [ "$(stat -c %i /btrfs_tmp/root)" -ne 256 ]; then
+                    echo "/btrfs_tmp/root exists but is not a Btrfs subvolume" >&2
+                    exit 1
+                fi
 
-          btrfs subvolume create /btrfs_tmp/root
-          umount /btrfs_tmp
-        '';
+                new_root="/btrfs_tmp/root-new-$$"
+                btrfs subvolume create "$new_root"
+
+                timestamp=$(date --date="@$(stat -c %Y /btrfs_tmp/root)" "+%Y-%m-%d_%H:%M:%S")
+                old_root="/btrfs_tmp/old_roots/$timestamp"
+                counter=0
+                while [ -e "$old_root" ]; do
+                    counter=$((counter + 1))
+                    old_root="/btrfs_tmp/old_roots/$timestamp-$counter"
+                done
+
+                mv /btrfs_tmp/root "$old_root"
+                mv "$new_root" /btrfs_tmp/root
+            else
+                btrfs subvolume create /btrfs_tmp/root
+            fi
+
+            delete_subvolume_recursively() {
+                IFS=$'\n'
+
+                # If we accidentally end up with a file or directory under old_roots,
+                # the code will enumerate all subvolumes under the main volume.
+                # We don't want to remove everything under true main volume. Only
+                # proceed if this path is a btrfs subvolume (inode=256).
+                if [ "$(stat -c %i "$1")" -ne 256 ]; then return; fi
+
+                for i in $(btrfs subvolume list -o "$1" | cut -f 9- -d ' '); do
+                    delete_subvolume_recursively "/btrfs_tmp/$i"
+                done
+                btrfs subvolume delete "$1"
+            }
+
+            # Pruning old snapshots is maintenance, not boot-critical.
+            if [ -d /btrfs_tmp/old_roots ]; then
+                find /btrfs_tmp/old_roots -mindepth 1 -maxdepth 1 -mtime +30 -print | while IFS= read -r i; do
+                    delete_subvolume_recursively "$i" || true
+                done
+            fi
+          '';
+        };
       };
     };
 }

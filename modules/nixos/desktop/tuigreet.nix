@@ -6,13 +6,16 @@
         enable = true;
         settings = {
           default_session = {
-            command = "${pkgs.tuigreet}/bin/tuigreet --remember --asterisks --container-padding 2 --time --time-format '%I:%M %p | %a • %h | %F'";
+            command = "${pkgs.tuigreet}/bin/tuigreet --cmd 'uwsm start -e -D Hyprland hyprland.desktop' --remember --asterisks --container-padding 2 --time --time-format '%I:%M %p | %a • %h | %F'";
             user = "greeter";
           };
         };
       };
 
-      environment.systemPackages = with pkgs; [ tuigreet ];
+      environment.systemPackages = with pkgs; [
+        tuigreet
+        uwsm
+      ];
 
       # this is a life saver.
       # literally no documentation about this anywhere.

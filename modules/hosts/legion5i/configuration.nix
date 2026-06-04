@@ -51,7 +51,10 @@
         user = {
           username = "matrix";
         };
-        hardware.tlp.enable = true;
+        hardware.tlp = {
+          enable = true;
+          chargeControl = "lenovo-conservation";
+        };
         hardware.memory.enable = true;
         hardware.btrfsMaintenance = {
           enable = true;
@@ -66,7 +69,7 @@
       };
 
       # Plymouth
-      boot.plymouth.enable = true;
+      # boot.plymouth.enable = true;
 
       # Keyboard
       services.xserver.xkb.layout = "gb";

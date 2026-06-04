@@ -45,8 +45,12 @@
             # Global defaults for all new + existing connections for better privacy
             settings = {
               # Prevents broadcasting the machine hostname on typical networks.
+              # NetworkManager 1.52 rejects the old [connection] key; these are
+              # the documented global defaults consumed by DHCP connection profiles.
               # The server host still needs DHCP hostname announcements for its provider lease.
-              connection.dhcp-send-hostname = config.preferences.hostName != "main_vps";
+              # Source: https://networkmanager.dev/docs/api/latest/NetworkManager.conf.html#connection-section
+              ipv4.dhcp-send-hostname = config.preferences.hostName != "main_vps";
+              ipv6.dhcp-send-hostname = config.preferences.hostName != "main_vps";
             };
 
             plugins = with pkgs; [

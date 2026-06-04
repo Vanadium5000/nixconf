@@ -10,6 +10,7 @@
     let
       inherit (self.lib.generators) toHyprconf;
       hyprlandEnabled = lib.attrByPath [ "home" "programs" "hyprland" "enable" ] false config;
+      currentWallpaper = "${config.preferences.paths.homeDirectory}/wallpaper/.current_wallpaper";
     in
     {
       config = lib.mkIf hyprlandEnabled {
@@ -46,8 +47,11 @@
               # Hyprpaper config
               ".config/hypr/hyprpaper.conf".text = toHyprconf {
                 attrs = {
-                  preload = "~/wallpaper/.current_wallpaper";
-                  wallpaper = ",~/wallpaper/.current_wallpaper";
+                  wallpaper = {
+                    monitor = "";
+                    path = currentWallpaper;
+                    fit_mode = "cover";
+                  };
                 };
               };
             };
@@ -57,7 +61,7 @@
 
         # Add hyprpaper only on hosts that actually run Hyprland.
         environment.systemPackages = [ pkgs.hyprpaper ];
-        preferences.autostart = [ "hyprpaper" ];
+        preferences.autostart = [ (lib.getExe pkgs.hyprpaper) ];
       };
     };
 }

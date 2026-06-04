@@ -40,8 +40,10 @@
         "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEg7swCzJy8e8D+gQUtGW6YEdTt6j8RMRBR89Nhco9c+"
       ];
 
-      # Use the latest kernel
-      hardware.apple-t2.kernelChannel = "latest"; # 6.14+ for rtw89_8852bu USB support
+      # T2 latest currently tracks the removed linux_6_19 attr; stable tracks the
+      # supported linux_6_12 T2 patchset in nixos-hardware.
+      # Source: https://github.com/NixOS/nixos-hardware/blob/master/apple/t2/pkgs/linux-t2/default.nix
+      hardware.apple-t2.kernelChannel = "stable";
 
       # Preferences
       preferences = {
@@ -134,14 +136,6 @@
           '';
         }))
       ];
-
-      # Brightness keys
-      # home-manager.users."${config.var.username}".wayland.windowManager.hyprland.settings.bindle = [
-      #   ",XF86KbdBrightnessUp, exec, brightness-up 'apple::kbd_backlight'" # Kbd Brightness Up
-      #   ",XF86KbdBrightnessDown, exec, brightness-down 'apple::kbd_backlight'" # Kbd Brightness Down
-      #   "$shift,XF86KbdBrightnessUp, exec, brightness-up-small 'apple::kbd_backlight'" # Kbd Brightness Up Small
-      #   "$shift,XF86KbdBrightnessDown, exec, brightness-down-small 'apple::kbd_backlight'" # Kbd Brightness Down Small
-      # ];
 
       # HTTPS traffic analyzer — on-demand: systemctl start mitmproxy
       services.mitmproxy.enable = true;

@@ -203,7 +203,7 @@
           if [ -n "''${LAST_PRESS_SECONDS:-}" ]; then
             if (( NOW_SECONDS - LAST_PRESS_SECONDS <= CONFIRM_WINDOW_SECONDS )); then
               rm -f "$STATE_FILE"
-              exec ${pkgs.hyprland}/bin/hyprctl dispatch killactive
+              exec ${pkgs.hyprland}/bin/hyprctl dispatch 'hl.dsp.window.close()'
             fi
           fi
         fi
@@ -365,16 +365,8 @@
         accessibility = [
           (kb "${mod},T" "exec, voxtype record toggle" "Toggle Voxtype" "Accessibility")
           (kb "${shiftMod},T" "exec, voxtype record cancel" "Cancel Voxtype" "Accessibility")
-          (kb "${mod},MINUS"
-            ''exec, hyprctl keyword cursor:zoom_factor $(awk "BEGIN {print $(hyprctl getoption cursor:zoom_factor | grep 'float:' | awk '{print $2}') - 0.1}")''
-            "Zoom out"
-            "Accessibility"
-          )
-          (kb "${mod},EQUAL"
-            ''exec, hyprctl keyword cursor:zoom_factor $(awk "BEGIN {print $(hyprctl getoption cursor:zoom_factor | grep 'float:' | awk '{print $2}') + 0.1}")''
-            "Zoom in"
-            "Accessibility"
-          )
+          (kb "${mod},MINUS" "zoom-out" "Zoom out" "Accessibility")
+          (kb "${mod},EQUAL" "zoom-in" "Zoom in" "Accessibility")
         ];
 
         # ── Help ──
@@ -508,8 +500,167 @@
         ++ keybinds.captureScripts
         ++ keybinds.workspaces;
 
-      # Convert keybind to hyprland bind string
-      toBindString = kb: "${kb.key}, ${kb.exec}";
+      luaString = builtins.toJSON;
+
+      luaKeyName =
+        key:
+        let
+          parts = lib.splitString "," key;
+          hasSeparator = builtins.length parts > 1;
+          modPart = lib.trim (builtins.head parts);
+          keyPart = lib.trim (builtins.concatStringsSep "," (builtins.tail parts));
+          luaMods = lib.trim (builtins.replaceStrings [ "_" " " ] [ " + " " + " ] modPart);
+        in
+        if !hasSeparator then
+          builtins.replaceStrings [ "_" ] [ " + " ] key
+        else if luaMods == "" then
+          keyPart
+        else
+          "${luaMods} + ${keyPart}";
+
+      luaBool = value: if value then "true" else "false";
+
+      luaValue =
+        value:
+        if builtins.isBool value then
+          luaBool value
+        else if builtins.isInt value || builtins.isFloat value then
+          toString value
+        else
+          luaString value;
+
+      luaTable =
+        attrs:
+        "{ "
+        + lib.concatStringsSep ", " (lib.mapAttrsToList (name: value: "${name} = ${luaValue value}") attrs)
+        + " }";
+
+      luaDirection =
+        dir:
+        {
+          l = "left";
+          r = "right";
+          u = "up";
+          d = "down";
+        }
+        .${dir} or dir;
+
+      luaExecDispatcher = command: "hl.dsp.exec_cmd(${luaString command})";
+
+      luaDispatcher =
+        action:
+        let
+          trimmed = lib.trim action;
+          after = prefix: lib.trim (lib.removePrefix prefix trimmed);
+          afterComma = prefix: lib.trim (lib.removePrefix prefix trimmed);
+          splitArgs = value: builtins.filter (part: part != "") (lib.splitString " " (lib.trim value));
+        in
+        if lib.hasPrefix "exec," trimmed then
+          let
+            command = after "exec,";
+          in
+          if command == "" then "hl.dsp.no_op()" else luaExecDispatcher command
+        else if trimmed == "zoom-out" then
+          "function() zoom_factor = math.max(1.0, zoom_factor - 0.1); hl.config({ cursor = { zoom_factor = zoom_factor } }) end"
+        else if trimmed == "zoom-in" then
+          "function() zoom_factor = zoom_factor + 0.1; hl.config({ cursor = { zoom_factor = zoom_factor } }) end"
+        else if trimmed == "togglefloating," then
+          "hl.dsp.window.float()"
+        else if trimmed == "centerwindow" then
+          "hl.dsp.window.center()"
+        else if trimmed == "fullscreen" then
+          "hl.dsp.window.fullscreen()"
+        else if trimmed == "togglegroup" then
+          "hl.dsp.group.toggle()"
+        else if lib.hasPrefix "moveintogroup," trimmed then
+          "hl.dsp.window.move({ into_group = ${luaString (luaDirection (afterComma "moveintogroup,"))} })"
+        else if lib.hasPrefix "layoutmsg," trimmed then
+          "hl.dsp.layout(${luaString (afterComma "layoutmsg,")})"
+        else if trimmed == "pseudo" then
+          "hl.dsp.window.pseudo()"
+        else if lib.hasPrefix "movefocus," trimmed then
+          "hl.dsp.focus({ direction = ${luaString (luaDirection (afterComma "movefocus,"))} })"
+        else if lib.hasPrefix "movewindow, mon:" trimmed then
+          "hl.dsp.window.move({ monitor = ${luaString (luaDirection (afterComma "movewindow, mon:"))} })"
+        else if lib.hasPrefix "movewindow," trimmed then
+          "hl.dsp.window.move({ direction = ${luaString (luaDirection (afterComma "movewindow,"))} })"
+        else if lib.hasPrefix "swapwindow," trimmed then
+          "hl.dsp.window.swap({ direction = ${luaString (luaDirection (afterComma "swapwindow,"))} })"
+        else if lib.hasPrefix "focusmonitor," trimmed then
+          "hl.dsp.focus({ monitor = ${luaString (luaDirection (afterComma "focusmonitor,"))} })"
+        else if trimmed == "togglesplit," then
+          ''hl.dsp.layout("togglesplit")''
+        else if trimmed == "cyclenext," then
+          "hl.dsp.window.cycle_next()"
+        else if trimmed == "cyclenext, prev" then
+          "hl.dsp.window.cycle_next({ next = false })"
+        else if trimmed == "bringactivetotop" then
+          "hl.dsp.window.bring_to_top()"
+        else if lib.hasPrefix "resizeactive," trimmed then
+          let
+            args = splitArgs (afterComma "resizeactive,");
+            x = builtins.elemAt args 0;
+            y = builtins.elemAt args 1;
+          in
+          "hl.dsp.window.resize({ x = ${x}, y = ${y}, relative = true })"
+        else if lib.hasPrefix "workspace," trimmed then
+          "hl.dsp.focus({ workspace = ${luaString (afterComma "workspace,")} })"
+        else if lib.hasPrefix "togglespecialworkspace," trimmed then
+          "hl.dsp.workspace.toggle_special(${luaString (afterComma "togglespecialworkspace,")})"
+        else if lib.hasPrefix "movetoworkspace," trimmed then
+          "hl.dsp.window.move({ workspace = ${luaString (afterComma "movetoworkspace,")} })"
+        else if lib.hasPrefix "focusworkspaceoncurrentmonitor," trimmed then
+          "hl.dsp.focus({ workspace = ${luaString (afterComma "focusworkspaceoncurrentmonitor,")}, on_current_monitor = true })"
+        else if trimmed == "resizewindow" then
+          "hl.dsp.window.resize()"
+        else if trimmed == "movewindow" then
+          "hl.dsp.window.drag()"
+        else if lib.hasPrefix "hyprctl " trimmed then
+          luaExecDispatcher trimmed
+        else
+          throw "unsupported Hyprland dispatcher action: ${trimmed}";
+
+      luaBind =
+        flags: kb:
+        let
+          options = flags // {
+            description = kb.description;
+          };
+        in
+        "hl.bind(${luaString (luaKeyName kb.key)}, ${luaDispatcher kb.exec}, ${luaTable options})";
+
+      luaEnv =
+        entry:
+        let
+          parts = lib.splitString "," entry;
+          name = builtins.head parts;
+          value = builtins.concatStringsSep "," (builtins.tail parts);
+        in
+        "hl.env(${luaString name}, ${luaString value}, true)";
+
+      luaBinds = lib.concatStringsSep "\n" (
+        (map (luaBind { }) allBindKeybinds)
+        ++ (map (luaBind { mouse = true; }) keybinds.mouse)
+        ++ (map (luaBind { locked = true; }) (keybinds.media ++ keybinds.system))
+        ++ (map (luaBind {
+          locked = true;
+          repeating = true;
+        }) (keybinds.volume ++ keybinds.brightness))
+        ++ (map (luaBind { repeating = true; }) keybinds.resize)
+        ++ [ ''hl.bind("mouse:274", hl.dsp.no_op())'' ]
+        ++ (builtins.concatLists (
+          builtins.genList (
+            i:
+            let
+              ws = i + 1;
+            in
+            [
+              "hl.bind(${luaString "${mod} + code:1${toString i}"}, hl.dsp.focus({ workspace = ${luaString (toString ws)}, on_current_monitor = true }))"
+              "hl.bind(${luaString "${mod} + SHIFT + code:1${toString i}"}, hl.dsp.window.move({ workspace = ${luaString (toString ws)} }))"
+            ]
+          ) 9
+        ))
+      );
 
       # Convert key from hyprland format to human-readable for help overlay
       humanizeKey =
@@ -678,275 +829,188 @@
       # Keybind descriptions generated from unified keybind definitions
       home.programs.hyprland.keybindDescriptions = allKeybindDescriptions;
 
-      home.programs.hyprland.settings = {
-        # unscale XWayland - fix rendering issues/blurry xwayland apps
-        xwayland = {
-          force_zero_scaling = true;
-        };
+      home.programs.hyprland.configType = "lua";
+      home.programs.hyprland.luaConfig = ''
+        -- Generated by nixconf. Hyprland 0.55+ uses Lua config; hyprlang is deprecated.
+        -- Source docs: https://wiki.hypr.land/Configuring/Start/
 
-        monitor = [
-          ",prefered,auto,auto"
-        ];
+        local function load_dms_outputs(path)
+          local file = io.open(path, "r")
+          if not file then
+            return false
+          end
 
-        # Fix nwg-displays: an output management utility for sway and Hyprland
-        # https://github.com/nwg-piotr/nwg-displays
-        source = [
-          # I use DMS over NWG-Displays now
-          # "~/.config/hypr/monitors.conf"
-          # "~/.config/hypr/workspaces.conf"
+          local loaded = false
+          for line in file:lines() do
+            local output, mode, position, scale = line:match("^%s*monitor%s*=%s*([^,]*),%s*([^,]*),%s*([^,]*),%s*([^,%s]*)")
+            if output then
+              hl.monitor({
+                output = output:gsub("^%s+", ""):gsub("%s+$", ""),
+                mode = mode:gsub("^%s+", ""):gsub("%s+$", ""),
+                position = position:gsub("^%s+", ""):gsub("%s+$", ""),
+                scale = scale:gsub("^%s+", ""):gsub("%s+$", ""),
+              })
+              loaded = true
+            end
+          end
+          file:close()
+          return loaded
+        end
 
-          # DMS writes Hyprland fragments under ~/.config/hypr/dms. Use absolute
-          # home paths because this generated Hyprland config lives in /nix/store,
-          # so relative ./dms sources resolve against the store file instead.
-          # Sources:
-          # https://github.com/AvengeMedia/DankMaterialShell/blob/eb5afcdc40ea5446c27e18552ff4a19f9daf9484/core/internal/config/embedded/hyprland.conf#L117-L121
-          # https://wiki.hyprland.org/Configuring/Keywords/#sourcing-multi-file
-          # Note: I only care about the DMS display config, the rest I don't care about
-          # "~/.config/hypr/dms/colors.conf"
-          "~/.config/hypr/dms/outputs.conf"
-          # "~/.config/hypr/dms/layout.conf"
-          # "~/.config/hypr/dms/cursor.conf"
-          # "~/.config/hypr/dms/binds.conf"
-          # "~/.config/hypr/dms/windowrules.conf"
-        ];
+        local zoom_factor = 1.0
 
-        general = {
-          resize_on_border = true;
-          extend_border_grab_area = 6;
-          hover_icon_on_border = 1;
+        -- DMS still writes Hyprland monitor fragments in legacy syntax. Do not
+        -- source hyprlang from Lua; translate monitor lines or use the documented
+        -- fallback rule for random monitors.
+        -- Sources: Hyprland monitor Lua docs and DMS embedded outputs.conf path.
+        if not load_dms_outputs(${luaString "${homeDirectory}/.config/hypr/dms/outputs.conf"}) then
+          hl.monitor({ output = "", mode = "preferred", position = "auto", scale = "auto" })
+        end
 
-          gaps_in = theme.gaps-in;
-          gaps_out = theme.gaps-out;
-          border_size = theme.border-size;
-          #border_part_of_window = true;
-          layout = "dwindle"; # or master
+        hl.config({
+          xwayland = {
+            force_zero_scaling = true,
+          },
+          general = {
+            resize_on_border = true,
+            extend_border_grab_area = 6,
+            hover_icon_on_border = true,
+            gaps_in = ${toString theme.gaps-in},
+            gaps_out = ${toString theme.gaps-out},
+            border_size = ${toString theme.border-size},
+            layout = "dwindle",
+            col = {
+              active_border = "rgb(${colorsNoHash.border-color})",
+              inactive_border = "rgb(${colorsNoHash.border-color-inactive})",
+            },
+          },
+          group = {
+            groupbar = {
+              col = {
+                active = "rgb(${colorsNoHash.border-color})",
+                inactive = "rgb(${colorsNoHash.border-color-inactive})",
+              },
+            },
+            col = {
+              border_active = "rgb(${colorsNoHash.border-color})",
+              border_inactive = "rgb(${colorsNoHash.border-color-inactive})",
+            },
+          },
+          dwindle = {
+            preserve_split = true,
+            smart_split = true,
+            smart_resizing = true,
+            use_active_for_splits = true,
+            permanent_direction_override = true,
+            precise_mouse_move = true,
+            special_scale_factor = 1.0,
+          },
+          master = {
+            new_status = "master",
+            allow_small_split = true,
+            mfact = 0.5,
+          },
+          misc = {
+            vrr = 1,
+            disable_hyprland_logo = true,
+            disable_splash_rendering = true,
+            disable_autoreload = false,
+            middle_click_paste = false,
+            focus_on_activate = true,
+            on_focus_under_fullscreen = 2,
+          },
+          debug = {
+            vfr = true,
+          },
+          input = {
+            kb_layout = "gb",
+            follow_mouse = 1,
+            sensitivity = 0.5,
+            repeat_delay = 300,
+            repeat_rate = 50,
+            numlock_by_default = true,
+            touchpad = {
+              natural_scroll = true,
+              clickfinger_behavior = true,
+            },
+          },
+          decoration = {
+            rounding = ${toString theme.rounding},
+            active_opacity = 1.0,
+            inactive_opacity = ${toString theme.opacity},
+            dim_inactive = false,
+            dim_strength = 0.5,
+            dim_around = 0.5,
+            dim_special = 0.5,
+            shadow = {
+              enabled = false,
+            },
+            blur = {
+              enabled = ${luaBool theme.blur},
+              size = 2,
+              passes = 3,
+              new_optimizations = true,
+              vibrancy = 0.1696,
+            },
+          },
+          animations = {
+            enabled = false,
+          },
+        })
 
-          "col.active_border" = "rgb(${colorsNoHash.border-color})";
-          "col.inactive_border" = "rgb(${colorsNoHash.border-color-inactive})";
-        };
+        hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })
 
-        group = {
-          groupbar = {
-            "col.active" = "rgb(${colorsNoHash.border-color})";
-            "col.inactive" = "rgb(${colorsNoHash.border-color-inactive})";
-          };
-          "col.border_active" = "rgb(${colorsNoHash.border-color})";
-          "col.border_inactive" = "rgb(${colorsNoHash.border-color-inactive})";
-        };
+        hl.window_rule({ match = { tag = "modal" }, float = true })
+        hl.window_rule({ match = { tag = "modal" }, pin = true })
+        hl.window_rule({ match = { tag = "modal" }, center = true })
 
-        #-------------------------------------------------------------
-        #                      Dwindle layout
-        #-------------------------------------------------------------
-        dwindle = {
-          #pseudotile = 0 # enable pseudotiling on dwindle
-          pseudotile = "yes";
-          preserve_split = "yes";
-          smart_split = "yes";
-          smart_resizing = "yes";
-          use_active_for_splits = true;
-          permanent_direction_override = true;
-          precise_mouse_move = true;
-          special_scale_factor = 1.0;
-        };
+        -- Flameshot creates a transient full-screen helper; keep it unmanaged.
+        -- Source: https://wiki.hypr.land/FAQ/
+        hl.window_rule({ match = { class = "^(flameshot)$" }, no_anim = true })
+        hl.window_rule({ match = { class = "^(flameshot)$" }, float = true })
+        hl.window_rule({ match = { class = "^(flameshot)$" }, move = { 0, 0 } })
+        hl.window_rule({ match = { class = "^(flameshot)$" }, pin = true })
 
-        master = {
-          new_status = true;
-          allow_small_split = true;
-          mfact = 0.5;
-        };
+        hl.window_rule({ match = { class = "^(waydroid\\.InputMethod)$" }, float = true })
+        hl.window_rule({ match = { class = "^(waydroid\\.InputMethod)$" }, no_focus = true })
 
-        gesture = [
-          # Workspace swipe
-          "3, horizontal, workspace"
-        ];
+        -- Quickshell layer-shell windows provide DMS shell surfaces.
+        hl.layer_rule({ match = { namespace = "^quickshell$" }, blur = true })
+        hl.layer_rule({ match = { namespace = "^quickshell$" }, ignore_alpha = 0.01 })
 
-        misc = {
-          vfr = true;
-          vrr = 1; # 0 | 1 | 2
-
-          disable_hyprland_logo = true;
-          disable_splash_rendering = true;
-          disable_autoreload = false;
-
-          middle_click_paste = false;
-
-          focus_on_activate = true;
-          new_window_takes_over_fullscreen = 2; # 0 | 1 | 2
-        };
-
-        windowrulev2 = [
-          "float, tag:modal"
-          "pin, tag:modal"
-          "center, tag:modal"
-
-          # Fix flameshot
-          # https://wiki.hyprland.org/FAQ/
-          "noanim, class:^(flameshot)$"
-          "float, class:^(flameshot)$"
-          "move 0 0, class:^(flameshot)$"
-          "pin, class:^(flameshot)$"
-
-          # Waydroid
-          # Float + suppress focus for popup surfaces only
-          "float, class:^(waydroid\\.InputMethod)$"
-          "nofocus, class:^(waydroid\\.InputMethod)$"
-
-        ];
-
-        layerrule = [
-          #   "noanim, launcher"
-          #   "noanim, rofi"
-
-          # DankMaterialShell surfaces are Quickshell layer-shell windows; keep
-          # their translucent surfaces readable without retaining Waybar rules.
-          "blur, ^quickshell$"
-          "ignorezero, ^quickshell$" # ignore transparent pixels in shell layers.
-        ];
-
-        input = {
-          kb_layout = "gb";
-          #kb_options = "caps:escape";
-
-          follow_mouse = 1;
-
-          sensitivity = 0.5;
-          repeat_delay = 300;
-          repeat_rate = 50;
-          numlock_by_default = true;
-
-          touchpad = {
-            natural_scroll = true;
-            clickfinger_behavior = true;
-          };
-        };
-
-        #-------------------------------------------------------------
-        #                       Decoration section
-        #-------------------------------------------------------------
-        # Inspired by https://github.com/cybergaz/hyprland_rice/blob/master/.config/hypr/hyprland.conf
-        decoration = {
-          rounding = theme.rounding;
-
-          #---------------------------------------------------------
-          #                         Opacity
-          #---------------------------------------------------------
-          active_opacity = 1.0;
-          inactive_opacity = theme.opacity;
-          dim_inactive = 0;
-          dim_strength = 0.5;
-          dim_around = 0.5;
-          dim_special = 0.5;
-
-          #---------------------------------------------------------
-          #                         Shadows
-          #---------------------------------------------------------
-          shadow.enabled = false;
-
-          #---------------------------------------------------------
-          #                          Blur
-          #---------------------------------------------------------
-          blur = {
-            enabled = theme.blur;
-            size = 2;
-            passes = 3; # more passes = more resources
-            new_optimizations = true;
-            vibrancy = 0.1696;
-          };
-        };
-
-        # Animations
-        animations = {
-          enabled = false;
-
-          # Some default animations, see https://wiki.hyprland.org/Configuring/Animations/ for more
-          # bezier = "myBezier, 0.25, 0.9, 0.1, 1.02";
-          # animation = [
-          #   "windows, 1, 7, myBezier"
-          #   "windowsOut, 1, 7, default, popin 80%"
-          #   "border, 1, 10, default"
-          #   "borderangle, 1, 8, default"
-          #   "fade, 1, 7, default"
-          #   "workspaces, 1, 3, myBezier, fade"
-          # ];
-        };
-
-        # Keybinds generated from unified definitions
-        bind =
-          (map toBindString allBindKeybinds)
-          ++ [
-            # Disable middle-click paste
-            ", mouse:274, exec, "
+        ${lib.concatStringsSep "\n" (
+          map luaEnv [
+            "XDG_SESSION_TYPE,wayland"
+            "XDG_SESSION_DESKTOP,Hyprland"
+            "XDG_CURRENT_DESKTOP,Hyprland"
+            "MOZ_ENABLE_WAYLAND,1"
+            "ANKI_WAYLAND,1"
+            "NIXOS_OZONE_WL,1"
+            "ELECTRON_OZONE_PLATFORM_HINT,auto"
+            "DISABLE_QT5_COMPAT,0"
+            "GDK_BACKEND,wayland"
+            "GDK_SCALE,2"
+            "WLR_DRM_NO_ATOMIC,1"
+            "QT_AUTO_SCREEN_SCALE_FACTOR,1"
+            "QT_WAYLAND_DISABLE_WINDOWDECORATION,1"
+            "QT_QPA_PLATFORM,wayland"
+            "QT_QPA_PLATFORMTHEME,hyprqt6engine"
+            "QT_QUICK_CONTROLS_STYLE,org.kde.desktop"
+            "KDE_FULL_SESSION,true"
+            "KDE_SESSION_VERSION,6"
+            "WLR_BACKEND,vulkan"
+            "WLR_RENDERER,vulkan"
+            "WLR_NO_HARDWARE_CURSORS,1"
+            "CLUTTER_BACKEND,wayland"
+            "GSK_RENDERER,vulkan"
+            "XCURSOR_THEME,Adwaita"
+            "XCURSOR_SIZE,16"
+            "CHECKLIST_DIR,/home/${config.preferences.user.username}/Shared/Checklist"
           ]
-          ++ (builtins.concatLists (
-            builtins.genList (
-              i:
-              let
-                ws = i + 1;
-              in
-              [
-                # Use physical number-row keycodes so GB-layout shifted symbols do
-                # not break workspace movement. Plain SUPER switches the current
-                # monitor; SUPER+SHIFT moves the window and follows it.
-                "${mod},code:1${toString i}, focusworkspaceoncurrentmonitor, ${toString ws}"
-                "${shiftMod},code:1${toString i}, movetoworkspace, ${toString ws}"
-              ]
-            ) 9
-          ));
+        )}
 
-        # Mouse bindings generated from unified definitions
-        bindm = map toBindString keybinds.mouse;
-
-        bindr = [
-          # Released bindings
-        ];
-
-        # Locked bindings generated from unified definitions
-        bindl = (map toBindString keybinds.media) ++ (map toBindString keybinds.system);
-
-        # Repeat bindings generated from unified definitions
-        bindle = (map toBindString keybinds.volume) ++ (map toBindString keybinds.brightness);
-
-        # Continuous bindings (e.g. resize)
-        binde = map toBindString keybinds.resize;
-
-        # GUI-session Environment Variables
-        env = [
-          "XDG_SESSION_TYPE,wayland"
-          "XDG_SESSION_DESKTOP,Hyprland"
-          "XDG_CURRENT_DESKTOP,Hyprland"
-          "MOZ_ENABLE_WAYLAND,1"
-          "ANKI_WAYLAND,1"
-          "NIXOS_OZONE_WL,1"
-          "ELECTRON_OZONE_PLATFORM_HINT,auto"
-          "DISABLE_QT5_COMPAT,0"
-          "GDK_BACKEND,wayland"
-          "GDK_SCALE,2" # scaling
-          "WLR_DRM_NO_ATOMIC,1"
-          "QT_AUTO_SCREEN_SCALE_FACTOR,1" # enables automatic scaling
-          "QT_WAYLAND_DISABLE_WINDOWDECORATION,1"
-          "QT_QPA_PLATFORM,wayland"
-          # These keep Hyprland children on the same KDE/Qt path as kdeglobals
-          # so Kirigami apps do not fall back to light Breeze outside Plasma.
-          # Source: /tmp/plasma-systemmonitor-live-theme.trace
-          "QT_QPA_PLATFORMTHEME,hyprqt6engine"
-          "QT_QUICK_CONTROLS_STYLE,org.kde.desktop"
-          "KDE_FULL_SESSION,true"
-          "KDE_SESSION_VERSION,6"
-          "WLR_BACKEND,vulkan"
-          "WLR_RENDERER,vulkan"
-          "WLR_NO_HARDWARE_CURSORS,1"
-          "CLUTTER_BACKEND,wayland"
-          "GSK_RENDERER,vulkan" # "ngl" | "vulkan"
-
-          # Use Adwaita for a standard white cursor with a dark outline; DMS can
-          # still override cursor behavior through ./dms/cursor.conf above.
-          "XCURSOR_THEME,Adwaita"
-          "XCURSOR_SIZE,16"
-
-          # Checklist directory
-          "CHECKLIST_DIR,/home/${config.preferences.user.username}/Shared/Checklist"
-        ];
-      };
+        ${luaBinds}
+      '';
 
       environment.systemPackages = with pkgs; [
         wl-clipboard

@@ -204,10 +204,6 @@
       services.mitmproxy.proxyPort = 8084;
       services.mitmproxy.trustCA = true;
 
-      # Dokploy stores Docker images, volumes, and swarm state under /var/lib/docker.
-      # Persisting it avoids wiping deployments every reboot on an impermanent-root host.
-      impermanence.nixos.cache.directories = [ "/var/lib/docker" ];
-
       # ntfy keeps its cache, auth DB, and attachments in /var/lib/ntfy-sh.
       # Use a normal persistent state path to avoid DynamicUser StateDirectory clashes.
       impermanence.nixos.directories = [ "/var/lib/ntfy-sh" ];

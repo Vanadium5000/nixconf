@@ -4,6 +4,17 @@
     { lib, config, ... }:
     let
       cfg = lib.attrByPath [ "preferences" "hardware" "tlp" ] { enable = false; } config;
+      chargeSettings = {
+        none = { };
+        lenovo-conservation = {
+          # Lenovo non-ThinkPads expose conservation mode, not arbitrary
+          # thresholds: START is a dummy and STOP=1 enables the fixed 60/80%
+          # hardware target depending on model/kernel.
+          # Source: https://linrunner.de/tlp/settings/bc-vendors.html#lenovo-non-thinkpad-series
+          START_CHARGE_THRESH_BAT0 = 0;
+          STOP_CHARGE_THRESH_BAT0 = 1;
+        };
+      };
     in
     {
       config = lib.mkIf cfg.enable {
@@ -32,12 +43,8 @@
 
             PLATFORM_PROFILE_ON_AC = "balanced";
             PLATFORM_PROFILE_ON_BAT = "low-power";
-
-            # Start recharging around 60% to avoid deep discharge wear.
-            START_CHARGE_THRESH_BAT0 = 60;
-            # This hardware behaves best when TLP manages the charging target directly.
-            STOP_CHARGE_THRESH_BAT0 = 1;
-          };
+          }
+          // chargeSettings.${cfg.chargeControl};
         };
 
         # Can interfere with TLP and tends to get enabled implicitly by desktop stacks.

@@ -120,7 +120,21 @@
         };
 
         hardware = {
-          tlp.enable = mkEnableOption "the laptop TLP tuning module";
+          tlp = {
+            enable = mkEnableOption "the laptop TLP tuning module";
+            chargeControl = mkOption {
+              type = types.enum [
+                "none"
+                "lenovo-conservation"
+              ];
+              default = "none";
+              description = ''
+                Battery charge-control backend for TLP. Lenovo non-ThinkPad
+                systems expose only conservation mode, while unsupported
+                hardware must not receive threshold settings that TLP rejects.
+              '';
+            };
+          };
           memory.enable = mkEnableOption "zram and systemd-oomd memory-pressure tuning";
           btrfsMaintenance = {
             enable = mkEnableOption "low-risk Btrfs and SSD maintenance timers";
@@ -250,6 +264,16 @@
           impermanence.home.cache.files = [
             ".zsh_history"
           ];
+
+          # Quickshell/DMS, Flatpak app discovery, IDEs, and systemd cgroup
+          # tracking all allocate inotify watches in a busy graphical session;
+          # the kernel reports ENOSPC here as "No space left on device" even
+          # when disks are fine. Size this above the observed boot exhaustion.
+          boot.kernel.sysctl = {
+            "fs.inotify.max_user_watches" = 1048576;
+            "fs.inotify.max_user_instances" = 1048576;
+            "fs.inotify.max_queued_events" = 131072;
+          };
 
           # Locales
           time.timeZone = cfg.timeZone;

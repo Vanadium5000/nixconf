@@ -205,19 +205,22 @@
 
       # The config path and keys are hyprqt6engine's documented interface.
       # Source: https://wiki.hypr.land/Hypr-Ecosystem/hyprqt6engine/
-      hyprqt6engineConf = lib.generators.toINI { } {
-        theme = {
-          style = "Oxygen";
-          icon_theme = "oxygen";
-          font = theme.font;
-          font_size = theme."font-size";
-          font_fixed = theme.font;
-          font_fixed_size = theme.system."font-size";
-          color_scheme = hyprqt6engineColorScheme;
-        };
-        misc = {
-          single_click_activate = true;
-          menus_have_icons = true;
+      hyprqt6engineConf = self.lib.generators.toHyprconf {
+        attrs = {
+          theme = {
+            style = "Oxygen";
+            icon_theme = "oxygen";
+            font = theme.font;
+            font_size = theme."font-size";
+            font_fixed = theme.font;
+            font_fixed_size = theme.system."font-size";
+            color_scheme = hyprqt6engineColorScheme;
+          };
+          misc = {
+            single_click_activate = 1;
+            menus_have_icons = 1;
+            shortcuts_for_context_menus = 1;
+          };
         };
       };
 

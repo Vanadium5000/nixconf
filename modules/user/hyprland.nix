@@ -19,6 +19,7 @@ in
         mkOption
         mkIf
         concatLines
+        concatMapStringsSep
         mapAttrsToList
         getExe
         mkAfter
@@ -59,10 +60,90 @@ in
         }) cfg.keybindDescriptions);
 
       keybindsJson = builtins.toJSON allKeybinds;
+
+      luaString = builtins.toJSON;
+
+      luaKeyName =
+        keyName:
+        let
+          parts = lib.splitString "," keyName;
+          hasHyprlangSeparator = builtins.length parts > 1;
+          modPart = lib.trim (builtins.head parts);
+          keyPart = lib.trim (builtins.concatStringsSep "," (builtins.tail parts));
+          luaMods = lib.trim (builtins.replaceStrings [ "_" " " ] [ " + " " + " ] modPart);
+        in
+        if !hasHyprlangSeparator then
+          builtins.replaceStrings [ "_" ] [ " + " ] keyName
+        else if luaMods == "" then
+          keyPart
+        else
+          "${luaMods} + ${keyPart}";
+
+      luaExec = command: ''hl.dsp.exec_cmd(${luaString command})'';
+
+      luaPreferenceKeymap =
+        let
+          wrapWriteApplication =
+            text:
+            getExe (
+              pkgs.writeShellApplication {
+                name = "script";
+                text = text;
+              }
+            );
+
+          makeLuaBinds =
+            parentKeyName: keyName: keyOptions:
+            let
+              finalKeyName = luaKeyName keyName;
+              submapname =
+                parentKeyName
+                + (builtins.replaceStrings [ " " "," "$" "+" ] [ "hypr" "submaps" "syntax" "suck" ] keyName);
+            in
+            if keyOptions ? exec && keyOptions.exec != null then
+              ''
+                hl.bind(${luaString finalKeyName}, ${luaExec (wrapWriteApplication keyOptions.exec)})
+                hl.bind(${luaString finalKeyName}, hl.dsp.submap("reset"))
+              ''
+            else if keyOptions ? package && keyOptions.package != null then
+              ''
+                hl.bind(${luaString finalKeyName}, ${luaExec (getExe keyOptions.package)})
+                hl.bind(${luaString finalKeyName}, hl.dsp.submap("reset"))
+              ''
+            else
+              ''
+                hl.bind(${luaString finalKeyName}, hl.dsp.submap(${luaString submapname}))
+                hl.define_submap(${luaString submapname}, function()
+                ${concatLines (mapAttrsToList (makeLuaBinds submapname) keyOptions)}
+                end)
+              '';
+        in
+        concatLines (mapAttrsToList (makeLuaBinds "root") config.preferences.keymap);
+
+      luaAutostart = ''
+        hl.on("hyprland.start", function()
+        ${concatMapStringsSep "\n" (
+          entry:
+          let
+            command = if (builtins.typeOf entry) == "string" then entry else getExe entry;
+          in
+          ''  hl.exec_cmd(${luaString command})''
+        ) config.preferences.autostart}
+        end)
+      '';
     in
     {
       options.home.programs.hyprland = {
         enable = mkEnableOption "hyprland configuration";
+
+        configType = mkOption {
+          type = types.enum [
+            "hyprlang"
+            "lua"
+          ];
+          default = "hyprlang";
+          description = "Hyprland configuration language to write.";
+        };
 
         settings = mkOption {
           default = { };
@@ -78,7 +159,23 @@ in
           '';
         };
 
+        luaConfig = mkOption {
+          type = types.lines;
+          default = "";
+          description = "Hyprland Lua configuration body written to hyprland.lua.";
+        };
+
+        extraLuaConfig = mkOption {
+          type = types.lines;
+          default = "";
+          description = "Extra Hyprland Lua configuration appended after luaConfig.";
+        };
+
         finalConfig = mkOption {
+          default = "";
+        };
+
+        finalLuaConfig = mkOption {
           default = "";
         };
 
@@ -109,30 +206,50 @@ in
 
       config = mkIf cfg.enable {
         home.programs.hyprland.finalConfig = (toHyprconf { attrs = cfg.settings; }) + cfg.extraConfig;
+        home.programs.hyprland.finalLuaConfig = concatLines [
+          cfg.luaConfig
+          luaAutostart
+          cfg.extraLuaConfig
+          luaPreferenceKeymap
+        ];
 
         system.activationScripts.hyprland-user-files = {
-          text = self.lib.userFiles.mkActivationScript {
-            inherit user;
-            inherit pkgs;
-            homeDirectory = config.preferences.paths.homeDirectory;
-            files = {
-              ".config/hypr/hyprland.conf".text = cfg.finalConfig;
-              # Generate keybinds JSON for the help overlay
-              ".config/hypr/keybinds.json".text = keybindsJson;
+          text =
+            (if cfg.configType == "lua" then
+              ''
+                rm -f ${lib.escapeShellArg "${config.preferences.paths.homeDirectory}/.config/hypr/hyprland.conf"}
+              ''
+            else
+              ''
+                rm -f ${lib.escapeShellArg "${config.preferences.paths.homeDirectory}/.config/hypr/hyprland.lua"}
+              '')
+            + self.lib.userFiles.mkActivationScript {
+              inherit user;
+              inherit pkgs;
+              homeDirectory = config.preferences.paths.homeDirectory;
+              files = (if cfg.configType == "lua" then {
+                  ".config/hypr/hyprland.lua".text = cfg.finalLuaConfig;
+                } else {
+                  ".config/hypr/hyprland.conf".text = cfg.finalConfig;
+                }) // {
+                # Generate keybinds JSON for the help overlay
+                ".config/hypr/keybinds.json".text = keybindsJson;
+              };
             };
-          };
           deps = [ "users" ];
         };
 
-        home.programs.hyprland.settings.exec-once = builtins.map (
-          entry:
-          if (builtins.typeOf entry) == "string" then
-            getExe (pkgs.writeShellScriptBin "autostart" entry)
-          else
-            getExe entry
-        ) config.preferences.autostart;
+        home.programs.hyprland.settings.exec-once = lib.mkIf (cfg.configType == "hyprlang") (
+          builtins.map (
+            entry:
+            if (builtins.typeOf entry) == "string" then
+              getExe (pkgs.writeShellScriptBin "autostart" entry)
+            else
+              getExe entry
+          ) config.preferences.autostart
+        );
 
-        home.programs.hyprland.extraConfig =
+        home.programs.hyprland.extraConfig = lib.mkIf (cfg.configType == "hyprlang") (
           let
             wrapWriteApplication =
               text:
@@ -181,7 +298,8 @@ in
                   submap = reset
                 '';
           in
-          mkAfter (concatLines (mapAttrsToList (makeHyprBinds "root") config.preferences.keymap));
+          mkAfter (concatLines (mapAttrsToList (makeHyprBinds "root") config.preferences.keymap))
+        );
       };
     };
 }
