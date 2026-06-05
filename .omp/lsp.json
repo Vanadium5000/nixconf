@@ -5,8 +5,6 @@
       "args": [
         "-E",
         "-I",
-        "/nix/store/h3nbjvrm84vxmn8fs319rbhic2ibq524-qt5compat-6.11.0/lib/qt-6/qml",
-        "-I",
         "/run/current-system/sw/lib/qt-6/qml",
         "-I",
         "modules/nixos/scripts/quickshell",

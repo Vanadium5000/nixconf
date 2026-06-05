@@ -94,7 +94,7 @@ pkgs.writeShellApplication {
       cliproxyapi | niri-screen-time)
         printf '%s\n' nix-update
         ;;
-      antigravity-manager | aptos-fonts | iloader | patchright | playwright-cli | quickshell-docs-markdown | services-auth-gateway | sideloader | snitch)
+      antigravity-manager | aptos-fonts | iloader | patchright | playwright-cli | quickshell-docs-markdown | services-auth-gateway | sideloader | snitch | wallpapers)
         printf '%s\n' manual
         ;;
       *) printf '%s\n' nix-update+fallback ;;
@@ -112,6 +112,7 @@ pkgs.writeShellApplication {
       services-auth-gateway) printf '%s\n' "local generated Python app" ;;
       sideloader) printf '%s\n' "iOS sideloader with signing deps" ;;
       snitch) printf '%s\n' "custom build process" ;;
+      wallpapers) printf '%s\n' "pinned image set with many fixed URLs" ;;
       *) return 1 ;;
       esac
     }
@@ -354,6 +355,19 @@ pkgs.writeShellApplication {
     build_package_quiet() {
       local pkg="$1"
       run_package_build "$pkg" >/dev/null
+    }
+
+    run_nix_update() {
+      local pkg="$1"
+      shift
+      local file before after
+      file=$(package_file "$pkg")
+      before=$(sha256sum "$file")
+      if ! nix-update -f packages.nix "$pkg" "$@"; then
+        return 1
+      fi
+      after=$(sha256sum "$file")
+      [ "$before" != "$after" ]
     }
 
     refresh_package_hash_from_build() {
@@ -863,8 +877,8 @@ pkgs.writeShellApplication {
       local pkg="omniroute"
       local file
       file=$(package_file "$pkg")
-      local current_version latest_version npm_version release_version npm_hash docs_hash
-      local changed=false
+      local current_version latest_version npm_version release_version npm_hash docs_hash before_update after_update
+      before_update=$(sha256sum "$file")
       current_version=$(grep -oP 'version = "\K[^"]+' "$file" | head -1 || true)
       npm_version=$(get_latest_npm_version "$pkg")
       release_version=$(get_github_release_version "diegosouzapw" "OmniRoute")
@@ -901,7 +915,6 @@ pkgs.writeShellApplication {
       if [ "$current_version" != "$latest_version" ]; then
         echo "    Updating version: $current_version -> $latest_version"
         sed -i "s|version = \"$current_version\"|version = \"$latest_version\"|" "$file"
-        changed=true
       else
         echo "    Version unchanged; refreshing source and npm dependency hashes"
       fi
@@ -911,14 +924,17 @@ pkgs.writeShellApplication {
 
       echo "    Refreshing npmDepsHash..."
       if refresh_package_hash_from_build "$pkg" "$file" npmDepsHash; then
-        changed=true
+        :
       else
         return 1
       fi
 
-      if ! $changed; then
+      after_update=$(sha256sum "$file")
+      if [ "$before_update" = "$after_update" ]; then
+        echo "    Already up to date"
         return 1
       fi
+
       return 0
     }
 
@@ -1268,6 +1284,12 @@ pkgs.writeShellApplication {
           SKIPPED+=("$pkg")
           ;;
 
+        "wallpapers")
+          # Skip: pinned curated URL list; each image is intentionally chosen.
+          echo " Skipping wallpapers (manual update required - pinned image set)"
+          SKIPPED+=("$pkg")
+          ;;
+
         "antigravity-manager")
           # Skip: RPM-wrapped AppImage with versioned URL pattern (manual update required)
           echo " Skipping antigravity-manager (manual update required - RPM-wrapped AppImage)"
@@ -1431,14 +1453,14 @@ pkgs.writeShellApplication {
           # Track branches - use nix-update with branch mode
           # These packages pin to latest commit on main/master branch
           set +e
-          if nix-update -f packages.nix "$pkg" --version branch; then
+          if run_nix_update "$pkg" --version branch; then
             UPDATED+=("$pkg")
           else
             # Fallback to multi-source updater
             if update_multi_source_package "$pkg"; then
               UPDATED+=("$pkg")
             else
-              FAILED+=("$pkg")
+              SKIPPED+=("$pkg")
             fi
           fi
           set -e
@@ -1447,10 +1469,10 @@ pkgs.writeShellApplication {
         "niri-screen-time" | "cliproxyapi")
           # Go packages with vendorHash work well with nix-update.
           set +e
-          if nix-update -f packages.nix "$pkg"; then
+          if run_nix_update "$pkg"; then
             UPDATED+=("$pkg")
           else
-            FAILED+=("$pkg")
+            SKIPPED+=("$pkg")
           fi
           set -e
           ;;
@@ -1458,7 +1480,7 @@ pkgs.writeShellApplication {
         *)
           # Default: try nix-update first, fallback to multi-source
           set +e
-          if nix-update -f packages.nix "$pkg"; then
+          if run_nix_update "$pkg"; then
             UPDATED+=("$pkg")
           else
             if update_multi_source_package "$pkg"; then

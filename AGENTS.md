@@ -1,6 +1,7 @@
 # ❄️ AGENTS.md — NixOS Flake Guidelines
 
 > **CRITICAL: NEVER RUN REBUILD COMMANDS except validation.** `HOST=<host> ./rebuild.sh validate` is allowed. Do not run rebuilding, switching, deploy, install, rollback, generation-changing commands, or `nixos-rebuild`; the user does those manually.
+> **Sudo:** If a task requires live host inspection or root-owned state changes and passwordless sudo is unavailable, ask for the sudo password instead of stopping at a permissions error. Do not use sudo for rebuild/switch/deploy/install/rollback actions.
 
 ## 🛠️ Coding Standards
 

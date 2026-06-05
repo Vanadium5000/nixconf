@@ -19,8 +19,10 @@ buildGo126Module rec {
   vendorHash = "sha256-AIue9XBsfsKGClRLB1DCME+36crapnOdQrEICFYG1a0=";
 
   postPatch = ''
-    substituteInPlace sdk/cliproxy/auth/request_auth_prepare_test.go \
-      --replace-fail 'github.com/router-for-me/CLIProxyAPI/v6' 'github.com/router-for-me/CLIProxyAPI/v7'
+    if grep -q 'github.com/router-for-me/CLIProxyAPI/v6' sdk/cliproxy/auth/request_auth_prepare_test.go; then
+      substituteInPlace sdk/cliproxy/auth/request_auth_prepare_test.go \
+        --replace-fail 'github.com/router-for-me/CLIProxyAPI/v6' 'github.com/router-for-me/CLIProxyAPI/v7'
+    fi
   '';
 
   subPackages = [ "cmd/server" ];
