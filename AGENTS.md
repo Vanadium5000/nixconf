@@ -12,7 +12,7 @@
 ## 🧊 Infrastructure Patterns
 
 - **Impermanence**: root is wiped on boot. Persist critical state in `impermanence.nixos.directories`; caches go in `.cache` paths.
-- **Secrets**: `rebuild.sh` injects `pass` entries into `secrets.nix`; consume as `self.secrets.NAME`; never commit `secrets.nix`.
+- **Secrets**: `rebuild.sh` fetches `pass` entries in parallel and atomically rewrites `secrets.nix`; consume as `self.secrets.NAME`; never commit `secrets.nix`. For script-only debugging use `HOST=<host> ./rebuild.sh --debug --skip-secrets validate` or `./rebuild.sh matrix` instead of rebuild actions.
 - **Nix eval**: use `path:.#` rather than `.#` so untracked files are included.
 - **Binary caches**: only configure substituters/trusted keys in root `flake.nix` `nixConfig`; verify `.narinfo` hit/miss and one large NAR before changing priorities.
 - **Wayland clipboard**: pipe stdin with `wl-copy --type text/plain`.

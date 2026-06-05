@@ -308,6 +308,7 @@
             grub.enable = true;
             grub.efiSupport = true;
             grub.efiInstallAsRemovable = true;
+            grub.configurationLimit = 5;
           };
 
           # Alfa AWUS036AX (RTL8832BU/RTL8852BU chipset) WiFi adapter support

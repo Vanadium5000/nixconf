@@ -16,7 +16,9 @@ fi
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FLAKE_DIR="${SCRIPT_DIR}"
-FLAKE_REF="path:$(pwd)"
+# Keep flake evaluation anchored to this checkout even when the wrapper is invoked
+# from another directory. `path:` includes generated files such as secrets.nix.
+FLAKE_REF="path:${FLAKE_DIR}"
 HOST="${HOST:-}"
 ARGS="${ARGS:-} --accept-flake-config"
 # Reuse a fast SSH control connection during remote deploys and avoid wasting CPU on recompressing Nix store data in transit.
@@ -43,16 +45,102 @@ VALIDATE=false
 BACKUP=false
 NOTIFY=true
 NOTIFIED_ERROR=false
+DEBUG=false
+TRACE=false
+SKIP_SECRETS=false
+SKIP_MATRIX=false
+SECRETS_LOADED=false
+CLEANUP_QUIET=false
 REMAINING_ARGS=()
+SCRIPT_START_MS=0
+LAST_SECTION_MS=0
+declare -a NIX_ARGS=()
+
+now_ms() {
+    local epoch="${EPOCHREALTIME:-}"
+    if [[ "$epoch" == *.* ]]; then
+        local seconds="${epoch%.*}"
+        local fraction="${epoch#*.}"
+        fraction="${fraction}000"
+        printf '%s%s' "$seconds" "${fraction:0:3}"
+    else
+        printf '%(%s)T000' -1
+    fi
+}
+
+format_duration_ms() {
+    local ms="${1:-0}"
+    if ((ms < 1000)); then
+        printf '%dms' "$ms"
+    elif ((ms < 60000)); then
+        printf '%d.%03ds' $((ms / 1000)) $((ms % 1000))
+    else
+        printf '%dm %02d.%03ds' $((ms / 60000)) $(((ms / 1000) % 60)) $((ms % 1000))
+    fi
+}
+
+timestamp() {
+    printf '%(%Y-%m-%d %H:%M:%S)T' -1
+}
+
+strip_color() {
+    local value="$1"
+    value="${value//$RED/}"
+    value="${value//$GREEN/}"
+    value="${value//$YELLOW/}"
+    value="${value//$BLUE/}"
+    value="${value//$MAGENTA/}"
+    value="${value//$CYAN/}"
+    value="${value//$DIM/}"
+    value="${value//$BOLD/}"
+    value="${value//$NC/}"
+    printf '%s' "$value"
+}
+
+emit_line() {
+    local line="$1"
+    local stream="${2:-stdout}"
+    if [ -n "$LOG_FILE" ]; then
+        printf '%b\n' "$line"
+        printf '%s\n' "$(strip_color "$line")" >>"$LOG_FILE"
+    elif [ "$stream" = "stderr" ]; then
+        printf '%b\n' "$line" >&2
+    else
+        printf '%b\n' "$line"
+    fi
+}
 
 # Logging functions
 log() {
     local msg="$*"
-    if [ -n "$LOG_FILE" ]; then
-        echo -e "${BLUE}[$(date '+%Y-%m-%d %H:%M:%S')]${NC} $msg" | tee -a "$LOG_FILE"
-    else
-        echo -e "${BLUE}[$(date '+%Y-%m-%d %H:%M:%S')]${NC} $msg"
+    local now total
+    now="$(now_ms)"
+    total=$((now - SCRIPT_START_MS))
+    emit_line "${BLUE}[$(timestamp) +$(format_duration_ms "$total")]${NC} $msg"
+}
+
+debug_log() {
+    if [ "$DEBUG" = true ]; then
+        emit_line "${DIM}[DEBUG]${NC} $*"
     fi
+}
+
+section() {
+    local title="$*"
+    local now total delta
+    now="$(now_ms)"
+    if ((SCRIPT_START_MS == 0)); then
+        SCRIPT_START_MS="$now"
+    fi
+    if ((LAST_SECTION_MS == 0)); then
+        LAST_SECTION_MS="$SCRIPT_START_MS"
+    fi
+    total=$((now - SCRIPT_START_MS))
+    delta=$((now - LAST_SECTION_MS))
+    printf '\n'
+    emit_line "${CYAN}╭─ ${BOLD}${title}${NC} ${DIM}$(timestamp) total $(format_duration_ms "$total") section +$(format_duration_ms "$delta")${NC}"
+    emit_line "${DIM}$(matrix_print_rule 88)${NC}"
+    LAST_SECTION_MS="$now"
 }
 
 send_notification() {
@@ -80,35 +168,43 @@ log_command() {
 }
 
 error() {
-    echo -e "${RED}[ERROR]${NC} $*" >&2
-    if [ -n "$LOG_FILE" ]; then
-        echo "[$(date '+%Y-%m-%d %H:%M:%S')] [ERROR] $*" >>"$LOG_FILE"
-    fi
+    emit_line "${RED}[ERROR]${NC} $*" stderr
     send_notification "error" "NixOS Rebuild Error" "$*"
     NOTIFIED_ERROR=true
 }
 
 success() {
     local msg="$*"
-    if [ -n "$LOG_FILE" ]; then
-        echo -e "${GREEN}[SUCCESS]${NC} $msg" | tee -a "$LOG_FILE"
-    else
-        echo -e "${GREEN}[SUCCESS]${NC} $msg"
-    fi
+    emit_line "${GREEN}[SUCCESS]${NC} $msg"
 }
 
 warn() {
     local msg="$*"
-    if [ -n "$LOG_FILE" ]; then
-        echo -e "${YELLOW}[WARNING]${NC} $msg" | tee -a "$LOG_FILE"
-    else
-        echo -e "${YELLOW}[WARNING]${NC} $msg"
-    fi
+    emit_line "${YELLOW}[WARNING]${NC} $msg" stderr
 }
 
 # Check if command exists
 command_exists() {
     command -v "$1" >/dev/null 2>&1
+}
+
+refresh_nix_args() {
+    NIX_ARGS=(--impure)
+    if [ -n "$ARGS" ]; then
+        local -a extra_args=()
+        read -r -a extra_args <<<"$ARGS"
+        NIX_ARGS+=("${extra_args[@]}")
+    fi
+}
+
+run_cmd() {
+    log_command "$*"
+    "$@"
+}
+
+run_sudo() {
+    log_command "sudo $*"
+    sudo "$@"
 }
 
 # Secrets configuration - easily extensible associative array
@@ -132,56 +228,85 @@ declare -A SECRETS_MAP=(
     ["DOKPLOY_AUTH_SECRET"]="system/dokploy/auth-secret"
 )
 
-# Load a single secret from password-store
-load_secret() {
+SECRET_NAMES=(
+    PASSWORD_HASH
+    IONOS_API_KEY
+    PUBLIC_BASE_DOMAIN
+    MONGODB_PASSWORD
+    MONGO_EXPRESS_PASSWORD
+    CLIPROXYAPI_KEY
+    OMNIROUTE_OPENCODE_API_KEY
+    OMNIROUTE_PI_API_KEY
+    EXA_API_KEY
+    MITMPROXY_CA_KEY
+    MITMPROXY_CA_CERT
+    OMNIROUTE_INITIAL_PASSWORD
+    VPN_PROXY_API_KEY
+    SERVICES_AUTH_PASSWORD
+    MAIN_VPS_INITRD_SSH_HOST_KEY
+    DOKPLOY_AUTH_SECRET
+)
+
+nix_escape_double_quoted() {
+    local value="$1"
+    value="${value//$'\n'/}"
+    value="${value//\\/\\\\}"
+    value="${value//\"/\\\"}"
+    value="${value//\$\{/\\\$\{}"
+    printf '%s' "$value"
+}
+
+nix_escape_indented_string() {
+    local value="$1"
+    value="${value//\'\'/\'\'\'}"
+    value="${value//\$\{/\'\'\$\{}"
+    printf '%s' "$value"
+}
+
+write_secret_assignment() {
     local env_var="$1"
-    local pass_path="$2"
+    local var_value="$2"
 
-    if [ -z "$env_var" ] || [ -z "$pass_path" ]; then
-        error "Invalid secret configuration: env_var='$env_var', pass_path='$pass_path'"
-        return 1
-    fi
-
-    local secret_value
-    if secret_value=$(pass "$pass_path"); then
-        export "$env_var"="$secret_value"
-        success "Loaded $env_var from password-store"
-        return 0
+    if [[ "$var_value" == *$'\n'* ]]; then
+        printf "  %s = ''\n" "$env_var"
+        printf '%s' "$(nix_escape_indented_string "$var_value")"
+        printf "'';\n"
     else
-        warn "Could not load $env_var from password-store path: $pass_path. Using environment variable if set."
-        return 1
+        printf '  %s = "%s";\n' "$env_var" "$(nix_escape_double_quoted "$var_value")"
     fi
 }
 
-# Function to write secrets into secrets.nix
+# Function to write secrets into secrets.nix. The caller must only invoke this
+# after every required secret is present; the generated file is atomically moved
+# into place so failed writes never leave a partial secrets.nix.
 write_secrets_nix() {
     local secrets_file="${FLAKE_DIR}/secrets.nix"
-    log "Writing secrets to ${secrets_file} as a Nix object (flake.secrets)"
+    local tmp_file="${secrets_file}.tmp.$$"
+    log "Writing ${#SECRET_NAMES[@]} secrets to ${secrets_file} as flake.secrets"
 
     {
-        echo "# AUTO-GENERATED by rebuild.sh from password-store — do not edit manually"
-        echo "{ flake.secrets = {"
-        for env_var in "${!SECRETS_MAP[@]}"; do
-            local var_name="$env_var"
-            local var_value="${!var_name:-}"
-            if [ -n "$var_value" ]; then
-                # Check if string contains newlines (multiline like PEM certs)
-                if printf '%s' "$var_value" | grep -q $'\n'; then
-                    # Multiline string: use Nix '' syntax and escape existing ''
-                    escaped_value=$(printf '%s' "$var_value" | sed "s/''/'''/g")
-                    echo "  ${var_name} = ''"
-                    echo "${escaped_value}'';"
-                else
-                    # Single line string (passwords, hashes): use standard "" syntax and strip trailing newline
-                    var_value=$(printf '%s' "$var_value" | tr -d '\n')
-                    escaped_value=$(printf '%s' "$var_value" | sed 's/\\/\\\\/g; s/"/\\"/g')
-                    echo "  ${var_name} = \"${escaped_value}\";"
-                fi
+        printf '%s\n' "# AUTO-GENERATED by rebuild.sh from password-store — do not edit manually"
+        printf '%s\n' "{ flake.secrets = {"
+        local env_var
+        for env_var in "${SECRET_NAMES[@]}"; do
+            local var_value="${!env_var:-}"
+            if [ -z "$var_value" ]; then
+                rm -f "$tmp_file"
+                error "Refusing to write partial secrets.nix; ${env_var} is empty or missing"
+                return 1
             fi
+            write_secret_assignment "$env_var" "$var_value"
         done
-        echo "}; }"
-    } >"$secrets_file"
+        printf '%s\n' "}; }"
+    } >"$tmp_file"
 
+    if [ -r "$secrets_file" ] && [ "$(<"$secrets_file")" = "$(<"$tmp_file")" ]; then
+        rm -f "$tmp_file"
+        success "Secrets unchanged at ${secrets_file}"
+        return 0
+    fi
+
+    mv "$tmp_file" "$secrets_file"
     success "Secrets written to ${secrets_file}"
 }
 
@@ -191,7 +316,7 @@ existing_secrets_nix_complete() {
     [ -s "$secrets_file" ] || return 1
 
     local env_var
-    for env_var in "${!SECRETS_MAP[@]}"; do
+    for env_var in "${SECRET_NAMES[@]}"; do
         if ! grep -Eq "^[[:space:]]*${env_var}[[:space:]]*=" "$secrets_file"; then
             return 1
         fi
@@ -200,8 +325,13 @@ existing_secrets_nix_complete() {
 
 # Load all secrets from password-store
 load_secrets() {
-    log "Loading secrets from password-store..."
-    log "Attempting to load ${#SECRETS_MAP[@]} secrets"
+    if [ "$SKIP_SECRETS" = true ]; then
+        warn "Skipping password-store secret loading because --skip-secrets was set"
+        return 0
+    fi
+
+    section "Loading secrets"
+    log "Loading ${#SECRET_NAMES[@]} secrets from password-store in parallel"
 
     if ! command_exists pass; then
         error "password-store (pass) is not installed. Please install it first."
@@ -211,17 +341,50 @@ load_secrets() {
     local loaded_count=0
     local failed_count=0
     local failed_secrets=()
+    local secrets_tmp
+    secrets_tmp="$(mktemp -d "${TMPDIR:-/tmp}/rebuild-secrets.XXXXXXXX")"
+    local -a secret_names=()
+    local -a secret_pids=()
+    local -a secret_paths=()
+    local env_var pass_path
 
-    for env_var in "${!SECRETS_MAP[@]}"; do
-        local pass_path="${SECRETS_MAP[$env_var]}"
-        log "Loading secret for $env_var from $pass_path"
-        if load_secret "$env_var" "$pass_path"; then
+    for env_var in "${SECRET_NAMES[@]}"; do
+        pass_path="${SECRETS_MAP[$env_var]}"
+        if [ -z "$env_var" ] || [ -z "$pass_path" ]; then
+            rm -rf "$secrets_tmp"
+            error "Invalid secret configuration: env_var='$env_var', pass_path='$pass_path'"
+            return 1
+        fi
+        debug_log "Queueing ${env_var} from ${pass_path}"
+        pass "$pass_path" >"${secrets_tmp}/${env_var}.value" 2>"${secrets_tmp}/${env_var}.err" &
+        secret_names+=("$env_var")
+        secret_paths+=("$pass_path")
+        secret_pids+=("$!")
+    done
+
+    local i pid
+    for i in "${!secret_names[@]}"; do
+        env_var="${secret_names[$i]}"
+        pass_path="${secret_paths[$i]}"
+        pid="${secret_pids[$i]}"
+        if wait "$pid"; then
+            local secret_value
+            secret_value="$(<"${secrets_tmp}/${env_var}.value")"
+            export "$env_var"="$secret_value"
             loaded_count=$((loaded_count + 1))
+            debug_log "Loaded ${env_var} from ${pass_path}"
         else
             failed_count=$((failed_count + 1))
             failed_secrets+=("$env_var ($pass_path)")
+            if [ "$DEBUG" = true ] && [ -s "${secrets_tmp}/${env_var}.err" ]; then
+                while IFS= read -r line; do
+                    debug_log "${env_var}: ${line}"
+                done <"${secrets_tmp}/${env_var}.err"
+            fi
         fi
     done
+
+    rm -rf "$secrets_tmp"
 
     log "Secrets loading complete: $loaded_count loaded, $failed_count failed"
     if [ "$failed_count" -gt 0 ]; then
@@ -231,14 +394,15 @@ load_secrets() {
         done
 
         if existing_secrets_nix_complete; then
-            warn "Keeping existing complete secrets.nix instead of overwriting it with partial password-store output."
+            warn "Keeping existing complete secrets.nix; refusing to overwrite it with partial password-store output."
             return 0
         fi
+        error "Secret loading failed and no complete secrets.nix exists to keep"
+        return 1
     fi
 
     write_secrets_nix
-
-    return $((failed_count > 0 ? 1 : 0))
+    SECRETS_LOADED=true
 }
 
 # Git operations (optional)
@@ -270,15 +434,16 @@ git_commit_backup() {
 backup_system() {
     log "Creating system backup..."
     if command_exists nixos-rebuild; then
-        nixos-rebuild build --flake "path:${FLAKE_DIR}#${HOST}" --impure $ARGS
+        run_cmd nixos-rebuild build --flake "${FLAKE_REF}#${HOST}" "${NIX_ARGS[@]}"
         success "System backup created"
     fi
 }
 
 # Validate flake (optional)
 validate_flake() {
+    section "Validating flake"
     log "Validating flake configuration..."
-    if ! nix flake check "${FLAKE_REF}" --impure $ARGS; then
+    if ! run_cmd nix flake check "${FLAKE_REF}" "${NIX_ARGS[@]}"; then
         error "Flake validation failed"
         return 1
     fi
@@ -287,10 +452,9 @@ validate_flake() {
 
 # Build system
 build_system() {
+    section "Building system"
     log "Building system configuration for host: ${HOST}"
-    local cmd="nixos-rebuild build --flake '${FLAKE_REF}#${HOST}' --impure $ARGS"
-    log_command "$cmd"
-    if ! eval "$cmd"; then
+    if ! run_cmd nixos-rebuild build --flake "${FLAKE_REF}#${HOST}" "${NIX_ARGS[@]}"; then
         error "System build failed for host: ${HOST}"
         return 1
     fi
@@ -299,37 +463,20 @@ build_system() {
 
 # Dry run
 dry_run() {
+    section "Dry run"
     log "Performing dry run for host: ${HOST}"
-    local cmd="nixos-rebuild dry-run --flake '${FLAKE_REF}#${HOST}' --impure $ARGS"
-    log_command "$cmd"
-    if ! eval "$cmd"; then
+    if ! run_cmd nixos-rebuild dry-run --flake "${FLAKE_REF}#${HOST}" "${NIX_ARGS[@]}"; then
         error "Dry run failed for host: ${HOST}"
         return 1
     fi
     success "Dry run completed successfully for host: ${HOST}"
 }
 
-# Build environment variables string from loaded secrets
-build_env_vars() {
-    local env_vars=""
-    for env_var in "${!SECRETS_MAP[@]}"; do
-        local var_name="$env_var"
-        local var_value="${!var_name:-}"
-        if [ -n "$var_value" ]; then
-            env_vars="${env_vars}${var_name}='${var_value}' "
-        fi
-    done
-    echo "$env_vars"
-}
-
 # Switch to new system
 switch_system() {
+    section "Switching system"
     log "Switching to new system configuration for host: ${HOST}"
-    write_secrets_nix
-
-    local cmd="sudo nixos-rebuild switch --flake '${FLAKE_REF}#${HOST}' --impure $ARGS"
-    log_command "$cmd"
-    if ! eval "$cmd"; then
+    if ! run_sudo nixos-rebuild switch --flake "${FLAKE_REF}#${HOST}" "${NIX_ARGS[@]}"; then
         error "System switch failed for host: ${HOST}"
         return 1
     fi
@@ -337,15 +484,9 @@ switch_system() {
 }
 
 matrix_fetch_json() {
-    local -a nix_args=(--impure)
-    if [ -n "$ARGS" ]; then
-        read -r -a extra_args <<<"$ARGS"
-        nix_args+=("${extra_args[@]}")
-    fi
-
     # `hostModuleMatrix` only exports metadata for the overview, so read-only eval avoids
     # unnecessary store side effects while keeping the preview fast. Source: `nix eval --help`.
-    nix eval --json --read-only "${FLAKE_REF}#hostModuleMatrix" "${nix_args[@]}" 2>/dev/null
+    nix eval --json --read-only "${FLAKE_REF}#hostModuleMatrix" "${NIX_ARGS[@]}"
 }
 
 matrix_print_rule() {
@@ -405,7 +546,7 @@ matrix_emit_render_blocks() {
                   [$entry.key]
                   + (
                     $names
-                    | map(if (($entry.value[$category] // []) | index(.)) != null then "✓" else "·" end)
+                    | map(. as $name | if (($entry.value[$category] // []) | index($name)) != null then "✓" else "·" end)
                   )
                 )
             )
@@ -473,7 +614,43 @@ matrix_render_precomputed_tables() {
 should_render_module_matrix() {
     local action="$1"
     case "$action" in
-    build | switch | dry-run | validate | deploy | install)
+    build | switch | dry-run | validate | deploy | install | matrix)
+        return 0
+        ;;
+    *)
+        return 1
+        ;;
+    esac
+}
+
+should_load_secrets() {
+    local action="$1"
+    case "$action" in
+    build | switch | dry-run | validate | deploy | install | secrets)
+        return 0
+        ;;
+    *)
+        return 1
+        ;;
+    esac
+}
+
+action_requires_host() {
+    local action="$1"
+    case "$action" in
+    matrix | secrets)
+        return 1
+        ;;
+    *)
+        return 0
+        ;;
+    esac
+}
+
+action_exists() {
+    local action="$1"
+    case "$action" in
+    switch | build | dry-run | rollback | generations | validate | matrix | secrets | deploy | install)
         return 0
         ;;
     *)
@@ -483,27 +660,39 @@ should_render_module_matrix() {
 }
 
 print_module_matrix() {
+    if [ "$SKIP_MATRIX" = true ]; then
+        warn "Skipping module matrix preview because --skip-matrix was set"
+        return 0
+    fi
+
     if ! command_exists nix || ! command_exists jq; then
         warn "Skipping module matrix preview (requires both nix and jq)"
         return 0
     fi
 
     local matrix_json
-    if ! matrix_json=$(matrix_fetch_json); then
-        warn "Skipping module matrix preview (hostModuleMatrix export unavailable)"
+    local matrix_error
+    matrix_error="$(mktemp "${TMPDIR:-/tmp}/rebuild-matrix.XXXXXXXX")"
+    if ! matrix_json=$(matrix_fetch_json 2>"$matrix_error"); then
+        warn "Skipping module matrix preview (hostModuleMatrix export unavailable for ${FLAKE_REF})"
+        if [ -s "$matrix_error" ]; then
+            warn "Matrix eval error: $(<"$matrix_error")"
+        fi
+        rm -f "$matrix_error"
         return 0
     fi
+    rm -f "$matrix_error"
 
+    section "Module matrix preview"
     log "Module matrix preview"
     matrix_render_precomputed_tables "$matrix_json"
 }
 
 # Rollback system
 rollback_system() {
+    section "Rolling back system"
     log "Rolling back to previous system generation for host: ${HOST}"
-    local cmd="sudo nixos-rebuild --rollback switch $ARGS"
-    log_command "$cmd"
-    if ! eval "$cmd"; then
+    if ! run_sudo nixos-rebuild --rollback switch "${NIX_ARGS[@]:1}"; then
         error "System rollback failed for host: ${HOST}"
         return 1
     fi
@@ -512,10 +701,9 @@ rollback_system() {
 
 # Show generations
 show_generations() {
+    section "System generations"
     log "Current system generations for host: ${HOST}"
-    local cmd="sudo nix-env --list-generations --profile /nix/var/nix/profiles/system | tail -10"
-    log_command "$cmd"
-    eval "$cmd"
+    run_sudo nix-env --list-generations --profile /nix/var/nix/profiles/system
 }
 
 # Parse command-line options
@@ -526,40 +714,60 @@ parse_options() {
         case $1 in
         --help)
             cat <<EOF
-Usage: HOST=<host> ARGS="..." $0 [OPTIONS] [ACTION]
+Usage:
+  HOST=<host> $0 [OPTIONS] [ACTION] [TARGET]
+
+Default action is 'switch'. All build/eval actions use ${FLAKE_REF}#<host>,
+so generated files such as secrets.nix are included even when invoking the
+script from another directory.
 
 Environment Variables:
-  HOST        Target host configuration (required)
-  ARGS        Additional arguments for all nix commands (e.g., "--fallback --etc")
+  HOST       Target nixosConfigurations attribute. Required except matrix/secrets.
+  ARGS       Extra nix/nixos-rebuild flags appended after --impure.
+             Defaults to: " --accept-flake-config"
 
 Arguments:
-  ACTION      Action to perform (default: switch)
+  ACTION     One of the actions below. Defaults to switch.
+  TARGET     SSH target for deploy/install only, e.g. root@192.168.1.100.
 
 Actions:
-  switch       Switch to new system configuration (default)
-  build        Build system configuration without switching
-  dry-run      Perform dry run
-  rollback     Rollback to previous generation
-  generations  Show system generations
-  validate     Validate flake configuration
-  deploy       Deploy to remote host (requires TARGET_HOST argument)
-  install      Install to remote host using nixos-anywhere (requires TARGET_HOST argument)
+  switch       Write secrets.nix, build, and activate the selected host.
+  build        Write secrets.nix and build without activating.
+  dry-run      Ask nixos-rebuild to print the activation delta without changing state.
+  validate     Evaluate host matrix and run nix flake check.
+  matrix       Evaluate and render hostModuleMatrix only; skips secrets by default.
+  secrets      Fetch all pass entries in parallel and atomically rewrite secrets.nix only.
+  deploy       Switch a remote machine through nixos-rebuild --target-host TARGET.
+  install      Install a remote machine through nixos-anywhere TARGET.
+  rollback     Run nixos-rebuild --rollback switch for the local machine.
+  generations  Print the full /nix/var/nix/profiles/system generation list.
 
 Options:
-  --log-file    Enable logging to file
-  --git-backup  Enable automatic git backup commits
-  --validate    Enable flake validation
-  --backup      Enable system backup before switch
-  --no-notify   Disable desktop notifications
-  --help        Show this help message
+  --log-file       Also write color-stripped output to ${SCRIPT_DIR}/rebuild.log.
+  --git-backup     Show dirty git state and create a backup commit before mutating actions.
+  --validate       Run nix flake check before build/switch/deploy/install/dry-run.
+  --backup         Build the current host before switch.
+  --no-notify      Disable notify-send desktop notifications.
+  --debug          Print queued secret names, matrix eval errors, and command context.
+  --trace          Enable shell xtrace after option parsing for command debugging.
+  --skip-secrets   Do not call pass or rewrite secrets.nix; useful for pure eval/debug loops.
+  --skip-matrix    Do not evaluate/render hostModuleMatrix.
+  --help           Show this help message.
+
+Always-on diagnostics:
+  Each section header includes wall-clock timestamp, total runtime, and time since
+  the previous section. Final cleanup prints overall runtime even on failure.
 
 Examples:
-  HOST=macbook $0 switch                     # Switch local macbook system
-  HOST=macbook $0 build                      # Build macbook configuration
-  HOST=macbook $0 deploy root@192.168.1.100  # Deploy to remote host
-  HOST=macbook $0 install root@192.168.1.100 # Install to remote host using nixos-anywhere
-  HOST=legion5i $0 --validate switch         # Validate before switching legion5i
+  HOST=legion5i $0 build
+  HOST=legion5i $0 --debug --skip-secrets validate
+  HOST=legion5i $0 --debug matrix
+  HOST=legion5i $0 secrets
+  HOST=legion5i ARGS="--fallback --accept-flake-config" $0 dry-run
+  HOST=main_vps $0 deploy root@192.168.1.100
+  HOST=macbook $0 install root@192.168.1.100
 EOF
+            CLEANUP_QUIET=true
             exit 0
             ;;
         --log-file)
@@ -580,6 +788,23 @@ EOF
             ;;
         --no-notify)
             NOTIFY=false
+            shift
+            ;;
+        --debug)
+            DEBUG=true
+            shift
+            ;;
+        --trace)
+            TRACE=true
+            DEBUG=true
+            shift
+            ;;
+        --skip-secrets)
+            SKIP_SECRETS=true
+            shift
+            ;;
+        --skip-matrix)
+            SKIP_MATRIX=true
             shift
             ;;
         --)
@@ -609,14 +834,12 @@ deploy_system() {
         exit 1
     fi
 
+    section "Deploying system"
     log "Deploying system configuration for host '${HOST}' to remote target: ${target_host}"
-    write_secrets_nix
 
     # Deploy on target host using the target host to build packages, etc, using sudo (on normal user rather than root)
     # Use --build-host '${target_host}' to also build on target
-    local cmd="nixos-rebuild switch --target-host '${target_host}' --ask-sudo-password --use-substitutes --flake '${FLAKE_REF}#${HOST}' --impure $ARGS"
-    log_command "$cmd"
-    if ! eval "$cmd"; then
+    if ! run_cmd nixos-rebuild switch --target-host "${target_host}" --ask-sudo-password --use-substitutes --flake "${FLAKE_REF}#${HOST}" "${NIX_ARGS[@]}"; then
         error "System deployment failed for host '${HOST}' to target: ${target_host}"
         return 1
     fi
@@ -632,13 +855,11 @@ install_system() {
         exit 1
     fi
 
+    section "Installing system"
     log "Installing system configuration using nixos-anywhere for host '${HOST}' to remote target: ${target_host}"
-    write_secrets_nix
 
     # Install on target host using the using nixos-anywhere
-    local cmd="nix run $ARGS github:nix-community/nixos-anywhere -- --impure --flake '${FLAKE_REF}#${HOST}' --target-host '${target_host}'"
-    log_command "$cmd"
-    if ! eval "$cmd"; then
+    if ! run_cmd nix run "${NIX_ARGS[@]:1}" github:nix-community/nixos-anywhere -- --impure --flake "${FLAKE_REF}#${HOST}" --target-host "${target_host}"; then
         error "System installment using nixos-anywhere failed for host '${HOST}' to target: ${target_host}"
         return 1
     fi
@@ -647,7 +868,13 @@ install_system() {
 
 # Main function
 main() {
+    SCRIPT_START_MS="$(now_ms)"
+    LAST_SECTION_MS="$SCRIPT_START_MS"
     parse_options "$@"
+    if [ "$TRACE" = true ]; then
+        set -x
+    fi
+    refresh_nix_args
 
     # Extract action and deploy target from remaining arguments
     local action=""
@@ -669,15 +896,26 @@ main() {
         shift
     done
 
+    action="${action:-switch}"
+
+    if ! action_exists "$action"; then
+        error "Unknown action: ${action}"
+        echo "Usage: HOST=<host> $0 [OPTIONS] {switch|build|dry-run|rollback|generations|validate|matrix|secrets|deploy|install}"
+        echo "Use --help for more information"
+        exit 1
+    fi
+
+    if [ "$action" = "matrix" ]; then
+        SKIP_SECRETS=true
+    fi
+
     # Validate required HOST environment variable
-    if [ -z "$HOST" ]; then
+    if [ -z "$HOST" ] && action_requires_host "$action"; then
         error "HOST environment variable is required"
         echo "Usage: HOST=<host> $0 [OPTIONS] [ACTION] [ARGS]"
         echo "Use --help for more information"
         exit 1
     fi
-
-    action="${action:-switch}"
 
     case "${action}" in
     deploy | install) ;;
@@ -693,18 +931,24 @@ main() {
 
     send_notification "info" "NixOS Rebuild" "Starting ${action} for ${HOST}..."
 
+    section "Starting ${action}"
     log "Starting NixOS rebuild script"
-    log "Host: ${HOST}"
+    log "Host: ${HOST:-<not required>}"
     log "Flake directory: ${FLAKE_DIR}"
+    log "Flake reference: ${FLAKE_REF}"
     log "Action: ${action}"
     if [ -n "$ARGS" ]; then
         log "Additional nix args: ${ARGS}"
     fi
+    debug_log "NIX_SSHOPTS=${NIX_SSHOPTS}"
+    debug_log "skip_secrets=${SKIP_SECRETS} skip_matrix=${SKIP_MATRIX} validate=${VALIDATE} backup=${BACKUP} git_backup=${GIT_BACKUP}"
 
     cd "${FLAKE_DIR}"
 
     # Load secrets (core functionality)
-    load_secrets
+    if should_load_secrets "$action"; then
+        load_secrets
+    fi
 
     if should_render_module_matrix "$action"; then
         print_module_matrix
@@ -749,6 +993,10 @@ main() {
     "validate")
         validate_flake
         ;;
+    "matrix")
+        ;;
+    "secrets")
+        ;;
     "deploy")
         if [ "$GIT_BACKUP" = true ]; then
             git_commit_backup
@@ -769,7 +1017,7 @@ main() {
         ;;
     *)
         error "Unknown action: ${action}"
-        echo "Usage: HOST=<host> $0 [OPTIONS] {switch|build|dry-run|rollback|generations|validate|deploy|install}"
+        echo "Usage: HOST=<host> $0 [OPTIONS] {switch|build|dry-run|rollback|generations|validate|matrix|secrets|deploy|install}"
         echo "Use --help for more information"
         exit 1
         ;;
@@ -782,13 +1030,23 @@ main() {
 # Cleanup on exit
 cleanup() {
     local exit_code=$?
+    if [ "$CLEANUP_QUIET" = true ]; then
+        return
+    fi
+    local finish_ms total_ms
+    finish_ms="$(now_ms)"
+    if ((SCRIPT_START_MS > 0)); then
+        total_ms=$((finish_ms - SCRIPT_START_MS))
+    else
+        total_ms=0
+    fi
     if [ ${exit_code} -ne 0 ]; then
         if [ "$NOTIFIED_ERROR" = false ]; then
             send_notification "error" "NixOS Rebuild Failed" "Script exited with code ${exit_code}"
         fi
         log "Script failed with exit code ${exit_code}"
     fi
-    log "Script finished"
+    log "Script finished in $(format_duration_ms "$total_ms")"
 }
 
 trap cleanup EXIT
