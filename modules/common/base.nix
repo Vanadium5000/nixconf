@@ -244,6 +244,9 @@
             hashedPassword = secrets.PASSWORD_HASH;
           };
 
+          # Helpful for things like SystemD Emergency Mode
+          users.users.root.hashedPassword = secrets.PASSWORD_HASH;
+
           # Add the default shell to environment
           environment.shells = [ self.packages.${pkgs.stdenv.hostPlatform.system}.environment ];
 

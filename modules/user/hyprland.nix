@@ -79,7 +79,7 @@ in
         else
           "${luaMods} + ${keyPart}";
 
-      luaExec = command: ''hl.dsp.exec_cmd(${luaString command})'';
+      luaExec = command: "hl.dsp.exec_cmd(${luaString command})";
 
       luaPreferenceKeymap =
         let
@@ -127,7 +127,7 @@ in
           let
             command = if (builtins.typeOf entry) == "string" then entry else getExe entry;
           in
-          ''  hl.exec_cmd(${luaString command})''
+          "hl.exec_cmd(${luaString command})"
         ) config.preferences.autostart}
         end)
       '';
@@ -215,26 +215,35 @@ in
 
         system.activationScripts.hyprland-user-files = {
           text =
-            (if cfg.configType == "lua" then
-              ''
-                rm -f ${lib.escapeShellArg "${config.preferences.paths.homeDirectory}/.config/hypr/hyprland.conf"}
-              ''
-            else
-              ''
-                rm -f ${lib.escapeShellArg "${config.preferences.paths.homeDirectory}/.config/hypr/hyprland.lua"}
-              '')
+            (
+              if cfg.configType == "lua" then
+                ''
+                  rm -f ${lib.escapeShellArg "${config.preferences.paths.homeDirectory}/.config/hypr/hyprland.conf"}
+                ''
+              else
+                ''
+                  rm -f ${lib.escapeShellArg "${config.preferences.paths.homeDirectory}/.config/hypr/hyprland.lua"}
+                ''
+            )
             + self.lib.userFiles.mkActivationScript {
               inherit user;
               inherit pkgs;
               homeDirectory = config.preferences.paths.homeDirectory;
-              files = (if cfg.configType == "lua" then {
-                  ".config/hypr/hyprland.lua".text = cfg.finalLuaConfig;
-                } else {
-                  ".config/hypr/hyprland.conf".text = cfg.finalConfig;
-                }) // {
-                # Generate keybinds JSON for the help overlay
-                ".config/hypr/keybinds.json".text = keybindsJson;
-              };
+              files =
+                (
+                  if cfg.configType == "lua" then
+                    {
+                      ".config/hypr/hyprland.lua".text = cfg.finalLuaConfig;
+                    }
+                  else
+                    {
+                      ".config/hypr/hyprland.conf".text = cfg.finalConfig;
+                    }
+                )
+                // {
+                  # Generate keybinds JSON for the help overlay
+                  ".config/hypr/keybinds.json".text = keybindsJson;
+                };
             };
           deps = [ "users" ];
         };

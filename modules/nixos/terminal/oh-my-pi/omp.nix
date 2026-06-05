@@ -17,6 +17,8 @@
       system = pkgs.stdenv.hostPlatform.system;
       modelsCommand = self.packages.${system}.models;
       piApiKey = self.secrets.OMNIROUTE_PI_API_KEY or "";
+      exaApiKey = self.secrets.EXA_API_KEY or "";
+      opencodeApiKey = self.secrets.OMNIROUTE_OPENCODE_API_KEY or "";
 
       ompDirectory = "${homeDirectory}/.omp";
       ompAgentDirectory = "${ompDirectory}/agent";
@@ -119,7 +121,16 @@
 
         fileSystems = ompPersistence.fileSystems;
 
-        environment.variables.PI_STREAM_FIRST_EVENT_TIMEOUT_MS = toString streamFirstEventTimeoutMs;
+        environment.variables = {
+          # OMP loads env first, then .env files; exposing these password-store
+          # secrets here makes agent web_search and model sync work in fresh
+          # shells without copying API keys into mutable ~/.omp files. Source:
+          # https://github.com/can1357/oh-my-pi/blob/main/docs/environment-variables.md
+          EXA_API_KEY = exaApiKey;
+          OMNIROUTE_OPENCODE_API_KEY = opencodeApiKey;
+          OMNIROUTE_PI_API_KEY = piApiKey;
+          PI_STREAM_FIRST_EVENT_TIMEOUT_MS = toString streamFirstEventTimeoutMs;
+        };
 
         preferences.zsh = {
           aliases.o = "omp";

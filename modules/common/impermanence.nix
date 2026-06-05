@@ -192,9 +192,11 @@
         ];
 
         # systemd stage-1 does not support postResumeCommands; run the Btrfs
-        # root rotation before systemd-fstab-generator mounts /sysroot. Tools
-        # used by this service must be copied into initrd explicitly via
-        # initrdBin, not assumed from the stage-2 system profile.
+        # root rotation before systemd-fstab-generator mounts /sysroot. Keep
+        # PATH on initrd /bin:/sbin: pkgs.util-linux's mount is a split-output
+        # symlink, and stage-1 service.path expands bare /bin to the invalid
+        # /bin/bin. Logs showed rollback-root otherwise succeeded with
+        # "mount: command not found" and left the previous root active.
         # Sources: impermanence README Btrfs subvolume recipe; nixpkgs
         # boot.initrd.systemd.services/initrdBin option docs; bootup(7).
         boot.initrd.systemd.initrdBin = [
@@ -214,28 +216,22 @@
             TimeoutSec = 30;
           };
           after = [ "initrd-root-device.target" ];
-          path = [
-            pkgs.btrfs-progs
-            pkgs.coreutils
-            pkgs.findutils
-            pkgs.util-linux
-            "/bin"
-            "/sbin"
-          ];
           script = ''
+            export PATH=/bin:/sbin
+
             cleanup() {
                 umount /btrfs_tmp || true
                 rmdir /btrfs_tmp || true
             }
 
             rollback_root() {
-                set -u
+                set -eu
 
-                mkdir -p /btrfs_tmp || return 0
-                mount -o rw,subvolid=5 /dev/${cfg.volumeGroup}/root /btrfs_tmp || return 0
+                mkdir -p /btrfs_tmp
+                mount -o rw,subvolid=5 /dev/${cfg.volumeGroup}/root /btrfs_tmp
                 trap cleanup EXIT
 
-                mkdir -p /btrfs_tmp/old_roots || return 0
+                mkdir -p /btrfs_tmp/old_roots
 
                 if [ -e /btrfs_tmp/root ]; then
                     if [ "$(stat -c %i /btrfs_tmp/root)" -ne 256 ]; then
@@ -249,7 +245,7 @@
                         counter=$((counter + 1))
                         new_root="/btrfs_tmp/root-new-$counter"
                     done
-                    btrfs subvolume create "$new_root" || return 0
+                    btrfs subvolume create "$new_root"
 
                     timestamp=$(stat -c %Y /btrfs_tmp/root)
                     old_root="/btrfs_tmp/old_roots/$timestamp"
@@ -261,16 +257,16 @@
 
                     if ! mv /btrfs_tmp/root "$old_root"; then
                         btrfs subvolume delete "$new_root" || true
-                        return 0
+                        return 1
                     fi
 
                     if ! mv "$new_root" /btrfs_tmp/root; then
                         mv "$old_root" /btrfs_tmp/root || true
                         btrfs subvolume delete "$new_root" || true
-                        return 0
+                        return 1
                     fi
                 else
-                    btrfs subvolume create /btrfs_tmp/root || return 0
+                    btrfs subvolume create /btrfs_tmp/root
                 fi
 
                 delete_subvolume_recursively() {
@@ -296,11 +292,7 @@
                 fi
             }
 
-            if ! rollback_root; then
-                echo "rollback-root failed; continuing boot without rotating root" >&2
-            fi
-
-            exit 0
+            rollback_root
           '';
         };
       };

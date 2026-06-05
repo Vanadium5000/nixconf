@@ -34,6 +34,7 @@
             nixd
             statix
             nixfmt # Nix formatter
+            nixfmt-tree
             manix
             nix-inspect
             nix-prefetch-github

@@ -105,16 +105,42 @@ let
 
       unlock-host = ''
         if [[ $# -lt 1 || $# -gt 2 ]]; then
-          print -u2 "usage: unlock-host <host> [port]"
+          print -u2 "usage: unlock-host <host|host:port|ssh://host:port> [port]"
           return 2
         fi
 
         local host="$1"
-        local port="''${2:-2222}"
+        local port="''${2:-22}"
+
+        if [[ "$host" == ssh://* ]]; then
+          host="''${host#ssh://}"
+          host="''${host%%/*}"
+        fi
+
+        if [[ "$host" == \[*\]:<1-65535> ]]; then
+          port="''${host##*:}"
+          host="''${host#\[}"
+          host="''${host%\]:$port}"
+        elif [[ "$host" != *:*:* && "$host" == *:<1-65535> ]]; then
+          port="''${host##*:}"
+          host="''${host%:$port}"
+        fi
+
+        if [[ ! "$port" == <1-65535> ]]; then
+          print -u2 "unlock-host: invalid port: $port"
+          return 2
+        fi
+
+        local known_hosts="''${XDG_STATE_HOME:-$HOME/.local/state}/ssh/initrd-known_hosts"
+        mkdir -p "''${known_hosts:h}"
 
         # The initrd unlock SSH daemon is separate from normal post-boot sshd;
-        # connect as root on the stage-1 port declared by remote-unlock.nix.
-        ssh -p "$port" root@"$host"
+        # keep its host key separate so :22 unlocks do not collide with the
+        # stage-2 OpenSSH key for the same VPS IP.
+        ssh \
+          -o "UserKnownHostsFile=$known_hosts" \
+          -o StrictHostKeyChecking=accept-new \
+          -p "$port" root@"$host"
       '';
 
       killport = ''

@@ -164,6 +164,10 @@
           # Add all packages exported by the Flake
           lib.attrValues filteredFlakePackages
           ++ (with pkgs; [
+            # SSH clients can forward TERM=xterm-ghostty; installing only the
+            # terminfo output avoids pulling the Ghostty GUI onto terminal hosts.
+            # Source: /etc/set-environment re-exports TERM after TERMINFO_DIRS.
+            ghostty.terminfo
             parted
             exfatprogs
             gh # Github CLI

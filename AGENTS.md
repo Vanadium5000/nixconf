@@ -26,6 +26,7 @@ flake.nix -> import-tree [ ./modules ./secrets.nix ]; exports/options map: modul
 
 main_vps: modules/hosts/main_vps/
 ├─ configuration.nix: imports terminal, cockpit, nix-dokploy, disko; enables Dokploy, CLIProxyAPI, OmniRoute, CPA Usage Keeper, VPN proxy, ntfy, homepage, mitmproxy
+├─ remote-unlock.nix: systemd initrd network + SSH unlock on public :22 before stage-2 sshd starts
 ├─ my-website.nix: public edge; Traefik :80/:443 + ACME wildcard; services-auth-gateway 127.0.0.1:41276
 │  ├─ Dokploy apps: apex/wildcard/openclaw -> dokploy-traefik 127.0.0.1:81
 │  ├─ primary AI gateway: OmniRoute 127.0.0.1:20128 -> https://omniroute.<domain>

@@ -6,7 +6,7 @@ in
   flake.nixosModules.main_vpsHost =
     { lib, pkgs, ... }:
     let
-      initrdUnlockPort = 2222;
+      initrdUnlockPort = 22;
       initrdUnlockShell = pkgs.writeTextFile {
         name = "main-vps-initrd-unlock-shell";
         destination = "/bin/main-vps-initrd-unlock-shell";
@@ -37,8 +37,10 @@ in
           # https://github.com/NixOS/nixpkgs/blob/4f90e32d9c535072f0a6a9ac4599f1e78b829eab/nixos/modules/system/boot/initrd-ssh.nix#L99-L120
           enable = true;
 
-          # Keep stage-1 SSH away from the normal port 22 service, making it clear
-          # that a connection here is for unlocking the booted generation only.
+          # Use the normal SSH port in initrd because provider firewalls commonly
+          # allow :22 while blocking high ports; stage-2 sshd starts only after
+          # unlock, so there is no listener collision.
+          # Source: https://wiki.nixos.org/wiki/Remote_disk_unlocking#Usage
           port = initrdUnlockPort;
 
           # The initrd SSH server host key is loaded from password-store through

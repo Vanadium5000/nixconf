@@ -95,6 +95,17 @@ stdenv.mkDerivation {
       exit 1
     fi
 
+    if [[ "''${1:-}" == "--help" || "''${1:-}" == "-h" ]]; then
+      cat <<'EOF_HELP'
+    Usage: waydroid-total-spoof
+
+    Interactively choose a physical Android device profile, then update
+    /var/lib/waydroid/waydroid.cfg and /var/lib/waydroid/waydroid_base.prop.
+    Existing non-spoof properties in [properties] are preserved.
+    EOF_HELP
+      exit 0
+    fi
+
     echo "[+] Waydroid Total Spoof"
     echo "Choose a device to spoof (1-''${#profiles[@]}):"
     for i in "''${!profiles[@]}"; do
@@ -119,25 +130,38 @@ stdenv.mkDerivation {
 
     tmp_cfg="$(mktemp)"
     tmp_prop="$(mktemp)"
-    trap 'rm -f "$tmp_cfg" "$tmp_prop"' EXIT
+    tmp_cfg_properties="$(mktemp)"
+    trap 'rm -f "$tmp_cfg" "$tmp_prop" "$tmp_cfg_properties"' EXIT
 
     # Waydroid reads this file with Python ConfigParser, which rejects duplicate
-    # keys inside a section. Previous wrapper versions only removed the exact
-    # `[properties]` header, leaving spoof keys behind when they were written
-    # into `[waydroid]`; strip the whole managed section, remove managed keys
-    # elsewhere, and keep only the first copy of any other duplicate key.
-    ${gawk}/bin/awk '
+    # keys inside a section. Preserve non-spoof [properties] entries such as
+    # renderer workarounds, strip only keys this script owns, and keep only the
+    # first copy of any other duplicate key.
+    ${gawk}/bin/awk -v preserved_props="$tmp_cfg_properties" '
+      function trim(value) {
+        sub(/^[[:space:]]*/, "", value)
+        sub(/[[:space:]]*$/, "", value)
+        return value
+      }
+
       /^[[:space:]]*\[[^]]+\][[:space:]]*$/ {
-        header = $0
-        sub(/^[[:space:]]*/, "", header)
-        sub(/[[:space:]]*$/, "", header)
+        header = trim($0)
         in_properties = (header == "[properties]")
         if (in_properties) next
       }
 
-      in_properties { next }
-
       /^[[:space:]]*(ro\.product\.brand|ro\.product\.manufacturer|ro\.product\.model|ro\.product\.name|ro\.product\.device|ro\.system\.build\.product|ro\.build\.fingerprint|ro\.system\.build\.fingerprint|ro\.vendor\.build\.fingerprint|ro\.bootimage\.build\.fingerprint|ro\.build\.display\.id|ro\.system\.build\.flavor|ro\.system\.build\.description|ro\.build\.description|ro\.build\.tags|ro\.vendor\.build\.id|ro\.vendor\.build\.tags|ro\.vendor\.build\.type|ro\.odm\.build\.tags|ro\.boot\.verifiedbootstate|ro\.boot\.flash\.locked|ro\.secure|ro\.debuggable|ro\.adb\.secure|ro\.build\.type|ro\.build\.selinux|ro\.boot\.selinux|ro\.kernel\.qemu|persist\.sys\.usb\.config)[[:space:]]*=/ { next }
+
+      in_properties {
+        if ($0 ~ /^[[:space:]]*[^#;[:space:]][^=]*=/) {
+          option = $0
+          sub(/^[[:space:]]*/, "", option)
+          sub(/[[:space:]]*=.*/, "", option)
+          if (seen_properties[option]++) next
+        }
+        print > preserved_props
+        next
+      }
 
       /^[[:space:]]*[^#;[:space:]][^=]*=/ {
         option = $0
@@ -148,8 +172,10 @@ stdenv.mkDerivation {
 
       { print }
     ' "$BACKUP_CFG" > "$tmp_cfg"
+
+    printf '[properties]\n' >> "$tmp_cfg"
+    cat "$tmp_cfg_properties" >> "$tmp_cfg"
     cat >> "$tmp_cfg" <<EOF_CFG
-    [properties]
     ro.product.brand=$brand
     ro.product.manufacturer=$manufacturer
     ro.product.model=$model

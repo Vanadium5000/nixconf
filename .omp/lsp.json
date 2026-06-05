@@ -1,0 +1,18 @@
+{
+  "servers": {
+    "qmlls": {
+      "command": "qmlls",
+      "args": [
+        "-E",
+        "-I",
+        "/run/current-system/sw/lib/qt-6/qml",
+        "-I",
+        "modules/nixos/scripts/quickshell",
+        "--no-cmake-calls"
+      ],
+      "fileTypes": [".qml"],
+      "rootMarkers": [".omp/lsp.json", "flake.nix", ".git"],
+      "warmupTimeoutMs": 10000
+    }
+  }
+}

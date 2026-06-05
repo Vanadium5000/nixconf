@@ -256,5 +256,6 @@ rec {
           // extraPythonOverrides python-final python-prev
         )
       ];
-    } // unstablePackageOverrides final prev;
+    }
+    // unstablePackageOverrides final prev;
 }

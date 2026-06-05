@@ -110,36 +110,29 @@ let
   mkIdentityFiles =
     cfg:
     let
-      renderIdentityPair =
-        identity: ''
-          [user]
-            name = "${gitLib.escapeGitString identity.name}"
-            email = "${gitLib.escapeGitString identity.email}"
-        '';
+      renderIdentityPair = identity: ''
+        [user]
+          name = "${gitLib.escapeGitString identity.name}"
+          email = "${gitLib.escapeGitString identity.email}"
+      '';
     in
-    (mapAttrs'
-      (
-        name: identity:
-        nameValuePair ".config/git/identities/${name}.gitconfig" {
-          text = gitLib.mkIdentityConfig identity;
-          type = "copy";
-          permissions = "0644";
-        }
-      )
-      cfg.identities
-    )
-    // (mapAttrs'
-      (
-        name: identity:
-        nameValuePair ".config/git/identity-manager/identities/${name}.gitconfig" {
-          text = renderIdentityPair identity;
-          type = "copy";
-          clobber = false;
-          permissions = "0644";
-        }
-      )
-      cfg.identities
-    );
+    (mapAttrs' (
+      name: identity:
+      nameValuePair ".config/git/identities/${name}.gitconfig" {
+        text = gitLib.mkIdentityConfig identity;
+        type = "copy";
+        permissions = "0644";
+      }
+    ) cfg.identities)
+    // (mapAttrs' (
+      name: identity:
+      nameValuePair ".config/git/identity-manager/identities/${name}.gitconfig" {
+        text = renderIdentityPair identity;
+        type = "copy";
+        clobber = false;
+        permissions = "0644";
+      }
+    ) cfg.identities);
 
   mkHelper =
     pkgs:
