@@ -16,12 +16,12 @@
 }:
 
 let
-  version = "3.8.5";
+  version = "3.8.10";
   docsSrc = fetchFromGitHub {
     owner = "diegosouzapw";
     repo = "OmniRoute";
     rev = "v${version}";
-    hash = "sha256-tcmHJD2qqE6TAItGGjQGPC8+4wZKldpa/4by8qREsLQ=";
+    hash = "sha256-xcmHEvw6vT6Nvs6ZOIzCoGE00DeBYBlH4dgQvYH6CV0=";
   };
 in
 buildNpmPackage (finalAttrs: {
@@ -32,7 +32,7 @@ buildNpmPackage (finalAttrs: {
   # already contains the Next.js standalone app that upstream publishes.
   src = fetchurl {
     url = "https://registry.npmjs.org/omniroute/-/omniroute-${finalAttrs.version}.tgz";
-    hash = "sha256-mnyGgwvUtVsITm0gBlNdR3/sPY6ZmCAeEMhTSc8NEpw=";
+    hash = "sha256-qOEzXlB56WQ+eHWedOxVfAQ0Its/TFM+JfJTOf1Ooyk=";
   };
 
   sourceRoot = "package";
@@ -59,8 +59,12 @@ buildNpmPackage (finalAttrs: {
   '';
 
   # Hash of the dependencies from package-lock.json
-  npmDepsHash = "sha256-Htr3IiA9VO9GakAjjegHvnuH082/AkAPCJdII9TXiJk=";
+  npmDepsHash = "sha256-FdLYHPFqymckhiMgvaklDvAM5qeZKtvZhmyITxsWBM4=";
   npmFlags = [ "--legacy-peer-deps" ];
+  # onnxruntime-node's postinstall downloads optional CUDA NuGet payloads when
+  # missing; CPU Linux binaries are already bundled, so skip network-only addons.
+  # Source: node_modules/onnxruntime-node/script/install.js in the npm tarball.
+  env.ONNXRUNTIME_NODE_INSTALL = "skip";
 
   dontNpmBuild = true;
 
@@ -84,6 +88,7 @@ buildNpmPackage (finalAttrs: {
 
         # The docs app renders frontmatter values directly; gray-matter turns
         # unquoted YAML dates into Date objects, which React 19 rejects as children.
+        mkdir -p "$out/lib/omniroute/app"
         rm -rf "$out/lib/omniroute/app/docs"
         cp -R ${docsSrc}/docs "$out/lib/omniroute/app/docs"
         python3 -c '

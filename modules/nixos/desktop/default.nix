@@ -307,6 +307,12 @@
         environment.sessionVariables = {
           # Tell KDE apps which menu to use
           XDG_MENU_PREFIX = "plasma-";
+          # qmlls/qmllint only resolve Quickshell and Qt add-on modules from
+          # QML_IMPORT_PATH; include this checkout's qs helpers plus profile Qt
+          # modules so editor diagnostics match qs runtime imports.
+          # Source: https://quickshell.org/docs/v0.3.0/guide/install-setup/#language-server
+          QML_IMPORT_PATH = "${pkgs.qt6Packages.qt5compat}/lib/qt-6/qml:${config.preferences.paths.configSourceDirectory}/modules/nixos/scripts/quickshell:/run/current-system/sw/lib/qt-6/qml";
+          QML2_IMPORT_PATH = "${pkgs.qt6Packages.qt5compat}/lib/qt-6/qml:${config.preferences.paths.configSourceDirectory}/modules/nixos/scripts/quickshell:/run/current-system/sw/lib/qt-6/qml";
           # Reuse the nixpkgs Playwright browser bundle so npm/bun Playwright
           # clients do not attempt mutable browser downloads outside the store.
           # Ref: https://wiki.nixos.org/wiki/Playwright

@@ -22,6 +22,7 @@
 
       ompDirectory = "${homeDirectory}/.omp";
       ompAgentDirectory = "${ompDirectory}/agent";
+      ompEnvFile = "${ompAgentDirectory}/.env";
       ompModelsFile = "${ompAgentDirectory}/models.yml";
       ompConfigFile = "${ompAgentDirectory}/config.yml";
       # OMP's pi-ai aborts OpenAI-family streams when no first SSE event arrives
@@ -35,6 +36,7 @@
       shellConfigSourceDirectory = lib.escapeShellArg configSourceDirectory;
       shellOmpDirectory = lib.escapeShellArg ompDirectory;
       shellOmpAgentDirectory = lib.escapeShellArg ompAgentDirectory;
+      shellOmpEnvFile = lib.escapeShellArg ompEnvFile;
       shellOmpModelsFile = lib.escapeShellArg ompModelsFile;
       shellOmpConfigFile = lib.escapeShellArg ompConfigFile;
 
@@ -87,6 +89,15 @@
             install -d -m 0700 -o ${shellUser} -g users ${shellOmpDirectory}/logs
             install -d -m 0700 -o ${shellUser} -g users ${shellOmpDirectory}/plugins
 
+            tmp_env="$(${pkgs.coreutils}/bin/mktemp)"
+            {
+              printf '%s\n' ${lib.escapeShellArg "EXA_API_KEY=${exaApiKey}"}
+              printf '%s\n' ${lib.escapeShellArg "OMNIROUTE_OPENCODE_API_KEY=${opencodeApiKey}"}
+              printf '%s\n' ${lib.escapeShellArg "OMNIROUTE_PI_API_KEY=${piApiKey}"}
+            } > "$tmp_env"
+            install -m 0600 -o ${shellUser} -g users "$tmp_env" ${shellOmpEnvFile}
+            rm -f "$tmp_env"
+
             if [ ! -e ${shellOmpConfigFile} ]; then
               printf '{}\n' > ${shellOmpConfigFile}
             fi
@@ -121,16 +132,10 @@
 
         fileSystems = ompPersistence.fileSystems;
 
-        environment.variables = {
-          # OMP loads env first, then .env files; exposing these password-store
-          # secrets here makes agent web_search and model sync work in fresh
-          # shells without copying API keys into mutable ~/.omp files. Source:
-          # https://github.com/can1357/oh-my-pi/blob/main/docs/environment-variables.md
-          EXA_API_KEY = exaApiKey;
-          OMNIROUTE_OPENCODE_API_KEY = opencodeApiKey;
-          OMNIROUTE_PI_API_KEY = piApiKey;
-          PI_STREAM_FIRST_EVENT_TIMEOUT_MS = toString streamFirstEventTimeoutMs;
-        };
+        # OMP loads ~/.omp/agent/.env after process env; keep API keys scoped to
+        # that 0600 file above instead of exporting them through /etc/profile.
+        # Source: https://github.com/can1357/oh-my-pi/blob/main/docs/environment-variables.md
+        environment.variables.PI_STREAM_FIRST_EVENT_TIMEOUT_MS = toString streamFirstEventTimeoutMs;
 
         preferences.zsh = {
           aliases.o = "omp";

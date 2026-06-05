@@ -116,6 +116,7 @@
         luau-lsp
 
         kdePackages.qtdeclarative # Provides qmlls - language server for QML
+        qt6Packages.qt5compat # Provides Qt5Compat.GraphicalEffects qmltypes for Quickshell scripts
 
         # Fix VSCode keyring
         gnome-keyring

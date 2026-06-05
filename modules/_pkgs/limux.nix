@@ -61,7 +61,7 @@ rustPlatform.buildRustPackage (finalAttrs: {
   patches = [
     (fetchpatch {
       url = "https://github.com/am-will/limux/pull/83.patch";
-      hash = "sha256-53LTuxLSq6xHsixHM3/7BIpUQD0TQlHXrBhhzE+nzPk=";
+      hash = "sha256-l6GTHhlTyYt+aUFnpm0jS/mnDDFgWJTaepOWWKGWwzw=";
     })
   ];
 

@@ -12,16 +12,17 @@
       cfg = config.preferences.waydroid;
       waydroidPackage = pkgs.waydroid-nftables;
       waydroidManagedProperties =
-        cfg.extraProperties
-        // lib.optionalAttrs cfg.softwareRendering {
+        lib.optionalAttrs cfg.softwareRendering {
           # Source: https://docs.waydro.id/faq/get-waydroid-to-work-through-a-vm
           # The GBM/Mesa path is crashing Android SurfaceFlinger on this hybrid Intel/NVIDIA host; SwiftShader trades speed for a stable compositor.
           "ro.hardware.gralloc" = "default";
           "ro.hardware.egl" = "swiftshader";
           "ro.hardware.vulkan" = "";
           "persist.waydroid.no_presentation" = "true";
-        };
+        }
+        // cfg.extraProperties;
       waydroidManagedPropertiesJson = builtins.toJSON waydroidManagedProperties;
+      waydroidManagedPropertiesFile = pkgs.writeText "waydroid-managed-properties.json" waydroidManagedPropertiesJson;
       waydroidApplyConfigPython = pkgs.writeText "waydroid-apply-config.py" ''
         import configparser
         import json
@@ -31,7 +32,7 @@
 
         cfg_path = Path(sys.argv[1])
         base_prop = Path(sys.argv[2])
-        managed = json.loads(os.environ["WAYDROID_MANAGED_PROPERTIES"])
+        managed = json.loads(Path(sys.argv[3]).read_text())
 
         parser = configparser.ConfigParser(interpolation=None, strict=False)
         parser.optionxform = str
@@ -79,7 +80,7 @@
           exit 0
         fi
 
-        state="$(${pkgs.python3}/bin/python3 ${waydroidApplyConfigPython} "$cfg_path" "$base_prop")"
+        state="$(${pkgs.python3}/bin/python3 ${waydroidApplyConfigPython} "$cfg_path" "$base_prop" ${waydroidManagedPropertiesFile})"
         case "$state" in
           changed|base-stale)
             ${waydroidPackage}/bin/waydroid upgrade --offline
@@ -91,7 +92,7 @@
       options.preferences.waydroid = {
         enable = lib.mkOption {
           type = lib.types.bool;
-          default = config.preferences.profiles.desktop.enable;
+          default = false;
           description = "Enable the Waydroid Android container on graphical hosts.";
         };
 
@@ -108,73 +109,76 @@
         };
       };
 
-      programs.virt-manager.enable = true;
+      config = {
+        programs.virt-manager.enable = true;
 
-      virtualisation = {
-        docker = {
+        preferences.waydroid.enable = lib.mkDefault config.preferences.profiles.desktop.enable;
+
+        virtualisation = {
+          docker = {
+            enable = true;
+            daemon.settings.live-restore = false;
+          };
+          podman = {
+            enable = false;
+            dockerCompat = false;
+          };
+
+          libvirtd.enable = true;
+          oci-containers.backend = "docker";
+        };
+
+        # Use nvidia with Docker - https://discourse.nixos.org/t/nvidia-docker-container-runtime-doesnt-detect-my-gpu/51336
+        hardware.nvidia-container-toolkit.enable = config.nixpkgs.config.cudaSupport;
+
+        environment.systemPackages =
+          with pkgs;
+          [
+            dive # look into docker image layers
+            docker-compose # start group of containers for dev
+
+            qemu # virtualisation
+
+            selfpkgs.waydroid-script # Keep this local so update-pkgs can track the exact commit pinned by this flake.
+          ]
+          ++ lib.optionals cfg.enable [ waydroidApplyConfig ];
+
+        virtualisation.waydroid = lib.mkIf cfg.enable {
           enable = true;
-          daemon.settings.live-restore = false;
-        };
-        podman = {
-          enable = false;
-          dockerCompat = false;
+          package = waydroidPackage;
         };
 
-        libvirtd.enable = true;
-        oci-containers.backend = "docker";
+        systemd.services.waydroid-container = lib.mkIf cfg.enable {
+          preStart = ''
+            ${waydroidApplyConfig}/bin/waydroid-apply-config
+          '';
+        };
+
+        # Persist Waydroid's Android /data as system state: Android numeric UIDs
+        # must survive untouched, while user persistence can chown entries to the
+        # host user and break core services such as keystore2; desktop entries are
+        # user-owned launchers regenerated from Android apps, so keep them in home.
+        impermanence.home.cache.directories = [
+          ".local/share/applications"
+          ".cache/waydroid-script"
+
+          # VM Data
+          ".config/libvirt"
+        ];
+        impermanence.nixos.cache.directories = [
+          "/var/lib/waydroid"
+          {
+            directory = "/home/${config.preferences.user.username}/.local/share/waydroid";
+            user = "root";
+            group = "root";
+            mode = "0755";
+          }
+
+          # Docker & other VM Data
+          "/var/lib/docker"
+          "/var/lib/libvirt"
+          "/etc/libvirt/qemu"
+        ];
       };
-
-      # Use nvidia with Docker - https://discourse.nixos.org/t/nvidia-docker-container-runtime-doesnt-detect-my-gpu/51336
-      hardware.nvidia-container-toolkit.enable = config.nixpkgs.config.cudaSupport;
-
-      environment.systemPackages =
-        with pkgs;
-        [
-          dive # look into docker image layers
-          docker-compose # start group of containers for dev
-
-          qemu # virtualisation
-
-          selfpkgs.waydroid-script # Keep this local so update-pkgs can track the exact commit pinned by this flake.
-        ]
-        ++ lib.optionals cfg.enable [ waydroidApplyConfig ];
-
-      virtualisation.waydroid = lib.mkIf cfg.enable {
-        enable = true;
-        package = waydroidPackage;
-      };
-
-      systemd.services.waydroid-container = lib.mkIf cfg.enable {
-        serviceConfig.Environment = "WAYDROID_MANAGED_PROPERTIES=${waydroidManagedPropertiesJson}";
-        preStart = ''
-          ${waydroidApplyConfig}/bin/waydroid-apply-config
-        '';
-      };
-
-      # Persist Waydroid's Android /data as system state: Android numeric UIDs
-      # must survive untouched, while user persistence can chown entries to the
-      # host user and break core services such as keystore2; desktop entries are
-      # user-owned launchers regenerated from Android apps, so keep them in home.
-      impermanence.home.cache.directories = [
-        ".local/share/applications"
-        ".cache/waydroid-script"
-
-        # VM Data
-        ".config/libvirt"
-      ];
-      impermanence.nixos.cache.directories = [
-        "/var/lib/waydroid"
-        {
-          directory = "/home/${config.preferences.user.username}/.local/share/waydroid";
-          user = "root";
-          group = "root";
-          mode = "0755";
-        }
-
-        # Docker & other VM Data
-        "/var/lib/docker"
-        "/var/lib/libvirt"
-        "/etc/libvirt/qemu"
-      ];
     };
 }

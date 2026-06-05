@@ -106,6 +106,7 @@ let
     clang-format = "${pkgs.clang-tools}/bin/clang-format";
     nixfmt = "${pkgs.nixfmt}/bin/nixfmt";
     prettier = "${pkgs.prettier}/bin/prettier";
+    qmlformat = "${pkgs.kdePackages.qtdeclarative}/bin/qmlformat";
     gofumpt = "${pkgs.gofumpt}/bin/gofumpt";
     ruff = "${pkgs.ruff}/bin/ruff";
     rustfmt = "${pkgs.rustfmt}/bin/rustfmt";
@@ -228,6 +229,14 @@ let
         "$FILE"
       ];
       extensions = [ ".nix" ];
+    };
+    qmlformat = {
+      command = [
+        formatterBins.qmlformat
+        "--inplace"
+        "$FILE"
+      ];
+      extensions = [ ".qml" ];
     };
     ruff = {
       command = [

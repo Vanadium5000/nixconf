@@ -80,6 +80,17 @@ stdenv.mkDerivation {
       "ROG Phone 7 Ultimate|asus|asus|AI2205_D|AI2205|asus/WW_AI2205/ASUS_AI2205:14/UKQ1.230917.001/34.1010.0820.99:user/release-keys"
     )
 
+    if [[ "''${1:-}" == "--help" || "''${1:-}" == "-h" ]]; then
+      cat <<'EOF_HELP'
+    Usage: waydroid-total-spoof
+
+    Interactively choose a physical Android device profile, then update
+    /var/lib/waydroid/waydroid.cfg and /var/lib/waydroid/waydroid_base.prop.
+    Existing non-spoof properties in [properties] are preserved.
+    EOF_HELP
+      exit 0
+    fi
+
     if ! command -v waydroid >/dev/null 2>&1; then
       echo "error: 'waydroid' is not in PATH. Install/enter an environment with Waydroid first." >&2
       exit 1
@@ -93,17 +104,6 @@ stdenv.mkDerivation {
     if [[ ! -f "$WAYDROID_BASE_PROP" ]]; then
       echo "error: $WAYDROID_BASE_PROP does not exist. Initialize Waydroid first so its base properties are created." >&2
       exit 1
-    fi
-
-    if [[ "''${1:-}" == "--help" || "''${1:-}" == "-h" ]]; then
-      cat <<'EOF_HELP'
-    Usage: waydroid-total-spoof
-
-    Interactively choose a physical Android device profile, then update
-    /var/lib/waydroid/waydroid.cfg and /var/lib/waydroid/waydroid_base.prop.
-    Existing non-spoof properties in [properties] are preserved.
-    EOF_HELP
-      exit 0
     fi
 
     echo "[+] Waydroid Total Spoof"

@@ -46,57 +46,117 @@ pkgs.writeShellApplication {
       echo "$1"
     }
 
-    IMPORTANT_LIGHT_PACKAGES=(
-      acp-chat
-      omniroute
-      omp-desktop
-      openchamber-web
-      cpa-usage-keeper
-      services-auth-gateway
-      niri-screen-time
-      daisyui-mcp
-      mattpocock-skills
-    )
+    set_label() {
+      case "$1" in
+      light) printf '%s\n' "Important + light" ;;
+      medium) printf '%s\n' "Important + medium" ;;
+      heavy) printf '%s\n' "Heavy + less important" ;;
+      all) printf '%s\n' "All packages" ;;
+      *) printf '%s\n' "Unlisted" ;;
+      esac
+    }
 
-    IMPORTANT_MEDIUM_PACKAGES=(
-      cliproxyapi
-      brave-origin
-      patchright
-      iloader
-      playwright-cli
-      cake-wallet-flatpak
-      orca
-      limux
-      seance
-      dogecoin
-      antigravity-manager
-      waydroid-script
-      waydroid-total-spoof
-      sideloader
-      snitch
-      quickshell-docs-markdown
-    )
+    set_order() {
+      case "$1" in
+      light) printf '%s\n' 10 ;;
+      medium) printf '%s\n' 20 ;;
+      heavy) printf '%s\n' 30 ;;
+      *) printf '%s\n' 90 ;;
+      esac
+    }
 
-    HEAVY_LESS_IMPORTANT_PACKAGES=(
-      wallpapers
-      aptos-fonts
-    )
+    package_set() {
+      case "$1" in
+      acp-chat | omniroute | omp-desktop | openchamber-web | cpa-usage-keeper | services-auth-gateway | niri-screen-time | daisyui-mcp | mattpocock-skills)
+        printf '%s\n' light
+        ;;
+      cliproxyapi | brave-origin | patchright | iloader | playwright-cli | cake-wallet-flatpak | orca | limux | seance | dogecoin | antigravity-manager | waydroid-script | waydroid-total-spoof | sideloader | snitch | quickshell-docs-markdown | stdio-to-ws)
+        printf '%s\n' medium
+        ;;
+      wallpapers | aptos-fonts)
+        printf '%s\n' heavy
+        ;;
+      *) printf '%s\n' unlisted ;;
+      esac
+    }
 
-    package_summary() {
-      local label="$1"
-      shift
+    package_update_mode() {
+      case "$1" in
+      acp-chat | cpa-usage-keeper | limux | omniroute | omp-desktop | openchamber-web | orca | seance)
+        printf '%s\n' custom
+        ;;
+      brave-origin)
+        printf '%s\n' updater-script
+        ;;
+      daisyui-mcp | mattpocock-skills | waydroid-script | waydroid-total-spoof)
+        printf '%s\n' nix-update-branch
+        ;;
+      cliproxyapi | niri-screen-time)
+        printf '%s\n' nix-update
+        ;;
+      antigravity-manager | aptos-fonts | iloader | patchright | playwright-cli | quickshell-docs-markdown | services-auth-gateway | sideloader | snitch)
+        printf '%s\n' manual
+        ;;
+      *) printf '%s\n' nix-update+fallback ;;
+      esac
+    }
 
-      gum style \
-        --foreground 212 \
-        --bold \
-        "$label"
-      printf '  '
-      printf '%s' "$1"
-      shift || true
-      for pkg in "$@"; do
-        printf '  •  %s' "$pkg"
-      done
-      printf '\n\n'
+    manual_update_reason() {
+      case "$1" in
+      antigravity-manager) printf '%s\n' "RPM-wrapped AppImage with versioned URL" ;;
+      aptos-fonts) printf '%s\n' "static font CDN URL" ;;
+      iloader) printf '%s\n' "iOS AppImage with manual download" ;;
+      patchright) printf '%s\n' "NPM CLI must stay in lockstep with patchright-core" ;;
+      playwright-cli) printf '%s\n' "NPM package with browser bundles" ;;
+      quickshell-docs-markdown) printf '%s\n' "multi-source Rust with pinned deps" ;;
+      services-auth-gateway) printf '%s\n' "local generated Python app" ;;
+      sideloader) printf '%s\n' "iOS sideloader with signing deps" ;;
+      snitch) printf '%s\n' "custom build process" ;;
+      *) return 1 ;;
+      esac
+    }
+
+    package_call_expr() {
+      local pkg="$1"
+      case "$pkg" in
+      acp-chat | cliproxyapi | omniroute | openchamber-web)
+        printf '%s\n' "unstable.callPackage ./$pkg.nix {}"
+        ;;
+      limux)
+        printf '%s\n' "unstable.callPackage ./limux.nix { pkgs = unstable; }"
+        ;;
+      antigravity-manager)
+        printf '%s\n' "(pkgs.callPackage ./antigravity-manager.nix {}).unwrapped"
+        ;;
+      *)
+        printf '%s\n' "pkgs.callPackage ./$pkg.nix {}"
+        ;;
+      esac
+    }
+
+    package_file_names() {
+      find . -maxdepth 1 -name "*.nix" -not -name "update-pkgs.nix" -not -name "packages.nix" -printf "%f\n" | sort
+    }
+
+    package_names() {
+      package_file_names | sed 's/\.nix$//'
+    }
+
+    package_names_by_set() {
+      local wanted="$1" pkg
+      if [ "$wanted" = all ]; then
+        package_names
+        return
+      fi
+      while IFS= read -r pkg; do
+        if [ "$(package_set "$pkg")" = "$wanted" ]; then
+          printf '%s\n' "$pkg"
+        fi
+      done < <(package_names)
+    }
+
+    package_count_by_set() {
+      package_names_by_set "$1" | wc -l | tr -d ' '
     }
 
     usage() {
@@ -119,21 +179,63 @@ pkgs.writeShellApplication {
         "  update-pkgs revert --yes omniroute limux"
     }
 
+    show_intro_once() {
+      if [ "''${INTRO_SHOWN:-false}" = true ]; then
+        return
+      fi
+      INTRO_SHOWN=true
+      show_update_menu_intro
+    }
+
+    render_set_table() {
+      local set key pkg packages mode manual buildable total
+      {
+        printf '%s\n' "Set,Packages,Updater,Notes"
+        for key in light medium heavy; do
+          packages=""
+          manual=0
+          buildable=0
+          total=0
+          while IFS= read -r pkg; do
+            [ -z "$pkg" ] && continue
+            total=$((total + 1))
+            mode=$(package_update_mode "$pkg")
+            [ "$mode" = manual ] && manual=$((manual + 1)) || buildable=$((buildable + 1))
+            if [ -z "$packages" ]; then
+              packages="$pkg"
+            else
+              packages="$packages · $pkg"
+            fi
+          done < <(package_names_by_set "$key")
+          set="$(set_label "$key")"
+          [ "$key" = light ] && set="$set (default)"
+          printf '%s\n' "$set,$total,$buildable auto / $manual manual,$packages"
+        done
+      } | gum table \
+        --print \
+        --separator ',' \
+        --widths 28,10,18,94 \
+        --border rounded \
+        --border.foreground 63 \
+        --header.foreground 81 \
+        --cell.foreground 252 \
+        --padding "0 1"
+    }
+
     show_update_menu_intro() {
       gum style \
         --border rounded \
         --border-foreground 63 \
         --padding "1 2" \
         --margin "1 0" \
-        --foreground 255 \
+        --foreground 81 \
         --bold \
         "update-pkgs" \
         "Update, test, or revert custom package entries." \
         "No input for 5 seconds selects update Important + light."
 
-      package_summary "Important + light  · default" "''${IMPORTANT_LIGHT_PACKAGES[@]}"
-      package_summary "Important + medium" "''${IMPORTANT_MEDIUM_PACKAGES[@]}"
-      package_summary "Heavy + less important" "''${HEAVY_LESS_IMPORTANT_PACKAGES[@]}"
+      render_set_table
+      echo ""
     }
 
     select_update_packages() {
@@ -159,7 +261,7 @@ pkgs.writeShellApplication {
         return
       fi
 
-      show_update_menu_intro
+      show_intro_once
 
       set +e
       choice=$(gum choose \
@@ -241,17 +343,7 @@ pkgs.writeShellApplication {
 
     package_build_expr() {
       local pkg="$1"
-      case "$pkg" in
-      acp-chat | cliproxyapi | omniroute | openchamber-web)
-        printf '%s\n' "let unstable = import <nixpkgs-unstable> {}; in unstable.callPackage ./$pkg.nix {}"
-        ;;
-      limux)
-        printf '%s\n' "let unstable = import <nixpkgs-unstable> {}; in unstable.callPackage ./limux.nix { pkgs = unstable; }"
-        ;;
-      *)
-        printf '%s\n' "let pkgs = import <nixpkgs> {}; in pkgs.callPackage ./$pkg.nix {}"
-        ;;
-      esac
+      printf '%s\n' "let pkgs = import <nixpkgs> {}; unstable = import <nixpkgs-unstable> {}; in $(package_call_expr "$pkg")"
     }
 
     run_package_build() {
@@ -259,8 +351,45 @@ pkgs.writeShellApplication {
       nix-build -E "$(package_build_expr "$pkg")"
     }
 
+    build_package_quiet() {
+      local pkg="$1"
+      run_package_build "$pkg" >/dev/null
+    }
+
+    refresh_package_hash_from_build() {
+      local pkg="$1" file="$2" attr="$3"
+      refresh_fake_hash_from_build "$file" "$attr" nix-build -E "$(package_build_expr "$pkg")"
+    }
+
+    package_smoke_commands() {
+      local pkg="$1" bin="$2"
+      case "$pkg" in
+      acp-chat)
+        printf '%s\t%s\n' "$bin" "--help"
+        ;;
+      services-auth-gateway)
+        printf '%s\t%s\n' "$bin" "--help"
+        ;;
+      *)
+        printf '%s\t%s\n' "$bin" "--help"
+        printf '%s\t%s\n' "$bin" "-h"
+        printf '%s\t%s\n' "$bin" "--version"
+        printf '%s\t%s\n' "$bin" "version"
+        ;;
+      esac
+    }
+
+    run_smoke_command() {
+      local cmd="$1" arg="$2"
+      if timeout 20s "$cmd" "$arg" >/dev/null; then
+        echo "  Smoke command passed: $cmd $arg"
+        return 0
+      fi
+      return 1
+    }
+
     run_package_test() {
-      local pkg="$1" result main_program bin candidate flag
+      local pkg="$1" result main_program bin candidate cmd arg
       require_package_file "$pkg"
       echo "================================================================"
       echo "Testing $pkg..."
@@ -275,8 +404,7 @@ pkgs.writeShellApplication {
         # The flake main program intentionally launches the Electron GUI, so
         # smoke the packaged CLI entrypoint that Orca itself installs in
         # resources/bin. This still exercises the patched Electron-as-Node runtime.
-        if "$result/opt/Orca/resources/bin/orca-ide" --help >/dev/null; then
-          echo "  Smoke command passed: $result/opt/Orca/resources/bin/orca-ide --help"
+        if run_smoke_command "$result/opt/Orca/resources/bin/orca-ide" --help; then
           TESTED+=("$pkg")
           return 0
         fi
@@ -303,13 +431,12 @@ pkgs.writeShellApplication {
         return 0
       fi
 
-      for flag in --help -h --version version; do
-        if "$bin" "$flag" >/dev/null; then
-          echo "  Smoke command passed: $bin $flag"
+      while IFS=$'\t' read -r cmd arg; do
+        if run_smoke_command "$cmd" "$arg"; then
           TESTED+=("$pkg")
           return 0
         fi
-      done
+      done < <(package_smoke_commands "$pkg" "$bin")
 
       echo "  Build passed, but no safe help/version smoke command succeeded for $bin."
       FAILED+=("$pkg")
@@ -320,20 +447,20 @@ pkgs.writeShellApplication {
       local set_name="$1"
       case "$set_name" in
       light | important-light | default)
-        SELECTED_LABEL="Important + light"
-        SELECTED_PACKAGES=("''${IMPORTANT_LIGHT_PACKAGES[@]}")
+        SELECTED_LABEL="$(set_label light)"
+        mapfile -t SELECTED_PACKAGES < <(package_names_by_set light)
         ;;
       medium | important-medium)
-        SELECTED_LABEL="Important + medium"
-        SELECTED_PACKAGES=("''${IMPORTANT_MEDIUM_PACKAGES[@]}")
+        SELECTED_LABEL="$(set_label medium)"
+        mapfile -t SELECTED_PACKAGES < <(package_names_by_set medium)
         ;;
       heavy | less-important)
-        SELECTED_LABEL="Heavy + less important"
-        SELECTED_PACKAGES=("''${HEAVY_LESS_IMPORTANT_PACKAGES[@]}")
+        SELECTED_LABEL="$(set_label heavy)"
+        mapfile -t SELECTED_PACKAGES < <(package_names_by_set heavy)
         ;;
       all)
-        SELECTED_LABEL="All packages"
-        mapfile -t SELECTED_PACKAGES < <(find . -maxdepth 1 -name "*.nix" -not -name "update-pkgs.nix" -not -name "packages.nix" -printf "%f\n" | sort | sed 's/\.nix$//')
+        SELECTED_LABEL="$(set_label all)"
+        mapfile -t SELECTED_PACKAGES < <(package_names_by_set all)
         ;;
       *)
         echo "Error: unknown set $set_name (expected light, medium, heavy, all)." >&2
@@ -344,7 +471,7 @@ pkgs.writeShellApplication {
 
     choose_explicit_packages() {
       local header="$1"
-      mapfile -t SELECTED_PACKAGES < <(find . -maxdepth 1 -name "*.nix" -not -name "update-pkgs.nix" -not -name "packages.nix" -printf "%f\n" | sort | sed 's/\.nix$//' | gum choose --no-limit --header "$header" --height 20)
+      mapfile -t SELECTED_PACKAGES < <(package_names | gum choose --no-limit --header "$header" --height 20 --cursor "➜ " --cursor.foreground 212 --header.foreground 63 --selected.foreground 212)
       if [ ''${#SELECTED_PACKAGES[@]} -eq 0 ]; then
         gum style --foreground 196 "No packages selected."
         exit 1
@@ -783,7 +910,7 @@ pkgs.writeShellApplication {
       set_first_hash_after "$file" 'registry.npmjs.org/omniroute' "$npm_hash"
 
       echo "    Refreshing npmDepsHash..."
-      if refresh_fake_hash_from_build "$file" npmDepsHash nix-build -E 'let unstable = import <nixpkgs-unstable> {}; in unstable.callPackage ./omniroute.nix {}'; then
+      if refresh_package_hash_from_build "$pkg" "$file" npmDepsHash; then
         changed=true
       else
         return 1
@@ -869,7 +996,7 @@ pkgs.writeShellApplication {
       set_first_hash_after "$file" 'repo = "openchamber"' "$src_hash"
 
       echo "    Refreshing fixed-output hash..."
-      refresh_fake_hash_from_build "$file" outputHash nix-build -E 'let unstable = import <nixpkgs-unstable> {}; in unstable.callPackage ./openchamber-web.nix {}'
+      refresh_package_hash_from_build "$pkg" "$file" outputHash
       return 0
     }
 
@@ -907,7 +1034,7 @@ pkgs.writeShellApplication {
       set_first_hash_after "$file" 'repo = "omp-desktop"' "$src_hash"
 
       echo "    Refreshing cargoHash..."
-      refresh_fake_hash_from_build "$file" cargoHash nix-build -E 'let pkgs = import <nixpkgs> {}; in pkgs.callPackage ./omp-desktop.nix {}'
+      refresh_package_hash_from_build "$pkg" "$file" cargoHash
       return 0
     }
 
@@ -986,7 +1113,7 @@ pkgs.writeShellApplication {
       set_first_hash_after "$file" 'repo = "acp-ui"' "$src_hash"
 
       echo "    Refreshing npmDepsHash..."
-      refresh_fake_hash_from_build "$file" npmDepsHash nix-build -E 'let unstable = import <nixpkgs-unstable> {}; in unstable.callPackage ./acp-chat.nix {}'
+      refresh_package_hash_from_build "$pkg" "$file" npmDepsHash
       return 0
     }
 
@@ -1048,7 +1175,7 @@ pkgs.writeShellApplication {
       fi
 
       echo "    Refreshing cargoHash..."
-      refresh_fake_hash_from_build "$file" cargoHash nix-build -E 'let unstable = import <nixpkgs-unstable> {}; in unstable.callPackage ./limux.nix { pkgs = unstable; }'
+      refresh_package_hash_from_build "$pkg" "$file" cargoHash
 
       return 0
     }
@@ -1059,44 +1186,11 @@ pkgs.writeShellApplication {
         printf '%s\n' '{ pkgs ? import <nixpkgs> {}, unstable ? import <nixpkgs-unstable> {} }:'
         printf '%s\n' '{'
         for pkg in "''${PACKAGES[@]}"; do
-          case "$pkg" in
-          acp-chat | cliproxyapi | omniroute | openchamber-web)
-            echo " $pkg = unstable.callPackage ./$pkg.nix {};"
-            ;;
-          limux)
-            echo " $pkg = unstable.callPackage ./limux.nix { pkgs = unstable; };"
-            ;;
-          antigravity-manager)
-            echo " # $pkg = (pkgs.callPackage ./$pkg.nix {}).unwrapped; # skipped - RPM-wrapped, versioned URL (manual update)"
-            ;;
-          aptos-fonts)
-            echo " # $pkg = pkgs.callPackage ./$pkg.nix {}; # skipped - static font CDN URL (manual update)"
-            ;;
-          iloader)
-            echo " # $pkg = pkgs.callPackage ./$pkg.nix {}; # skipped - iOS AppImage with manual download (manual update)"
-            ;;
-          playwright-cli)
-            echo " # $pkg = pkgs.callPackage ./$pkg.nix {}; # skipped - NPM package with browser bundles (manual update)"
-            ;;
-          patchright)
-            echo " # $pkg = pkgs.callPackage ./$pkg.nix {}; # skipped - NPM package with coupled patchright-core dependency (manual update)"
-            ;;
-          services-auth-gateway)
-            echo " # $pkg = pkgs.callPackage ./$pkg.nix {}; # skipped - local generated Python app"
-            ;;
-          quickshell-docs-markdown)
-            echo " # $pkg = pkgs.callPackage ./$pkg.nix {}; # skipped - multi-source Rust with pinned deps (manual update)"
-            ;;
-          sideloader)
-            echo " # $pkg = pkgs.callPackage ./$pkg.nix {}; # skipped - iOS sideloader with signing deps"
-            ;;
-          snitch)
-            echo " # $pkg = pkgs.callPackage ./$pkg.nix {}; # skipped - custom build process (manual update)"
-            ;;
-          *)
-            echo " $pkg = pkgs.callPackage ./$pkg.nix {};"
-            ;;
-          esac
+          if [ "$(package_update_mode "$pkg")" = manual ]; then
+            echo " # $pkg = $(package_call_expr "$pkg"); # skipped - $(manual_update_reason "$pkg")"
+          else
+            echo " $pkg = $(package_call_expr "$pkg");"
+          fi
         done
         printf '%s\n' '}'
       } >packages.nix
@@ -1107,7 +1201,7 @@ pkgs.writeShellApplication {
       notify "Scanning for packages..."
 
       # Dynamically find all .nix files (excluding utility scripts)
-      mapfile -t FILES < <(find . -maxdepth 1 -name "*.nix" -not -name "update-pkgs.nix" -not -name "packages.nix" -printf "%f\n" | sort)
+      mapfile -t FILES < <(package_file_names)
 
       if [ ''${#FILES[@]} -eq 0 ]; then
         notify "No packages found to update."
@@ -1202,7 +1296,7 @@ pkgs.writeShellApplication {
           # Upstream publishes a versioned Linux .deb; refresh version and
           # fixed-output hash together, then build the wrapped Electron app.
           if update_orca_package; then
-            if nix-build -E 'let pkgs = import <nixpkgs> {}; in pkgs.callPackage ./orca.nix {}' >/dev/null; then
+            if build_package_quiet "$pkg"; then
               UPDATED+=("$pkg")
             else
               FAILED+=("$pkg")
@@ -1216,7 +1310,7 @@ pkgs.writeShellApplication {
           # Custom updater keeps source-with-submodules, carried upstream patch,
           # and cargoHash in sync, then builds as a smoke test.
           if update_limux_package; then
-            if nix-build -E 'let unstable = import <nixpkgs-unstable> {}; in unstable.callPackage ./limux.nix { pkgs = unstable; }' >/dev/null; then
+            if build_package_quiet "$pkg"; then
               UPDATED+=("$pkg")
             else
               FAILED+=("$pkg")
@@ -1239,7 +1333,7 @@ pkgs.writeShellApplication {
         "omp-desktop")
           # OMP Desktop is a Tauri/Rust app; refresh source and cargo vendor hash together.
           if update_omp_desktop_package; then
-            if nix-build -E 'let pkgs = import <nixpkgs> {}; in pkgs.callPackage ./omp-desktop.nix {}' >/dev/null; then
+            if build_package_quiet "$pkg"; then
               UPDATED+=("$pkg")
             else
               FAILED+=("$pkg")
@@ -1274,7 +1368,7 @@ pkgs.writeShellApplication {
           # Custom updater keeps the npm CLI artifact and GitHub docs source in
           # lockstep, then the normal build serves as the native-module smoke test.
           if update_omniroute_package; then
-            if nix-build -E 'let unstable = import <nixpkgs-unstable> {}; in unstable.callPackage ./omniroute.nix {}' >/dev/null; then
+            if build_package_quiet "$pkg"; then
               UPDATED+=("$pkg")
             else
               FAILED+=("$pkg")
@@ -1288,7 +1382,7 @@ pkgs.writeShellApplication {
           # Custom updater refreshes version, tag revision, compressed source hash,
           # and unpacked source hash, then builds the package as a smoke test.
           if update_seance_package; then
-            if nix-build -E 'let pkgs = import <nixpkgs> {}; in pkgs.callPackage ./seance.nix {}' >/dev/null; then
+            if build_package_quiet "$pkg"; then
               UPDATED+=("$pkg")
             else
               FAILED+=("$pkg")
@@ -1471,15 +1565,14 @@ pkgs.writeShellApplication {
     }
 
     run_list_command() {
-      printf 'Important + light:\n'
-      printf '  - %s\n' "''${IMPORTANT_LIGHT_PACKAGES[@]}"
-      printf 'Important + medium:\n'
-      printf '  - %s\n' "''${IMPORTANT_MEDIUM_PACKAGES[@]}"
-      printf 'Heavy + less important:\n'
-      printf '  - %s\n' "''${HEAVY_LESS_IMPORTANT_PACKAGES[@]}"
+      local set pkg
+      for set in light medium heavy; do
+        printf '%s:\n' "$(set_label "$set")"
+        package_names_by_set "$set" | sed 's/^/  - /'
+      done
       if [ "''${1:-}" = "--all" ]; then
         printf 'All package files:\n'
-        find . -maxdepth 1 -name "*.nix" -not -name "update-pkgs.nix" -not -name "packages.nix" -printf "  - %f\n" | sort
+        package_file_names | sed 's/^/  - /'
       fi
     }
 
@@ -1488,9 +1581,9 @@ pkgs.writeShellApplication {
         run_update_command
         return
       fi
-      show_update_menu_intro
+      show_intro_once
       local action
-      action=$(gum choose --header "Action" "Update packages" "Test packages" "Revert package files" "List package sets")
+      action=$(gum choose --header "Action" --cursor "➜ " --cursor.foreground 212 --header.foreground 63 --selected.foreground 212 "Update packages" "Test packages" "Revert package files" "List package sets")
       case "$action" in
       "Update packages") run_update_command ;;
       "Test packages") run_test_command ;;
