@@ -13,7 +13,6 @@
 import Quickshell
 import Quickshell.Wayland
 import QtQuick
-import Qt5Compat.GraphicalEffects
 import "./lib"
 
 PanelWindow {
@@ -81,13 +80,12 @@ PanelWindow {
             anchors.centerIn: parent
             opacity: 1.0
 
-            // Neon Glow
-            layer.enabled: true
-            layer.effect: Glow {
-                radius: 4
-                samples: 9
+            Rectangle {
+                anchors.centerIn: parent
+                width: 5
+                height: 30
                 color: root.inputColor
-                spread: 0.5
+                opacity: 0.35
             }
         }
 
@@ -99,13 +97,12 @@ PanelWindow {
             anchors.centerIn: parent
             opacity: 1.0
 
-            // Neon Glow
-            layer.enabled: true
-            layer.effect: Glow {
-                radius: 4
-                samples: 9
+            Rectangle {
+                anchors.centerIn: parent
+                width: 30
+                height: 5
                 color: root.inputColor
-                spread: 0.5
+                opacity: 0.35
             }
         }
 

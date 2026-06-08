@@ -181,6 +181,14 @@
       '';
 
       hyprClipboardExe = getExe hyprClipboard;
+      disableAirplaneModeKey = pkgs.writeShellScriptBin "disable-airplane-mode-key" ''
+        #!${pkgs.bash}/bin/bash
+        set -euo pipefail
+
+        ${pkgs.networkmanager}/bin/nmcli radio all on >/dev/null 2>&1 || true
+        ${pkgs.util-linux}/bin/rfkill unblock all >/dev/null 2>&1 || true
+      '';
+      disableAirplaneModeKeyExe = getExe disableAirplaneModeKey;
 
       closeActiveWindow = pkgs.writeShellScriptBin "hypr-close-active-window" ''
         #!${pkgs.bash}/bin/bash
@@ -424,7 +432,8 @@
           (kb ",switch:Lid Switch" "exec, wpctl set-volume @DEFAULT_AUDIO_SINK@ 0" "Mute on lid close"
             "System"
           )
-          (kb ",XF86RFKill" "exec, " "Disable airplane mode key" "System") # Prevents accidental WiFi disconnect
+          (kb ",XF86RFKill" "exec, ${disableAirplaneModeKeyExe}" "Disable airplane mode key" "System")
+          (kb ",XF86WLAN" "exec, ${disableAirplaneModeKeyExe}" "Disable WiFi airplane mode key" "System")
         ];
 
         # ── Volume (bindle - repeat) ──
@@ -913,6 +922,7 @@
             vrr = 1,
             disable_hyprland_logo = true,
             disable_splash_rendering = true,
+            force_default_wallpaper = 0,
             disable_autoreload = false,
             middle_click_paste = false,
             focus_on_activate = true,
@@ -1017,6 +1027,7 @@
         xdg-utils # Helps cliphist/wl-clipboard infer image MIME types.
         hyprScreenshot
         hyprClipboard
+        disableAirplaneModeKey
         closeActiveWindow
         brightnessctl
         dconf # user-prefs

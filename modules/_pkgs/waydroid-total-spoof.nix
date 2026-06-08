@@ -49,6 +49,7 @@ stdenv.mkDerivation {
 
     WAYDROID_CFG="''${WAYDROID_CFG:-/var/lib/waydroid/waydroid.cfg}"
     WAYDROID_BASE_PROP="''${WAYDROID_BASE_PROP:-/var/lib/waydroid/waydroid_base.prop}"
+    WAYDROID_ROOTFS="''${WAYDROID_ROOTFS:-/var/lib/waydroid/rootfs}"
     BACKUP_CFG="''${WAYDROID_CFG}.bak"
     BACKUP_BASE_PROP="''${WAYDROID_BASE_PROP}.bak"
 
@@ -80,14 +81,258 @@ stdenv.mkDerivation {
       "ROG Phone 7 Ultimate|asus|asus|AI2205_D|AI2205|asus/WW_AI2205/ASUS_AI2205:14/UKQ1.230917.001/34.1010.0820.99:user/release-keys"
     )
 
+    glob_exists() {
+      compgen -G "$1" >/dev/null
+    }
+
+    cfg_prop_value() {
+      ${gawk}/bin/awk -v key="$1" '
+        function trim(value) {
+          sub(/^[[:space:]]*/, "", value)
+          sub(/[[:space:]]*$/, "", value)
+          return value
+        }
+
+        $0 ~ "^[[:space:]]*" key "[[:space:]]*=" {
+          value = $0
+          sub(/^[^=]*=/, "", value)
+          found = trim(value)
+        }
+
+        END { print found }
+      ' "$WAYDROID_CFG"
+    }
+
+    first_supported_dri_node() {
+      local node driver
+      for node in /dev/dri/renderD*; do
+        [[ -e "$node" ]] || continue
+        driver="$(sed -n 's/^DRIVER=//p' "/sys/class/drm/$(basename "$node")/device/uevent" 2>/dev/null || true)"
+        # Upstream Waydroid skips the proprietary NVIDIA DRM node here: the
+        # Android Mesa/minigbm stack has no matching NVIDIA userspace driver.
+        [[ "$driver" == "nvidia" ]] && continue
+        printf '%s|%s\n' "$node" "$driver"
+        return 0
+      done
+      return 1
+    }
+
+    vulkan_driver_for_dri_driver() {
+      case "$1" in
+        i915 | xe) printf '%s\n' intel ;;
+        amdgpu) printf '%s\n' radeon ;;
+        panfrost) printf '%s\n' panfrost ;;
+        msm | msm_dpu) printf '%s\n' freedreno ;;
+        vc4) printf '%s\n' broadcom ;;
+        nouveau) printf '%s\n' nouveau ;;
+      esac
+    }
+
+    write_renderer_repairs() {
+      local out="$1"
+      local current_egl current_vulkan dri_info dri_node dri_driver vulkan_driver
+      current_egl="$(cfg_prop_value ro.hardware.egl)"
+      current_vulkan="$(cfg_prop_value ro.hardware.vulkan)"
+
+      dri_info="$(first_supported_dri_node || true)"
+      if [[ -n "$dri_info" ]] && glob_exists "$WAYDROID_ROOTFS/vendor/lib*/egl/libEGL_mesa.so"; then
+        dri_node="''${dri_info%%|*}"
+        dri_driver="''${dri_info#*|}"
+        vulkan_driver="$(vulkan_driver_for_dri_driver "$dri_driver")"
+
+        # This is the fast Waydroid path: minigbm + Mesa against the host DRM
+        # render node. Angle/pastel boots here, but Roblox regresses badly under
+        # ARM translation compared with the direct Mesa/i915 path.
+        printf '%s\n' "gralloc.gbm.device=$dri_node" >> "$out"
+        printf '%s\n' 'ro.hardware.gralloc=gbm' >> "$out"
+        printf '%s\n' 'ro.hardware.egl=mesa' >> "$out"
+        if [[ -n "$vulkan_driver" ]] && glob_exists "$WAYDROID_ROOTFS/vendor/lib*/hw/vulkan.$vulkan_driver.so"; then
+          printf '%s\n' "ro.hardware.vulkan=$vulkan_driver" >> "$out"
+        elif [[ -z "$current_vulkan" ]] && glob_exists "$WAYDROID_ROOTFS/vendor/lib*/hw/vulkan.pastel.so"; then
+          printf '%s\n' 'ro.hardware.vulkan=pastel' >> "$out"
+        fi
+        printf '%s\n' 'debug.hwui.renderer=skiagl' >> "$out"
+        printf '%s\n' 'debug.egl.hw=1' >> "$out"
+        printf '%s\n' 'debug.composition.type=gpu' >> "$out"
+        printf '%s\n' 'persist.sys.ui.hw=1' >> "$out"
+        printf '%s\n' 'hwui.render_dirty_regions=false' >> "$out"
+        printf '%s\n' 'persist.sys.gpu.force=1' >> "$out"
+        # ARM translated Roblox can sit in nativeStart long enough to trip
+        # Android's default 5s input-dispatch ANR during asset/flag startup.
+        printf '%s\n' 'ro.hw_timeout_multiplier=12' >> "$out"
+        printf '%s\n' 'ro.opengles.version=196610' >> "$out"
+        printf '%s\n' 'persist.graphics.vulkan.disable=false' >> "$out"
+        printf '%s\n' 'persist.vulkan.enabled=1' >> "$out"
+        printf '%s\n' 'persist.waydroid.no_presentation=true' >> "$out"
+        printf '%s\n' 'ro.surface_flinger.has_wide_color_display=false' >> "$out"
+        # ConfigParser treats option names case-insensitively, so keep this key
+        # lower-case in waydroid.cfg to avoid duplicate-option failures on repair.
+        printf '%s\n' 'ro.surface_flinger.has_hdr_display=false' >> "$out"
+        printf '%s\n' 'persist.sys.sf.color_mode=0' >> "$out"
+        printf '%s\n' 'persist.sys.sf.native_mode=0' >> "$out"
+        printf '%s\n' 'persist.sys.sf.color_saturation=1.0' >> "$out"
+        return 0
+      fi
+
+      # Waydroid mainline images commonly ship Angle/Mesa EGL but no SwiftShader
+      # EGL implementation; preserving an old ro.hardware.egl=swiftshader override
+      # makes SurfaceFlinger/zygote fail before apps can render. Only rewrite the
+      # known-bad override when the matching EGL library is absent.
+      if [[ "$current_egl" == "swiftshader" ]] && ! glob_exists "$WAYDROID_ROOTFS/vendor/lib*/egl/libEGL_swiftshader.so"; then
+        if glob_exists "$WAYDROID_ROOTFS/vendor/lib*/egl/libEGL_angle.so"; then
+          printf '%s\n' 'ro.hardware.egl=angle' >> "$out"
+        elif glob_exists "$WAYDROID_ROOTFS/vendor/lib*/egl/libEGL_mesa.so"; then
+          printf '%s\n' 'ro.hardware.egl=mesa' >> "$out"
+        fi
+      fi
+
+      if [[ -z "$current_vulkan" ]] && glob_exists "$WAYDROID_ROOTFS/vendor/lib*/hw/vulkan.pastel.so"; then
+        printf '%s\n' 'ro.hardware.vulkan=pastel' >> "$out"
+      fi
+    }
+
+    repair_native_bridge() {
+      if ! command -v waydroid >/dev/null 2>&1; then
+        echo "error: 'waydroid' is not in PATH. Install/enter an environment with Waydroid first." >&2
+        exit 1
+      fi
+
+      if [[ ! -f "$WAYDROID_CFG" ]]; then
+        echo "error: $WAYDROID_CFG does not exist. Initialize Waydroid first so its config is created." >&2
+        exit 1
+      fi
+
+      tmp_cfg="$(mktemp)"
+      tmp_cfg_properties="$(mktemp)"
+      tmp_cfg_renderer_repairs="$(mktemp)"
+      trap 'rm -f "$tmp_cfg" "$tmp_cfg_properties" "$tmp_cfg_renderer_repairs"' EXIT
+
+      cp "$WAYDROID_CFG" "$BACKUP_CFG"
+      write_renderer_repairs "$tmp_cfg_renderer_repairs"
+
+      # Waydroid only exports Android props from [properties] (see upstream
+      # tools/helpers/lxc.py writing cfg["properties"] into waydroid_base.prop).
+      # casualsnek's libndk installer can leave native-bridge ABI keys elsewhere;
+      # migrate them so ARM-only apps such as Roblox can start under libndk.
+      ${gawk}/bin/awk -v preserved_props="$tmp_cfg_properties" -v repaired_props="$tmp_cfg_renderer_repairs" '
+        BEGIN {
+          while ((getline repair_line < repaired_props) > 0) {
+            repair_option = repair_line
+            sub(/^[[:space:]]*/, "", repair_option)
+            sub(/[[:space:]]*=.*/, "", repair_option)
+            renderer_repair[tolower(repair_option)] = 1
+          }
+          close(repaired_props)
+        }
+
+        function trim(value) {
+          sub(/^[[:space:]]*/, "", value)
+          sub(/[[:space:]]*$/, "", value)
+          return value
+        }
+
+        function save_native_bridge(line, option) {
+          option = line
+          sub(/^[[:space:]]*/, "", option)
+          sub(/[[:space:]]*=.*/, "", option)
+          if (!native_bridge_seen[option]++) {
+            native_bridge[option] = line
+          }
+        }
+
+        /^[[:space:]]*(gralloc\.gbm\.device|ro\.hardware\.gralloc|ro\.hardware\.egl|ro\.hardware\.vulkan|debug\.hwui\.renderer|debug\.egl\.hw|debug\.composition\.type|persist\.sys\.ui\.hw|hwui\.render_dirty_regions|persist\.sys\.gpu\.force|ro\.hw_timeout_multiplier|ro\.opengles\.version|persist\.graphics\.vulkan\.disable|persist\.vulkan\.enabled|persist\.waydroid\.no_presentation|ro\.surface_flinger\.has_wide_color_display|ro\.surface_flinger\.has_HDR_display|ro\.surface_flinger\.has_hdr_display|persist\.sys\.sf\.color_mode|persist\.sys\.sf\.native_mode|persist\.sys\.sf\.color_saturation)[[:space:]]*=/ {
+          option = $0
+          sub(/^[[:space:]]*/, "", option)
+          sub(/[[:space:]]*=.*/, "", option)
+          if (tolower(option) in renderer_repair) next
+        }
+
+        /^[[:space:]]*\[[^]]+\][[:space:]]*$/ {
+          header = trim($0)
+          in_properties = (header == "[properties]")
+          if (in_properties) next
+        }
+
+        /^[[:space:]]*(ro\.product\.cpu\.abilist|ro\.product\.cpu\.abilist32|ro\.product\.cpu\.abilist64|ro\.dalvik\.vm\.native\.bridge|ro\.enable\.native\.bridge\.exec|ro\.vendor\.enable\.native\.bridge\.exec|ro\.vendor\.enable\.native\.bridge\.exec64|ro\.ndk_translation\.version|ro\.dalvik\.vm\.isa\.arm|ro\.dalvik\.vm\.isa\.arm64)[[:space:]]*=/ {
+          save_native_bridge($0)
+          next
+        }
+
+        in_properties {
+          if ($0 ~ /^[[:space:]]*[^#;[:space:]][^=]*=/) {
+            option = $0
+            sub(/^[[:space:]]*/, "", option)
+            sub(/[[:space:]]*=.*/, "", option)
+            if (seen_properties[option]++) next
+          }
+          print > preserved_props
+          next
+        }
+
+        /^[[:space:]]*[^#;[:space:]][^=]*=/ {
+          option = $0
+          sub(/^[[:space:]]*/, "", option)
+          sub(/[[:space:]]*=.*/, "", option)
+          if (seen[header SUBSEP option]++) next
+        }
+
+        { print }
+
+        END {
+          for (idx = 1; idx <= split("ro.product.cpu.abilist ro.product.cpu.abilist32 ro.product.cpu.abilist64 ro.dalvik.vm.native.bridge ro.enable.native.bridge.exec ro.vendor.enable.native.bridge.exec ro.vendor.enable.native.bridge.exec64 ro.ndk_translation.version ro.dalvik.vm.isa.arm ro.dalvik.vm.isa.arm64", keys, " "); idx++) {
+            key = keys[idx]
+            if (!(key in native_bridge)) {
+              if (key == "ro.product.cpu.abilist") native_bridge[key] = key "=x86_64,x86,arm64-v8a,armeabi-v7a,armeabi"
+              else if (key == "ro.product.cpu.abilist32") native_bridge[key] = key "=x86,armeabi-v7a,armeabi"
+              else if (key == "ro.product.cpu.abilist64") native_bridge[key] = key "=x86_64,arm64-v8a"
+              else if (key == "ro.dalvik.vm.native.bridge") native_bridge[key] = key "=libndk_translation.so"
+              else if (key == "ro.ndk_translation.version") native_bridge[key] = key "=0.2.3"
+              else if (key == "ro.dalvik.vm.isa.arm") native_bridge[key] = key "=x86"
+              else if (key == "ro.dalvik.vm.isa.arm64") native_bridge[key] = key "=x86_64"
+              else native_bridge[key] = key "=1"
+            }
+            print native_bridge[key] >> preserved_props
+          }
+        }
+      ' "$BACKUP_CFG" > "$tmp_cfg"
+
+      cat "$tmp_cfg_renderer_repairs" >> "$tmp_cfg_properties"
+
+      printf '[properties]\n' >> "$tmp_cfg"
+      cat "$tmp_cfg_properties" >> "$tmp_cfg"
+      install -m644 "$tmp_cfg" "$WAYDROID_CFG"
+
+      echo "[+] Migrated native-bridge ABI properties into [properties]."
+      if [[ -s "$tmp_cfg_renderer_repairs" ]]; then
+        echo "[+] Repaired invalid renderer overrides for this Waydroid image."
+      fi
+      echo "[+] Backup: $BACKUP_CFG"
+      echo "[+] Applying changes with: waydroid upgrade --offline"
+      waydroid upgrade --offline
+      echo "[+] Done. Restart the Waydroid session if it is already running."
+    }
+
     if [[ "''${1:-}" == "--help" || "''${1:-}" == "-h" ]]; then
       cat <<'EOF_HELP'
     Usage: waydroid-total-spoof
+           waydroid-total-spoof --repair-native-bridge
 
     Interactively choose a physical Android device profile, then update
     /var/lib/waydroid/waydroid.cfg and /var/lib/waydroid/waydroid_base.prop.
     Existing non-spoof properties in [properties] are preserved.
+
+    --repair-native-bridge migrates libndk/native-bridge ABI properties into
+    [properties] so ARM-only apps, including Roblox, can launch in Waydroid.
+    It also restores Waydroid's fast minigbm/Mesa render path and raises the
+    hardware timeout multiplier so translated Roblox startup does not trip the
+    default 5s input-dispatch ANR. NVIDIA render nodes stay excluded because
+    Android's Mesa userspace cannot drive the proprietary NVIDIA DRM node.
     EOF_HELP
+      exit 0
+    fi
+
+    if [[ "''${1:-}" == "--repair-native-bridge" ]]; then
+      repair_native_bridge
       exit 0
     fi
 
@@ -150,7 +395,7 @@ stdenv.mkDerivation {
         if (in_properties) next
       }
 
-      /^[[:space:]]*(ro\.product\.brand|ro\.product\.manufacturer|ro\.product\.model|ro\.product\.name|ro\.product\.device|ro\.system\.build\.product|ro\.build\.fingerprint|ro\.system\.build\.fingerprint|ro\.vendor\.build\.fingerprint|ro\.bootimage\.build\.fingerprint|ro\.build\.display\.id|ro\.system\.build\.flavor|ro\.system\.build\.description|ro\.build\.description|ro\.build\.tags|ro\.vendor\.build\.id|ro\.vendor\.build\.tags|ro\.vendor\.build\.type|ro\.odm\.build\.tags|ro\.boot\.verifiedbootstate|ro\.boot\.flash\.locked|ro\.secure|ro\.debuggable|ro\.adb\.secure|ro\.build\.type|ro\.build\.selinux|ro\.boot\.selinux|ro\.kernel\.qemu|persist\.sys\.usb\.config)[[:space:]]*=/ { next }
+      /^[[:space:]]*(ro\.product\.brand|ro\.product\.manufacturer|ro\.product\.model|ro\.product\.name|ro\.product\.device|ro\.system\.build\.product|ro\.build\.fingerprint|ro\.system\.build\.fingerprint|ro\.vendor\.build\.fingerprint|ro\.bootimage\.build\.fingerprint|ro\.odm\.build\.fingerprint|ro\.product\.build\.fingerprint|ro\.system_ext\.build\.fingerprint|ro\.vendor_dlkm\.build\.fingerprint|ro\.build\.display\.id|ro\.system\.build\.flavor|ro\.system\.build\.description|ro\.build\.description|ro\.build\.tags|ro\.vendor\.build\.id|ro\.vendor\.build\.tags|ro\.vendor\.build\.type|ro\.odm\.build\.tags|ro\.boot\.verifiedbootstate|ro\.boot\.flash\.locked|ro\.secure|ro\.debuggable|ro\.adb\.secure|ro\.build\.type|ro\.build\.selinux|ro\.boot\.selinux|ro\.kernel\.qemu|persist\.sys\.usb\.config)[[:space:]]*=/ { next }
 
       in_properties {
         if ($0 ~ /^[[:space:]]*[^#;[:space:]][^=]*=/) {
@@ -186,6 +431,10 @@ stdenv.mkDerivation {
     ro.system.build.fingerprint=$build_fingerprint
     ro.vendor.build.fingerprint=$build_fingerprint
     ro.bootimage.build.fingerprint=$build_fingerprint
+    ro.odm.build.fingerprint=$build_fingerprint
+    ro.product.build.fingerprint=$build_fingerprint
+    ro.system_ext.build.fingerprint=$build_fingerprint
+    ro.vendor_dlkm.build.fingerprint=$build_fingerprint
     ro.build.display.id=$build_fingerprint
     ro.system.build.flavor=''${device_name}-user
     ro.system.build.description=$build_description
@@ -205,13 +454,19 @@ stdenv.mkDerivation {
     ro.boot.selinux=enforcing
     ro.kernel.qemu=0
     persist.sys.usb.config=none
+    ro.hw_timeout_multiplier=12
+    ro.surface_flinger.has_wide_color_display=false
+    ro.surface_flinger.has_hdr_display=false
+    persist.sys.sf.color_mode=0
+    persist.sys.sf.native_mode=0
+    persist.sys.sf.color_saturation=1.0
     EOF_CFG
 
     # Preserve Waydroid's base runtime properties (notably native-bridge ABI
     # mapping); replacing this file with only spoof keys makes ARM-only apps
     # fail with "Unsupported zygote ABI: arm64-v8a".
     ${gawk}/bin/awk '
-      /^[[:space:]]*(ro\.product\.brand|ro\.product\.manufacturer|ro\.product\.model|ro\.product\.name|ro\.product\.device|ro\.system\.build\.product|ro\.build\.fingerprint|ro\.system\.build\.fingerprint|ro\.vendor\.build\.fingerprint|ro\.bootimage\.build\.fingerprint|ro\.build\.display\.id|ro\.system\.build\.flavor|ro\.system\.build\.description|ro\.build\.description|ro\.build\.tags|ro\.vendor\.build\.id|ro\.vendor\.build\.tags|ro\.vendor\.build\.type|ro\.odm\.build\.tags|ro\.boot\.verifiedbootstate|ro\.boot\.flash\.locked|ro\.secure|ro\.debuggable|ro\.adb\.secure|ro\.build\.type|ro\.build\.selinux|ro\.boot\.selinux|ro\.kernel\.qemu|persist\.sys\.usb\.config|debug\.hwui\.renderer|debug\.egl\.hw|debug\.composition\.type|persist\.sys\.ui\.hw|hwui\.render_dirty_regions|persist\.sys\.gpu\.force|ro\.opengles\.version|persist\.graphics\.vulkan\.disable|persist\.vulkan\.enabled|persist\.sys\.sf\.color_saturation|settings_secure_android_id|settings_secure_gsf_id)[[:space:]]*=/ { next }
+      /^[[:space:]]*(ro\.product\.brand|ro\.product\.manufacturer|ro\.product\.model|ro\.product\.name|ro\.product\.device|ro\.system\.build\.product|ro\.build\.fingerprint|ro\.system\.build\.fingerprint|ro\.vendor\.build\.fingerprint|ro\.bootimage\.build\.fingerprint|ro\.odm\.build\.fingerprint|ro\.product\.build\.fingerprint|ro\.system_ext\.build\.fingerprint|ro\.vendor_dlkm\.build\.fingerprint|ro\.build\.display\.id|ro\.system\.build\.flavor|ro\.system\.build\.description|ro\.build\.description|ro\.build\.tags|ro\.vendor\.build\.id|ro\.vendor\.build\.tags|ro\.vendor\.build\.type|ro\.odm\.build\.tags|ro\.boot\.verifiedbootstate|ro\.boot\.flash\.locked|ro\.secure|ro\.debuggable|ro\.adb\.secure|ro\.build\.type|ro\.build\.selinux|ro\.boot\.selinux|ro\.kernel\.qemu|persist\.sys\.usb\.config|debug\.hwui\.renderer|debug\.egl\.hw|debug\.composition\.type|persist\.sys\.ui\.hw|hwui\.render_dirty_regions|persist\.sys\.gpu\.force|ro\.hw_timeout_multiplier|ro\.opengles\.version|persist\.graphics\.vulkan\.disable|persist\.vulkan\.enabled|ro\.surface_flinger\.has_wide_color_display|ro\.surface_flinger\.has_HDR_display|ro\.surface_flinger\.has_hdr_display|persist\.sys\.sf\.color_mode|persist\.sys\.sf\.native_mode|persist\.sys\.sf\.color_saturation|settings_secure_android_id|settings_secure_gsf_id)[[:space:]]*=/ { next }
 
       /^[[:space:]]*[^#;[:space:]][^=]*=/ {
         option = $0
@@ -233,6 +488,10 @@ stdenv.mkDerivation {
     ro.system.build.fingerprint=$build_fingerprint
     ro.vendor.build.fingerprint=$build_fingerprint
     ro.bootimage.build.fingerprint=$build_fingerprint
+    ro.odm.build.fingerprint=$build_fingerprint
+    ro.product.build.fingerprint=$build_fingerprint
+    ro.system_ext.build.fingerprint=$build_fingerprint
+    ro.vendor_dlkm.build.fingerprint=$build_fingerprint
     ro.build.display.id=$build_fingerprint
     ro.system.build.flavor=''${device_name}-user
     ro.system.build.description=$build_description
@@ -252,6 +511,21 @@ stdenv.mkDerivation {
     ro.boot.selinux=enforcing
     ro.kernel.qemu=0
     persist.sys.usb.config=none
+    debug.hwui.renderer=skiagl
+    debug.egl.hw=1
+    debug.composition.type=gpu
+    persist.sys.ui.hw=1
+    hwui.render_dirty_regions=false
+    persist.sys.gpu.force=1
+    ro.hw_timeout_multiplier=12
+    ro.opengles.version=196610
+    persist.graphics.vulkan.disable=false
+    persist.vulkan.enabled=1
+    ro.surface_flinger.has_wide_color_display=false
+    ro.surface_flinger.has_hdr_display=false
+    persist.sys.sf.color_mode=0
+    persist.sys.sf.native_mode=0
+    persist.sys.sf.color_saturation=1.0
     settings_secure_android_id=$android_id
     settings_secure_gsf_id=$gsf_id
     EOF_PROP

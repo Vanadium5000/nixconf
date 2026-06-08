@@ -5,7 +5,7 @@
 }:
 let
   pname = "cake-wallet-flatpak";
-  version = "6.1.2";
+  version = "6.2.0";
 in
 stdenvNoCC.mkDerivation {
   inherit pname version;
@@ -15,7 +15,7 @@ stdenvNoCC.mkDerivation {
     # releases rather than a Flathub-published app, so we package the bundle
     # itself and let the desktop Flatpak module install it declaratively.
     url = "https://github.com/cake-tech/cake_wallet/releases/download/v${version}/Cake_Wallet_v${version}_Linux.flatpak";
-    hash = "sha256-w0YqBEbGqOZK29DhmsIQgo7ruI/pl5iueOC6zpxrnK4=";
+    hash = "sha256-GBybiogmaL+3mDxjRQuhqwtVEgx4UOqigwpWHR8iEq4=";
   };
 
   dontUnpack = true;

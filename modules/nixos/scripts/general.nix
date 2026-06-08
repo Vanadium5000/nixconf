@@ -123,6 +123,22 @@
         package =
           let
             wallpapers = self'.packages.wallpapers;
+            setWallpaper = pkgs.writeShellScript "qs-wallpaper-set" ''
+              set -euo pipefail
+
+              wallPath="''${1:?wallpaper path required}"
+
+              ${pkgs.hyprland}/bin/hyprctl hyprpaper wallpaper ",$wallPath,cover" || true
+
+              # Keep the selected wallpaper path shared between qs-dmenu previews,
+              # Hyprpaper's declarative config, and DMS's shell wallpaper service.
+              mkdir -p "$HOME/wallpaper"
+              cp -f "$wallPath" "$HOME/wallpaper/.current_wallpaper"
+
+              if command -v dms >/dev/null 2>&1; then
+                dms ipc call wallpaper set "$wallPath" >/dev/null 2>&1 || true
+              fi
+            '';
             wallpaperSources = {
               "Nixy Wallpapers" = "${wallpapers}/wallpapers/nixy/";
               "Nixos Artwork" = "${wallpapers}/wallpapers/nixos/";
@@ -154,12 +170,7 @@
               if [ -z "$wallPath" ]; then exit 0; fi
 
               echo "$wallPath"
-              hyprctl hyprpaper preload "$wallPath"
-              hyprctl hyprpaper wallpaper ",$wallPath"
-
-              # Keep the selected wallpaper path shared between qs-dmenu previews
-              # and Hyprpaper's declarative config.
-              cp -f "$wallPath" ~/wallpaper/.current_wallpaper
+              ${setWallpaper} "$wallPath"
               exit 0
             fi
 
@@ -168,7 +179,7 @@
             wallDIR="''${wallpaperSources["$result"]}"
             echo $wallDIR
 
-            ${self'.packages.qs-wallpaper-selector}/bin/qs-wallpaper-selector "$wallDIR"
+            ${self'.packages.qs-wallpaper-selector}/bin/qs-wallpaper-selector "$wallDIR" ${setWallpaper}
 
             exit 0
           '';
@@ -258,9 +269,17 @@
           main
 
           echo "$result"
-          hyprctl hyprpaper preload "$result"
-          hyprctl hyprpaper wallpaper ",$result"
-          cp -f "$result" ~/wallpaper/.current_wallpaper # For rofi wallpaper
+          setWallpaper="''${2:-}"
+          if [ -n "$setWallpaper" ]; then
+            "$setWallpaper" "$result"
+          else
+            ${pkgs.hyprland}/bin/hyprctl hyprpaper wallpaper ",$result,cover" || true
+            mkdir -p "$HOME/wallpaper"
+            cp -f "$result" "$HOME/wallpaper/.current_wallpaper"
+            if command -v dms >/dev/null 2>&1; then
+              dms ipc call wallpaper set "$result" >/dev/null 2>&1 || true
+            fi
+          fi
         '';
       };
 
@@ -1275,6 +1294,10 @@
           CONFIG_FILE="/dev/shm/autoclicker_config"
           PID_FILE="/dev/shm/autoclicker_daemon_pid"
           PAUSED_FILE="/dev/shm/autoclicker_paused"
+          export YDOTOOL_SOCKET="/run/ydotoold/socket"
+
+          echo "$$" > "$PID_FILE"
+          trap 'rm -f "$PID_FILE"' EXIT
 
           while true; do
             if [ -f "$PAUSED_FILE" ]; then
@@ -1288,8 +1311,8 @@
                 sleep_time=$(echo "scale=5; 0.05 / $num_points" | ${pkgs.bc}/bin/bc)
                 for point in "''${points[@]}"; do
                   IFS=' ' read -r x y <<< "$point"
-                  hyprctl dispatch movecursor "$x" "$y"
-                  ${pkgs.wlrctl}/bin/wlrctl pointer click left
+                  hyprctl dispatch "hl.dsp.cursor.move({x=$x,y=$y})"
+                  ${pkgs.ydotool}/bin/ydotool click 0xC0
                   sleep "$sleep_time"
                 done
               else
@@ -1304,56 +1327,77 @@
 
       packages.create-autoclicker = inputs.wrappers.lib.makeWrapper {
         inherit pkgs;
-        package = pkgs.writeShellScriptBin "create-autoclicker" ''
-          #!/usr/bin/env bash
-          set -euo pipefail
+        package =
+          let
+            autoclickerQml =
+              let
+                env = pkgs.runCommandLocal "qs-autoclicker.qml" { } ''
+                  mkdir -p $out
+                  ln -s ${./quickshell/lib} $out/lib
+                  cp ${./quickshell/autoclicker.qml} $out/autoclicker.qml
+                '';
+              in
+              "${env}/autoclicker.qml";
+          in
+          pkgs.writeShellScriptBin "create-autoclicker" ''
+            #!/usr/bin/env bash
+            set -euo pipefail
 
-          CONFIG_FILE="/dev/shm/autoclicker_config"
-          DAEMON_PID_FILE="/dev/shm/autoclicker_daemon_pid"
+            CONFIG_FILE="/dev/shm/autoclicker_config"
+            DAEMON_PID_FILE="/dev/shm/autoclicker_daemon_pid"
+            QML_FILE="${autoclickerQml}"
+            QS_BIN="${pkgs.quickshell}/bin/qs"
 
-          # Select point with slurp
-          point=$(${pkgs.slurp}/bin/slurp -p)
-          IFS=',' read -r x y _ <<< "''${point// 1x1/}"
+            # Select point with slurp
+            point=$(${pkgs.slurp}/bin/slurp -p)
+            IFS=',' read -r x y _ <<< "''${point// 1x1/}"
 
-          # Append to config
-          echo "$x $y" >> "$CONFIG_FILE"
+            # Append to config
+            echo "$x $y" >> "$CONFIG_FILE"
 
-          # Spawn red point overlay
-          hyprctl dispatch exec "X=$x Y=$y COLOR=#ff0000 ${pkgs.quickshell}/bin/qs -p ${./quickshell/autoclicker.qml}"
+            # Spawn red point overlay
+            hyprctl dispatch "hl.dsp.exec_cmd('X=$x Y=$y COLOR=#ff0000 \"$QS_BIN\" -p \"$QML_FILE\"')"
 
-          # Start daemon if not running
-          if [ ! -f "$DAEMON_PID_FILE" ] || ! kill -0 "$(cat "$DAEMON_PID_FILE")" 2>/dev/null; then
-            hyprctl dispatch exec "${self'.packages.autoclicker-daemon}/bin/autoclicker-daemon"
-            # Wait a brief moment for the process to start
-            sleep 0.1
-            # Find the PID using pgrep (assuming the daemon process name is unique)
-            DAEMON_PID=$(pgrep -f "autoclicker-daemon")
-            echo "$DAEMON_PID" > "$DAEMON_PID_FILE"
-          fi
-        '';
+            # Start daemon if not running
+            if [ ! -f "$DAEMON_PID_FILE" ] || ! kill -0 "$(cat "$DAEMON_PID_FILE")" 2>/dev/null; then
+              hyprctl dispatch "hl.dsp.exec_cmd('${self'.packages.autoclicker-daemon}/bin/autoclicker-daemon')"
+            fi
+          '';
       };
 
       packages.stop-autoclickers = inputs.wrappers.lib.makeWrapper {
         inherit pkgs;
-        package = pkgs.writeShellScriptBin "stop-autoclickers" ''
-          #!/usr/bin/env bash
-          set -euo pipefail
+        package =
+          let
+            autoclickerQml =
+              let
+                env = pkgs.runCommandLocal "qs-autoclicker.qml" { } ''
+                  mkdir -p $out
+                  ln -s ${./quickshell/lib} $out/lib
+                  cp ${./quickshell/autoclicker.qml} $out/autoclicker.qml
+                '';
+              in
+              "${env}/autoclicker.qml";
+          in
+          pkgs.writeShellScriptBin "stop-autoclickers" ''
+            #!/usr/bin/env bash
+            set -euo pipefail
 
-          DAEMON_PID_FILE="/dev/shm/autoclicker_daemon_pid"
-          CONFIG_FILE="/dev/shm/autoclicker_config"
+            DAEMON_PID_FILE="/dev/shm/autoclicker_daemon_pid"
+            CONFIG_FILE="/dev/shm/autoclicker_config"
 
-          # Kill daemon
-          if [ -f "$DAEMON_PID_FILE" ]; then
-            kill "$(cat "$DAEMON_PID_FILE")" 2>/dev/null || true
-            rm -f "$DAEMON_PID_FILE"
-          fi
+            # Kill daemon
+            if [ -f "$DAEMON_PID_FILE" ]; then
+              kill "$(cat "$DAEMON_PID_FILE")" 2>/dev/null || true
+              rm -f "$DAEMON_PID_FILE"
+            fi
 
-          # Remove config
-          rm -f "$CONFIG_FILE"
+            # Remove config
+            rm -f "$CONFIG_FILE"
 
-          # Kill all overlays - repeat multiple times - can fail, so leave at end
-          for i in {1..10}; do ${pkgs.quickshell}/bin/qs kill -p ${./quickshell/autoclicker.qml}; done
-        '';
+            # Kill all overlays - repeat multiple times - can fail, so leave at end
+            for i in {1..10}; do ${pkgs.quickshell}/bin/qs kill -p ${autoclickerQml}; done
+          '';
       };
 
       packages.toggle-pause-autoclickers = inputs.wrappers.lib.makeWrapper {

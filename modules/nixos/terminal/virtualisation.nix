@@ -9,6 +9,49 @@
     }:
     let
       selfpkgs = self.packages.${pkgs.stdenv.hostPlatform.system};
+      waydroidWithoutBrokenPostStopHook = pkgs.waydroid-nftables.overrideAttrs (old: {
+        # Upstream config_base ships `lxc.hook.post-stop = /dev/null`.
+        # LXC executes hook paths, so /dev/null exits 126 on stop and can leave
+        # Waydroid's next session with dirty graphics/native-bridge state.
+        # Source: waydroid/data/configs/config_base in https://github.com/waydroid/waydroid.
+        postPatch = (old.postPatch or "") + ''
+          substituteInPlace data/configs/config_base \
+            --replace-fail "lxc.hook.post-stop = /dev/null" ""
+        '';
+      });
+      waydroidPreStartRepair = pkgs.writeShellScript "waydroid-pre-start-repair" ''
+        set -euo pipefail
+
+        keystore="/home/${config.preferences.user.username}/.local/share/waydroid/data/misc/keystore"
+        if [ -d "$keystore" ]; then
+          # Waydroid bind-mounts Android /data from the host; persistence can
+          # restore SQLite files as the host user, making keystore2 abort with
+          # `unable to open database: /data/misc/keystore/persistent.sqlite`.
+          # Keep the whole keystore subtree on Android keystore UID/GID 1017.
+          ${pkgs.coreutils}/bin/chown -R 1017:1017 "$keystore"
+          ${pkgs.coreutils}/bin/chmod 0700 "$keystore"
+          ${pkgs.findutils}/bin/find "$keystore" -type d -exec ${pkgs.coreutils}/bin/chmod 0700 '{}' +
+          ${pkgs.findutils}/bin/find "$keystore" -type f -exec ${pkgs.coreutils}/bin/chmod 0600 '{}' +
+        fi
+
+        lxc_config="/var/lib/waydroid/lxc/waydroid/config"
+        if [ -f "$lxc_config" ]; then
+          ${pkgs.python3}/bin/python3 - "$lxc_config" <<'PY'
+        from pathlib import Path
+        import sys
+
+        path = Path(sys.argv[1])
+        lines = path.read_text().splitlines()
+        kept = [
+            line
+            for line in lines
+            if line.strip() != "lxc.hook.post-stop = /dev/null"
+        ]
+        if kept != lines:
+            path.write_text("\n".join(kept) + "\n")
+        PY
+        fi
+      '';
     in
     {
       config = {
@@ -45,8 +88,12 @@
 
         virtualisation.waydroid = lib.mkIf config.preferences.profiles.desktop.enable {
           enable = true;
-          package = pkgs.waydroid-nftables;
+          package = waydroidWithoutBrokenPostStopHook;
         };
+
+        systemd.services.waydroid-container.serviceConfig.ExecStartPre =
+          lib.mkIf config.preferences.profiles.desktop.enable
+            [ waydroidPreStartRepair ];
 
         # Waydroid bind-mounts Android /data from the host user tree, but Android
         # services require numeric Android UIDs inside that tree; keystore2 aborts

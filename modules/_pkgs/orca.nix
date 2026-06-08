@@ -51,11 +51,11 @@
 
 stdenv.mkDerivation rec {
   pname = "orca";
-  version = "1.4.48";
+  version = "1.4.51";
 
   src = fetchurl {
     url = "https://github.com/stablyai/orca/releases/download/v${version}/orca-ide_${version}_amd64.deb";
-    hash = "sha256-iFnPvDjvol6/wGEPPF5MN2DNUBCcDG/srGVVL2WWdXM=";
+    hash = "sha256-EK/t2FcNUHpNRmKgQdFppHZ0jB4LCFc4oo2PMqMC83Q=";
   };
 
   nativeBuildInputs = [

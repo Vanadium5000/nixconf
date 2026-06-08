@@ -12,7 +12,6 @@
 import Quickshell
 import Quickshell.Wayland
 import QtQuick
-import Qt5Compat.GraphicalEffects
 import "./lib"
 
 PanelWindow {
@@ -48,6 +47,7 @@ PanelWindow {
 
     // --- Visuals ---
     Item {
+        id: visuals
         anchors.fill: parent
 
         // Outer Ring (Static)
@@ -60,8 +60,13 @@ PanelWindow {
             border.width: 2
             border.color: root.inputColor
             opacity: 0.8
+        }
 
-            // Glassy fill
+        Rectangle {
+            anchors.centerIn: parent
+            width: parent.width
+            height: parent.height
+            radius: width / 2
             color: Theme.rgba(root.inputColor, 0.1)
         }
 
@@ -73,12 +78,13 @@ PanelWindow {
             color: root.inputColor
             anchors.centerIn: parent
 
-            layer.enabled: true
-            layer.effect: Glow {
-                radius: 4
-                samples: 9
+            Rectangle {
+                anchors.centerIn: parent
+                width: 14
+                height: 14
+                radius: 7
                 color: root.inputColor
-                spread: 0.5
+                opacity: 0.35
             }
         }
 
@@ -136,18 +142,5 @@ PanelWindow {
         color: root.inputColor
         anchors.centerIn: parent
         opacity: 1.0
-    }
-
-    // Pulsing Animation (Optional but nice)
-    SequentialAnimation on opacity {
-        loops: Animation.Infinite
-        PropertyAnimation {
-            to: 1.0
-            duration: 1000
-        }
-        PropertyAnimation {
-            to: 0.6
-            duration: 1000
-        }
     }
 }

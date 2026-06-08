@@ -126,9 +126,6 @@ pkgs.writeShellApplication {
       limux)
         printf '%s\n' "unstable.callPackage ./limux.nix { pkgs = unstable; }"
         ;;
-      antigravity-manager)
-        printf '%s\n' "(pkgs.callPackage ./antigravity-manager.nix {}).unwrapped"
-        ;;
       *)
         printf '%s\n' "pkgs.callPackage ./$pkg.nix {}"
         ;;
@@ -168,6 +165,7 @@ pkgs.writeShellApplication {
         "  update-pkgs update [PACKAGE ...]    Update selected package files" \
         "  update-pkgs update --set SET        Update package set: light, medium, heavy, all" \
         "  update-pkgs test PACKAGE ...        Build flake package and run a safe smoke command" \
+        "  update-pkgs test --set SET          Test package set: light, medium, heavy, all" \
         "  update-pkgs revert --yes PACKAGE ..." \
         "                                      Restore selected package files from git HEAD" \
         "  update-pkgs list [--all]            List package sets and package files" \
@@ -344,7 +342,7 @@ pkgs.writeShellApplication {
 
     package_build_expr() {
       local pkg="$1"
-      printf '%s\n' "let pkgs = import <nixpkgs> {}; unstable = import <nixpkgs-unstable> {}; in $(package_call_expr "$pkg")"
+      printf '%s\n' "let pkgs = import <nixpkgs> { config.allowUnfree = true; }; unstable = import <nixpkgs-unstable> { config.allowUnfree = true; }; in $(package_call_expr "$pkg")"
     }
 
     run_package_build() {
@@ -378,24 +376,18 @@ pkgs.writeShellApplication {
     package_smoke_commands() {
       local pkg="$1" bin="$2"
       case "$pkg" in
-      acp-chat)
-        printf '%s\t%s\n' "$bin" "--help"
-        ;;
-      services-auth-gateway)
+      acp-chat | cliproxyapi | cpa-usage-keeper | dogecoin | limux | niri-screen-time | omniroute | openchamber-web | patchright | playwright-cli | seance | services-auth-gateway | sideloader | snitch | stdio-to-ws | waydroid-script | waydroid-total-spoof)
         printf '%s\t%s\n' "$bin" "--help"
         ;;
       *)
-        printf '%s\t%s\n' "$bin" "--help"
-        printf '%s\t%s\n' "$bin" "-h"
-        printf '%s\t%s\n' "$bin" "--version"
-        printf '%s\t%s\n' "$bin" "version"
+        return 0
         ;;
       esac
     }
 
     run_smoke_command() {
       local cmd="$1" arg="$2"
-      if timeout 20s "$cmd" "$arg" >/dev/null; then
+      if timeout 20s "$cmd" "$arg" </dev/null >/dev/null; then
         echo "  Smoke command passed: $cmd $arg"
         return 0
       fi
@@ -441,6 +433,12 @@ pkgs.writeShellApplication {
 
       if [ -z "$bin" ]; then
         echo "  No executable found under $result/bin; build validation only."
+        TESTED+=("$pkg")
+        return 0
+      fi
+
+      if [ -z "$(package_smoke_commands "$pkg" "$bin")" ]; then
+        echo "  Build validation only; no non-GUI smoke command is configured for $pkg."
         TESTED+=("$pkg")
         return 0
       fi
@@ -1533,7 +1531,13 @@ pkgs.writeShellApplication {
     }
 
     run_test_command() {
-      if [ "$#" -eq 0 ]; then
+      if [ "''${1:-}" = "--set" ]; then
+        if [ "$#" -ne 2 ]; then
+          echo "Error: test --set requires exactly one set name." >&2
+          exit 2
+        fi
+        select_set "$2"
+      elif [ "$#" -eq 0 ]; then
         if [ -t 0 ]; then
           choose_explicit_packages "Packages to test"
         else

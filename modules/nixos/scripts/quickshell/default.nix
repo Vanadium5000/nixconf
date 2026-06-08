@@ -80,7 +80,7 @@
 
               # Launch QuickShell via hyprctl dispatch exec
               # Uses QML_FILE, passing X and Y coordinates.
-              hyprctl dispatch exec "X=$center_x Y=$center_y \"$QS_BIN\" -p \"$QML_FILE\""
+              hyprctl dispatch "hl.dsp.exec_cmd('X=$center_x Y=$center_y \"$QS_BIN\" -p \"$QML_FILE\"')"
           fi
         '';
       };

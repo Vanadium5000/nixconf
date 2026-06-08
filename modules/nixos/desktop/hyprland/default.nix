@@ -44,16 +44,18 @@
                 };
               };
 
-              # Hyprpaper config
-              ".config/hypr/hyprpaper.conf".text = toHyprconf {
-                attrs = {
-                  wallpaper = {
-                    monitor = "";
-                    path = currentWallpaper;
-                    fit_mode = "cover";
-                  };
-                };
-              };
+              # Hyprpaper's `wallpaper` special category is keyed by `monitor`,
+              # so hyprlang requires `monitor` to be the first field in each
+              # block; generic attrset rendering sorts keys and makes v0.8.4
+              # abort before creating its IPC socket.
+              # Source: hyprpaper v0.8.4 src/config/ConfigManager.cpp addSpecialCategory("wallpaper", key="monitor").
+              ".config/hypr/hyprpaper.conf".text = ''
+                wallpaper {
+                  monitor =
+                  path = ${currentWallpaper}
+                  fit_mode = cover
+                }
+              '';
             };
           };
           deps = [ "users" ];
