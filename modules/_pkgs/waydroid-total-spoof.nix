@@ -157,9 +157,10 @@ stdenv.mkDerivation {
         printf '%s\n' 'persist.sys.ui.hw=1' >> "$out"
         printf '%s\n' 'hwui.render_dirty_regions=false' >> "$out"
         printf '%s\n' 'persist.sys.gpu.force=1' >> "$out"
-        # ARM translated Roblox can sit in nativeStart long enough to trip
-        # Android's default 5s input-dispatch ANR during asset/flag startup.
-        printf '%s\n' 'ro.hw_timeout_multiplier=12' >> "$out"
+        # ARM translated Roblox can sit in nativeStart for minutes on first
+        # launch/updates; Android's default 5s input-dispatch timeout is too
+        # short and even 60s still produced Roblox splash ANRs on this image.
+        printf '%s\n' 'ro.hw_timeout_multiplier=120' >> "$out"
         printf '%s\n' 'ro.opengles.version=196610' >> "$out"
         printf '%s\n' 'persist.graphics.vulkan.disable=false' >> "$out"
         printf '%s\n' 'persist.vulkan.enabled=1' >> "$out"
