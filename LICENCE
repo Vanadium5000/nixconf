@@ -1,3 +1,10 @@
+NixOS configuration flake (nixconf)
+Copyright (C) 2026 Vanadium5000 <vanadium5000@gmail.com>
+
+SPDX-License-Identifier: GPL-3.0-only
+
+-------------------------------------------------------------------------------
+
                     GNU GENERAL PUBLIC LICENSE
                        Version 3, 29 June 2007
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-// synced-lyrics.ts - Synced lyrics fetcher and display for shell widgets/overlays
+// lyricsctl - synced lyrics fetcher, shell widget JSON source, and terminal UI
 import { $ } from "bun";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
@@ -9,7 +9,7 @@ import { tmpdir } from "node:os";
 const CACHE_DIR = join(tmpdir(), "synced-lyrics-cache");
 const DEFAULT_PLAYER = "mpd,%any";
 const LRCLIB_API = "https://lrclib.net/api";
-const USER_AGENT = "synced-lyrics/1.0";
+const USER_AGENT = "lyricsctl/1.0";
 
 // --- Types ---
 interface TrackMetadata {
@@ -38,11 +38,23 @@ interface LyricsWidgetOutput {
   tooltip: string;
   class: string;
   alt: string;
+  title: string;
+  artist: string;
+  album: string;
+  player: string;
+  status: TrackMetadata["status"] | "Stopped";
+  position: number;
+  duration: number;
+  synced: boolean;
+  current: string;
+  upcoming: string[];
+  lines: string[];
 }
 
 // --- CLI Parsing ---
 interface CliOptions {
-  command: "watch" | "current" | "show" | "hide" | "toggle";
+  command: "watch" | "current" | "status" | "show" | "hide" | "toggle" | "control" | "tui";
+  controlAction: "play-pause" | "play" | "pause" | "next" | "previous" | "stop";
   json: boolean;
   progress: boolean;
   lines: number;
@@ -62,6 +74,7 @@ function parseArgs(): CliOptions {
   const args = Bun.argv.slice(2);
   const options: CliOptions = {
     command: "watch",
+    controlAction: "play-pause",
     json: false,
     progress: false,
     lines: 3,
@@ -80,10 +93,12 @@ function parseArgs(): CliOptions {
   while (i < args.length) {
     const arg = args[i];
 
-    // Commands (first positional arg)
+    // Commands and command arguments.
     if (!arg?.startsWith("-")) {
-      if (["watch", "current", "show", "hide", "toggle"].includes(arg!)) {
+      if (["watch", "current", "status", "show", "hide", "toggle", "control", "tui"].includes(arg!)) {
         options.command = arg as CliOptions["command"];
+      } else if (options.command === "control" && ["play-pause", "play", "pause", "next", "previous", "stop"].includes(arg!)) {
+        options.controlAction = arg as CliOptions["controlAction"];
       }
       i++;
       continue;
@@ -101,7 +116,7 @@ function parseArgs(): CliOptions {
       case "--lines":
       case "-l":
         i++;
-        options.lines = parseInt(args[i] || "3") || 3;
+        options.lines = Math.max(1, parseInt(args[i] || "3") || 3);
         break;
       case "--length":
       case "-len":
@@ -143,11 +158,14 @@ function parseArgs(): CliOptions {
       case "--help":
       case "-h":
         console.log(`
-synced-lyrics - Display synced lyrics for currently playing music
+lyricsctl - Display synced lyrics for currently playing music
 
 Commands:
   watch           Continuous output for shell widgets (default)
   current         Print current lyric line once
+  status          Print one JSON status object with metadata and lyrics context
+  control ACTION  Run player control: play-pause, play, pause, next, previous, stop
+  tui             Terminal lyrics view with keyboard controls
   show            Show lyrics overlay
   hide            Hide lyrics overlay  
   toggle          Toggle lyrics overlay
@@ -168,6 +186,9 @@ Overlay Options:
   --shadow BOOL   Show text shadow/outline (default: true)
   --spacing N     Spacing between lines (default: 8)
   --help, -h      Show this help
+
+TUI Keys:
+  Space play/pause · n next · p previous · o toggle overlay · h hide overlay · q quit
 `);
         process.exit(0);
     }
@@ -175,6 +196,26 @@ Overlay Options:
   }
 
   return options;
+}
+
+function stoppedOutput(tooltip: string): LyricsWidgetOutput {
+  return {
+    text: "",
+    tooltip,
+    class: "stopped",
+    alt: "stopped",
+    title: "",
+    artist: "",
+    album: "",
+    player: "",
+    status: "Stopped",
+    position: 0,
+    duration: 0,
+    synced: false,
+    current: "",
+    upcoming: [],
+    lines: [],
+  };
 }
 
 // --- Playerctl Integration ---
@@ -489,6 +530,21 @@ async function cacheLyrics(
   } catch {}
 }
 
+async function loadLyrics(metadata: TrackMetadata): Promise<LyricsData | null> {
+  const cached = await getCachedLyrics(metadata);
+  if (cached) return cached;
+
+  const fetched = await fetchFromLrclib(
+    metadata.title,
+    metadata.artist,
+    metadata.album,
+    metadata.duration,
+  );
+
+  if (fetched) await cacheLyrics(metadata, fetched);
+  return fetched;
+}
+
 // --- Output Formatting ---
 function truncate(text: string, length: number): string {
   if (length <= 0 || text.length <= length) return text;
@@ -510,17 +566,22 @@ function formatLyricsWidgetOutput(
   options: CliOptions,
 ): LyricsWidgetOutput {
   if (!metadata) {
-    return {
-      text: "",
-      tooltip: "No player active",
-      class: "stopped",
-      alt: "stopped",
-    };
+    return stoppedOutput("No player active");
   }
 
   const { current, upcoming } = lyrics?.synced
     ? getCurrentLines(lyrics, metadata.position, options.lines)
     : { current: "", upcoming: [] };
+  const plainLines = lyrics?.plainText
+    ? lyrics.plainText
+        .split("\n")
+        .map((line) => truncate(line.trim(), options.length))
+        .filter(Boolean)
+        .slice(0, options.lines)
+    : [];
+  const displayLines = lyrics?.synced
+    ? [current || "♪", ...upcoming].map((line) => truncate(line, options.length))
+    : plainLines;
 
   // If no lyrics found (or only plain text), fallback to title
   // If synced lyrics exist but we're in a gap, show ♪
@@ -568,7 +629,44 @@ function formatLyricsWidgetOutput(
     tooltip,
     class: statusClass,
     alt: metadata.status.toLowerCase(),
+    title: metadata.title,
+    artist: metadata.artist,
+    album: metadata.album,
+    player: metadata.player,
+    status: metadata.status,
+    position: metadata.position,
+    duration: metadata.duration,
+    synced: lyrics?.synced === true,
+    current,
+    upcoming,
+    lines: displayLines,
   };
+}
+
+async function runPlayerControl(
+  action: CliOptions["controlAction"],
+  player: string,
+): Promise<void> {
+  switch (action) {
+    case "play-pause":
+      await $`playerctl --player=${player} play-pause`.quiet();
+      break;
+    case "play":
+      await $`playerctl --player=${player} play`.quiet();
+      break;
+    case "pause":
+      await $`playerctl --player=${player} pause`.quiet();
+      break;
+    case "next":
+      await $`playerctl --player=${player} next`.quiet();
+      break;
+    case "previous":
+      await $`playerctl --player=${player} previous`.quiet();
+      break;
+    case "stop":
+      await $`playerctl --player=${player} stop`.quiet();
+      break;
+  }
 }
 
 // --- Overlay Control ---
@@ -613,20 +711,7 @@ async function watchMode(options: CliOptions): Promise<void> {
           lastTrackKey = trackKey;
 
           // Check cache first
-          currentLyrics = await getCachedLyrics(metadata);
-
-          if (!currentLyrics) {
-            currentLyrics = await fetchFromLrclib(
-              metadata.title,
-              metadata.artist,
-              metadata.album,
-              metadata.duration,
-            );
-
-            if (currentLyrics) {
-              await cacheLyrics(metadata, currentLyrics);
-            }
-          }
+          currentLyrics = await loadLyrics(metadata);
         }
       } else {
         lastTrackKey = "";
@@ -663,6 +748,17 @@ async function watchMode(options: CliOptions): Promise<void> {
             tooltip: "Error",
             class: "error",
             alt: "error",
+            title: "",
+            artist: "",
+            album: "",
+            player: "",
+            status: "Stopped",
+            position: 0,
+            duration: 0,
+            synced: false,
+            current: "",
+            upcoming: [],
+            lines: [],
           }),
         );
       }
@@ -678,32 +774,12 @@ async function currentMode(options: CliOptions): Promise<void> {
 
   if (!metadata) {
     if (options.json) {
-      console.log(
-        JSON.stringify({
-          text: "",
-          tooltip: "No player",
-          class: "stopped",
-          alt: "stopped",
-        }),
-      );
+      console.log(JSON.stringify(stoppedOutput("No player")));
     }
     return;
   }
 
-  let lyrics = await getCachedLyrics(metadata);
-
-  if (!lyrics) {
-    lyrics = await fetchFromLrclib(
-      metadata.title,
-      metadata.artist,
-      metadata.album,
-      metadata.duration,
-    );
-
-    if (lyrics) {
-      await cacheLyrics(metadata, lyrics);
-    }
-  }
+  const lyrics = await loadLyrics(metadata);
 
   if (options.json) {
     const output = formatLyricsWidgetOutput(metadata, lyrics, options);
@@ -728,6 +804,82 @@ async function currentMode(options: CliOptions): Promise<void> {
   }
 }
 
+async function statusMode(options: CliOptions): Promise<void> {
+  const metadata = await getMetadata(options.player);
+  const lyrics = metadata ? await loadLyrics(metadata) : null;
+  console.log(JSON.stringify(formatLyricsWidgetOutput(metadata, lyrics, options)));
+}
+
+function renderTui(output: LyricsWidgetOutput): string {
+  const title = output.title || "No player active";
+  const artist = output.artist ? ` — ${output.artist}` : "";
+  const progress = output.duration > 0 ? ` ${formatProgress(output.position, output.duration)}` : "";
+  const state = output.status === "Playing" ? "▶" : output.status === "Paused" ? "⏸" : "■";
+  const lyrics = output.lines.length > 0 ? output.lines : [output.text || "♪"];
+  return [
+    "\x1b[2J\x1b[H\x1b[1mlyricsctl\x1b[0m",
+    `${state} ${title}${artist}${progress}`,
+    "",
+    ...lyrics.map((line, index) => (index === 0 ? `\x1b[1m${line}\x1b[0m` : `  ${line}`)),
+    "",
+    "space play/pause · n next · p previous · o overlay · h hide · q quit",
+  ].join("\n");
+}
+
+async function tuiMode(options: CliOptions): Promise<void> {
+  if (!process.stdin.isTTY || !process.stdout.isTTY) {
+    await statusMode({ ...options, json: true });
+    return;
+  }
+
+  let quit = false;
+  let lastTrackKey = "";
+  let currentLyrics: LyricsData | null = null;
+
+  const cleanup = () => {
+    process.stdin.setRawMode(false);
+    process.stdin.pause();
+    process.stdout.write("\x1b[?25h\x1b[0m\n");
+  };
+
+  process.stdin.setRawMode(true);
+  process.stdin.resume();
+  process.stdout.write("\x1b[?25l");
+
+  process.stdin.on("data", (chunk) => {
+    const key = chunk.toString("utf8");
+    if (key === "q" || key === "\u0003") {
+      quit = true;
+      return;
+    }
+    if (key === " ") void runPlayerControl("play-pause", options.player).catch(() => {});
+    else if (key === "n") void runPlayerControl("next", options.player).catch(() => {});
+    else if (key === "p") void runPlayerControl("previous", options.player).catch(() => {});
+    else if (key === "o") void controlOverlay("toggle", options).catch(() => {});
+    else if (key === "h") void controlOverlay("hide", options).catch(() => {});
+  });
+
+  try {
+    while (!quit) {
+      const metadata = await getMetadata(options.player);
+      if (metadata) {
+        const trackKey = `${metadata.artist}-${metadata.title}-${metadata.duration}`;
+        if (trackKey !== lastTrackKey) {
+          lastTrackKey = trackKey;
+          currentLyrics = await loadLyrics(metadata);
+        }
+      } else {
+        lastTrackKey = "";
+        currentLyrics = null;
+      }
+      process.stdout.write(renderTui(formatLyricsWidgetOutput(metadata, currentLyrics, options)));
+      await Bun.sleep(500);
+    }
+  } finally {
+    cleanup();
+  }
+}
+
 // --- Entry Point ---
 async function main() {
   const options = parseArgs();
@@ -739,6 +891,15 @@ async function main() {
       break;
     case "current":
       await currentMode(options);
+      break;
+    case "status":
+      await statusMode(options);
+      break;
+    case "control":
+      await runPlayerControl(options.controlAction, options.player);
+      break;
+    case "tui":
+      await tuiMode(options);
       break;
     case "show":
       await controlOverlay("show", options);

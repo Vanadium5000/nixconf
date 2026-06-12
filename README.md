@@ -1,631 +1,408 @@
 # ❄️ nixconf
 
-> **NixOS configuration flake with DankMaterialShell, ephemeral root, and
-> modular architecture.**
+> **Declarative NixOS flake for my machines** — `flake-parts`, `import-tree`, thin host modules, custom packages, ephemeral-root support, Hyprland/DankMaterialShell desktops, and a public VPS service edge.
 
-A fully declarative, reproducible NixOS system built with `flake-parts` and
-`import-tree`. Features an ephemeral root filesystem (impermanence),
-DankMaterialShell on graphical hosts, and a SOCKS5/HTTP VPN proxy with a
-zero-leak kill-switch.
+<div align="center">
 
----
+| Channel | Shell | Hosts | Root model | Package surface |
+| --- | --- | ---: | --- | --- |
+| `nixos-26.05` + `nixos-unstable` | DankMaterialShell on graphical hosts | 3 active | Impermanent / persisted state | `modules/_pkgs/*.nix` → `self.packages` |
 
-## 🎬 Demo
+</div>
 
-<!-- TODO: Add desktop overview video/demo -->
-
----
-
-## 📸 Screenshots
-
-<!-- TODO: Add desktop overview screenshot with Hyprland + DankMaterialShell -->
-
-<!-- TODO: Add screenshot of DankMaterialShell control center -->
-
-<!-- TODO: Add screenshot of DMS spotlight launcher -->
-
-<!-- TODO: Add screenshot of qs-dmenu with grid view -->
+> [!NOTE]
+> This is a personal fleet configuration, not a generic NixOS distribution. Reusable modules exist where they keep hosts small and maintenance predictable.
 
 ---
 
-## 🖥️ Desktop Stack
+## 🧭 Contents
 
-| Component       | Tool                             | Notes                                            |
-| --------------- | -------------------------------- | ------------------------------------------------ |
-| Compositor      | **Hyprland** (Wayland)           | UWSM integration, dwindle layout                 |
-| Desktop Shell   | **DankMaterialShell**            | Bar, dock, launcher, notifications, lock         |
-| Menu Utilities  | **qs-dmenu** and retained qs-\*  | Kept until each utility is explicitly migrated   |
-| Terminal        | **Kitty**                        | Cursor trail, remote control                     |
-| Shell           | **Zsh** + **Starship**           | fzf-tab, autosuggestions, syntax highlighting    |
-| Editor          | **Fresh**                        | Primary `$EDITOR`/`$VISUAL`, terminal LSP editor |
-| IDE             | **VSCodium** / **Antigravity**   | Declarative extensions, custom theme             |
-| AI Coding       | **OpenCode**                     | Terminal AI assistant with MCP servers           |
-| Browser         | **Librewolf**                    | uBlock Origin, Vimium, custom user.js            |
-| File Manager    | **Dolphin** (KDE)                | kio-extras, kio-admin                            |
-| Display Manager | **tuigreet** (greetd)            | TUI greeter                                      |
-| Wallpaper       | **Hyprpaper** + **qs-wallpaper** | Grid preview selector                            |
-| Music           | **MPD** + **mpc**                | PipeWire output, synced lyrics overlay           |
-| Clipboard       | **cliphist** + **wl-clipboard**  | History via `SUPER+Z`                            |
+- [🗺️ Current topology](#️-current-topology)
+- [🧱 Flake architecture](#-flake-architecture)
+- [🧩 Host composition model](#-host-composition-model)
+- [🖥️ Desktop stack](#️-desktop-stack)
+- [🌐 Server and public services](#-server-and-public-services)
+- [🧊 Impermanence](#-impermanence)
+- [🔐 Secrets](#-secrets)
+- [📦 Custom packages](#-custom-packages)
+- [🧰 Scripts and local development](#-scripts-and-local-development)
+- [🛡️ VPN proxy](#️-vpn-proxy)
+- [🚧 Rebuild wrapper](#-rebuild-wrapper)
+- [🧪 Verification checklist](#-verification-checklist)
+- [📝 License](#-license)
 
 ---
 
-## ✨ Features
-
-### 🧊 Impermanence (Ephemeral Root)
-
-The root filesystem is BTRFS and **wiped on every boot**. Only explicitly
-persisted paths survive reboots. Two persistence tiers:
-
-- **`/persist/system`** — Critical data (backed up): `/var/log`, machine-id,
-  NetworkManager, bluetooth, SSH keys, Documents, password-store
-- **`/persist/cache`** — Large/regenerable data (not backed up): browser cache,
-  Steam, Downloads, llama.cpp models
-
-Old root subvolumes are kept for 30 days before automatic cleanup.
-
-### 🔒 VPN SOCKS5 Proxy System
-
-A modular SOCKS5 + HTTP CONNECT proxy system that routes traffic through
-OpenVPN with network namespace isolation and **zero IP leak guarantee**.
-
-#### Architecture
+## 🗺️ Current topology
 
 ```text
-Application ───► SOCKS5 Proxy (localhost:10800)
-                       │
-                 ┌─────┴─────┐
-                 │ Extract   │
-                 │ Username  │
-                 └─────┬─────┘
-                       │
-        ┌──────────────┼──────────────┐
-        ▼              ▼              ▼
-   "random"       "VPN Slug"      Invalid
-   (or empty)     (exact match)   → notify
-        │              │              │
-        └──────────────┼──────────────┘
-                       ▼
-              Get/Create Namespace
-                       │
-    ┌──────────────────┼──────────────────┐
-    ▼                  ▼                  ▼
-┌─────────────┐  ┌─────────────┐  ┌─────────────┐
-│ vpn-proxy-0 │  │ vpn-proxy-1 │  │ vpn-proxy-N │
-│ OpenVPN     │  │ OpenVPN     │  │ OpenVPN     │
-│ + kill-sw   │  │ + kill-sw   │  │ + kill-sw   │
-└─────────────┘  └─────────────┘  └─────────────┘
+flake.nix
+└─ import-tree [ ./modules ./secrets.nix ]
+   ├─ modules/exports.nix             grouped exports + hostModuleMatrix
+   ├─ modules/flake-parts.nix         systems, pkgs construction, flake apps
+   ├─ modules/custom-packages.nix     auto-loads modules/_pkgs/*.nix
+   ├─ modules/lib/                    self.lib helpers
+   ├─ modules/common/                 base, networking, impermanence, keymap
+   ├─ modules/nixos/terminal/         shared terminal/server profile and services
+   ├─ modules/nixos/desktop/          graphical profile and Hyprland/DMS stack
+   ├─ modules/nixos/scripts/          general, Quickshell, Bun/TypeScript scripts
+   ├─ modules/programmes/             shell/editor/app configuration
+   ├─ modules/user/                   user-level helpers such as Hyprland config
+   └─ modules/hosts/                  concrete machines
 ```
 
-#### How It Works
+### 🏠 Active hosts
 
-1. **Single Port**: SOCKS5 on `localhost:10800`, HTTP on `localhost:10801`
-2. **Username = VPN**: The SOCKS5 username field specifies which VPN to use
-3. **On-Demand**: VPNs start automatically on first request
-4. **Auto-Cleanup**: Idle VPNs (5 min) are torn down completely
+| Host | Role | Profile flags | User | Main responsibilities |
+| --- | --- | --- | --- | --- |
+| `legion5i` | Primary graphical laptop | `terminal`, `desktop`, `laptop` | `matrix` | Hyprland/DankMaterialShell, CUDA/Nvidia, OBS, Obsidian, local VPN proxy, ntfy, mitmproxy, Unison |
+| `macbook` | T2 graphical laptop | `terminal`, `desktop`, `laptop` | `matrix` | Hyprland/DankMaterialShell, Apple T2 support, T2 firmware bundle, ntfy, mitmproxy, local VPN proxy, Unison |
+| `main_vps` | Headless service host | `terminal`, `server` | `server` | Traefik edge, Dokploy, OmniRoute, CLIProxyAPI, CPA Usage Keeper, services-auth-gateway, ntfy, homepage, mitmproxy, VPN proxy |
 
-#### Usage
+> [!TIP]
+> `modules/hosts/ionos_vps/` exists as a directory but is not exported as a current `nixosConfiguration`.
+
+---
+
+## 🧱 Flake architecture
+
+`flake.nix` stays small and delegates structure to imported modules.
+
+| Surface | Current owner | Purpose |
+| --- | --- | --- |
+| Inputs | `flake.nix` | `nixpkgs` on `nixos-26.05`, `nixpkgs-unstable`, hardware, DMS, disko, Flatpak, llm-agents, nix-dokploy |
+| Per-system outputs | `modules/flake-parts.nix` | Supported systems, `pkgs` construction, temporary overrides, `apps.rebuild` |
+| Module exports | `modules/exports.nix` | Grouped module sets and evaluated `hostModuleMatrix` |
+| Local packages | `modules/custom-packages.nix` | Auto-exposes `modules/_pkgs/*.nix` through `self.packages` |
+| Shared library | `modules/lib/` | Persistence, generators, config-file helpers, git rendering, nixpkgs policy, user package paths |
+
+### 📤 Export surface
+
+| Export | Contents |
+| --- | --- |
+| `self.moduleSets.profiles` | `common`, `terminal`, `desktop` |
+| `self.moduleSets.features` | audio, bluetooth, Firefox, DMS, Hyprland, OBS, Obsidian, Qt, Syncthing, TLP, tuigreet, VSCodium |
+| `self.moduleSets.services` | OmniRoute, CLIProxyAPI, CPA Usage Keeper, services-auth-gateway, monitoring, nix, OpenCode, tailscale, Unison, virtualisation, VPN proxy, cockpit |
+| `self.moduleSets.hosts` | `main_vps`, `legion5i`, `macbook` |
+| `hostModuleMatrix` | Evaluated profile/feature/service matrix consumed by `rebuild.sh matrix` |
+
+```mermaid
+flowchart TD
+  F[flake.nix] --> IT[import-tree]
+  IT --> FP[modules/flake-parts.nix]
+  IT --> EX[modules/exports.nix]
+  IT --> CP[modules/custom-packages.nix]
+  IT --> HM[modules/hosts/*]
+  CP --> PKG[self.packages]
+  EX --> SETS[self.moduleSets]
+  EX --> MATRIX[hostModuleMatrix]
+  HM --> NC[self.nixosConfigurations]
+```
+
+---
+
+## 🧩 Host composition model
+
+Hosts import reusable modules, then set `preferences` and service toggles. Reusable settings should flow through `config.preferences` and `self.lib`; host-name branches are reserved for real host exceptions.
+
+<details open>
+<summary><strong>Profile flags</strong></summary>
+
+```nix
+preferences.profiles.terminal.enable = true;
+preferences.profiles.desktop.enable = true;
+preferences.profiles.laptop.enable = true;
+preferences.profiles.server.enable = true;
+```
+
+</details>
+
+<details open>
+<summary><strong>Feature flags tracked by the matrix</strong></summary>
+
+```nix
+preferences.obs.enable = true;
+preferences.obsidian.enable = true;
+preferences.hardware.tlp.enable = true;
+```
+
+</details>
+
+<details open>
+<summary><strong>Service flags tracked by the matrix</strong></summary>
+
+```nix
+services.cliproxyapi.enable = true;
+services.cpa-usage-keeper.enable = true;
+services.omniroute.enable = true;
+services.dokploy.enable = true;
+services.homepage-monitor.enable = true;
+services.hypridle.enable = true;
+services.mitmproxy.enable = true;
+services.netdata-monitor.enable = true;
+services.unison-sync.enable = true;
+services.vpn-proxy.enable = true;
+services.cockpit-autologin.enable = true;
+```
+
+</details>
+
+---
+
+## 🖥️ Desktop stack
+
+Graphical hosts import `modules/nixos/desktop/default.nix`, which extends the terminal profile.
+
+| Area | Module path | Notes |
+| --- | --- | --- |
+| 🐚 Shell | `modules/nixos/desktop/dank-material-shell.nix` | DankMaterialShell is active. It replaces Waybar, Hyprlock, Hyprsunset, qs-launcher, qs-notifications, and old shell surfaces. |
+| 🪟 Compositor | `modules/nixos/desktop/hyprland/` + `modules/user/hyprland.nix` | Hyprland/UWSM config, bindings, idle hooks. DMS IPC handles shell actions. |
+| 🔊 Audio | `modules/nixos/desktop/system/audio.nix` | PipeWire/WirePlumber, MPD, player control. |
+| 🌍 Browser | `modules/nixos/desktop/firefox/firefox.nix` | LibreWolf/Firefox policy and user config. |
+| ✍️ Editor/IDE | `modules/programmes/fresh.nix`, `modules/nixos/desktop/vscodium/` | Fresh as terminal editor; VSCodium with declarative extensions/theme. |
+| 🧰 Apps | `modules/nixos/desktop/flatpaks/`, `obs.nix`, `obsidian.nix`, `qt.nix`, `tuigreet.nix` | Desktop app set, Flatpak integration, display greeter, Qt theming. |
+
+### ⌨️ Shell boundary
+
+| Owned by DMS | Retained `qs-*` tools |
+| --- | --- |
+| Bar, dock, spotlight launcher, notifications, lock, night controls, power menu, idle inhibitor UI | `qs-dmenu`, `qs-passmenu`, `qs-wallpaper`, and unrelated utility scripts until explicitly migrated |
+
+---
+
+## 🌐 Server and public services
+
+`main_vps` imports the terminal profile, cockpit, nix-dokploy, disko, and the public edge module.
+
+| Path | Purpose |
+| --- | --- |
+| `modules/hosts/main_vps/configuration.nix` | Enables Dokploy, OmniRoute, CLIProxyAPI, CPA Usage Keeper, VPN proxy, ntfy, homepage, mitmproxy, Unison. |
+| `modules/hosts/main_vps/my-website.nix` | Traefik edge, wildcard ACME, protected dashboard routing, services-auth-gateway integration. |
+| `modules/hosts/main_vps/remote-unlock.nix` | Initrd network and SSH unlock on public port 22 before stage-2 sshd. |
+| `modules/nixos/terminal/services-auth-gateway.nix` | Shared auth gateway service module. |
+| `modules/nixos/terminal/monitoring/` | Homepage, Netdata, mitmproxy modules. |
+
+```text
+:80/:443 Traefik + wildcard ACME
+├─ apex/www/openclaw/dokploy app routes -> dokploy-traefik on 127.0.0.1:81 where needed
+├─ omniroute.<domain>    -> OmniRoute on 127.0.0.1:20128
+├─ cliproxyapi.<domain>  -> CLIProxyAPI on 127.0.0.1:8317
+├─ cpa-usage.<domain>   -> CPA Usage Keeper
+└─ dashboard/cockpit/mitmproxy/vpn/mongo -> services-auth-gateway on 127.0.0.1:41276
+```
+
+> [!IMPORTANT]
+> Baikal/DAV-style routes bypass shared auth where the service protocol requires it.
+
+---
+
+## 🧊 Impermanence
+
+Root is wiped on boot. Persist only state that must survive.
+
+| Layer | Path | Responsibility |
+| --- | --- | --- |
+| NixOS module | `modules/common/impermanence.nix` | Filesystem/persistence wiring |
+| Library | `modules/lib/_internal/persistence.nix` | Helpers for persisted files/directories |
+| Hosts/services | `impermanence.nixos.directories` | Service-owned state paths |
+
+Rules:
+
+- Critical state goes to persistent directories.
+- Regenerable data belongs in cache paths.
+- Service modules should own their state paths instead of relying on mutable host setup.
+
+---
+
+## 🔐 Secrets
+
+```text
+pass -> rebuild.sh SECRETS_MAP -> generated secrets.nix -> self.secrets
+```
+
+| Rule | Why |
+| --- | --- |
+| `secrets.nix` is generated and uncommitted | Keeps secret material out of git |
+| Modules consume `self.secrets.NAME` | Keeps secret access declarative and searchable |
+| Use `path:.#...` for eval/builds | Includes generated and untracked files |
+| Use `--skip-secrets` only for secret-independent validation | Avoids false confidence when regenerated secrets are required |
+
+Useful debug paths:
 
 ```bash
-# Specific VPN via username
-curl --proxy "socks5://AirVPN%20AT%20Vienna@127.0.0.1:10800" https://api.ipify.org
-
-# Random VPN
-curl --proxy "socks5://random@127.0.0.1:10800" https://api.ipify.org
-
-# Check status
-vpn-proxy status
+HOST=legion5i ./rebuild.sh --debug --skip-secrets validate
+HOST=main_vps ./rebuild.sh --debug matrix
 ```
 
-#### Components
-
-| Package             | Location                      | Purpose                          |
-| ------------------- | ----------------------------- | -------------------------------- |
-| `vpn-proxy`         | `bunjs/proxy/socks5-proxy.ts` | SOCKS5 server with VPN routing   |
-| `http-proxy`        | `bunjs/proxy/http-proxy.ts`   | HTTP CONNECT proxy server        |
-| `vpn-resolver`      | `bunjs/proxy/vpn-resolver.ts` | VPN config parsing, caching      |
-| `vpn-proxy-cleanup` | `bunjs/proxy/cleanup.ts`      | Idle cleanup daemon              |
-| `vpn-proxy-netns`   | `bunjs/proxy/netns.sh`        | Namespace setup with kill-switch |
-
-#### Configuration
-
-| Variable                    | Default         | Description                  |
-| --------------------------- | --------------- | ---------------------------- |
-| `VPN_DIR`                   | `~/Shared/VPNs` | Directory with `.ovpn` files |
-| `VPN_PROXY_PORT`            | `10800`         | SOCKS5 listening port        |
-| `VPN_PROXY_IDLE_TIMEOUT`    | `300`           | Seconds before idle cleanup  |
-| `VPN_PROXY_RANDOM_ROTATION` | `300`           | Random VPN rotation interval |
-
-#### 🛡️ Security Model
-
-1. **Network Namespace Isolation** — Each VPN runs in isolated namespace
-2. **Kill-Switch** — nftables rules DROP all OUTPUT except `tun0` + VPN
-   handshake
-3. **DNS Isolation** — Per-namespace `resolv.conf` prevents DNS leaks
-4. **Zero IP Leak** — If VPN disconnects, all traffic is blocked (no fallback)
-
-State stored in `/dev/shm/vpn-proxy-$UID/` (tmpfs, cleared on reboot).
-
-### 🖥️ DankMaterialShell
-
-Graphical hosts enable `preferences.dankMaterialShell.enable`, which wraps the
-upstream `programs.dank-material-shell` flake module. DMS now owns the bar,
-dock, spotlight launcher, notification center, lock screen, night controls,
-power menu, and idle inhibitor UI.
-
-Key Hyprland bindings call DMS through IPC rather than starting replaced tools:
-
-| Binding         | Action                               |
-| --------------- | ------------------------------------ |
-| `SUPER+SPACE`   | `dms ipc call spotlight toggle`      |
-| `SUPER+D`       | `dms ipc call control-center toggle` |
-| `SUPER+SHIFT+D` | `dms ipc call dock toggle`           |
-| `SUPER+L`       | `dms ipc call lock lock`             |
-| `SUPER+X`       | `dms ipc call powermenu toggle`      |
-| `SUPER+I`       | `dms-idle-inhibit toggle`            |
-| `SUPER+Y`       | `toggle-lyrics-overlay`              |
-
-The DMS module pins `programs.dank-material-shell.dgop.package` to
-the edge package set because upstream DMS expects the newer `dgop` package
-surface. A local `idleInhibit` DMS plugin replaces the built-in inhibitor UI and
-talks to the `dms-idle-inhibit` CLI. The CLI stores its enabled state under
-`$XDG_STATE_HOME`, starts a `dms-idle-inhibitor.service` user unit, and uses
-`systemd-inhibit` for idle and sleep inhibition, so it keeps working
-across shell refreshes, relogins, reboots, and while DMS is not running.
-
-### 🔐 Secrets Management
-
-Secrets flow through `pass` (password-store) → `secrets.nix` → `self.secrets`:
-
-1. `rebuild.sh` reads secrets from `pass` based on `SECRETS_MAP`
-2. Generates `secrets.nix` (gitignored)
-3. `flake.nix` imports and exposes as `self.secrets`
-4. Modules access via `self.secrets.SECRET_NAME`
-
-### 🤖 AI & Machine Learning
-
-| Tool                       | Purpose                     | Acceleration    |
-| -------------------------- | --------------------------- | --------------- |
-| **llama.cpp**              | Local LLM inference         | CUDA (legion5i) |
-| **voxtype**                | Speech-to-text voice typing | CPU/CUDA        |
-| **OpenCode**               | AI coding assistant         | —               |
-| **sora-watermark-cleaner** | AI video watermark removal  | CUDA            |
-
-### 💰 Cryptocurrency Wallets
-
-All wallets use `pass` for password management and VPN proxy for privacy:
-
-| Currency | Tool           | Script             |
-| -------- | -------------- | ------------------ |
-| Monero   | monero-cli     | `monero-wallet`    |
-| Bitcoin  | Electrum       | `bitcoin-wallet`   |
-| Litecoin | Electrum-LTC   | `litecoin-wallet`  |
-| Ethereum | Foundry (cast) | `ethereum-wallet`  |
-| Dogecoin | dogecoin-cli   | — (custom package) |
-
-### 🛡️ Security & Pentesting Toolkit
-
-| Category            | Tools                                                    |
-| ------------------- | -------------------------------------------------------- |
-| WiFi                | aircrack-ng, hostapd, linux-wifi-hotspot                 |
-| Network             | nmap, bettercap, responder, snitch, termshark, mitmproxy |
-| Web                 | gobuster, ffuf, wpscan, ZAP, sqlmap                      |
-| Password            | hashcat, john, thc-hydra                                 |
-| Reverse Engineering | ghidra, radare2, binwalk                                 |
-| Utilities           | rustscan, socat, proxychains-ng, hcxtools                |
-
-### 📊 System Monitoring & Dashboards
-
-A fully declarative, ephemeral-root compatible monitoring stack.
-
-| Service       | Port    | Description                                                                                                                                                 |
-| ------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Homepage**  | `8082`  | Central fleet dashboard portal linking all nodes and services. (server host only)                                                                           |
-| **Netdata**   | `19999` | Real-time system monitoring (CPU, RAM, Disk, Containers). Runs in RAM mode on laptops to save disk/battery, and dbengine on servers for historical metrics. |
-| **mitmproxy** | `8083`  | On-demand HTTPS traffic analysis proxy. See details below.                                                                                                  |
-
-#### 🔍 mitmproxy (HTTPS Traffic Analysis)
-
-A custom NixOS service module (`services.mitmproxy`) for on-demand packet inspection.
-
-**Interception Modes:**
-
-- `explicit`: Set `HTTPS_PROXY=http://127.0.0.1:8080` per-app (safest)
-- `transparent`: nftables redirects all port 80/443 traffic to the proxy
-- `local`: eBPF hooks into the `connect()` syscall (experimental)
-
-**CA Certificate Setup:**
-To avoid certificate errors, the OS must trust the mitmproxy CA. The CA is pre-generated securely and stored in `password-store`, then injected into the system via `secrets.nix`.
-Because it's injected securely during evaluation, you can immediately set `services.mitmproxy.trustCA = true;` without needing a two-step deploy!
-
-Access the Web UI at `http://127.0.0.1:8083` (password: `nixos`).
-
-### 🖥️ Virtualisation
-
-| Platform   | Tools                                                                      |
-| ---------- | -------------------------------------------------------------------------- |
-| Containers | **Podman** (Docker-compatible) with compose, TUI, nvidia-container-toolkit |
-| VMs        | **libvirtd** + **QEMU** + **virt-manager**                                 |
-| Android    | **Waydroid** with nftables, waydroid-total-spoof, waydroid-script          |
-
-### 🔊 Audio Stack
-
-- **PipeWire** + **WirePlumber** (ALSA + PulseAudio compat, 32-bit support)
-- **MPD** for music playback with PipeWire output
-- **playerctld** for MPRIS session control
-- **Synced lyrics overlay** via Quickshell QML
-- **EasyEffects** via Flatpak for audio processing
-
-### 📁 File Synchronisation
-
-| Method        | Purpose                                      | Transport |
-| ------------- | -------------------------------------------- | --------- |
-| **Unison**    | Bidirectional `~/Shared/` sync between hosts | Tailscale |
-| **git-sync**  | Password-store auto-sync every 5 min         | Git/SSH   |
-| **Syncthing** | General file sync (secondary)                | P2P       |
-
-### 🌐 Encrypted DNS
-
-- **dnscrypt-proxy** on `127.0.0.1:54` with DoH + DNSCrypt
-- Cloudflare + Quad9 as preferred resolvers
-- **systemd-resolved** with global routing (`~.`)
-- MAC address randomisation, hostname suppression
-- NetworkManager dispatcher forces `ignore-auto-dns`
-
 ---
 
-## 🏠 Hosts
+## 📦 Custom packages
 
-| Host         | Type            | Hardware               | User     | Key Features                                       |
-| ------------ | --------------- | ---------------------- | -------- | -------------------------------------------------- |
-| **legion5i** | Desktop Laptop  | Intel + Nvidia (PRIME) | `local`  | CUDA, fine-grained GPU power mgmt, primary machine |
-| **macbook**  | Desktop Laptop  | MacBook Air (T2)       | `local`  | T2 firmware, suspend workarounds, fn/ctrl swap     |
-| **main_vps** | Headless Server | Headless VPS           | `server` | Website, AI gateway, reverse proxy, monitoring     |
+Every top-level `modules/_pkgs/*.nix` file is auto-exposed through `modules/custom-packages.nix`.
 
----
+| Policy | Current value |
+| --- | --- |
+| Default package universe | Stable `nixpkgs` |
+| Edge package universe | `nixpkgs-unstable`, selected centrally in `edgePackages` |
+| Package shape | Normal `callPackage` derivations; avoid ambient `{ unstable, ... }` parameters |
+| Update workflow | Package-specific update support where upstream release shape permits it |
 
-## 🛠️ Scripts & Tools
-
-### Retained Quickshell QML Scripts (`qs-*`)
-
-DankMaterialShell replaced the old `qs-launcher`, `qs-dock`,
-`qs-notifications`, `qs-notify`, and `qs-powermenu` shell surfaces. The
-remaining scripts stay available until they are explicitly migrated.
-
-| Script                  | Purpose                                 | Keybind   |
-| ----------------------- | --------------------------------------- | --------- |
-| `qs-dmenu`              | Universal fuzzy menu (rofi replacement) | —         |
-| `qs-emoji`              | Emoji picker (emojilib)                 | —         |
-| `qs-nerd`               | Nerd Font glyph picker                  | —         |
-| `qs-vpn`                | VPN selector + proxy link copy          | —         |
-| `qs-keybinds`           | Keybind help overlay                    | —         |
-| `qs-askpass`            | Password prompt (`SUDO_ASKPASS`)        | —         |
-| `qs-wallpaper`          | Wallpaper picker with grid preview      | —         |
-| `qs-tools`              | Utility menu (crosshair, autoclicker)   | —         |
-| `qs-passmenu`           | Password store browser + autotype       | —         |
-| `qs-checklist`          | Daily checklist/todo manager            | —         |
-| `qs-music-search`       | YouTube music search + download         | —         |
-| `qs-music-local`        | Local music library browser             | —         |
-| `toggle-crosshair`      | On-screen crosshair overlay             | —         |
-| `toggle-lyrics-overlay` | Synced lyrics floating overlay          | `SUPER+Y` |
-
-### BunJS/TypeScript Scripts
-
-| Script              | Purpose                             |
-| ------------------- | ----------------------------------- |
-| `voxtype`           | Voice typing via Voxtype            |
-| `btrfs-backup`      | BTRFS snapshot backup TUI           |
-| `synced-lyrics`     | Fetch synced lyrics from lrclib.net |
-| `pomodoro`          | Pomodoro timer with notifications   |
-| `git-sync-debug`    | Debug git-sync authentication       |
-| `vpn-proxy`         | SOCKS5 proxy server (port 10800)    |
-| `http-proxy`        | HTTP CONNECT proxy (port 10801)     |
-| `vpn-resolver`      | VPN config parsing + cache          |
-| `vpn-proxy-cleanup` | Idle namespace cleanup daemon       |
-
-Run `bun install` or `npm install` from the repository root to hydrate the Bun
-workspace used by these scripts. The root workspace points at
-`modules/nixos/scripts/bunjs/`, which keeps editor/LSP dependencies working on a
-fresh clone without hunting for nested `node_modules`.
-
-See [`modules/nixos/scripts/bunjs/README.md`](modules/nixos/scripts/bunjs/README.md)
-for BunJS development details.
-
-### MCP Servers (Model Context Protocol)
-
-| Server                | Purpose                               |
-| --------------------- | ------------------------------------- |
-| `markdown-lint-mcp`   | Markdownlint integration for AI tools |
-| `quickshell-docs-mcp` | Quickshell documentation lookup       |
-| `qmllint-mcp`         | QML linting integration               |
-| `daisyui-mcp`         | DaisyUI component docs                |
-| `powerpoint-mcp`      | PowerPoint creation                   |
-
-### General Scripts
-
-| Script                                     | Purpose                                      |
-| ------------------------------------------ | -------------------------------------------- |
-| `sound-change` / `sound-up` / `sound-down` | Volume control via WirePlumber               |
-| `sound-toggle`                             | Mute toggle                                  |
-| `colorpicker`                              | Screen color picker with history             |
-| `toggle-lid-inhibit`                       | Toggle suspend-on-lid-close                  |
-| `monero-wallet`                            | Monero CLI with pass + VPN                   |
-| `bitcoin-wallet`                           | Electrum with pass + VPN                     |
-| `litecoin-wallet`                          | Electrum-LTC with pass + VPN                 |
-| `ethereum-wallet`                          | Foundry cast with pass + VPN                 |
-| `autoclicker-daemon`                       | Multi-point autoclicker                      |
-| `run-flatpak-instance`                     | Isolated multi-instance Flatpak              |
-| `models`                                   | Host-installed OpenCode / OMP model switcher |
-| `rebuild.sh`                               | NixOS rebuild wrapper with secrets           |
-
----
-
-## 📦 Custom Packages
-
-All packages in `modules/_pkgs/` are auto-exposed via `self.packages`:
-
-Custom packages build from the stable `nixpkgs` input by default. Edge AI and
-gateway packages that benefit from current Go/Bun/Node stacks are routed through
-`nixpkgs-unstable` centrally in `modules/custom-packages.nix`; package files
-should declare normal dependencies and avoid `{ unstable, ... }` parameters.
-Current unstable-routed packages: `cliproxyapi`, `omniroute`, and
-`openchamber-web`.
-
-| Package                    | Description                             |
-| -------------------------- | --------------------------------------- |
-| `antigravity-manager`      | Antigravity Tools manager (RPM wrapped) |
-| `aptos-fonts`              | Microsoft Aptos font family             |
-| `cliproxyapi`              | CLI Proxy API tool (Go)                 |
-| `daisyui-mcp`              | DaisyUI MCP server (Python/fastmcp)     |
-| `dogecoin`                 | Dogecoin wallet CLI                     |
-| `iloader`                  | iOS device management (AppImage)        |
-| `niri-screen-time`         | Screen time tracker (Go, Wayland)       |
-| `omniroute`                | OpenAI-compatible AI gateway            |
-| `patchright`               | Patched Playwright automation           |
-| `powerpoint-mcp`           | PowerPoint MCP server (Python)          |
-| `quickshell-docs-markdown` | Quickshell docs as Markdown (Rust)      |
-| `sideloader`               | iOS app sideloading tool                |
-| `snitch`                   | TUI network connection inspector        |
-| `sora-watermark-cleaner`   | AI video watermark remover (CUDA)       |
-| `update-pkgs`              | Auto-updater for `_pkgs/` (nix-update)  |
-| `wallpapers`               | Curated wallpaper image collection      |
-| `waydroid-script`          | Waydroid add-on installer helper        |
-| `waydroid-total-spoof`     | Waydroid device identity spoofing       |
-
----
-
-## 📂 Repository Structure
+### ⚡ Unstable-routed packages
 
 ```text
-nixconf/
-├── flake.nix              # Main flake definition
-├── rebuild.sh             # System rebuild script (wraps nixos-rebuild)
-├── secrets.nix            # Auto-generated secrets (gitignored)
-├── modules/
-│   ├── common/            # Shared base modules (impermanence, networking, keymap)
-│   ├── hosts/             # Per-machine configs (legion5i, macbook, main_vps)
-│   ├── nixos/
-│   │   ├── desktop/       # Desktop environment (Hyprland, audio, browser, etc.)
-│   │   ├── terminal/      # Terminal tools (nix, opencode, git-sync)
-│   │   └── scripts/       # All scripts (quickshell/, bunjs/, general.nix)
-│   ├── programmes/        # Application configurations (kitty, zsh)
-│   ├── user/              # User-level configuration helpers
-│   ├── wrappers/          # Executable wrappers (kitty, zsh, starship)
-│   ├── lib/               # Custom library (self.lib — persistence, generators)
-│   ├── _pkgs/             # Custom package definitions (self.packages)
-│   ├── theme.nix          # Theme definitions (self.theme / self.colors)
-│   ├── custom-packages.nix # Package auto-loader
-│   ├── flake-parts.nix    # Flake-parts configuration & overlays
+acp-chat
+cliproxyapi
+omniroute
+openchamber-web
+limux
 ```
 
-## 🧱 Modular Host Composition
+### 📚 Notable local package set
 
-Hosts now declare both their identity and their intended role explicitly via
-profile toggles plus feature/service toggles.
+```text
+acp-chat, antigravity-manager, aptos-fonts, brave-origin, cake-wallet-flatpak,
+cliproxyapi, cpa-usage-keeper, daisyui-mcp, dogecoin, iloader, limux,
+mattpocock-skills, niri-screen-time, omniroute, omp-desktop, openchamber-web,
+orca, patchright, playwright-cli, quickshell-docs-markdown, seance,
+services-auth-gateway, sideloader, snitch, stdio-to-ws, update-pkgs,
+wallpapers, waydroid-script, waydroid-total-spoof
+```
 
-- `preferences.profiles.terminal.enable` - enables the terminal profile module
-- `preferences.profiles.desktop.enable` - enables the desktop profile module
-- `preferences.profiles.laptop.enable` - laptop-oriented defaults
-- `preferences.profiles.server.enable` - server-oriented defaults
-- `preferences.dankMaterialShell.enable` - enables the DMS desktop shell wrapper
-- `preferences.hardware.tlp.enable` - laptop power tuning module
-- `preferences.obs.enable` - OBS Studio feature toggle
-- `services.*.enable` - daemon-style modules such as `cliproxyapi`,
-  `omniroute`, `dokploy`, `vpn-proxy`, `netdata-monitor`,
-  `homepage-monitor`, and `mitmproxy`
+> [!TIP]
+> When adding packages, use the repo's custom-package workflow: derivation under `modules/_pkgs`, update support where useful, `nix build --no-link path:.#<name>`, then host exclusions only where the package should not exist.
 
-This keeps hosts thin: import the reusable modules you need, then switch
-features and services on or off in one place. Profiles are still regular NixOS
-modules; the profile flags now gate their config instead of self-enabling via
-`mkDefault`.
+---
 
-## 🔌 Export Surface
+## 🧰 Scripts and local development
 
-The flake keeps the existing flat exports such as `self.nixosModules.desktop`
-for compatibility, and now also publishes grouped exports under
-`self.moduleSets`:
-
-- `self.moduleSets.profiles`
-- `self.moduleSets.features`
-- `self.moduleSets.services`
-- `self.moduleSets.hosts`
-
-The grouped module exports are stable. The rebuild-time module matrix is being
-reworked so it can be generated without recursive flake evaluation.
-
-Current flake app exports are intentionally conservative:
-
-- `nix run .#rebuild` - wrapper around `rebuild.sh`
-
-Some tools such as `models` remain host-installed runtime commands for
-now because they still depend on host-specific NixOS module state and checked-out
-repo data rather than a fully generic per-system package interface.
-
-## 🤝 Contributing
-
-### Bun / TypeScript tooling
-
-From the repository root:
+Root `package.json` is workspace/editor glue. The real TypeScript/Bun workspace lives in `modules/nixos/scripts/bunjs`.
 
 ```bash
 bun install
-```
-
-or:
-
-```bash
-npm install
-```
-
-Useful root scripts:
-
-```bash
 bun run build:vpn-proxy-web
 bun run typecheck:scripts
 ```
 
-### Local `skills.sh` skill dependencies
+| Area | Contents |
+| --- | --- |
+| 🛡️ VPN proxy | SOCKS5, HTTP CONNECT, resolver, namespace cleanup, web UI, tests |
+| 👤 User tools | passmenu, synced lyrics, music search/local library, pomodoro, checklist, git-sync debug, btrfs backup |
+| 🤖 MCP servers | markdown lint, QML lint, Quickshell docs, image generation helpers |
 
-Locally installed `skills.sh` skills only add the skill metadata under
-`.agents/skills/`. If a skill expects a real binary such as `playwright-cli`,
-you must also provide that runtime declaratively in this repo.
-
-The Playwright CLI setup in this repo is the reference pattern:
-
-1. Add a repo package in `modules/_pkgs/<name>.nix`.
-   - Package the upstream tool with Nix instead of relying on mutable global
-     `npm`, `pip`, or `cargo` installs.
-   - If the tool needs NixOS-specific defaults, wrap the binary and export the
-     required environment there.
-2. Install that package from the relevant host/profile module.
-   - Example: `modules/nixos/desktop/default.nix` adds
-     `selfpkgs.playwright-cli` because the local Playwright skill needs a
-     `playwright-cli` command on desktop hosts.
-3. Keep runtime-only browser or shared-library settings close to the host
-   module that actually needs them.
-   - Example: `PLAYWRIGHT_BROWSERS_PATH` stays in the desktop module because it
-     configures the browser bundle available to user sessions.
-
-For browser automation skills specifically, NixOS usually needs both the CLI
-package and store-managed browser wiring because upstream tools often assume an
-FHS path like `/opt/google/chrome` that does not exist on NixOS. The custom
-`modules/_pkgs/playwright-cli.nix` wrapper ships a default config that points
-Playwright at the nixpkgs Chromium bundle instead.
-
-Checklist for adding dependencies for another local skill:
-
-1. Read `.agents/skills/<skill>/SKILL.md` and list every external command it
-   shells out to.
-2. Prefer an existing nixpkgs package; if none exists in your pinned channel,
-   add a small package in `modules/_pkgs/`.
-3. Install that package from the correct module/profile via
-   `environment.systemPackages`.
-4. Add wrapper env/config only when the upstream default breaks on NixOS.
-   - Good examples: executable paths, browser bundle paths, or turning off
-     unsupported auto-download behavior.
-5. Verify with a direct command from the repo root before rebuilding your
-   system, for example:
-
-```bash
-nix build --no-link path:.#playwright-cli
-result_path=$(nix build --print-out-paths --no-link path:.#playwright-cli)
-"$result_path/bin/playwright-cli" open https://duckduckgo.com
-```
-
-This keeps skill runtimes reproducible and avoids hidden per-machine state.
-
-### Adding a new module
-
-1. Add the module under `modules/` in the closest matching domain.
-2. Expose a complete option surface with `mkOption` / `mkEnableOption`.
-3. Gate behavior with `mkIf cfg.enable` where appropriate.
-4. Prefer shared values from `config.preferences` and
-   `config.preferences.paths` over hardcoded absolute paths.
-5. Add the module to the grouped flake exports if it is intended for reuse.
-
-### Adding a new host
-
-1. Create `modules/hosts/<name>/configuration.nix` and related hardware/disko
-   files.
-2. Define `flake.nixosConfigurations.<name>` and `flake.nixosModules.<name>Host`.
-3. Set `preferences.hostName` and explicit `preferences.profiles.*` toggles.
-4. Enable or disable feature/service modules in the host file rather than
-   editing shared profile modules.
-
-### Module Hierarchy
-
-```text
-terminal (base for all hosts)
-  ├── common (base, impermanence, networking, keymap)
-  ├── nix (Lix package manager, nix-index, unfree policy)
-  ├── dev (MongoDB, llama.cpp, Podman, libvirtd)
-  ├── tailscale, unison, git-sync, opencode
-  └── vpn-proxy-service
-
-desktop (extends terminal — GUI hosts only)
-  ├── dank-material-shell (bar, dock, launcher, notifications, lock)
-  ├── hyprland (compositor + keybinds + idle hooks)
-  ├── audio (PipeWire, MPD, playerctl)
-  ├── firefox/librewolf, vscodium, flatpaks
-  ├── tuigreet, bluetooth, qt, syncthing
-  └── retained quickshell/bunjs scripts
-```
+Packaged outputs do not depend on checkout-local `node_modules`; local installs are for editor tooling and interactive development.
 
 ---
 
-## 🔨 Build Commands
+## 🛡️ VPN proxy
 
-Uses `path:.` to ensure gitignored files (like `secrets.nix`) are included.
+The VPN proxy lives under `modules/nixos/scripts/bunjs/proxy/` and is exposed by `modules/nixos/scripts/bunjs/proxy/service.nix`.
+
+```text
+client
+├─ SOCKS5 localhost:10800  username selects VPN slug or random
+└─ HTTP CONNECT localhost:10801
+   -> resolver/cache
+   -> per-VPN network namespace
+   -> OpenVPN + nftables kill-switch
+   -> idle cleanup
+```
+
+| Property | Behavior |
+| --- | --- |
+| Selection | SOCKS5 username selects a VPN slug or random route |
+| Isolation | Per-VPN network namespace |
+| Leak handling | nftables kill-switch blocks fallback egress |
+| State | Runtime/tmpfs-oriented |
+
+---
+
+## 🚧 Rebuild wrapper
+
+`rebuild.sh` is the supported entry point. It writes secrets, evaluates the host matrix, and calls the relevant NixOS action.
+
+> [!WARNING]
+> Agents must not run rebuild/switch/deploy/install/rollback/generation-changing commands. `HOST=<host> ./rebuild.sh validate` is the allowed rebuild wrapper validation path.
+
+### ✅ Validation examples
 
 ```bash
-# Build and switch (most common)
+HOST=legion5i ./rebuild.sh --debug --skip-secrets validate
+HOST=main_vps ./rebuild.sh --debug matrix
+```
+
+### 🧑‍💻 User-operated mutation examples
+
+```bash
+HOST=macbook ./rebuild.sh secrets
 HOST=legion5i ./rebuild.sh switch
-
-# Build without switching
 HOST=macbook ./rebuild.sh build
-
-# Dry-run to preview changes
 HOST=legion5i ./rebuild.sh dry-run
-
-# Validate flake before switching
-HOST=legion5i ./rebuild.sh --validate switch
-
-# Deploy to remote host
-HOST=main_vps ./rebuild.sh deploy root@host
-
-# Install on new machine (nixos-anywhere)
+HOST=main_vps ./rebuild.sh deploy root@192.168.1.100
 HOST=macbook ./rebuild.sh install root@192.168.1.100
-
-# Rollback / Show generations
 HOST=legion5i ./rebuild.sh rollback
 HOST=legion5i ./rebuild.sh generations
 ```
 
 ---
 
-## 📥 Flake Inputs
+## 🔁 Common changes
 
-| Input                | Source                        | Purpose                              |
-| -------------------- | ----------------------------- | ------------------------------------ |
-| `nixpkgs`            | `nixos-25.11`                 | Main package repository (stable)     |
-| `nixpkgs-unstable`   | `nixos-unstable`              | Bleeding-edge packages               |
-| `dms`                | AvengeMedia/DankMaterialShell | DankMaterialShell module/package     |
-| `nur`                | nix-community/NUR             | Nix User Repository                  |
-| `nixos-hardware`     | LukeChannings/nixos-hardware  | Hardware configs (T2, Intel, Nvidia) |
-| `flake-parts`        | hercules-ci/flake-parts       | Modular flake composition            |
-| `import-tree`        | vic/import-tree               | Auto-import directory trees          |
-| `impermanence`       | nix-community/impermanence    | Ephemeral root management            |
-| `persist-retro`      | Geometer1729/persist-retro    | Retroactive persistence              |
-| `disko`              | nix-community/disko           | Declarative disk partitioning        |
-| `wrappers`           | Lassulus/wrappers             | Executable wrapping utility          |
-| `nix-index-database` | Mic92/nix-index-database      | Pre-built nix-index DB               |
-| `nix-flatpak`        | gmodena/nix-flatpak           | Declarative Flatpak management       |
-| `nix4vscode`         | nix-community/nix4vscode      | Auto-updated VSCode extensions       |
-| `fresh`              | sinelaw/fresh                 | Terminal editor with native LSP      |
-| `opencode`           | anomalyco/opencode            | AI coding assistant                  |
-| `hyprqt6engine`      | hyprwm/hyprqt6engine          | Qt6 theming for Hyprland             |
+### ➕ Add a host
+
+1. Create `modules/hosts/<name>/configuration.nix` plus hardware/disko files as needed.
+2. Export `flake.nixosConfigurations.<name>` and `flake.nixosModules.<name>Host`.
+3. Set `preferences.hostName`, `preferences.user.username`, and explicit profile flags.
+4. Add feature/service toggles in the host file.
+5. Update `modules/exports.nix` host exports and matrix selectors if the new host introduces tracked capabilities.
+6. Update `AGENTS.md` Navigation / Live Topology and this README in the same change.
+
+### 🌍 Add a service route
+
+1. Add or update the service module/options.
+2. Enable the service in `modules/hosts/main_vps/configuration.nix`.
+3. Add the route in `modules/hosts/main_vps/my-website.nix`.
+4. Persist required service state.
+5. Update the live topology docs in `AGENTS.md` and the server section here.
+
+### 🔑 Add a secret
+
+1. Add the entry to `SECRETS_MAP` in `rebuild.sh`.
+2. Insert the value into `pass`.
+3. Consume it as `self.secrets.NAME`.
+4. Validate with `HOST=<host> ./rebuild.sh --debug validate` when secrets are available, or `--skip-secrets` only for paths that do not need regenerated secrets.
+
+### 📦 Add a package
+
+1. Add `modules/_pkgs/<name>.nix` with `pname` matching the exported package name.
+2. Prefer stable nixpkgs; add to `edgePackages` only when the pinned stable channel cannot build or run it correctly.
+3. Add update support where the upstream release model permits it.
+4. Build with `nix build --no-link path:.#<name>`.
+5. Add host exclusions only when a package cannot run or should not exist on a host class.
+
+---
+
+## 🧪 Verification checklist
+
+Before merging non-trivial changes:
+
+```bash
+# Formatting
+nix run nixpkgs#nixfmt-tree -- --ci .
+
+# Flake/module validation
+HOST=legion5i ./rebuild.sh --debug --skip-secrets validate
+HOST=macbook ./rebuild.sh --debug --skip-secrets validate
+HOST=main_vps ./rebuild.sh --debug --skip-secrets validate
+
+# TypeScript scripts, when touched
+bun run typecheck:scripts
+```
+
+> [!CAUTION]
+> `nix flake check` is not proof that runtime service routing, desktop bindings, or VPN isolation works. Use targeted runtime checks for those surfaces.
 
 ---
 
 ## 📝 License
 
-This project is licensed under the GNU General Public License v3.0 (GPL-3.0). See the [LICENCE](LICENCE) file for details.
+GPL-3.0-only. See [`LICENCE`](LICENCE).

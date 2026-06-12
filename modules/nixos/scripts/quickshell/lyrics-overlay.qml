@@ -52,8 +52,8 @@ PanelWindow {
     property int normalDragHandleWidth: 36
     property int normalDragHandleHeight: 10
     property int editResizeHitSize: 52 // Bigger hit area makes corner resizing easier without a larger visible grip.
-    property int minCardWidth: 180
-    property int minCardHeight: 56
+    property int minCardWidth: 48
+    property int minCardHeight: 24
     property int cardWidth: parseInt(Quickshell.env("LYRICS_CARD_WIDTH") ?? "360")
     property int cardHeight: parseInt(Quickshell.env("LYRICS_CARD_HEIGHT") ?? "92")
     property int cardX: 0
@@ -69,6 +69,11 @@ PanelWindow {
     property int dragStartHeight: 0
     readonly property int maxCardWidth: Math.max(root.minCardWidth, root.screenWidth() - root.cardInset * 2)
     readonly property int maxCardHeight: Math.max(root.minCardHeight, root.screenHeight() - root.cardInset * 2)
+    readonly property int visibleLineCount: root.clamp(root.numLines, 1, 4)
+    readonly property int availableLyricsHeight: Math.max(1, root.cardHeight - root.cardPadding * 2 - (root.editMode ? root.railHeight + 6 : 0))
+    readonly property real adaptiveLineHeight: Math.max(1, (root.availableLyricsHeight - Math.max(0, root.visibleLineCount - 1) * root.effectiveLineSpacing()) / root.visibleLineCount)
+    readonly property int adaptiveCurrentFontSize: root.clamp(Math.round(Math.min(root.fontSize * 0.82, root.adaptiveLineHeight * 0.78, (root.cardWidth - root.cardPadding * 2) / 4.5)), 5, root.fontSize)
+    readonly property int adaptiveUpcomingFontSize: root.clamp(Math.round(Math.min(root.fontSize * 0.56, root.adaptiveLineHeight * 0.66, (root.cardWidth - root.cardPadding * 2) / 5.0)), 4, Math.max(4, root.fontSize))
 
     // --- State ---
     property string currentLine: ""
@@ -140,6 +145,10 @@ PanelWindow {
 
     function effectiveMinCardHeight() {
         return Math.max(1, Math.min(root.minCardHeight, root.screenHeight()))
+    }
+
+    function effectiveLineSpacing() {
+        return root.clamp(root.lineSpacing, 0, Math.max(0, Math.round(root.cardHeight / 16)))
     }
 
     function defaultCardWidth() {
@@ -231,7 +240,9 @@ PanelWindow {
                 id: cardBackground
                 anchors.fill: parent
                 radius: root.cardRadius
-                color: Theme.rgba(Theme.glass.backgroundColor, root.editMode ? 0.70 : 0.28)
+                color: Theme.rgba(Theme.glass.backgroundColor, root.editMode ? 0.62 : 0.12)
+                border.width: root.editMode ? 1 : 0
+                border.color: Theme.rgba(root.textColor, 0.16)
                 clip: true
             }
 
@@ -444,7 +455,7 @@ PanelWindow {
                     width: parent.width
                     anchors.top: editHeader.bottom
                     anchors.topMargin: root.editMode ? 6 : 0
-                    spacing: Math.max(1, root.lineSpacing)
+                    spacing: root.effectiveLineSpacing()
 
                 Text {
                     id: currentText
@@ -454,7 +465,7 @@ PanelWindow {
                     color: root.textColor
                     opacity: root.currentLine ? root.textOpacity : 0.5
                     font.family: root.fontFamily
-                    font.pixelSize: Math.max(10, Math.round(root.fontSize * 0.82))
+                    font.pixelSize: root.adaptiveCurrentFontSize
                     font.weight: Font.Medium
                     style: root.showShadow ? Text.Outline : Text.Normal
                     styleColor: "#80000000"
@@ -496,7 +507,7 @@ PanelWindow {
                         color: root.textColor
                         opacity: Math.max(0.22, root.textOpacity * (0.56 - index * 0.12))
                         font.family: root.fontFamily
-                        font.pixelSize: Math.max(8, Math.round(root.fontSize * 0.56))
+                        font.pixelSize: root.adaptiveUpcomingFontSize
                         font.weight: Font.Normal
                         style: root.showShadow ? Text.Outline : Text.Normal
                         styleColor: "#60000000"
@@ -563,7 +574,7 @@ PanelWindow {
         id: lyricsProcess
         command: Quickshell.env("OVERLAY_COMMAND")
             ? Quickshell.env("OVERLAY_COMMAND").split(" ")
-            : ["synced-lyrics", "current", "--json", "--lines", root.numLines.toString(), "--length", root.maxLineLength.toString()]
+            : ["lyricsctl", "current", "--json", "--lines", root.visibleLineCount.toString(), "--length", root.maxLineLength.toString()]
         running: false
 
         stdout: StdioCollector {
@@ -586,13 +597,15 @@ PanelWindow {
     function parseLyricsOutput(output) {
         try {
             var data = JSON.parse(output.trim())
-            if (data.text) {
-                root.currentLine = data.text
-            }
+            root.currentLine = data.text || data.current || ""
             root.isPlaying = data.alt === "playing"
 
-            // Parse tooltip for upcoming lines.
-            if (data.tooltip) {
+            if (data.upcoming) {
+                root.upcomingLines = data.upcoming.slice(0, root.visibleLineCount - 1)
+            } else if (data.lines && data.lines.length > 1) {
+                root.upcomingLines = data.lines.slice(1, root.visibleLineCount)
+            } else if (data.tooltip) {
+                // Parse tooltip for older compatible producers.
                 var lines = data.tooltip.split("\n")
                 var upcoming = []
                 var foundCurrent = false
@@ -607,7 +620,7 @@ PanelWindow {
                         upcoming.push(line.trim())
                     }
                 }
-                root.upcomingLines = upcoming.slice(0, root.numLines - 1)
+                root.upcomingLines = upcoming.slice(0, root.visibleLineCount - 1)
             }
         } catch (e) {
             console.log("Parse error:", e)

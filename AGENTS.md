@@ -9,6 +9,7 @@
 - **Comments**: one dense comment near the setting with why, units/edge case, and source link/path. Preserve rationale; avoid prose blocks.
 - **DRY**: use `self.lib` for reusable functions and `config.preferences` for shared values.
 - **Formatting**: from repo root run `nix run nixpkgs#nixfmt-tree -- .`; check-only with `nix run nixpkgs#nixfmt-tree -- --ci .`. Avoid file-by-file formatter drift.
+- **README freshness**: update `README.md` in the same edit when changing flake inputs/exports, host inventory, profile/service architecture, public routes/ports, persistence or secrets flow, package exposure/update policy, script workspaces, or rebuild commands. Keep it factual and generated-from-current-code in spirit: expressive headings/tables/admonitions are fine.
 
 ## 🧊 Infrastructure Patterns
 
