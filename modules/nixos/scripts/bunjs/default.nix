@@ -217,22 +217,15 @@
         ];
       };
 
-      packages.synced-lyrics = inputs.wrappers.lib.makeWrapper {
-        inherit pkgs;
-        package = pkgs.writeShellScriptBin "synced-lyrics" ''
-          exec ${jsPkgs.bun}/bin/bun run ${./synced-lyrics.ts} "$@"
+      packages.synced-lyrics = pkgs.symlinkJoin {
+        name = "synced-lyrics-compat";
+        paths = [ self'.packages.lyricsctl ];
+        postBuild = ''
+          ln -s lyricsctl "$out/bin/synced-lyrics"
         '';
-
-        # Ensure PATH includes all runtime inputs
-        runtimeInputs = [
-          jsPkgs.bun
-          pkgs.nodejs_latest
-          pkgs.playerctl
-          self'.packages.toggle-lyrics-overlay
-
-          # Core utilities
-          pkgs.coreutils
-        ];
+        meta = self'.packages.lyricsctl.meta // {
+          mainProgram = "synced-lyrics";
+        };
       };
       packages.pomodoro = inputs.wrappers.lib.makeWrapper {
         inherit pkgs;

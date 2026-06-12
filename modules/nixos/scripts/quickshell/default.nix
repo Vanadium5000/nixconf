@@ -93,13 +93,14 @@
           QML_FILE="${mkQml "lyrics-overlay.qml" ./lyrics-overlay.qml}"
           QS_BIN="${pkgs.quickshell}/bin/qs"
           export QML2_IMPORT_PATH="${pkgs.qt6.qt5compat}/lib/qt-6/qml''${QML2_IMPORT_PATH:+:$QML2_IMPORT_PATH}"
+          OVERLAY_COMMAND_DEFAULT="${self'.packages.lyricsctl}/bin/lyricsctl current --json --lines ''${LYRICS_LINES:-2} --length ''${LYRICS_LENGTH:-0}"
 
           case "''${1:-toggle}" in
             show)
               # Kill existing instance first
               "$QS_BIN" kill -p "$QML_FILE" 2>/dev/null || true
               # Launch with environment configuration
-              OVERLAY_COMMAND="''${OVERLAY_COMMAND}" \
+              OVERLAY_COMMAND="''${OVERLAY_COMMAND:-$OVERLAY_COMMAND_DEFAULT}" \
               LYRICS_LINES="''${LYRICS_LINES:-2}" \
               LYRICS_POSITION="''${LYRICS_POSITION:-bottom}" \
               LYRICS_FONT_SIZE="''${LYRICS_FONT_SIZE:-18}" \
@@ -116,7 +117,7 @@
               ;;
             *)  # toggle
               if ! "$QS_BIN" kill -p "$QML_FILE" 2>/dev/null; then
-                OVERLAY_COMMAND="''${OVERLAY_COMMAND}" \
+                OVERLAY_COMMAND="''${OVERLAY_COMMAND:-$OVERLAY_COMMAND_DEFAULT}" \
                 LYRICS_LINES="''${LYRICS_LINES:-2}" \
                 LYRICS_POSITION="''${LYRICS_POSITION:-bottom}" \
                 LYRICS_FONT_SIZE="''${LYRICS_FONT_SIZE:-18}" \

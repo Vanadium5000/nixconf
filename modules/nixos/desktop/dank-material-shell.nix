@@ -25,6 +25,7 @@
       idleInhibitPluginDir = ".config/DankMaterialShell/plugins/idleInhibit";
       toggleLidInhibitPluginDir = ".config/DankMaterialShell/plugins/toggleLidInhibit";
       voxtypeWidgetPluginDir = ".config/DankMaterialShell/plugins/voxtypeWidget";
+      lyricsWidgetPluginDir = ".config/DankMaterialShell/plugins/lyricsWidget";
       dmsCommonPluginDir = ".config/DankMaterialShell/plugins/dms-common";
       idleInhibitPluginQml =
         builtins.replaceStrings [ "__DMS_IDLE_INHIBIT__" ] [ "${lib.getExe selfpkgs.dms-idle-inhibit}" ]
@@ -37,6 +38,7 @@
             "${lib.getExe selfpkgs.toggle-lid-inhibit}"
           ]
           (builtins.readFile ./dank-material-shell/toggle-lid-inhibit/ToggleLidInhibitWidget.qml);
+      toggleLidInhibitPluginQmlFile = pkgs.writeText "ToggleLidInhibitWidget.qml" toggleLidInhibitPluginQml;
       voxtypeWidgetPluginQml =
         builtins.replaceStrings
           [
@@ -56,6 +58,11 @@
             "${pkgs.libnotify}/bin/notify-send"
           ]
           (builtins.readFile ./dank-material-shell/voxtype-widget/VoxtypeWidget.qml);
+      voxtypeWidgetPluginQmlFile = pkgs.writeText "VoxtypeWidget.qml" voxtypeWidgetPluginQml;
+      lyricsWidgetPluginQml =
+        builtins.replaceStrings [ "__LYRICSCTL__" ] [ "${lib.getExe selfpkgs.lyricsctl}" ]
+          (builtins.readFile ./dank-material-shell/lyrics-widget/LyricsWidget.qml);
+      lyricsWidgetPluginQmlFile = pkgs.writeText "LyricsWidget.qml" lyricsWidgetPluginQml;
       voxtypeModelsPersistence = self.lib.persistence.mkPersistent {
         method = "bind";
         inherit user;
@@ -254,13 +261,23 @@
               chown -R ${user}:users "$HYPR_DMS_DIR"
 
               # ~/.config/DankMaterialShell is itself a persisted bind mount, so
-              # place the locally shipped plugin directly into that live tree as
-              # well as through the activation-managed user files below. This keeps
-              # it visible in DMS's plugin picker immediately after rebuild/reboot.
-              IDLE_INHIBIT_PLUGIN_DIR="${homeDirectory}/${idleInhibitPluginDir}"
-              install -D -m 0644 ${./dank-material-shell/idle-inhibit/plugin.json} "$IDLE_INHIBIT_PLUGIN_DIR/plugin.json"
-              install -D -m 0644 ${idleInhibitPluginQmlFile} "$IDLE_INHIBIT_PLUGIN_DIR/IdleInhibitWidget.qml"
-              chown -R ${user}:users "$IDLE_INHIBIT_PLUGIN_DIR"
+              # place locally shipped plugins directly into that live tree as well
+              # as through activation-managed user files below. This keeps them
+              # visible in DMS's plugin picker immediately after rebuild/reboot.
+              install_plugin_file() {
+                local dir="$1" source="$2" name="$3"
+                install -D -m 0644 "$source" "${homeDirectory}/$dir/$name"
+                chown ${user}:users "${homeDirectory}/$dir/$name"
+              }
+
+              install_plugin_file "${idleInhibitPluginDir}" ${./dank-material-shell/idle-inhibit/plugin.json} plugin.json
+              install_plugin_file "${idleInhibitPluginDir}" ${idleInhibitPluginQmlFile} IdleInhibitWidget.qml
+              install_plugin_file "${toggleLidInhibitPluginDir}" ${./dank-material-shell/toggle-lid-inhibit/plugin.json} plugin.json
+              install_plugin_file "${toggleLidInhibitPluginDir}" ${toggleLidInhibitPluginQmlFile} ToggleLidInhibitWidget.qml
+              install_plugin_file "${voxtypeWidgetPluginDir}" ${./dank-material-shell/voxtype-widget/plugin.json} plugin.json
+              install_plugin_file "${voxtypeWidgetPluginDir}" ${voxtypeWidgetPluginQmlFile} VoxtypeWidget.qml
+              install_plugin_file "${lyricsWidgetPluginDir}" ${./dank-material-shell/lyrics-widget/plugin.json} plugin.json
+              install_plugin_file "${lyricsWidgetPluginDir}" ${lyricsWidgetPluginQmlFile} LyricsWidget.qml
             '';
           deps = [ "users" ];
         };
@@ -315,6 +332,9 @@
               "${voxtypeWidgetPluginDir}/plugin.json".text =
                 builtins.readFile ./dank-material-shell/voxtype-widget/plugin.json;
               "${voxtypeWidgetPluginDir}/VoxtypeWidget.qml".text = voxtypeWidgetPluginQml;
+              "${lyricsWidgetPluginDir}/plugin.json".text =
+                builtins.readFile ./dank-material-shell/lyrics-widget/plugin.json;
+              "${lyricsWidgetPluginDir}/LyricsWidget.qml".text = lyricsWidgetPluginQml;
             };
           };
           # Run after the impermanence bind mounts exist; otherwise boot-time

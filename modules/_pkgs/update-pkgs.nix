@@ -67,7 +67,7 @@ pkgs.writeShellApplication {
 
     package_set() {
       case "$1" in
-      acp-chat | omniroute | omp-desktop | openchamber-web | cpa-usage-keeper | services-auth-gateway | niri-screen-time | daisyui-mcp | mattpocock-skills)
+      acp-chat | omniroute | omp-desktop | openchamber-web | cpa-usage-keeper | services-auth-gateway | niri-screen-time | daisyui-mcp | lyricsctl | mattpocock-skills)
         printf '%s\n' light
         ;;
       cliproxyapi | brave-origin | patchright | iloader | playwright-cli | cake-wallet-flatpak | orca | limux | seance | dogecoin | antigravity-manager | waydroid-script | waydroid-total-spoof | sideloader | snitch | quickshell-docs-markdown | stdio-to-ws)
@@ -94,7 +94,7 @@ pkgs.writeShellApplication {
       cliproxyapi | niri-screen-time)
         printf '%s\n' nix-update
         ;;
-      antigravity-manager | aptos-fonts | iloader | patchright | playwright-cli | quickshell-docs-markdown | services-auth-gateway | sideloader | snitch | wallpapers)
+      antigravity-manager | aptos-fonts | iloader | lyricsctl | patchright | playwright-cli | quickshell-docs-markdown | services-auth-gateway | sideloader | snitch | wallpapers)
         printf '%s\n' manual
         ;;
       *) printf '%s\n' nix-update+fallback ;;
@@ -106,6 +106,7 @@ pkgs.writeShellApplication {
       antigravity-manager) printf '%s\n' "RPM-wrapped AppImage with versioned URL" ;;
       aptos-fonts) printf '%s\n' "static font CDN URL" ;;
       iloader) printf '%s\n' "iOS AppImage with manual download" ;;
+      lyricsctl) printf '%s\n' "repo-local Bun script packaged from this flake" ;;
       patchright) printf '%s\n' "NPM CLI must stay in lockstep with patchright-core" ;;
       playwright-cli) printf '%s\n' "NPM package with browser bundles" ;;
       quickshell-docs-markdown) printf '%s\n' "multi-source Rust with pinned deps" ;;
@@ -376,7 +377,7 @@ pkgs.writeShellApplication {
     package_smoke_commands() {
       local pkg="$1" bin="$2"
       case "$pkg" in
-      acp-chat | cliproxyapi | cpa-usage-keeper | dogecoin | limux | niri-screen-time | omniroute | openchamber-web | patchright | playwright-cli | seance | services-auth-gateway | sideloader | snitch | stdio-to-ws | waydroid-script | waydroid-total-spoof)
+      acp-chat | cliproxyapi | cpa-usage-keeper | dogecoin | limux | lyricsctl | niri-screen-time | omniroute | openchamber-web | patchright | playwright-cli | seance | services-auth-gateway | sideloader | snitch | stdio-to-ws | waydroid-script | waydroid-total-spoof)
         printf '%s\t%s\n' "$bin" "--help"
         ;;
       *)
@@ -1366,6 +1367,12 @@ pkgs.writeShellApplication {
         "iloader")
           # Skip: iOS AppImage with manual download (manual update required)
           echo " Skipping iloader (manual update required - iOS AppImage with manual download)"
+          SKIPPED+=("$pkg")
+          ;;
+
+        "lyricsctl")
+          # Skip: repo-local Bun script is updated with the flake source tree.
+          echo " Skipping lyricsctl (manual update required - repo-local Bun script)"
           SKIPPED+=("$pkg")
           ;;
 

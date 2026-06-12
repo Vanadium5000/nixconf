@@ -1,0 +1,13 @@
+{
+  "id": "lyricsWidget",
+  "name": "Lyrics",
+  "description": "Show current synced lyrics in the bar and open player/overlay controls",
+  "version": "0.1.0",
+  "author": "nixconf",
+  "icon": "music_note",
+  "type": "widget",
+  "capabilities": ["dankbar-widget", "command-execution"],
+  "component": "./LyricsWidget.qml",
+  "requires_dms": ">=1.4.0",
+  "permissions": ["process"]
+}

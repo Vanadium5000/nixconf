@@ -38,6 +38,7 @@ PanelWindow {
     property int fontSize: parseInt(Quickshell.env("LYRICS_FONT_SIZE") ?? Theme.fontSizeLarge.toString())
     property string textColor: Quickshell.env("LYRICS_COLOR") ?? Theme.foreground
     property real textOpacity: parseFloat(Quickshell.env("LYRICS_OPACITY") ?? "0.82")
+    property real backgroundOpacity: parseFloat(Quickshell.env("LYRICS_BACKGROUND_OPACITY") ?? "0.12")
     property string fontFamily: Quickshell.env("LYRICS_FONT") ?? Theme.fontName
     property bool showShadow: (Quickshell.env("LYRICS_SHADOW") ?? "true") === "true"
     property int lineSpacing: parseInt(Quickshell.env("LYRICS_SPACING") ?? "4")
@@ -46,8 +47,9 @@ PanelWindow {
     property int cardRadius: 14
     property int cardPadding: 8
     property int railHeight: 24
-    property int controlGap: 6
+    property int controlGap: 3
     property int controlHeight: 18
+    property int controlButtonSize: 18
     property int resizeGripSize: 16
     property int normalDragHandleWidth: 36
     property int normalDragHandleHeight: 10
@@ -69,8 +71,8 @@ PanelWindow {
     property int dragStartHeight: 0
     readonly property int maxCardWidth: Math.max(root.minCardWidth, root.screenWidth() - root.cardInset * 2)
     readonly property int maxCardHeight: Math.max(root.minCardHeight, root.screenHeight() - root.cardInset * 2)
-    readonly property int visibleLineCount: root.clamp(root.numLines, 1, 4)
-    readonly property int availableLyricsHeight: Math.max(1, root.cardHeight - root.cardPadding * 2 - (root.editMode ? root.railHeight + 6 : 0))
+    readonly property int availableLyricsHeight: Math.max(1, root.cardHeight - root.cardPadding * 2)
+    readonly property int visibleLineCount: Math.max(1, Math.min(root.clamp(root.numLines, 1, 4), Math.floor((root.availableLyricsHeight + Math.max(0, root.lineSpacing)) / (10 + Math.max(0, root.lineSpacing)))))
     readonly property real adaptiveLineHeight: Math.max(1, (root.availableLyricsHeight - Math.max(0, root.visibleLineCount - 1) * root.effectiveLineSpacing()) / root.visibleLineCount)
     readonly property int adaptiveCurrentFontSize: root.clamp(Math.round(Math.min(root.fontSize * 0.82, root.adaptiveLineHeight * 0.78, (root.cardWidth - root.cardPadding * 2) / 4.5)), 5, root.fontSize)
     readonly property int adaptiveUpcomingFontSize: root.clamp(Math.round(Math.min(root.fontSize * 0.56, root.adaptiveLineHeight * 0.66, (root.cardWidth - root.cardPadding * 2) / 5.0)), 4, Math.max(4, root.fontSize))
@@ -129,6 +131,24 @@ PanelWindow {
 
     function endResizeDrag() {
         root.resizeDragActive = false
+    }
+
+    function adjustFontSize(delta) {
+        root.fontSize = root.clamp(root.fontSize + delta, 6, 72)
+    }
+
+    function adjustBackgroundOpacity(delta) {
+        root.backgroundOpacity = root.clamp(root.backgroundOpacity + delta, 0.02, 0.72)
+    }
+
+    function handleEditAction(action) {
+        if (action === "done") root.setEditMode(false)
+        else if (action === "play") playerctlProcess.running = true
+        else if (action === "close") Qt.quit()
+        else if (action === "fontDown") root.adjustFontSize(-2)
+        else if (action === "fontUp") root.adjustFontSize(2)
+        else if (action === "bgDown") root.adjustBackgroundOpacity(-0.05)
+        else if (action === "bgUp") root.adjustBackgroundOpacity(0.05)
     }
 
     function screenWidth() {
@@ -240,37 +260,64 @@ PanelWindow {
                 id: cardBackground
                 anchors.fill: parent
                 radius: root.cardRadius
-                color: Theme.rgba(Theme.glass.backgroundColor, root.editMode ? 0.62 : 0.12)
+                color: Theme.rgba(Theme.glass.backgroundColor, root.editMode ? root.clamp(root.backgroundOpacity + 0.18, 0.08, 0.82) : root.backgroundOpacity)
                 border.width: root.editMode ? 1 : 0
                 border.color: Theme.rgba(root.textColor, 0.16)
                 clip: true
             }
 
-            Rectangle {
+            MouseArea {
+                id: editMoveArea
+                z: 2
+                anchors.fill: parent
+                acceptedButtons: Qt.LeftButton
+                cursorShape: Qt.SizeAllCursor
+                preventStealing: true
+                visible: root.editMode
+                enabled: root.editMode
+
+                onPressed: function (mouse) { root.beginMoveDrag(editMoveArea, mouse) }
+                onPositionChanged: function (mouse) { root.updateMoveDrag(editMoveArea, mouse) }
+                onReleased: root.endMoveDrag()
+                onCanceled: root.endMoveDrag()
+            }
+
+            Item {
                 id: editButton
                 z: 20
                 visible: !root.editMode
-                width: 30
-                height: 24
-                radius: 12
+                width: 28
+                height: 28
                 anchors.top: parent.top
-                anchors.topMargin: 5
+                anchors.topMargin: 4
                 anchors.right: parent.right
-                anchors.rightMargin: 8
-                color: Theme.rgba(Theme.foreground, 0.16)
+                anchors.rightMargin: 4
+                opacity: editButtonHover.containsMouse ? 1.0 : 0.0
+
+                Behavior on opacity { NumberAnimation { duration: 120 } }
+
+                Rectangle {
+                    anchors.centerIn: parent
+                    width: 20
+                    height: 20
+                    radius: 10
+                    color: Theme.rgba(Theme.foreground, 0.14)
+                }
 
                 Text {
                     anchors.centerIn: parent
-                    text: "edit"
+                    text: "✎"
                     color: root.textColor
-                    opacity: 0.9
+                    opacity: 0.78
                     font.family: root.fontFamily
-                    font.pixelSize: 10
+                    font.pixelSize: 11
                     font.weight: Font.Medium
                 }
 
                 MouseArea {
+                    id: editButtonHover
                     anchors.fill: parent
+                    hoverEnabled: true
                     acceptedButtons: Qt.LeftButton
                     cursorShape: Qt.PointingHandCursor
                     onClicked: root.setEditMode(true)
@@ -286,14 +333,6 @@ PanelWindow {
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.top: parent.top
                 anchors.topMargin: 8
-
-                Rectangle {
-                    anchors.centerIn: parent
-                    width: 24
-                    height: 3
-                    radius: 2
-                    color: Theme.rgba(root.textColor, 0.22)
-                }
 
                 MouseArea {
                     id: normalDragArea
@@ -313,148 +352,20 @@ PanelWindow {
 
             Item {
                 id: body
+                z: 3
                 anchors {
                     fill: parent
                     margins: root.cardPadding
                 }
                 clip: true
 
-                Item {
-                    id: editHeader
-                    width: parent.width
-                    height: root.editMode ? root.railHeight : 0
-                    visible: root.editMode
-
-                Rectangle {
-                    anchors.fill: parent
-                    radius: 10
-                    color: Theme.rgba(Theme.glass.accentColor, 0.08)
-                }
-
-                Rectangle {
-                    anchors.left: parent.left
-                    anchors.leftMargin: 10
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: 32
-                    height: 4
-                    radius: 2
-                    color: Theme.rgba(root.textColor, 0.24)
-                }
-
-                Text {
-                    anchors.left: parent.left
-                    anchors.leftMargin: 48
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: "edit mode"
-                    color: root.textColor
-                    opacity: 0.78
-                    font.family: root.fontFamily
-                    font.pixelSize: 12
-                    font.weight: Font.Medium
-                }
-
-                Row {
-                    z: 1
-                    anchors.right: parent.right
-                    anchors.rightMargin: 6
-                    anchors.verticalCenter: parent.verticalCenter
-                    spacing: root.controlGap
-
-                    Rectangle {
-                        width: 48
-                        height: root.controlHeight
-                        radius: 10
-                        color: Theme.rgba(Theme.foreground, 0.10)
-
-                        Text {
-                            anchors.centerIn: parent
-                            text: "done"
-                            color: root.textColor
-                            opacity: 0.9
-                            font.family: root.fontFamily
-                            font.pixelSize: 11
-                            font.weight: Font.Medium
-                        }
-
-                        MouseArea {
-                            anchors.fill: parent
-                            acceptedButtons: Qt.LeftButton
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: root.setEditMode(false)
-                        }
-                    }
-
-                    Rectangle {
-                        width: 74
-                        height: root.controlHeight
-                        radius: 10
-                        color: Theme.rgba(Theme.foreground, 0.10)
-
-                        Text {
-                            anchors.centerIn: parent
-                            text: "play/pause"
-                            color: root.textColor
-                            opacity: 0.9
-                            font.family: root.fontFamily
-                            font.pixelSize: 11
-                            font.weight: Font.Medium
-                        }
-
-                        MouseArea {
-                            anchors.fill: parent
-                            acceptedButtons: Qt.LeftButton
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: playerctlProcess.running = true
-                        }
-                    }
-
-                    Rectangle {
-                        width: 48
-                        height: root.controlHeight
-                        radius: 10
-                        color: Theme.rgba(Theme.foreground, 0.10)
-
-                        Text {
-                            anchors.centerIn: parent
-                            text: "close"
-                            color: root.textColor
-                            opacity: 0.9
-                            font.family: root.fontFamily
-                            font.pixelSize: 11
-                            font.weight: Font.Medium
-                        }
-
-                        MouseArea {
-                            anchors.fill: parent
-                            acceptedButtons: Qt.LeftButton
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: Qt.quit()
-                        }
-                    }
-                }
-
-                        MouseArea {
-                            id: editHeaderDragArea
-                            anchors.fill: parent
-                            acceptedButtons: Qt.LeftButton
-                            cursorShape: Qt.SizeAllCursor
-                            preventStealing: true
-                            visible: root.editMode
-                            enabled: root.editMode
-                            z: 0
-
-                            onPressed: function (mouse) { root.beginMoveDrag(editHeaderDragArea, mouse) }
-                            onPositionChanged: function (mouse) { root.updateMoveDrag(editHeaderDragArea, mouse) }
-                            onReleased: root.endMoveDrag()
-                            onCanceled: root.endMoveDrag()
-                        }
-                }
+                Item { id: editHeader; width: parent.width; height: 0; visible: false }
 
                 Column {
                     id: lyricsColumn
                     width: parent.width
                     anchors.top: editHeader.bottom
-                    anchors.topMargin: root.editMode ? 6 : 0
+                    anchors.topMargin: 0
                     spacing: root.effectiveLineSpacing()
 
                 Text {
@@ -519,6 +430,7 @@ PanelWindow {
                 }
                 Item {
                     id: resizeHitArea
+                    z: 50
                     visible: root.editMode
                     width: root.editResizeHitSize
                     height: root.editResizeHitSize
@@ -557,6 +469,58 @@ PanelWindow {
                         onPositionChanged: function (mouse) { root.updateResizeDrag(resizeDragArea, mouse) }
                         onReleased: root.endResizeDrag()
                         onCanceled: root.endResizeDrag()
+                    }
+                }
+            }
+
+            Flow {
+                id: editControls
+                z: 40
+                visible: root.editMode
+                width: Math.max(root.controlButtonSize, parent.width - 8)
+                anchors.top: parent.top
+                anchors.topMargin: 4
+                anchors.left: parent.left
+                anchors.leftMargin: 4
+                spacing: root.controlGap
+
+                Repeater {
+                    model: [
+                        { icon: "✓", action: "done" },
+                        { icon: root.isPlaying ? "⏸" : "▶", action: "play" },
+                        { icon: "−A", action: "fontDown" },
+                        { icon: "+A", action: "fontUp" },
+                        { icon: "−◼", action: "bgDown" },
+                        { icon: "+◼", action: "bgUp" },
+                        { icon: "×", action: "close" }
+                    ]
+
+                    delegate: Rectangle {
+                        required property var modelData
+
+                        width: root.controlButtonSize
+                        height: root.controlButtonSize
+                        radius: Math.round(root.controlButtonSize / 2)
+                        color: editControlMouse.containsMouse ? Theme.rgba(Theme.foreground, 0.24) : Theme.rgba(Theme.foreground, 0.12)
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: parent.modelData.icon
+                            color: root.textColor
+                            opacity: 0.92
+                            font.family: root.fontFamily
+                            font.pixelSize: parent.modelData.icon.length > 1 ? 8 : 12
+                            font.weight: Font.Medium
+                        }
+
+                        MouseArea {
+                            id: editControlMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            acceptedButtons: Qt.LeftButton
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.handleEditAction(parent.modelData.action)
+                        }
                     }
                 }
             }

@@ -286,7 +286,7 @@ bun run typecheck:scripts
 | Area | Contents |
 | --- | --- |
 | 🛡️ VPN proxy | SOCKS5, HTTP CONNECT, resolver, namespace cleanup, web UI, tests |
-| 👤 User tools | passmenu, synced lyrics, music search/local library, pomodoro, checklist, git-sync debug, btrfs backup |
+| 👤 User tools | passmenu, lyricsctl/synced lyrics, music search/local library, pomodoro, checklist, git-sync debug, btrfs backup |
 | 🤖 MCP servers | markdown lint, QML lint, Quickshell docs, image generation helpers |
 
 Packaged outputs do not depend on checkout-local `node_modules`; local installs are for editor tooling and interactive development.

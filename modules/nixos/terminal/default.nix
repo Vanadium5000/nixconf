@@ -30,6 +30,7 @@
           "sora-watermark-cleaner"
           "waydroid-total-spoof"
           "limux"
+          "lyricsctl"
           "seance"
           "omp-desktop"
         ];
