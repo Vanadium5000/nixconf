@@ -31,8 +31,16 @@
         fi
 
         if [ -e "$key" ] && [ "$(${pkgs.coreutils}/bin/stat -c %s "$key")" != 32 ]; then
-          backup="$key.systemd-creds.$(${pkgs.coreutils}/bin/date +%Y%m%d%H%M%S).bak"
-          mv "$key" "$backup"
+          decrypted="$(${pkgs.coreutils}/bin/mktemp "$key.decrypted.XXXXXX")"
+          if ${config.systemd.package}/bin/systemd-creds decrypt "$key" "$decrypted" \
+            && [ "$(${pkgs.coreutils}/bin/stat -c %s "$decrypted")" = 32 ]; then
+            install -m 0600 -o root -g root "$decrypted" "$key"
+            rm -f "$decrypted"
+          else
+            rm -f "$decrypted"
+            backup="$key.systemd-creds.$(${pkgs.coreutils}/bin/date +%Y%m%d%H%M%S).bak"
+            mv "$key" "$backup"
+          fi
         fi
 
         if [ ! -e "$key" ]; then
