@@ -19,6 +19,32 @@
             --replace-fail "lxc.hook.post-stop = /dev/null" ""
         '';
       });
+      libvirtSecretKey = "/var/lib/libvirt/secrets/secrets-encryption-key";
+      libvirtSecretKeyInit = pkgs.writeShellScript "libvirt-secret-key-init" ''
+        set -euo pipefail
+
+        key=${lib.escapeShellArg libvirtSecretKey}
+        install -d -m 0700 -o root -g root "$(dirname "$key")"
+
+        if [ -e "$key" ] && [ ! -s "$key" ]; then
+          rm -f "$key"
+        fi
+
+        if [ -e "$key" ] && [ "$(${pkgs.coreutils}/bin/stat -c %s "$key")" != 32 ]; then
+          backup="$key.systemd-creds.$(${pkgs.coreutils}/bin/date +%Y%m%d%H%M%S).bak"
+          mv "$key" "$backup"
+        fi
+
+        if [ ! -e "$key" ]; then
+          tmp="$(${pkgs.coreutils}/bin/mktemp "$key.XXXXXX")"
+          ${pkgs.coreutils}/bin/dd if=/dev/urandom of="$tmp" bs=32 count=1 status=none
+          install -m 0600 -o root -g root "$tmp" "$key"
+          rm -f "$tmp"
+        else
+          chown root:root "$key"
+          chmod 0600 "$key"
+        fi
+      '';
       waydroidPreStartRepair = pkgs.writeShellScript "waydroid-pre-start-repair" ''
         set -euo pipefail
 
@@ -113,6 +139,27 @@
 
           libvirtd.enable = true;
           oci-containers.backend = "docker";
+        };
+
+        # Libvirt 12.1+ encrypts persistent secrets. Its upstream systemd unit
+        # uses LoadCredentialEncrypted, but impermanent roots lose
+        # /var/lib/systemd/credential.secret and persisted libvirt then fails at
+        # CREDENTIALS before the daemon starts. Keep a raw 32-byte libvirt key
+        # inside persisted /var/lib/libvirt and pass it as a normal credential.
+        # Sources: libvirt secretencryption.html; systemd.exec(5) LoadCredential.
+        system.activationScripts.libvirt-secret-key = {
+          deps = [ "createPersistentStorageDirs" ];
+          text = ''
+            ${libvirtSecretKeyInit}
+          '';
+        };
+        systemd.services.libvirtd.serviceConfig = {
+          LoadCredential = [ "secrets-encryption-key:${libvirtSecretKey}" ];
+          LoadCredentialEncrypted = lib.mkForce [ ];
+        };
+        systemd.services.virtsecretd.serviceConfig = {
+          LoadCredential = [ "secrets-encryption-key:${libvirtSecretKey}" ];
+          LoadCredentialEncrypted = lib.mkForce [ ];
         };
 
         # Use nvidia with Docker - https://discourse.nixos.org/t/nvidia-docker-container-runtime-doesnt-detect-my-gpu/51336

@@ -32,7 +32,8 @@ PanelWindow {
 
     // --- Configuration ---
     // Read from environment variables with sensible defaults.
-    property int numLines: parseInt(Quickshell.env("LYRICS_LINES") ?? "2")
+    readonly property int defaultNumLines: parseInt(Quickshell.env("LYRICS_LINES") ?? "0")
+    property int numLines: root.clamp(root.defaultNumLines, 0, 4)
     property string positionMode: Quickshell.env("LYRICS_POSITION") ?? "bottom"
     property bool editMode: false
     readonly property int defaultFontSize: parseInt(Quickshell.env("LYRICS_FONT_SIZE") ?? Theme.fontSizeLarge.toString())
@@ -52,7 +53,7 @@ PanelWindow {
     property int controlGap: 4
     property int controlButtonSize: 24
     readonly property int controlPanelPadding: 6
-    readonly property int controlPanelWidth: 214
+    readonly property int controlPanelWidth: 264
     readonly property int controlPanelHeight: root.controlButtonSize + root.controlPanelPadding * 2
     readonly property int controlPanelX: root.clamp(root.cardX + Math.round((root.cardWidth - root.controlPanelWidth) / 2), 4, Math.max(4, root.screenWidth() - root.controlPanelWidth - 4))
     readonly property int controlPanelY: root.cardY >= root.controlPanelHeight + 8 ? root.cardY - root.controlPanelHeight - 6 : root.clamp(root.cardY + root.cardHeight + 6, 4, Math.max(4, root.screenHeight() - root.controlPanelHeight - 4))
@@ -82,7 +83,7 @@ PanelWindow {
     readonly property int maxCardWidth: Math.max(root.minCardWidth, root.screenWidth() - root.cardInset * 2)
     readonly property int maxCardHeight: Math.max(root.minCardHeight, root.screenHeight() - root.cardInset * 2)
     readonly property int availableLyricsHeight: Math.max(1, root.cardHeight - root.cardPadding * 2)
-    readonly property int requestedLineCount: root.clamp(root.numLines, 1, 4)
+    readonly property int requestedLineCount: root.numLines === 0 ? 4 : root.clamp(root.numLines, 1, 4)
     readonly property int visibleLineCount: root.maxVisibleLinesForHeight()
     readonly property real adaptiveLineHeight: Math.max(1, (root.availableLyricsHeight - Math.max(0, root.visibleLineCount - 1) * root.effectiveLineSpacing()) / root.visibleLineCount)
     readonly property int adaptiveCurrentFontSize: root.clamp(Math.round(Math.min(root.fontSize * 0.82, root.adaptiveLineHeight * 0.78, (root.cardWidth - root.cardPadding * 2) / 4.5)), 5, root.fontSize)
@@ -156,6 +157,11 @@ PanelWindow {
         root.showValueOsd("Background " + Math.round(root.backgroundOpacity * 100) + "%" + (Math.abs(root.backgroundOpacity - root.defaultBackgroundOpacity) < 0.005 ? " (Default)" : ""))
     }
 
+    function adjustLineCount(delta) {
+        root.numLines = root.clamp(root.numLines + delta, 0, 4)
+        root.showValueOsd(root.numLines === 0 ? "Lines Auto (Default)" : "Lines " + root.numLines)
+    }
+
     function showValueOsd(text) {
         root.osdText = text
         root.osdVisible = true
@@ -170,6 +176,8 @@ PanelWindow {
         else if (action === "fontUp") root.adjustFontSize(2)
         else if (action === "bgDown") root.adjustBackgroundOpacity(-0.05)
         else if (action === "bgUp") root.adjustBackgroundOpacity(0.05)
+        else if (action === "linesDown") root.adjustLineCount(-1)
+        else if (action === "linesUp") root.adjustLineCount(1)
     }
 
     function screenWidth() {
@@ -551,6 +559,8 @@ PanelWindow {
                         { icon: root.isPlaying ? "⏸" : "▶", action: "play" },
                         { icon: "−A", action: "fontDown" },
                         { icon: "+A", action: "fontUp" },
+                        { icon: "−L", action: "linesDown" },
+                        { icon: "+L", action: "linesUp" },
                         { icon: "−◼", action: "bgDown" },
                         { icon: "+◼", action: "bgUp" },
                         { icon: "×", action: "close" }
