@@ -35,10 +35,12 @@ PanelWindow {
     property int numLines: parseInt(Quickshell.env("LYRICS_LINES") ?? "2")
     property string positionMode: Quickshell.env("LYRICS_POSITION") ?? "bottom"
     property bool editMode: false
-    property int fontSize: parseInt(Quickshell.env("LYRICS_FONT_SIZE") ?? Theme.fontSizeLarge.toString())
+    readonly property int defaultFontSize: parseInt(Quickshell.env("LYRICS_FONT_SIZE") ?? Theme.fontSizeLarge.toString())
+    readonly property real defaultBackgroundOpacity: parseFloat(Quickshell.env("LYRICS_BACKGROUND_OPACITY") ?? "0.12")
+    property int fontSize: root.defaultFontSize
     property string textColor: Quickshell.env("LYRICS_COLOR") ?? Theme.foreground
     property real textOpacity: parseFloat(Quickshell.env("LYRICS_OPACITY") ?? "0.82")
-    property real backgroundOpacity: parseFloat(Quickshell.env("LYRICS_BACKGROUND_OPACITY") ?? "0.12")
+    property real backgroundOpacity: root.defaultBackgroundOpacity
     property string fontFamily: Quickshell.env("LYRICS_FONT") ?? Theme.fontName
     property bool showShadow: (Quickshell.env("LYRICS_SHADOW") ?? "true") === "true"
     property int lineSpacing: parseInt(Quickshell.env("LYRICS_SPACING") ?? "4")
@@ -47,9 +49,17 @@ PanelWindow {
     property int cardRadius: 14
     property int cardPadding: 8
     property int railHeight: 24
-    property int controlGap: 3
-    property int controlHeight: 18
-    property int controlButtonSize: 18
+    property int controlGap: 4
+    property int controlButtonSize: 24
+    readonly property int controlPanelPadding: 6
+    readonly property int controlPanelWidth: 214
+    readonly property int controlPanelHeight: root.controlButtonSize + root.controlPanelPadding * 2
+    readonly property int controlPanelX: root.clamp(root.cardX + Math.round((root.cardWidth - root.controlPanelWidth) / 2), 4, Math.max(4, root.screenWidth() - root.controlPanelWidth - 4))
+    readonly property int controlPanelY: root.cardY >= root.controlPanelHeight + 8 ? root.cardY - root.controlPanelHeight - 6 : root.clamp(root.cardY + root.cardHeight + 6, 4, Math.max(4, root.screenHeight() - root.controlPanelHeight - 4))
+    readonly property int osdWidth: 190
+    readonly property int osdHeight: 32
+    readonly property int osdX: root.clamp(root.cardX + Math.round((root.cardWidth - root.osdWidth) / 2), 4, Math.max(4, root.screenWidth() - root.osdWidth - 4))
+    readonly property int osdY: root.controlPanelY >= root.osdHeight + 8 ? root.controlPanelY - root.osdHeight - 6 : root.clamp(root.controlPanelY + root.controlPanelHeight + 6, 4, Math.max(4, root.screenHeight() - root.osdHeight - 4))
     property int resizeGripSize: 16
     property int normalDragHandleWidth: 36
     property int normalDragHandleHeight: 10
@@ -72,7 +82,8 @@ PanelWindow {
     readonly property int maxCardWidth: Math.max(root.minCardWidth, root.screenWidth() - root.cardInset * 2)
     readonly property int maxCardHeight: Math.max(root.minCardHeight, root.screenHeight() - root.cardInset * 2)
     readonly property int availableLyricsHeight: Math.max(1, root.cardHeight - root.cardPadding * 2)
-    readonly property int visibleLineCount: Math.max(1, Math.min(root.clamp(root.numLines, 1, 4), Math.floor((root.availableLyricsHeight + Math.max(0, root.lineSpacing)) / (10 + Math.max(0, root.lineSpacing)))))
+    readonly property int requestedLineCount: root.clamp(root.numLines, 1, 4)
+    readonly property int visibleLineCount: root.maxVisibleLinesForHeight()
     readonly property real adaptiveLineHeight: Math.max(1, (root.availableLyricsHeight - Math.max(0, root.visibleLineCount - 1) * root.effectiveLineSpacing()) / root.visibleLineCount)
     readonly property int adaptiveCurrentFontSize: root.clamp(Math.round(Math.min(root.fontSize * 0.82, root.adaptiveLineHeight * 0.78, (root.cardWidth - root.cardPadding * 2) / 4.5)), 5, root.fontSize)
     readonly property int adaptiveUpcomingFontSize: root.clamp(Math.round(Math.min(root.fontSize * 0.56, root.adaptiveLineHeight * 0.66, (root.cardWidth - root.cardPadding * 2) / 5.0)), 4, Math.max(4, root.fontSize))
@@ -82,6 +93,8 @@ PanelWindow {
     property var upcomingLines: []
     property string trackInfo: ""
     property bool isPlaying: false
+    property string osdText: ""
+    property bool osdVisible: false
 
     function clamp(value, minValue, maxValue) {
         return Math.max(minValue, Math.min(maxValue, value))
@@ -135,10 +148,18 @@ PanelWindow {
 
     function adjustFontSize(delta) {
         root.fontSize = root.clamp(root.fontSize + delta, 6, 72)
+        root.showValueOsd("Font " + root.fontSize + "px" + (root.fontSize === root.defaultFontSize ? " (Default)" : ""))
     }
 
     function adjustBackgroundOpacity(delta) {
         root.backgroundOpacity = root.clamp(root.backgroundOpacity + delta, 0.02, 0.72)
+        root.showValueOsd("Background " + Math.round(root.backgroundOpacity * 100) + "%" + (Math.abs(root.backgroundOpacity - root.defaultBackgroundOpacity) < 0.005 ? " (Default)" : ""))
+    }
+
+    function showValueOsd(text) {
+        root.osdText = text
+        root.osdVisible = true
+        osdTimer.restart()
     }
 
     function handleEditAction(action) {
@@ -169,6 +190,28 @@ PanelWindow {
 
     function effectiveLineSpacing() {
         return root.clamp(root.lineSpacing, 0, Math.max(0, Math.round(root.cardHeight / 16)))
+    }
+
+    function desiredLineHeight(index) {
+        var size = index === 0 ? root.fontSize * 0.82 : root.fontSize * 0.56
+        return Math.max(6, Math.ceil(size * 1.18))
+    }
+
+    function maxVisibleLinesForHeight() {
+        var used = 0
+        var spacing = root.effectiveLineSpacing()
+        var fit = 1
+
+        for (var i = 0; i < root.requestedLineCount; i++) {
+            var next = used + (i > 0 ? spacing : 0) + root.desiredLineHeight(i)
+            if (i > 0 && next > root.availableLyricsHeight) {
+                break
+            }
+            used = next
+            fit = i + 1
+        }
+
+        return Math.max(1, fit)
     }
 
     function defaultCardWidth() {
@@ -237,6 +280,14 @@ PanelWindow {
 
         Region {
             item: (root.editMode || root.moveDragActive || root.resizeDragActive) ? null : editButton
+        }
+
+        Region {
+            item: root.editMode ? editControlPanel : null
+        }
+
+        Region {
+            item: root.osdVisible ? valueOsd : null
         }
     }
 
@@ -380,8 +431,9 @@ PanelWindow {
                     font.weight: Font.Medium
                     style: root.showShadow ? Text.Outline : Text.Normal
                     styleColor: "#80000000"
-                    wrapMode: Text.WordWrap
-                    elide: Text.ElideNone
+                    maximumLineCount: 1
+                    wrapMode: Text.NoWrap
+                    elide: Text.ElideRight
 
                     Behavior on text {
                         SequentialAnimation {
@@ -422,8 +474,9 @@ PanelWindow {
                         font.weight: Font.Normal
                         style: root.showShadow ? Text.Outline : Text.Normal
                         styleColor: "#60000000"
-                        wrapMode: Text.WordWrap
-                        elide: Text.ElideNone
+                        maximumLineCount: 1
+                        wrapMode: Text.NoWrap
+                        elide: Text.ElideRight
                     }
                 }
 
@@ -473,15 +526,23 @@ PanelWindow {
                 }
             }
 
-            Flow {
-                id: editControls
-                z: 40
-                visible: root.editMode
-                width: Math.max(root.controlButtonSize, parent.width - 8)
-                anchors.top: parent.top
-                anchors.topMargin: 4
-                anchors.left: parent.left
-                anchors.leftMargin: 4
+        }
+
+        Rectangle {
+            id: editControlPanel
+            z: 60
+            visible: root.editMode
+            x: root.controlPanelX
+            y: root.controlPanelY
+            width: root.controlPanelWidth
+            height: root.controlPanelHeight
+            radius: Math.round(height / 2)
+            color: Theme.rgba(Theme.glass.backgroundColor, 0.36)
+            border.width: 1
+            border.color: Theme.rgba(root.textColor, 0.12)
+
+            Row {
+                anchors.centerIn: parent
                 spacing: root.controlGap
 
                 Repeater {
@@ -501,7 +562,7 @@ PanelWindow {
                         width: root.controlButtonSize
                         height: root.controlButtonSize
                         radius: Math.round(root.controlButtonSize / 2)
-                        color: editControlMouse.containsMouse ? Theme.rgba(Theme.foreground, 0.24) : Theme.rgba(Theme.foreground, 0.12)
+                        color: editControlMouse.containsMouse ? Theme.rgba(Theme.foreground, 0.24) : Theme.rgba(Theme.foreground, 0.10)
 
                         Text {
                             anchors.centerIn: parent
@@ -509,7 +570,7 @@ PanelWindow {
                             color: root.textColor
                             opacity: 0.92
                             font.family: root.fontFamily
-                            font.pixelSize: parent.modelData.icon.length > 1 ? 8 : 12
+                            font.pixelSize: parent.modelData.icon.length > 1 ? 9 : 13
                             font.weight: Font.Medium
                         }
 
@@ -525,6 +586,38 @@ PanelWindow {
                 }
             }
         }
+
+        Rectangle {
+            id: valueOsd
+            z: 70
+            visible: root.osdVisible
+            x: root.osdX
+            y: root.osdY
+            width: root.osdWidth
+            height: root.osdHeight
+            radius: Math.round(height / 2)
+            color: Theme.rgba(Theme.glass.backgroundColor, 0.46)
+            border.width: 1
+            border.color: Theme.rgba(root.textColor, 0.12)
+            opacity: root.osdVisible ? 1 : 0
+
+            Text {
+                anchors.centerIn: parent
+                text: root.osdText
+                color: root.textColor
+                opacity: 0.95
+                font.family: root.fontFamily
+                font.pixelSize: 11
+                font.weight: Font.Medium
+            }
+        }
+    }
+
+    Timer {
+        id: osdTimer
+        interval: 1200
+        repeat: false
+        onTriggered: root.osdVisible = false
     }
 
     Process {

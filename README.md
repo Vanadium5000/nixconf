@@ -211,6 +211,7 @@ Rules:
 - Critical state goes to persistent directories.
 - Regenerable data belongs in cache paths.
 - Service modules should own their state paths instead of relying on mutable host setup.
+- Terminal/desktop apps split mutable XDG state explicitly: `gh` auth and Orca/Limux workspace state are persisted; OpenCode, Orca, Limux, and GitHub CLI caches stay cache-tier.
 
 ---
 

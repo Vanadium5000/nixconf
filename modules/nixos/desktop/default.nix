@@ -261,24 +261,74 @@
         impermanence.home.directories = [
           ".config/akonadi"
           ".config/BraveSoftware/Brave-Origin-Nightly"
+          ".config/limux"
+          ".config/orca/Local Storage"
+          ".config/orca/Partitions"
+          ".config/orca/Shared Dictionary"
+          ".config/orca/blob_storage"
+          ".config/orca/codex-runtime-home"
+          ".config/orca/floating-workspace"
+          ".config/orca/omp-agent-overlays"
+          ".config/orca/opencode-hooks"
+          ".config/orca/pi-agent-overlays"
+          ".config/orca/speech-models"
+          ".config/orca/terminal-history"
           ".local/share/akonadi"
           ".local/share/contacts"
           ".local/share/emailidentities"
           ".local/share/kmail2"
+          ".local/share/limux"
           ".local/share/local-mail"
           ".local/share/mail"
+          ".local/state/limux"
         ];
         impermanence.home.cache.directories = [
           ".cache/akonadi"
           ".cache/BraveSoftware/Brave-Origin-Nightly"
+          ".cache/dev.limux.linux"
+          ".cache/limux"
+          ".cache/orca"
+          ".config/orca/Cache"
+          ".config/orca/Code Cache"
+          ".config/orca/Crashpad"
+          ".config/orca/DawnGraphiteCache"
+          ".config/orca/DawnWebGPUCache"
+          ".config/orca/Dictionaries"
+          ".config/orca/GPUCache"
+          ".config/orca/logs"
         ];
         impermanence.home.files = [
+          ".config/orca/.updaterId"
+          ".config/orca/Cookies"
+          ".config/orca/Cookies-journal"
+          ".config/orca/DIPS"
+          ".config/orca/DIPS-wal"
+          ".config/orca/Local State"
+          ".config/orca/Network Persistent State"
+          ".config/orca/Preferences"
+          ".config/orca/SharedStorage"
+          ".config/orca/SharedStorage-wal"
+          ".config/orca/TransportSecurity"
+          ".config/orca/Trust Tokens"
+          ".config/orca/Trust Tokens-journal"
+          ".config/orca/orca-data.json"
+          ".config/orca/orca-data.json.bak.0"
+          ".config/orca/orca-data.json.bak.1"
+          ".config/orca/orca-e2ee-keypair.json"
+          ".config/orca/orca-runtime.json"
+          ".config/orca/orchestration.db"
+          ".config/orca/orchestration.db-shm"
+          ".config/orca/orchestration.db-wal"
           ".config/emaildefaults"
           ".config/emailidentities"
           ".config/kmail2rc"
           ".config/mailtransports"
         ];
 
+        # Orca stores Electron profile/auth plus workspace/session state under
+        # XDG config, while Chromium render caches beside it are regenerable;
+        # Limux uses XDG config/data/state for settings, layouts, and hooks.
+        # Sources: local ~/.config/orca layout; Limux layout_state.rs and shortcut_config.rs.
         # XDG Integration
         # Enable the NixOS XDG generators so non-Plasma sessions still expose
         # desktop files, icons, autostart entries, and terminal handlers.

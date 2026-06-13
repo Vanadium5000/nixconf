@@ -111,6 +111,18 @@
         # Source: local state layout observed at ~/.omp/agent/{config.yml,models.yml}.
         programs.omp.enable = lib.mkDefault true;
 
+        # CLI auth/state belongs in normal persistence; high-churn API and tool
+        # caches stay in the cache tier. Sources: GitHub CLI stores XDG
+        # config/cache under gh, OpenCode wrapper uses ~/.local/cache/opencode.
+        impermanence.home.directories = [
+          ".config/gh"
+        ];
+        impermanence.home.cache.directories = [
+          ".cache/gh"
+          ".cache/opencode"
+          ".local/cache/opencode"
+        ];
+
         # Git-sync, a utility to sync folders via git
         services.git-sync.enable = true;
 

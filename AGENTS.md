@@ -49,7 +49,7 @@ graphical hosts: modules/hosts/{legion5i,macbook}/
 ├─ Hyprland: modules/nixos/desktop/hyprland/ plus modules/user/hyprland.nix
 └─ local VPN proxy enabled for desktop routing/testing
 
-persistence helpers: modules/lib/_internal/persistence.nix; NixOS module modules/common/impermanence.nix
+persistence helpers: modules/lib/_internal/persistence.nix; NixOS module modules/common/impermanence.nix; app state split across home persistence/cache for Orca, Limux, gh, OpenCode, OMP
 monitoring dashboards: modules/nixos/terminal/monitoring/
 ```
 

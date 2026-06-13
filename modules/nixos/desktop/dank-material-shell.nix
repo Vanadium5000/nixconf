@@ -278,6 +278,43 @@
               install_plugin_file "${voxtypeWidgetPluginDir}" ${voxtypeWidgetPluginQmlFile} VoxtypeWidget.qml
               install_plugin_file "${lyricsWidgetPluginDir}" ${./dank-material-shell/lyrics-widget/plugin.json} plugin.json
               install_plugin_file "${lyricsWidgetPluginDir}" ${lyricsWidgetPluginQmlFile} LyricsWidget.qml
+
+              PLUGIN_SETTINGS="${homeDirectory}/.config/DankMaterialShell/plugin_settings.json"
+              if [ -s "$PLUGIN_SETTINGS" ]; then
+                ${pkgs.jq}/bin/jq '.lyricsWidget = ((.lyricsWidget // {}) + { enabled: true })' \
+                  "$PLUGIN_SETTINGS" > "$PLUGIN_SETTINGS.tmp"
+              else
+                ${pkgs.jq}/bin/jq -n '{ lyricsWidget: { enabled: true } }' > "$PLUGIN_SETTINGS.tmp"
+              fi
+              install -m 0644 "$PLUGIN_SETTINGS.tmp" "$PLUGIN_SETTINGS"
+              rm -f "$PLUGIN_SETTINGS.tmp"
+              chown ${user}:users "$PLUGIN_SETTINGS"
+
+              SETTINGS="${homeDirectory}/.config/DankMaterialShell/settings.json"
+              if [ -s "$SETTINGS" ]; then
+                ${pkgs.jq}/bin/jq '
+                  .barConfigs = ((.barConfigs // []) | map(
+                    if .id == "default" then
+                      .rightWidgets = ((.rightWidgets // []) as $widgets |
+                        if any($widgets[]?; .id == "lyricsWidget") then
+                          $widgets
+                        elif any($widgets[]?; .id == "voxtypeWidget") then
+                          reduce $widgets[] as $widget ([];
+                            . + [$widget] + (if $widget.id == "voxtypeWidget" then [{ id: "lyricsWidget", enabled: true }] else [] end)
+                          )
+                        else
+                          [{ id: "lyricsWidget", enabled: true }] + $widgets
+                        end
+                      )
+                    else
+                      .
+                    end
+                  ))
+                ' "$SETTINGS" > "$SETTINGS.tmp"
+                install -m 0644 "$SETTINGS.tmp" "$SETTINGS"
+                rm -f "$SETTINGS.tmp"
+                chown ${user}:users "$SETTINGS"
+              fi
             '';
           deps = [ "users" ];
         };
