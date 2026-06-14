@@ -7,8 +7,10 @@ import { tmpdir } from "node:os";
 
 // --- Configuration ---
 const CACHE_DIR = join(tmpdir(), "synced-lyrics-cache");
+const CACHE_VERSION = 2;
 const DEFAULT_PLAYER = "mpd,%any";
 const LRCLIB_API = "https://lrclib.net/api";
+const LRCCX_API = "https://api.lrc.cx/lyrics";
 const USER_AGENT = "lyricsctl/1.0";
 
 // --- Types ---
@@ -20,6 +22,7 @@ interface TrackMetadata {
   position: number; // in seconds
   status: "Playing" | "Paused" | "Stopped";
   player: string;
+  capturedAtMs: number;
 }
 
 interface LyricLine {
@@ -27,10 +30,16 @@ interface LyricLine {
   text: string;
 }
 
+interface TimedLyricLine extends LyricLine {
+  current: boolean;
+}
+
 interface LyricsData {
   synced: boolean;
   lines: LyricLine[];
   plainText?: string;
+  source?: string;
+  cacheVersion?: number;
 }
 
 interface LyricsWidgetOutput {
@@ -49,12 +58,23 @@ interface LyricsWidgetOutput {
   current: string;
   upcoming: string[];
   lines: string[];
+  timedLines: TimedLyricLine[];
+  currentIndex: number;
+  nextLineTime: number | null;
+  nextChangeInMs: number;
+  generatedAtMs: number;
+  source: string;
 }
 
 // --- CLI Parsing ---
 interface CliOptions {
-  command: "watch" | "current" | "status" | "show" | "hide" | "toggle" | "control" | "tui";
+  command: "watch" | "current" | "status" | "lookup" | "show" | "hide" | "toggle" | "control" | "seek" | "tui";
   controlAction: "play-pause" | "play" | "pause" | "next" | "previous" | "stop";
+  seekPosition: number;
+  lookupTitle: string;
+  lookupArtist: string;
+  lookupAlbum: string;
+  lookupDuration: number;
   json: boolean;
   progress: boolean;
   lines: number;
@@ -75,6 +95,11 @@ function parseArgs(): CliOptions {
   const options: CliOptions = {
     command: "watch",
     controlAction: "play-pause",
+    seekPosition: 0,
+    lookupTitle: "",
+    lookupArtist: "",
+    lookupAlbum: "",
+    lookupDuration: 0,
     json: false,
     progress: false,
     lines: 3,
@@ -95,10 +120,12 @@ function parseArgs(): CliOptions {
 
     // Commands and command arguments.
     if (!arg?.startsWith("-")) {
-      if (["watch", "current", "status", "show", "hide", "toggle", "control", "tui"].includes(arg!)) {
+      if (["watch", "current", "status", "lookup", "show", "hide", "toggle", "control", "seek", "tui"].includes(arg!)) {
         options.command = arg as CliOptions["command"];
       } else if (options.command === "control" && ["play-pause", "play", "pause", "next", "previous", "stop"].includes(arg!)) {
         options.controlAction = arg as CliOptions["controlAction"];
+      } else if (options.command === "seek") {
+        options.seekPosition = Math.max(0, parseFloat(arg!) || 0);
       }
       i++;
       continue;
@@ -151,6 +178,22 @@ function parseArgs(): CliOptions {
         i++;
         options.player = args[i] || DEFAULT_PLAYER;
         break;
+      case "--title":
+        i++;
+        options.lookupTitle = args[i] || "";
+        break;
+      case "--artist":
+        i++;
+        options.lookupArtist = args[i] || "";
+        break;
+      case "--album":
+        i++;
+        options.lookupAlbum = args[i] || "";
+        break;
+      case "--duration":
+        i++;
+        options.lookupDuration = Math.max(0, parseFloat(args[i] || "0") || 0);
+        break;
       case "--quiet":
       case "-q":
         options.quiet = true;
@@ -164,7 +207,9 @@ Commands:
   watch           Continuous output for shell widgets (default)
   current         Print current lyric line once
   status          Print one JSON status object with metadata and lyrics context
+  lookup          Fetch lyrics for --title/--artist/--duration without a player
   control ACTION  Run player control: play-pause, play, pause, next, previous, stop
+  seek SECONDS    Seek current player to absolute song position
   tui             Terminal lyrics view with keyboard controls
   show            Show lyrics overlay
   hide            Hide lyrics overlay  
@@ -176,6 +221,10 @@ Options:
   --lines N, -l N Number of lines to display (default: 3)
   --length N      Max line length before truncation (default: 0, disabled)
   --player NAME   Player to use (default: mpd,%any)
+  --title TEXT    Lookup title for the lookup command
+  --artist TEXT   Lookup artist for the lookup command
+  --album TEXT    Lookup album for the lookup command
+  --duration N    Lookup duration in seconds
   --quiet, -q     Suppress errors
   
 Overlay Options:
@@ -215,12 +264,19 @@ function stoppedOutput(tooltip: string): LyricsWidgetOutput {
     current: "",
     upcoming: [],
     lines: [],
+    timedLines: [],
+    currentIndex: -1,
+    nextLineTime: null,
+    nextChangeInMs: 1000,
+    generatedAtMs: Date.now(),
+    source: "",
   };
 }
 
 // --- Playerctl Integration ---
 async function getMetadata(player: string): Promise<TrackMetadata | null> {
   try {
+    const startedAtMs = Date.now();
     // Use separate calls to avoid format string escaping issues
     const [title, artist, album, length, position, status, playerName] =
       await Promise.all([
@@ -248,10 +304,11 @@ async function getMetadata(player: string): Promise<TrackMetadata | null> {
       title: titleTrimmed,
       artist: artist.trim(),
       album: album.trim(),
-      duration: Math.round(lengthUs / 1_000_000),
-      position: Math.round(positionSec),
+      duration: lengthUs / 1_000_000,
+      position: positionSec,
       status: (status.trim() as TrackMetadata["status"]) || "Stopped",
       player: playerName.trim(),
+      capturedAtMs: Math.round((startedAtMs + Date.now()) / 2),
     };
   } catch {
     return null;
@@ -292,6 +349,27 @@ function normalizeArtist(artist: string): string {
   return artist.split(/[,&]/)[0]!.replace(/\s+/g, " ").trim();
 }
 
+function lyricTextToSyncedData(text: string | null | undefined): LyricsData | null {
+  if (!text) return null;
+  const lines = parseLrc(text);
+  return lines.length > 0 ? { synced: true, lines } : null;
+}
+
+function lyricTextToPlainData(text: string | null | undefined): LyricsData | null {
+  return text ? { synced: false, lines: [], plainText: text } : null;
+}
+
+function normalizedKey(value: string): string {
+  return normalizeTitle(value).toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function scoreLrclibResult(result: any, title: string, artist: string, duration: number): number {
+  const titleScore = normalizedKey(result.trackName || result.name || "") === normalizedKey(title) ? 0 : 20;
+  const artistScore = normalizedKey(result.artistName || "") === normalizedKey(artist) ? 0 : 20;
+  const durationScore = Number.isFinite(Number(result.duration)) ? Math.min(60, Math.abs(Number(result.duration) - duration)) : 30;
+  return titleScore + artistScore + durationScore;
+}
+
 // --- LRCLIB API ---
 async function fetchFromLrclib(
   title: string,
@@ -300,67 +378,39 @@ async function fetchFromLrclib(
   duration: number,
 ): Promise<LyricsData | null> {
   const headers = { "User-Agent": USER_AGENT };
+  let bestPlain: LyricsData | null = null;
 
-  // Try exact match first
-  try {
+  async function getByParams(trackName: string, artistName: string, albumName?: string): Promise<LyricsData | null> {
     const params = new URLSearchParams({
-      track_name: title,
-      artist_name: artist,
+      track_name: trackName,
+      artist_name: artistName,
       duration: duration.toString(),
     });
-    if (album) params.set("album_name", album);
+    if (albumName) params.set("album_name", albumName);
 
-    const response = await fetch(`${LRCLIB_API}/get?${params}`, { headers });
-
-    if (response.ok) {
+    try {
+      const response = await fetch(`${LRCLIB_API}/get?${params}`, { headers });
+      if (!response.ok) return null;
       const data = (await response.json()) as any;
-      if (data.syncedLyrics) {
-        return {
-          synced: true,
-          lines: parseLrc(data.syncedLyrics),
-        };
-      }
-      if (data.plainLyrics) {
-        return {
-          synced: false,
-          lines: [],
-          plainText: data.plainLyrics,
-        };
-      }
-    }
-  } catch {}
+      const synced = lyricTextToSyncedData(data.syncedLyrics);
+      if (synced) return { ...synced, source: "lrclib/get", cacheVersion: CACHE_VERSION };
+      const plain = lyricTextToPlainData(data.plainLyrics);
+      if (plain && !bestPlain) bestPlain = { ...plain, source: "lrclib/get", cacheVersion: CACHE_VERSION };
+    } catch {}
+    return null;
+  }
+
+  // Try exact match first
+  const exact = await getByParams(title, artist, album);
+  if (exact) return exact;
 
   // Try normalized title
   const normTitle = normalizeTitle(title);
   const normArtist = normalizeArtist(artist);
 
   if (normTitle !== title || normArtist !== artist) {
-    try {
-      const params = new URLSearchParams({
-        track_name: normTitle,
-        artist_name: normArtist,
-        duration: duration.toString(),
-      });
-
-      const response = await fetch(`${LRCLIB_API}/get?${params}`, { headers });
-
-      if (response.ok) {
-        const data = (await response.json()) as any;
-        if (data.syncedLyrics) {
-          return {
-            synced: true,
-            lines: parseLrc(data.syncedLyrics),
-          };
-        }
-        if (data.plainLyrics) {
-          return {
-            synced: false,
-            lines: [],
-            plainText: data.plainLyrics,
-          };
-        }
-      }
-    } catch {}
+    const normalized = await getByParams(normTitle, normArtist);
+    if (normalized) return normalized;
   }
 
   // Try parsing "Artist - Title" from title (common in some files)
@@ -371,34 +421,8 @@ async function fetchFromLrclib(
       const extractedTitle = parts.slice(1).join(" - ").trim();
       const normExtTitle = normalizeTitle(extractedTitle);
 
-      try {
-        const params = new URLSearchParams({
-          track_name: normExtTitle,
-          artist_name: extractedArtist,
-          duration: duration.toString(),
-        });
-
-        const response = await fetch(`${LRCLIB_API}/get?${params}`, {
-          headers,
-        });
-
-        if (response.ok) {
-          const data = (await response.json()) as any;
-          if (data.syncedLyrics) {
-            return {
-              synced: true,
-              lines: parseLrc(data.syncedLyrics),
-            };
-          }
-          if (data.plainLyrics) {
-            return {
-              synced: false,
-              lines: [],
-              plainText: data.plainLyrics,
-            };
-          }
-        }
-      } catch {}
+      const extracted = await getByParams(normExtTitle, extractedArtist);
+      if (extracted) return extracted;
     }
   }
 
@@ -413,43 +437,77 @@ async function fetchFromLrclib(
     if (response.ok) {
       const results = (await response.json()) as any[];
 
-      // Find best match by duration (within 5 seconds)
-      const match =
-        results.find((r) => Math.abs(r.duration - duration) <= 5) || results[0];
+      const sorted = results
+        .filter((r) => normalizedKey(r.trackName || r.name || "").includes(normalizedKey(normTitle)) || normalizedKey(normTitle).includes(normalizedKey(r.trackName || r.name || "")))
+        .sort((a, b) => scoreLrclibResult(a, title, artist, duration) - scoreLrclibResult(b, title, artist, duration));
 
-      if (match?.syncedLyrics) {
-        return {
-          synced: true,
-          lines: parseLrc(match.syncedLyrics),
-        };
-      }
-      if (match?.plainLyrics) {
-        return {
-          synced: false,
-          lines: [],
-          plainText: match.plainLyrics,
-        };
+      for (const match of sorted.length > 0 ? sorted : results) {
+        const synced = lyricTextToSyncedData(match?.syncedLyrics);
+        if (synced) return { ...synced, source: "lrclib/search", cacheVersion: CACHE_VERSION };
+        const plain = lyricTextToPlainData(match?.plainLyrics);
+        if (plain && !bestPlain) bestPlain = { ...plain, source: "lrclib/search", cacheVersion: CACHE_VERSION };
       }
     }
   } catch {}
 
+  return bestPlain;
+}
+
+async function fetchFromLrcCx(title: string, artist: string): Promise<LyricsData | null> {
+  const attempts = [
+    { title, artist },
+    { title: normalizeTitle(title), artist: normalizeArtist(artist) },
+  ];
+
+  for (const attempt of attempts) {
+    try {
+      const params = new URLSearchParams({
+        title: attempt.title,
+        artist: attempt.artist,
+      });
+      const response = await fetch(`${LRCCX_API}?${params}`, {
+        headers: { "User-Agent": USER_AGENT },
+      });
+      if (!response.ok) continue;
+      const text = await response.text();
+      const synced = lyricTextToSyncedData(text);
+      if (synced) return { ...synced, source: "lrc.cx", cacheVersion: CACHE_VERSION };
+    } catch {}
+  }
+
   return null;
+}
+
+async function fetchLyricsFromSources(
+  title: string,
+  artist: string,
+  album: string,
+  duration: number,
+): Promise<LyricsData | null> {
+  const lrclib = await fetchFromLrclib(title, artist, album, duration);
+  if (lrclib?.synced) return lrclib;
+
+  const lrcCx = await fetchFromLrcCx(title, artist);
+  if (lrcCx?.synced) return lrcCx;
+
+  return lrclib;
 }
 
 // --- LRC Parsing ---
 function parseLrc(lrcText: string): LyricLine[] {
   const lines: LyricLine[] = [];
-  const lineRegex = /\[(\d{2}):(\d{2})\.(\d{2,3})\]\s*(.*)/;
+  const lineRegex = /\[(\d{1,2}):(\d{2})[.:](\d{2,3})\]\s*/g;
 
   for (const line of lrcText.split("\n")) {
-    const match = line.match(lineRegex);
-    if (match) {
-      const minutes = parseInt(match[1]!);
-      const seconds = parseInt(match[2]!);
-      const ms = parseInt(match[3]!.padEnd(3, "0"));
-      const text = match[4]!.trim();
+    const matches = Array.from(line.matchAll(lineRegex));
+    if (matches.length > 0) {
+      const text = line.replace(lineRegex, "").trim();
+      if (!text) continue;
 
-      if (text) {
+      for (const match of matches) {
+        const minutes = parseInt(match[1]!);
+        const seconds = parseInt(match[2]!);
+        const ms = parseInt(match[3]!.padEnd(3, "0"));
         lines.push({
           time: minutes * 60 + seconds + ms / 1000,
           text,
@@ -471,10 +529,12 @@ function getCurrentLines(
     return { current: "", upcoming: [], index: -1 };
   }
 
-  // Binary search for current line
+  // Binary search for current line. Keep -1 before the first timestamp so the
+  // UI can show a neutral placeholder instead of incorrectly marking line 0 as
+  // already current.
   let left = 0;
   let right = lyrics.lines.length - 1;
-  let currentIndex = 0;
+  let currentIndex = -1;
 
   while (left <= right) {
     const mid = Math.floor((left + right) / 2);
@@ -486,11 +546,12 @@ function getCurrentLines(
     }
   }
 
-  const current = lyrics.lines[currentIndex]?.text || "";
+  const current = currentIndex >= 0 ? (lyrics.lines[currentIndex]?.text || "") : "";
   const upcoming: string[] = [];
 
-  for (let i = 1; i < numLines && currentIndex + i < lyrics.lines.length; i++) {
-    upcoming.push(lyrics.lines[currentIndex + i]!.text);
+  const start = currentIndex >= 0 ? currentIndex + 1 : 0;
+  for (let i = start; upcoming.length < Math.max(0, numLines - 1) && i < lyrics.lines.length; i++) {
+    upcoming.push(lyrics.lines[i]!.text);
   }
 
   return { current, upcoming, index: currentIndex };
@@ -500,7 +561,7 @@ function getCurrentLines(
 function getCacheKey(metadata: TrackMetadata): string {
   const clean = (s: string) => s.replace(/[^a-zA-Z0-9]/g, "_").toLowerCase();
   return `${clean(metadata.artist)}-${clean(metadata.title)}-${
-    metadata.duration
+    Math.round(metadata.duration)
   }.lrc`;
 }
 
@@ -513,7 +574,9 @@ async function getCachedLyrics(
     if (await file.exists()) {
       const content = await file.text();
       const data = JSON.parse(content);
-      return data as LyricsData;
+      const lyrics = data as LyricsData;
+      if (lyrics.cacheVersion !== CACHE_VERSION || !lyrics.synced) return null;
+      return lyrics;
     }
   } catch {}
   return null;
@@ -534,11 +597,11 @@ async function loadLyrics(metadata: TrackMetadata): Promise<LyricsData | null> {
   const cached = await getCachedLyrics(metadata);
   if (cached) return cached;
 
-  const fetched = await fetchFromLrclib(
+  const fetched = await fetchLyricsFromSources(
     metadata.title,
     metadata.artist,
     metadata.album,
-    metadata.duration,
+    Math.round(metadata.duration),
   );
 
   if (fetched) await cacheLyrics(metadata, fetched);
@@ -569,9 +632,22 @@ function formatLyricsWidgetOutput(
     return stoppedOutput("No player active");
   }
 
-  const { current, upcoming } = lyrics?.synced
-    ? getCurrentLines(lyrics, metadata.position, options.lines)
-    : { current: "", upcoming: [] };
+  const generatedAtMs = Date.now();
+  const effectivePosition = metadata.status === "Playing"
+    ? metadata.position + Math.max(0, generatedAtMs - metadata.capturedAtMs) / 1000
+    : metadata.position;
+
+  const { current, upcoming, index: currentIndex } = lyrics?.synced
+    ? getCurrentLines(lyrics, effectivePosition, options.lines)
+    : { current: "", upcoming: [], index: -1 };
+  const nextLineTime =
+    lyrics?.synced
+      ? (lyrics.lines[currentIndex + 1]?.time ?? null)
+      : null;
+  const nextChangeInMs =
+    metadata.status === "Playing" && nextLineTime !== null
+      ? Math.max(80, Math.round((nextLineTime - effectivePosition) * 1000))
+      : 1000;
   const plainLines = lyrics?.plainText
     ? lyrics.plainText
         .split("\n")
@@ -582,6 +658,15 @@ function formatLyricsWidgetOutput(
   const displayLines = lyrics?.synced
     ? [current || "♪", ...upcoming].map((line) => truncate(line, options.length))
     : plainLines;
+  const timedLines = lyrics?.synced
+    ? lyrics.lines
+        .slice(Math.max(0, currentIndex), Math.max(0, currentIndex) + options.lines)
+        .map((line, index) => ({
+          time: line.time,
+          text: truncate(line.text, options.length),
+          current: currentIndex >= 0 && index === 0,
+        }))
+    : [];
 
   // If no lyrics found (or only plain text), fallback to title
   // If synced lyrics exist but we're in a gap, show ♪
@@ -634,12 +719,18 @@ function formatLyricsWidgetOutput(
     album: metadata.album,
     player: metadata.player,
     status: metadata.status,
-    position: metadata.position,
+    position: effectivePosition,
     duration: metadata.duration,
     synced: lyrics?.synced === true,
     current,
     upcoming,
     lines: displayLines,
+    timedLines,
+    currentIndex,
+    nextLineTime,
+    nextChangeInMs,
+    generatedAtMs,
+    source: lyrics?.source || "",
   };
 }
 
@@ -667,6 +758,10 @@ async function runPlayerControl(
       await $`playerctl --player=${player} stop`.quiet();
       break;
   }
+}
+
+async function seekPlayer(position: number, player: string): Promise<void> {
+  await $`playerctl --player=${player} position ${position.toFixed(3)}`.quiet();
 }
 
 // --- Overlay Control ---
@@ -759,6 +854,12 @@ async function watchMode(options: CliOptions): Promise<void> {
             current: "",
             upcoming: [],
             lines: [],
+            timedLines: [],
+            currentIndex: -1,
+            nextLineTime: null,
+            nextChangeInMs: 1000,
+            generatedAtMs: Date.now(),
+            source: "",
           }),
         );
       }
@@ -808,6 +909,30 @@ async function statusMode(options: CliOptions): Promise<void> {
   const metadata = await getMetadata(options.player);
   const lyrics = metadata ? await loadLyrics(metadata) : null;
   console.log(JSON.stringify(formatLyricsWidgetOutput(metadata, lyrics, options)));
+}
+
+async function lookupMode(options: CliOptions): Promise<void> {
+  if (!options.lookupTitle || !options.lookupArtist) {
+    throw new Error("lookup requires --title and --artist");
+  }
+
+  const lyrics = await fetchLyricsFromSources(
+    options.lookupTitle,
+    options.lookupArtist,
+    options.lookupAlbum,
+    Math.round(options.lookupDuration),
+  );
+
+  console.log(JSON.stringify({
+    title: options.lookupTitle,
+    artist: options.lookupArtist,
+    duration: options.lookupDuration,
+    synced: lyrics?.synced === true,
+    source: lyrics?.source || "",
+    lineCount: lyrics?.lines.length || 0,
+    firstLine: lyrics?.lines[0] || null,
+    plain: lyrics?.plainText ? true : false,
+  }));
 }
 
 function renderTui(output: LyricsWidgetOutput): string {
@@ -895,8 +1020,14 @@ async function main() {
     case "status":
       await statusMode(options);
       break;
+    case "lookup":
+      await lookupMode(options);
+      break;
     case "control":
       await runPlayerControl(options.controlAction, options.player);
+      break;
+    case "seek":
+      await seekPlayer(options.seekPosition, options.player);
       break;
     case "tui":
       await tuiMode(options);

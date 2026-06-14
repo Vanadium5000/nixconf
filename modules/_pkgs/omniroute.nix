@@ -16,12 +16,12 @@
 }:
 
 let
-  version = "3.8.15";
+  version = "3.8.23";
   docsSrc = fetchFromGitHub {
     owner = "diegosouzapw";
     repo = "OmniRoute";
     rev = "v${version}";
-    hash = "sha256-5fHA5yzP5BguPcMBSu9pozyM+8Oyy1illxUlVfPLJrg=";
+    hash = "sha256-cnkYlxxece1bSzw/R1scz00JkqYKS/P1JJuPNOqWihA=";
   };
 in
 buildNpmPackage (finalAttrs: {
@@ -32,7 +32,7 @@ buildNpmPackage (finalAttrs: {
   # already contains the Next.js standalone app that upstream publishes.
   src = fetchurl {
     url = "https://registry.npmjs.org/omniroute/-/omniroute-${finalAttrs.version}.tgz";
-    hash = "sha256-F/4x6RoM2TfVlmAanIFHpTm5CjJOjssscJsW1nVaRDI=";
+    hash = "sha256-udgDbdGRn5SBIgzD3RWj3g2a4KI5rOd47m+WN3YmI9Y=";
   };
 
   sourceRoot = "package";
@@ -59,7 +59,7 @@ buildNpmPackage (finalAttrs: {
   '';
 
   # Hash of the dependencies from package-lock.json
-  npmDepsHash = "sha256-s+Ga1QmDOKIosvUA61RhA2gBA4fL5O73kc73LSifxpA=";
+  npmDepsHash = "sha256-a6/B8KznKXfr4G/EPxTdgIZuvfX9eadw9IArOd9WmQ0=";
   npmFlags = [ "--legacy-peer-deps" ];
   # onnxruntime-node's postinstall downloads optional CUDA NuGet payloads when
   # missing; CPU Linux binaries are already bundled, so skip network-only addons.

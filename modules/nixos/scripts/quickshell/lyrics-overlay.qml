@@ -96,6 +96,7 @@ PanelWindow {
     property bool isPlaying: false
     property string osdText: ""
     property bool osdVisible: false
+    property int nextChangeInMs: 400
 
     function clamp(value, minValue, maxValue) {
         return Math.max(minValue, Math.min(maxValue, value))
@@ -166,6 +167,12 @@ PanelWindow {
         root.osdText = text
         root.osdVisible = true
         osdTimer.restart()
+    }
+
+    function scheduleLyricsUpdate(delayMs) {
+        updateTimer.stop()
+        updateTimer.interval = root.clamp(Math.round(delayMs), 16, 1000)
+        updateTimer.start()
     }
 
     function handleEditAction(action) {
@@ -648,15 +655,14 @@ PanelWindow {
             id: stdoutCollector
             onStreamFinished: {
                 root.parseLyricsOutput(stdoutCollector.text)
-                // Schedule next update.
-                updateTimer.start()
+                root.scheduleLyricsUpdate(root.nextChangeInMs)
             }
         }
 
         onExited: function (exitCode) {
             // If the process exits without streamFinished, still schedule the next update.
             if (exitCode !== 0) {
-                updateTimer.start()
+                root.scheduleLyricsUpdate(400)
             }
         }
     }
@@ -667,7 +673,14 @@ PanelWindow {
             root.currentLine = data.text || data.current || ""
             root.isPlaying = data.alt === "playing"
 
-            if (data.upcoming) {
+            if (data.timedLines && data.timedLines.length > 0) {
+                if (data.timedLines[0].current) {
+                    root.currentLine = data.timedLines[0].text || root.currentLine
+                    root.upcomingLines = data.timedLines.slice(1, root.visibleLineCount).map(line => line.text || "")
+                } else {
+                    root.upcomingLines = data.timedLines.slice(0, root.visibleLineCount - 1).map(line => line.text || "")
+                }
+            } else if (data.upcoming) {
                 root.upcomingLines = data.upcoming.slice(0, root.visibleLineCount - 1)
             } else if (data.lines && data.lines.length > 1) {
                 root.upcomingLines = data.lines.slice(1, root.visibleLineCount)
@@ -689,15 +702,18 @@ PanelWindow {
                 }
                 root.upcomingLines = upcoming.slice(0, root.visibleLineCount - 1)
             }
+            var elapsed = data.generatedAtMs ? Math.max(0, Date.now() - data.generatedAtMs) : 0
+            root.nextChangeInMs = data.nextChangeInMs ? root.clamp(data.nextChangeInMs - elapsed + 24, 80, 200) : 200
         } catch (e) {
             console.log("Parse error:", e)
+            root.nextChangeInMs = 400
         }
     }
 
     // Timer for periodic updates.
     Timer {
         id: updateTimer
-        interval: parseInt(Quickshell.env("LYRICS_UPDATE_INTERVAL") ?? "400")
+        interval: parseInt(Quickshell.env("LYRICS_UPDATE_INTERVAL") ?? "200")
         repeat: false
         onTriggered: {
             lyricsProcess.running = true

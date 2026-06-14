@@ -15,18 +15,10 @@
       homeDirectory = config.preferences.paths.homeDirectory;
       selfpkgs = self.packages.${pkgs.stdenv.hostPlatform.system};
       inherit (self) colors;
-      dmsCommonSrc = pkgs.fetchFromGitHub {
-        owner = "hthienloc";
-        repo = "dms-common";
-        rev = "ae66a020129e6226d28dc6e581a21bf68087efc6";
-        hash = "sha256-nLY1oeSOocma2dOWMfU9Yz+wAFHYSg4MyZpjSi4I+pg=";
-      };
-
       idleInhibitPluginDir = ".config/DankMaterialShell/plugins/idleInhibit";
       toggleLidInhibitPluginDir = ".config/DankMaterialShell/plugins/toggleLidInhibit";
       voxtypeWidgetPluginDir = ".config/DankMaterialShell/plugins/voxtypeWidget";
       lyricsWidgetPluginDir = ".config/DankMaterialShell/plugins/lyricsWidget";
-      dmsCommonPluginDir = ".config/DankMaterialShell/plugins/dms-common";
       idleInhibitPluginQml =
         builtins.replaceStrings [ "__DMS_IDLE_INHIBIT__" ] [ "${lib.getExe selfpkgs.dms-idle-inhibit}" ]
           (builtins.readFile ./dank-material-shell/idle-inhibit/IdleInhibitWidget.qml);
@@ -63,6 +55,62 @@
         builtins.replaceStrings [ "__LYRICSCTL__" ] [ "${lib.getExe selfpkgs.lyricsctl}" ]
           (builtins.readFile ./dank-material-shell/lyrics-widget/LyricsWidget.qml);
       lyricsWidgetPluginQmlFile = pkgs.writeText "LyricsWidget.qml" lyricsWidgetPluginQml;
+      localDmsPluginsInstaller = pkgs.writeShellScript "install-local-dms-plugins" ''
+        set -euo pipefail
+
+        plugins_dir=${lib.escapeShellArg "${homeDirectory}/.config/DankMaterialShell/plugins"}
+        mkdir -p "$plugins_dir"
+
+        copy_file() {
+          local source="$1" target="$2"
+          install -D -m 0644 "$source" "$target"
+        }
+
+        copy_file ${./dank-material-shell/idle-inhibit/plugin.json} "$plugins_dir/idleInhibit/plugin.json"
+        copy_file ${idleInhibitPluginQmlFile} "$plugins_dir/idleInhibit/IdleInhibitWidget.qml"
+        copy_file ${./dank-material-shell/toggle-lid-inhibit/plugin.json} "$plugins_dir/toggleLidInhibit/plugin.json"
+        copy_file ${toggleLidInhibitPluginQmlFile} "$plugins_dir/toggleLidInhibit/ToggleLidInhibitWidget.qml"
+        copy_file ${./dank-material-shell/voxtype-widget/plugin.json} "$plugins_dir/voxtypeWidget/plugin.json"
+        copy_file ${voxtypeWidgetPluginQmlFile} "$plugins_dir/voxtypeWidget/VoxtypeWidget.qml"
+        copy_file ${./dank-material-shell/lyrics-widget/plugin.json} "$plugins_dir/lyricsWidget/plugin.json"
+        copy_file ${lyricsWidgetPluginQmlFile} "$plugins_dir/lyricsWidget/LyricsWidget.qml"
+
+        plugin_settings=${lib.escapeShellArg "${homeDirectory}/.config/DankMaterialShell/plugin_settings.json"}
+        mkdir -p "$(dirname "$plugin_settings")"
+        if [ -s "$plugin_settings" ]; then
+          ${pkgs.jq}/bin/jq '.lyricsWidget = ((.lyricsWidget // {}) + { enabled: true })' \
+            "$plugin_settings" > "$plugin_settings.tmp"
+        else
+          ${pkgs.jq}/bin/jq -n '{ lyricsWidget: { enabled: true } }' > "$plugin_settings.tmp"
+        fi
+        install -m 0644 "$plugin_settings.tmp" "$plugin_settings"
+        rm -f "$plugin_settings.tmp"
+
+        settings=${lib.escapeShellArg "${homeDirectory}/.config/DankMaterialShell/settings.json"}
+        if [ -s "$settings" ]; then
+          ${pkgs.jq}/bin/jq '
+            .barConfigs = ((.barConfigs // []) | map(
+              if .id == "default" then
+                .rightWidgets = ((.rightWidgets // []) as $widgets |
+                  if any($widgets[]?; .id == "lyricsWidget") then
+                    $widgets
+                  elif any($widgets[]?; .id == "voxtypeWidget") then
+                    reduce $widgets[] as $widget ([];
+                      . + [$widget] + (if $widget.id == "voxtypeWidget" then [{ id: "lyricsWidget", enabled: true }] else [] end)
+                    )
+                  else
+                    [{ id: "lyricsWidget", enabled: true }] + $widgets
+                  end
+                )
+              else
+                .
+              end
+            ))
+          ' "$settings" > "$settings.tmp"
+          install -m 0644 "$settings.tmp" "$settings"
+          rm -f "$settings.tmp"
+        fi
+      '';
       voxtypeModelsPersistence = self.lib.persistence.mkPersistent {
         method = "bind";
         inherit user;
@@ -316,7 +364,10 @@
                 chown ${user}:users "$SETTINGS"
               fi
             '';
-          deps = [ "users" ];
+          deps = [
+            "users"
+            "specialfs"
+          ];
         };
 
         impermanence.home.directories = dmsStatePersistence;
@@ -336,44 +387,52 @@
           pkgs.qt6Packages.qtmultimedia # DMS settings sound previews import QtMultimedia on Qt 6.
         ];
 
+        # Install local DMS plugins declaratively as system plugins too. User
+        # plugin copies remain below for edit/debug priority, but /etc/xdg makes
+        # the widgets reappear even if the persisted user plugin directory is
+        # deleted before a rebuild. Source:
+        # https://github.com/AvengeMedia/DankMaterialShell/blob/eb5afcdc40ea5446c27e18552ff4a19f9daf9484/quickshell/Services/PluginService.qml#L21-L29
+        environment.etc = {
+          "xdg/DankMaterialShell/plugins/idleInhibit/plugin.json".source =
+            ./dank-material-shell/idle-inhibit/plugin.json;
+          "xdg/DankMaterialShell/plugins/idleInhibit/IdleInhibitWidget.qml".source = idleInhibitPluginQmlFile;
+          "xdg/DankMaterialShell/plugins/toggleLidInhibit/plugin.json".source =
+            ./dank-material-shell/toggle-lid-inhibit/plugin.json;
+          "xdg/DankMaterialShell/plugins/toggleLidInhibit/ToggleLidInhibitWidget.qml".source =
+            toggleLidInhibitPluginQmlFile;
+          "xdg/DankMaterialShell/plugins/voxtypeWidget/plugin.json".source =
+            ./dank-material-shell/voxtype-widget/plugin.json;
+          "xdg/DankMaterialShell/plugins/voxtypeWidget/VoxtypeWidget.qml".source = voxtypeWidgetPluginQmlFile;
+          "xdg/DankMaterialShell/plugins/lyricsWidget/plugin.json".source =
+            ./dank-material-shell/lyrics-widget/plugin.json;
+          "xdg/DankMaterialShell/plugins/lyricsWidget/LyricsWidget.qml".source = lyricsWidgetPluginQmlFile;
+        };
+
         # DMS registry themes are loaded from <theme>/theme.json; generating only
         # that required file keeps previews optional while making the palette
         # reproducible from modules/theme.nix. Source:
         # https://github.com/AvengeMedia/DankMaterialShell/blob/eb5afcdc40ea5446c27e18552ff4a19f9daf9484/docs/CUSTOM_THEMES.md#theme-structure
         system.activationScripts.dank-material-shell-user-files = {
-          text = self.lib.userFiles.mkActivationScript {
-            inherit user homeDirectory;
-            inherit pkgs;
-            files = {
-              ${dmsThemeFile} = {
-                text = builtins.toJSON dmsTheme;
-                type = "copy";
+          text =
+            self.lib.userFiles.mkActivationScript {
+              inherit user homeDirectory;
+              inherit pkgs;
+              files = {
+                ${dmsThemeFile} = {
+                  text = builtins.toJSON dmsTheme;
+                  type = "copy";
+                };
+                ${voxtypeConfigFile}.text = voxtypeConfig;
               };
-              ${voxtypeConfigFile}.text = voxtypeConfig;
-
-              # DMS scans user plugins from ~/.config/DankMaterialShell/plugins and
-              # gives them priority over /etc/xdg system plugins. Installing this
-              # local widget there matches user-installed plugins and avoids stale
-              # system-plugin component caches. Source:
-              # https://github.com/AvengeMedia/DankMaterialShell/blob/eb5afcdc40ea5446c27e18552ff4a19f9daf9484/quickshell/Services/PluginService.qml#L21-L29
-              "${dmsCommonPluginDir}" = {
-                source = dmsCommonSrc;
-                type = "copy";
-              };
-              "${idleInhibitPluginDir}/plugin.json".text =
-                builtins.readFile ./dank-material-shell/idle-inhibit/plugin.json;
-              "${idleInhibitPluginDir}/IdleInhibitWidget.qml".text = idleInhibitPluginQml;
-              "${toggleLidInhibitPluginDir}/plugin.json".text =
-                builtins.readFile ./dank-material-shell/toggle-lid-inhibit/plugin.json;
-              "${toggleLidInhibitPluginDir}/ToggleLidInhibitWidget.qml".text = toggleLidInhibitPluginQml;
-              "${voxtypeWidgetPluginDir}/plugin.json".text =
-                builtins.readFile ./dank-material-shell/voxtype-widget/plugin.json;
-              "${voxtypeWidgetPluginDir}/VoxtypeWidget.qml".text = voxtypeWidgetPluginQml;
-              "${lyricsWidgetPluginDir}/plugin.json".text =
-                builtins.readFile ./dank-material-shell/lyrics-widget/plugin.json;
-              "${lyricsWidgetPluginDir}/LyricsWidget.qml".text = lyricsWidgetPluginQml;
-            };
-          };
+            }
+            + ''
+              ${localDmsPluginsInstaller}
+              chown -R ${user}:users \
+                "${homeDirectory}/.config/DankMaterialShell/plugins" \
+                "${homeDirectory}/.config/DankMaterialShell/plugin_settings.json" \
+                "${homeDirectory}/.config/DankMaterialShell/settings.json" \
+                2>/dev/null || true
+            '';
           # Run after the impermanence bind mounts exist; otherwise boot-time
           # activation writes into the hidden pre-mount ~/.config tree and DMS
           # sees stale persisted files such as GC-collected theme symlinks.
@@ -393,6 +452,7 @@
           after = lib.mkDefault [ graphicalSessionTarget ];
 
           serviceConfig = {
+            ExecStartPre = "${localDmsPluginsInstaller}";
             ExecStart = lib.mkDefault "${lib.getExe dmsProgram.package} run --session";
             Restart = lib.mkDefault "on-failure";
             # DMS-spawned apps need the same KDE/Qt markers as the compositor

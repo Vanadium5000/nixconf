@@ -10,7 +10,6 @@ PluginComponent {
     id: root
 
     readonly property string lyricsCommand: "__LYRICSCTL__"
-    readonly property int refreshInterval: 500
     readonly property int contextLines: 10
 
     property string lyricText: "♪"
@@ -24,6 +23,7 @@ PluginComponent {
     property bool compactText: false
     property bool commandBusy: false
     property var lines: []
+    property int nextRefreshMs: 500
 
     readonly property bool isPlaying: status === "Playing"
     readonly property string statusIcon: status === "Playing" ? "pause" : (status === "Paused" ? "play_arrow" : "music_note")
@@ -41,6 +41,19 @@ PluginComponent {
             statusProcess.running = true
     }
 
+    function scheduleRefresh(delayMs) {
+        refreshTimer.stop()
+        refreshTimer.interval = Math.max(16, Math.min(1000, Math.round(delayMs)))
+        refreshTimer.start()
+    }
+
+    function applyCurrentLine() {
+        if (root.lines.length > 0 && root.lines[0].current)
+            root.lyricText = root.safeText(root.lines[0].text, root.status === "Stopped" ? "" : "♪")
+        else if (root.status !== "Stopped")
+            root.lyricText = "♪"
+    }
+
     function runControl(action) {
         if (controlProcess.running)
             return
@@ -55,6 +68,14 @@ PluginComponent {
         root.commandBusy = true
         overlayProcess.command = root.commandLine([action, "--lines", "4"])
         overlayProcess.running = true
+    }
+
+    function seekTo(position) {
+        if (seekProcess.running)
+            return
+        root.commandBusy = true
+        seekProcess.command = root.commandLine(["seek", Number(position).toFixed(3)])
+        seekProcess.running = true
     }
 
     function loadSettings() {
@@ -84,7 +105,13 @@ PluginComponent {
             root.status = root.safeText(data.status, "Stopped")
             root.statusClass = root.safeText(data.class, "stopped")
             root.synced = data.synced === true
-            root.lines = Array.isArray(data.lines) ? data.lines.slice(0, root.contextLines) : []
+            root.lines = Array.isArray(data.timedLines) && data.timedLines.length > 0
+                ? data.timedLines.slice(0, root.contextLines)
+                : (Array.isArray(data.lines) ? data.lines.slice(0, root.contextLines).map((line, index) => ({ text: line, time: -1, current: index === 0 })) : [])
+            root.applyCurrentLine()
+            const elapsed = data.generatedAtMs ? Math.max(0, Date.now() - data.generatedAtMs) : 0
+            root.nextRefreshMs = data.nextChangeInMs ? Math.max(80, Math.min(200, data.nextChangeInMs - elapsed + 24)) : 200
+            root.scheduleRefresh(root.nextRefreshMs)
         } catch (error) {
             root.lyricText = ""
             root.title = "Lyrics unavailable"
@@ -95,6 +122,7 @@ PluginComponent {
             root.statusClass = "error"
             root.synced = false
             root.lines = []
+            root.scheduleRefresh(500)
             console.warn("LyricsWidget: failed to parse status", error)
         }
     }
@@ -107,9 +135,10 @@ PluginComponent {
     onPluginServiceChanged: loadSettings()
 
     Timer {
-        interval: root.refreshInterval
+        id: refreshTimer
+        interval: 200
         running: true
-        repeat: true
+        repeat: false
         onTriggered: root.refreshStatus()
     }
 
@@ -126,6 +155,8 @@ PluginComponent {
         onExited: exitCode => {
             if (exitCode !== 0)
                 console.warn("LyricsWidget: status command failed", exitCode)
+            if (exitCode !== 0)
+                root.scheduleRefresh(500)
         }
     }
 
@@ -147,6 +178,17 @@ PluginComponent {
             root.commandBusy = false
             if (exitCode !== 0)
                 console.warn("LyricsWidget: overlay command failed", exitCode)
+            root.refreshStatus()
+        }
+    }
+
+    Process {
+        id: seekProcess
+        running: false
+        onExited: exitCode => {
+            root.commandBusy = false
+            if (exitCode !== 0)
+                console.warn("LyricsWidget: seek command failed", exitCode)
             root.refreshStatus()
         }
     }
@@ -266,16 +308,36 @@ PluginComponent {
                     Repeater {
                         model: root.lines.length > 0 ? root.lines : [root.lyricText.length > 0 ? root.lyricText : "No lyrics available"]
 
-                        delegate: StyledText {
+                        delegate: StyledRect {
                             required property int index
                             required property var modelData
 
                             width: parent.width
-                            text: modelData
-                            font.pixelSize: index === 0 ? Theme.fontSizeMedium : Theme.fontSizeSmall
-                            font.weight: index === 0 ? Font.Medium : Font.Normal
-                            color: index === 0 ? Theme.primary : Theme.surfaceVariantText
-                            wrapMode: Text.WordWrap
+                            height: lineText.implicitHeight + Theme.spacingXS
+                            radius: Math.max(4, Math.round(Theme.cornerRadius / 2))
+                            color: lineMouse.containsMouse && Number(modelData.time) >= 0 ? Theme.withAlpha(Theme.primary, 0.14) : ((typeof modelData !== "string" && modelData.current) ? Theme.withAlpha(Theme.primary, 0.08) : "transparent")
+                            border.width: lineMouse.containsMouse && Number(modelData.time) >= 0 ? 1 : 0
+                            border.color: Theme.withAlpha(Theme.primary, 0.32)
+
+                            StyledText {
+                                id: lineText
+                                width: parent.width - Theme.spacingS * 2
+                                anchors.centerIn: parent
+                                text: typeof modelData === "string" ? modelData : modelData.text
+                                font.pixelSize: index === 0 ? Theme.fontSizeMedium : Theme.fontSizeSmall
+                                font.weight: index === 0 ? Font.Medium : Font.Normal
+                                color: lineMouse.containsMouse && Number(modelData.time) >= 0 ? Theme.surfaceText : ((typeof modelData !== "string" && modelData.current) ? Theme.primary : Theme.surfaceVariantText)
+                                wrapMode: Text.WordWrap
+                            }
+
+                            MouseArea {
+                                id: lineMouse
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Number(modelData.time) >= 0 ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                enabled: Number(modelData.time) >= 0
+                                onClicked: root.seekTo(modelData.time)
+                            }
                         }
                     }
                 }
