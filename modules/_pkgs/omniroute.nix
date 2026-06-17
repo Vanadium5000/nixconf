@@ -16,12 +16,12 @@
 }:
 
 let
-  version = "3.8.23";
+  version = "3.8.27";
   docsSrc = fetchFromGitHub {
     owner = "diegosouzapw";
     repo = "OmniRoute";
     rev = "v${version}";
-    hash = "sha256-cnkYlxxece1bSzw/R1scz00JkqYKS/P1JJuPNOqWihA=";
+    hash = "sha256-uMXfQtspZ0KPWeiv00sjyUF37GHEfHjrgVei2EZde7M=";
   };
 in
 buildNpmPackage (finalAttrs: {
@@ -32,7 +32,7 @@ buildNpmPackage (finalAttrs: {
   # already contains the Next.js standalone app that upstream publishes.
   src = fetchurl {
     url = "https://registry.npmjs.org/omniroute/-/omniroute-${finalAttrs.version}.tgz";
-    hash = "sha256-udgDbdGRn5SBIgzD3RWj3g2a4KI5rOd47m+WN3YmI9Y=";
+    hash = "sha256-j/UTTI+1RteQZ+lXQ1cIfMKORzOPm59xj+HyzRE+gmE=";
   };
 
   sourceRoot = "package";
@@ -59,12 +59,12 @@ buildNpmPackage (finalAttrs: {
   '';
 
   # Hash of the dependencies from package-lock.json
-  npmDepsHash = "sha256-a6/B8KznKXfr4G/EPxTdgIZuvfX9eadw9IArOd9WmQ0=";
+  npmDepsHash = "sha256-aIfzWXaolTLEUbaY/9js9Cm3Z1gT2EMGz1FFx75AjCI=";
   npmFlags = [ "--legacy-peer-deps" ];
-  # onnxruntime-node's postinstall downloads optional CUDA NuGet payloads when
-  # missing; CPU Linux binaries are already bundled, so skip network-only addons.
-  # Source: node_modules/onnxruntime-node/script/install.js in the npm tarball.
-  env.ONNXRUNTIME_NODE_INSTALL = "skip";
+  # onnxruntime-node downloads optional CUDA EP binaries when CPU binaries are
+  # already bundled; the postinstall flag keeps npmDepsHash refreshes network-free.
+  # Source: https://github.com/microsoft/onnxruntime/blob/v1.21.0/js/node/script/install.js
+  env.ONNXRUNTIME_NODE_INSTALL_CUDA = "skip";
 
   dontNpmBuild = true;
 

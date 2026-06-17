@@ -1518,6 +1518,11 @@ pkgs.writeShellApplication {
         echo ""
         echo "Failed packages:"
         printf '  - %s\n' "''${FAILED[@]}"
+        notify "Failed: $(
+          IFS=', '
+          echo "''${FAILED[*]}"
+        )"
+        exit 1
       fi
 
       if [ ''${#UPDATED[@]} -eq 0 ]; then
