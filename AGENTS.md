@@ -27,15 +27,17 @@ Update this section in the same edit whenever host layout, routes, ports, primar
 flake.nix -> import-tree [ ./modules ./secrets.nix ]; exports/options map: modules/exports.nix
 
 main_vps: modules/hosts/main_vps/
-├─ configuration.nix: imports terminal, cockpit, nix-dokploy, disko; enables Dokploy, CLIProxyAPI, OmniRoute, CPA Usage Keeper, VPN proxy, ntfy, homepage, mitmproxy
+├─ configuration.nix: imports terminal, cockpit, nix-dokploy, disko; enables Dokploy, CLIProxyAPI, Bifrost, OmniRoute, CPA Usage Keeper, VPN proxy, ntfy, homepage, mitmproxy
 ├─ remote-unlock.nix: systemd initrd network + SSH unlock on public :22 before stage-2 sshd starts
 ├─ my-website.nix: public edge; Traefik :80/:443 + ACME wildcard; services-auth-gateway 127.0.0.1:41276
 │  ├─ Dokploy apps: apex/wildcard/openclaw -> dokploy-traefik 127.0.0.1:81
-│  ├─ primary AI gateway: OmniRoute 127.0.0.1:20128 -> https://omniroute.<domain>
-│  ├─ secondary AI/API backend: CLIProxyAPI 127.0.0.1:8317; used by CPA Usage Keeper
+│  ├─ primary AI gateway: CLIProxyAPI 127.0.0.1:8317 -> https://cliproxyapi.<domain>; used by CPA Usage Keeper
+│  ├─ Bifrost gateway/dashboard: 127.0.0.1:20129 -> https://bifrost.<domain>; proxies OpenAI-compatible requests to CLIProxyAPI
+│  ├─ OmniRoute gateway/dashboard: 127.0.0.1:20128 -> https://omniroute.<domain>
 │  └─ protected dashboards: dashboard/cockpit/mitmproxy/vpn/cpa-usage/mongo via services-auth; Baikal/DAV bypasses shared auth
 └─ service settings/packages
    ├─ services.omniroute: modules/nixos/terminal/omniroute.nix; modules/_pkgs/omniroute.nix
+   ├─ services.bifrost: modules/nixos/terminal/bifrost.nix; upstream input github:maximhq/bifrost/transports/v1.5.15
    ├─ services.cliproxyapi: modules/nixos/terminal/cliproxyapi.nix; modules/_pkgs/cliproxyapi.nix
    ├─ services.cpa-usage-keeper: modules/nixos/terminal/cpa-usage-keeper.nix; modules/_pkgs/cpa-usage-keeper.nix
    ├─ services.services-auth-gateway: modules/nixos/terminal/services-auth-gateway.nix; modules/_pkgs/services-auth-gateway.nix

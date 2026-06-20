@@ -4,6 +4,7 @@
     { pkgs, self', ... }:
     let
       opencodeApiKey = self.secrets.OMNIROUTE_OPENCODE_API_KEY;
+      cliproxyApiKey = self.secrets.CLIPROXYAPI_KEY;
       opencodeStateDirectory = self.lib.configFiles.known.opencodeStateDirectory;
 
       modelStateAssetsDir = pkgs.runCommand "models-state-assets" { } ''
@@ -12,6 +13,7 @@
         cp ${../terminal/opencode/state.json} "$out/state.json"
         cp ${../terminal/opencode/presets.json} "$out/presets.json"
         cp ${../terminal/opencode/_model-local-patches.json} "$out/_model-local-patches.json"
+        cp ${../terminal/opencode/provider.json} "$out/provider.json"
       '';
 
       # The shared command keeps model discovery and runtime config generation out
@@ -28,6 +30,7 @@
           STATE_FILE="$MODELS_STATE_DIR/state.json"
           PRESETS_FILE="$MODELS_STATE_DIR/presets.json"
           PATCHES_FILE="$MODELS_STATE_DIR/_model-local-patches.json"
+          PROVIDER_FILE="$MODELS_STATE_DIR/provider.json"
           OPENCODE_CONFIG_FILE="$HOME/.config/opencode/config.json"
           OMO_SLIM_CONFIG_FILE="$HOME/.config/opencode/oh-my-opencode-slim.jsonc"
           OPENCODE_MEM_FILE="$HOME/.config/opencode/opencode-mem.jsonc"
@@ -42,10 +45,13 @@
           GUM="${pkgs.gum}/bin/gum"
           CURL="${pkgs.curl}/bin/curl"
           OMP_MODELS_FILE="''${MODELS_OMP_FILE:-$HOME/.omp/agent/models.yml}"
-          OMP_PROVIDER_ID="''${MODELS_OMP_PROVIDER_ID:-omniroute}"
-          OMP_PROVIDER_NAME="''${MODELS_OMP_PROVIDER_NAME:-OmniRoute}"
+          ROUTER_PROVIDER_ID="router"
+          ROUTER_PROVIDER_NAME="Router"
+          OMP_PROVIDER_ID="''${MODELS_OMP_PROVIDER_ID:-$ROUTER_PROVIDER_ID}"
+          OMP_PROVIDER_NAME="''${MODELS_OMP_PROVIDER_NAME:-$ROUTER_PROVIDER_NAME}"
+          CLIPROXYAPI_KEY="''${CLIPROXYAPI_KEY:-${cliproxyApiKey}}"
           OMNIROUTE_OPENCODE_API_KEY="''${OMNIROUTE_OPENCODE_API_KEY:-${opencodeApiKey}}"
-          OMP_BASE_URL="''${MODELS_OMP_BASE_URL:-''${OMNIROUTE_BASE_URL:-https://omniroute.${self.secrets.PUBLIC_BASE_DOMAIN}/v1}}"
+          BIFROST_API_KEY="''${BIFROST_API_KEY:-$CLIPROXYAPI_KEY}"
           # Keep generated OMP provider metadata aligned with the NixOS module's
           # PI_STREAM_FIRST_EVENT_TIMEOUT_MS; OmniRoute can legitimately spend
           # longer than OMP's 100s default routing/cold-starting upstreams before
@@ -57,6 +63,67 @@
           log_omp() { $GUM style --foreground 141 "[models:omp] $*"; }
           log_warn() { $GUM style --foreground 214 "[models:warn] $*"; }
           log_error() { $GUM style --foreground 196 "[models:error] $*"; }
+
+          ensure_provider_file() {
+            ensure_repo_state_files
+            if [ ! -f "$PROVIDER_FILE" ] || [ ! -s "$PROVIDER_FILE" ]; then
+              printf '{"provider":"cliproxyapi"}\n' > "$PROVIDER_FILE"
+            fi
+          }
+
+          get_router_provider() {
+            ensure_provider_file
+            local provider
+            provider=$($JQ -r '.provider // "cliproxyapi"' "$PROVIDER_FILE")
+            case "$provider" in
+              cliproxyapi|bifrost|omniroute) printf '%s\n' "$provider" ;;
+              *) printf '%s\n' "cliproxyapi" ;;
+            esac
+          }
+
+          router_provider_label() {
+            case "''${1:-$(get_router_provider)}" in
+              cliproxyapi) printf '%s\n' "CLIProxyAPI" ;;
+              bifrost) printf '%s\n' "Bifrost" ;;
+              omniroute) printf '%s\n' "OmniRoute" ;;
+              *) printf '%s\n' "CLIProxyAPI" ;;
+            esac
+          }
+
+          router_base_url_for() {
+            case "$1" in
+              cliproxyapi) printf '%s\n' "https://cliproxyapi.${self.secrets.PUBLIC_BASE_DOMAIN}/v1" ;;
+              bifrost) printf '%s\n' "https://bifrost.${self.secrets.PUBLIC_BASE_DOMAIN}/openai" ;;
+              omniroute) printf '%s\n' "https://omniroute.${self.secrets.PUBLIC_BASE_DOMAIN}/v1" ;;
+              *) return 1 ;;
+            esac
+          }
+
+          router_models_url_for() {
+            case "$1" in
+              cliproxyapi) printf '%s\n' "''${CLIPROXYAPI_MODELS_URL:-https://cliproxyapi.${self.secrets.PUBLIC_BASE_DOMAIN}/v1/models}" ;;
+              bifrost) printf '%s\n' "''${BIFROST_MODELS_URL:-https://bifrost.${self.secrets.PUBLIC_BASE_DOMAIN}/openai/v1/models}" ;;
+              omniroute) printf '%s\n' "''${OMNIROUTE_MODELS_URL:-https://omniroute.${self.secrets.PUBLIC_BASE_DOMAIN}/v1/models}" ;;
+              *) return 1 ;;
+            esac
+          }
+
+          router_api_key_for() {
+            case "$1" in
+              cliproxyapi) printf '%s\n' "$CLIPROXYAPI_KEY" ;;
+              bifrost) printf '%s\n' "$BIFROST_API_KEY" ;;
+              omniroute) printf '%s\n' "$OMNIROUTE_OPENCODE_API_KEY" ;;
+              *) return 1 ;;
+            esac
+          }
+
+          get_router_base_url() {
+            router_base_url_for "$(get_router_provider)"
+          }
+
+          get_router_api_key() {
+            router_api_key_for "$(get_router_provider)"
+          }
 
           ensure_repo_state_files() {
             mkdir -p "$MODELS_STATE_DIR"
@@ -76,12 +143,16 @@
             if [ ! -f "$PATCHES_FILE" ]; then
               cp "${modelStateAssetsDir}/_model-local-patches.json" "$PATCHES_FILE"
             fi
+
+            if [ ! -f "$PROVIDER_FILE" ]; then
+              cp "${modelStateAssetsDir}/provider.json" "$PROVIDER_FILE"
+            fi
           }
 
           get_effective_models_json() {
             ensure_repo_state_files
 
-            $JQ -cS --slurpfile patches "$PATCHES_FILE" '
+            $JQ -cS --arg provider_id "$ROUTER_PROVIDER_ID" --slurpfile patches "$PATCHES_FILE" '
               def normalize_model:
                 . as $model
                 | ($model.context // $model.limit.context // null) as $context
@@ -95,7 +166,7 @@
                     else
                       {}
                     end);
-              (.providers.omniroute.models // {}) as $models
+              (.providers[$provider_id].models // .providers.omniroute.models // {}) as $models
               | $models * (($patches[0] // {}) | with_entries(select($models[.key] != null)))
               | map_values(normalize_model)
             ' "$MODELS_FILE"
@@ -106,7 +177,7 @@
             local model_id="$2"
             local jq_expr="$3"
 
-            if [ "$provider" != "omniroute" ]; then
+            if [ "$provider" != "$ROUTER_PROVIDER_ID" ]; then
               printf '{}\n' | $JQ -r "''${jq_expr}"
               return
             fi
@@ -275,7 +346,7 @@
             local effective_models
             local config_models
             effective_models=$(get_effective_models_json)
-            config_models=$($JQ -cS '.provider.omniroute.models // {}' "$cfg_file")
+            config_models=$($JQ -cS --arg provider_id "$ROUTER_PROVIDER_ID" '.provider[$provider_id].models // {}' "$cfg_file")
 
             [ "$effective_models" = "$config_models" ]
           }
@@ -289,8 +360,8 @@
 
             local base_provider
             local config_provider
-            base_provider=$($JQ -cS '.provider.omniroute | del(.models)' "$OPENCODE_BASE_CONFIG_FILE")
-            config_provider=$($JQ -cS '.provider.omniroute | del(.models)' "$cfg_file")
+            base_provider=$($JQ -cS --arg provider_id "$ROUTER_PROVIDER_ID" '.provider[$provider_id] | del(.models)' "$OPENCODE_BASE_CONFIG_FILE")
+            config_provider=$($JQ -cS --arg provider_id "$ROUTER_PROVIDER_ID" '.provider[$provider_id] | del(.models)' "$cfg_file")
 
             [ "$base_provider" = "$config_provider" ]
           }
@@ -307,7 +378,7 @@
               (($meta[0].opencodeModelBindings // [])
                 | map([.path + ["model"], .path + ["variant"]])
                 | add // []) as $agent_model_paths
-              | del(.provider.omniroute.models)
+              | del(.provider.router.models)
               | delpaths($agent_model_paths)
             '
 
@@ -400,8 +471,14 @@
 
             local opencode_tmp
             opencode_tmp=$(mktemp)
-            $JQ --slurpfile models "$effective_models_file" '
-              .provider.omniroute.models = $models[0]
+            $JQ --slurpfile models "$effective_models_file" \
+              --arg provider_id "$ROUTER_PROVIDER_ID" \
+              --arg base_url "$(get_router_base_url)" \
+              --arg api_key "$(get_router_api_key)" '
+              .provider[$provider_id].models = $models[0]
+              | .provider[$provider_id].name = "Router"
+              | .provider[$provider_id].options.baseURL = $base_url
+              | .provider[$provider_id].options.apiKey = $api_key
             ' "$OPENCODE_BASE_CONFIG_FILE" > "$opencode_tmp"
             rm -f "$effective_models_file"
 
@@ -467,17 +544,23 @@
 
           }
 
-          # Fetch models from omniroute and update models.json.
-          # The endpoint is OpenAI-compatible but includes OmniRoute/OpenRouter-style
-          # metadata such as limits, modalities, pricing, and supported parameters.
-          # Source: https://omniroute.${self.secrets.PUBLIC_BASE_DOMAIN}/v1/models
+          # Fetch models from the selected Router gateway and update models.json.
+          # Rich gateways may include limits/modalities/pricing; plain OpenAI
+          # compatible gateways still yield usable IDs and can be locally patched.
           sync_models() {
-            local api_key="$OMNIROUTE_OPENCODE_API_KEY"
-            local url="''${OMNIROUTE_MODELS_URL:-https://omniroute.${self.secrets.PUBLIC_BASE_DOMAIN}/v1/models}"
+            local router_provider
+            local api_key
+            local url
+            local base_url
+
+            router_provider=$(get_router_provider)
+            api_key=$(router_api_key_for "$router_provider")
+            url=$(router_models_url_for "$router_provider")
+            base_url=$(router_base_url_for "$router_provider")
 
             ensure_repo_state_files
 
-            log_general "Fetching models from $url"
+            log_general "Fetching $(router_provider_label "$router_provider") models from $url"
             local response_file
             local temp_json
             response_file=$(mktemp)
@@ -514,7 +597,7 @@
             # Normalize the rich model payload into OpenCode's model schema while
             # keeping provider metadata reviewable in models.json. Field aliases
             # cover OpenAI-compatible, OpenRouter, and gateway-enriched responses.
-            if ! $JQ -S '
+            if ! MODELS_SELECTED_BASE_URL="$base_url" $JQ -S '
               def number_or_null:
                 if type == "number" then .
                 elif type == "string" and test("^[0-9]+$") then tonumber
@@ -708,16 +791,14 @@
               ([.data[] | select((.id? // "") != "") | to_opencode_entry] | sort_by(.key, transport_priority) | collapse_duplicate_models) as $entries
               | {
                   providers: {
-                    omniroute: {
-                      # Keep cache metadata aligned with the actual runtime
-                      # provider in _providers.nix. Previous/default sync output
-                      # used @ai-sdk/openai plus baseUrl, which is not the
-                      # OpenCode custom-provider shape and can select the wrong
-                      # Responses/client path if the cache is consumed directly.
+                    router: {
+                      # Keep cache metadata aligned with the generated runtime
+                      # provider in _providers.nix: one stable OpenCode provider
+                      # called Router, with the concrete gateway selected by state.
                       npm: "@ai-sdk/openai-compatible",
-                      name: "OmniRoute",
+                      name: "Router",
                       options: {
-                        baseURL: "https://omniroute.''${PUBLIC_BASE_DOMAIN}/v1"
+                        baseURL: env.MODELS_SELECTED_BASE_URL
                       },
                       syncedAt: (now | todateiso8601),
                       models: ($entries | from_entries)
@@ -730,7 +811,7 @@
               return 1
             fi
 
-            if ! $JQ -e '.providers.omniroute.models | type == "object" and length > 0' "$temp_json" >/dev/null; then
+            if ! $JQ -e '.providers.router.models | type == "object" and length > 0' "$temp_json" >/dev/null; then
               $GUM style --foreground 196 "Error: Normalized model cache is empty"
               rm -f "$response_file" "$temp_json"
               return 1
@@ -741,7 +822,7 @@
 
             local stats
             stats=$($JQ -r '
-              (.providers.omniroute.models // {}) as $models
+              (.providers.router.models // {}) as $models
               | [
                   "models=\($models | length)",
                   "limits=\([$models[] | select(.limit.context? != null or .limit.output? != null)] | length)",
@@ -755,10 +836,10 @@
 
             local missing_state_models
             missing_state_models=$($JQ -r --slurpfile state "$STATE_FILE" '
-              (.providers.omniroute.models // {}) as $models
+              (.providers.router.models // {}) as $models
               | (($state[0].categories // {}) | to_entries[] | .value | if type == "object" then .model else . end)
-              | select(type == "string" and startswith("omniroute/"))
-              | sub("^omniroute/"; "")
+              | select(type == "string" and startswith("router/"))
+              | sub("^router/"; "")
               | select($models[.] == null)
             ' "$MODELS_FILE" | sort -u)
             if [ -n "$missing_state_models" ]; then
@@ -770,8 +851,8 @@
             risky_state_models=$(get_effective_models_json | $JQ -r --slurpfile state "$STATE_FILE" '
               . as $models
               | (($state[0].categories // {}) | to_entries[] | .value | if type == "object" then .model else . end)
-              | select(type == "string" and startswith("omniroute/"))
-              | sub("^omniroute/"; "") as $model_id
+              | select(type == "string" and startswith("router/"))
+              | sub("^router/"; "") as $model_id
               | ($models[$model_id] // {}) as $model
               | [
                   (if ($model.limit.context? == null or $model.limit.output? == null) then "missing-limit" else empty end),

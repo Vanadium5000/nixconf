@@ -14,6 +14,7 @@
       hostPackageExclusions = {
         macbook = [
           "sora-watermark-cleaner"
+          "bifrost-http"
           "omniroute"
           "cliproxyapi"
           "cpa-usage-keeper"
@@ -35,6 +36,7 @@
           "omp-desktop"
         ];
         legion5i = [
+          "bifrost-http"
           "omniroute"
           "cliproxyapi"
           "cpa-usage-keeper"
@@ -74,6 +76,7 @@
 
         # Server services (disabled by default, enable per-host)
         self.nixosModules.acp-chat
+        self.nixosModules.bifrost
         self.nixosModules.cliproxyapi
         self.nixosModules.cpa-usage-keeper
         self.nixosModules.omniroute

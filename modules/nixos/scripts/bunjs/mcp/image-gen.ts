@@ -28,18 +28,18 @@ server.registerTool(
   },
   async ({ prompt, outputPath, model }) => {
     try {
-      const apiKey = process.env.OMNIROUTE_OPENCODE_API_KEY;
+      const apiKey =
+        process.env.ROUTER_API_KEY || process.env.OMNIROUTE_OPENCODE_API_KEY;
       if (!apiKey) {
         throw new Error(
-          "OMNIROUTE_OPENCODE_API_KEY environment variable is not set."
+          "ROUTER_API_KEY environment variable is not set."
         );
       }
 
-      const omnirouteApiBaseUrl = process.env.OMNIROUTE_OPENCODE_API_KEY;
-      if (!omnirouteApiBaseUrl) {
-        throw new Error(
-          "OMNIROUTE_OPENCODE_API_KEY environment variable is not set."
-        );
+      const routerApiBaseUrl =
+        process.env.ROUTER_BASE_URL || process.env.OMNIROUTE_BASE_URL;
+      if (!routerApiBaseUrl) {
+        throw new Error("ROUTER_BASE_URL environment variable is not set.");
       }
 
       const targetModel = model || process.env.IMAGE_MODEL;
@@ -51,7 +51,7 @@ server.registerTool(
 
       // We use the same proxy OpenCode uses
       const response = await fetch(
-        `${omnirouteApiBaseUrl}/images/generations`,
+        `${routerApiBaseUrl}/images/generations`,
         {
           method: "POST",
           headers: {

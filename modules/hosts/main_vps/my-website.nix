@@ -41,6 +41,7 @@
       vpnDomain = mkHostname "vpn";
       cliproxyapiDomain = mkHostname "cliproxyapi";
       omnirouteDomain = mkHostname "omniroute";
+      bifrostDomain = mkHostname "bifrost";
       cpaUsageKeeperDomain = mkHostname "cpa-usage";
       dokployDomain = mkHostname "dokploy";
       mongoDomain = mkHostname "mongo";
@@ -230,6 +231,15 @@
                 entryPoints = [ "websecure" ];
                 tls = { };
               };
+              bifrost = {
+                # Bifrost is both dashboard and OpenAI-compatible API gateway;
+                # API clients cannot pass the browser forward-auth cookie.
+                # Source: https://docs.getbifrost.ai/integrations/openai-sdk/overview
+                rule = "Host(`${bifrostDomain}`)";
+                service = "bifrost";
+                entryPoints = [ "websecure" ];
+                tls = { };
+              };
               dokploy = {
                 rule = "Host(`${dokployDomain}`)";
                 service = "dokploy-traefik";
@@ -261,6 +271,7 @@
               vpn = mkDirectService 10802;
               cliproxyapi = mkDirectService 8317;
               omniroute = mkDirectService 20128;
+              bifrost = mkDirectService config.services.bifrost.port;
               cpa-usage-keeper = mkDirectService 8080;
               mongo = mkDirectService 41275;
               dokploy-traefik.loadBalancer.servers = [

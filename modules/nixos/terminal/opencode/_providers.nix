@@ -1,6 +1,8 @@
 { self, lib, ... }:
 let
   publicBaseDomain = self.secrets.PUBLIC_BASE_DOMAIN;
+  routerProviderId = "router";
+  routerProviderName = "Router";
   # models.json is the reviewed cache written by `models sync`. It keeps
   # upstream metadata local while the provider config uses the same model IDs.
   modelsFile = ./models.json;
@@ -27,7 +29,7 @@ let
     in
     if isValid then builtins.fromJSON content else { };
 
-  baseModels = dynamicData.providers.omniroute.models or { };
+  baseModels = dynamicData.providers.${routerProviderId}.models or dynamicData.providers.omniroute.models or { };
   filteredPatches = lib.filterAttrs (modelId: _: builtins.hasAttr modelId baseModels) localPatches;
 
   normalizeModel =
@@ -60,14 +62,14 @@ let
     // (lib.optionalAttrs (limit != { }) { inherit limit; });
 
   unifiedProvider = {
-    # OmniRoute exposes an OpenAI-compatible chat-completions surface here; using
-    # OpenCode's Responses provider makes upstream chat chunks fail schema
-    # validation. Source: https://opencode.ai/docs/providers/
+    # The concrete gateway is mutable (`models provider ...`); OpenCode only sees
+    # one stable Router provider so agent/category model IDs do not churn when
+    # switching CLIProxyAPI, Bifrost, or OmniRoute. Source: https://opencode.ai/docs/providers/
     npm = "@ai-sdk/openai-compatible";
-    name = "OmniRoute";
+    name = routerProviderName;
     options = {
-      baseURL = "https://omniroute.${publicBaseDomain}/v1";
-      apiKey = self.secrets.OMNIROUTE_OPENCODE_API_KEY;
+      baseURL = "https://cliproxyapi.${publicBaseDomain}/v1";
+      apiKey = self.secrets.CLIPROXYAPI_KEY;
 
       # OpenCode's request timeout covers slow first events from gateway-routed
       # providers; 200000ms matches the shared models timeout and is 2x OMP's
@@ -87,7 +89,7 @@ let
 in
 {
   config = {
-    omniroute = {
+    ${routerProviderId} = {
       inherit (unifiedProvider)
         npm
         name

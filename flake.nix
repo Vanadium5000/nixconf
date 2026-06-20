@@ -74,6 +74,11 @@
       inputs.nixpkgs.follows = "nixpkgs-unstable";
     };
 
+    # Bifrost HTTP AI gateway. Use upstream's flake/module because it already
+    # packages the Go gateway plus embedded Next.js UI with its required Go toolchain.
+    # Source: https://github.com/maximhq/bifrost/blob/transports/v1.5.15/flake.nix
+    bifrost.url = "github:maximhq/bifrost/transports/v1.5.15";
+
     # Dokploy NixOS module for self-hosted deployment orchestration.
     # Follow the main nixpkgs input so option defaults stay in the same package universe.
     nix-dokploy = {

@@ -148,6 +148,71 @@
         openFirewall = false; # Traefik is the only public entrypoint.
       };
 
+      services.bifrost = {
+        enable = true;
+        host = "127.0.0.1"; # Traefik terminates TLS and is the only public listener.
+        # 8080 is already CPA Usage Keeper; keep Bifrost adjacent to OmniRoute's
+        # AI gateway port while avoiding public listeners. Source: upstream Bifrost
+        # module exposes explicit host/port flags for bifrost-http.
+        port = 20129;
+        openFirewall = false;
+        environment = {
+          BIFROST_ENCRYPTION_KEY = self.secrets.BIFROST_ENCRYPTION_KEY;
+          CLIPROXYAPI_KEY = self.secrets.CLIPROXYAPI_KEY;
+        };
+        settings = {
+          "$schema" = "https://www.getbifrost.ai/schema";
+          encryption_key = "env.BIFROST_ENCRYPTION_KEY";
+          providers.openai = {
+            keys = [
+              {
+                name = "cliproxyapi";
+                value = "env.CLIPROXYAPI_KEY";
+                # Let CLIProxyAPI's OpenAI-compatible /v1/models endpoint own
+                # model discovery instead of pinning a stale gateway model list.
+                # Source: Bifrost config schema `models: [\"*\"]` allows all.
+                models = [ "*" ];
+                weight = 1.0;
+              }
+            ];
+            network_config = {
+              base_url = "http://127.0.0.1:8317";
+              default_request_timeout_in_seconds = 200;
+            };
+            custom_provider_config = {
+              base_provider_type = "openai";
+              allowed_requests = {
+                list_models = true;
+                chat_completion = true;
+                chat_completion_stream = true;
+                responses = false;
+                responses_stream = false;
+                embedding = false;
+                speech = false;
+                speech_stream = false;
+                transcription = false;
+                transcription_stream = false;
+              };
+              request_path_overrides = {
+                list_models = "/v1/models";
+                chat_completion = "/v1/chat/completions";
+                chat_completion_stream = "/v1/chat/completions";
+              };
+            };
+          };
+          config_store = {
+            enabled = true;
+            type = "sqlite";
+            config.path = "./config.db";
+          };
+          logs_store = {
+            enabled = true;
+            type = "sqlite";
+            config.path = "./logs.db";
+          };
+        };
+      };
+
       services.cpa-usage-keeper = {
         enable = true;
         openFirewall = false; # Traefik is the only public entrypoint for this dashboard.

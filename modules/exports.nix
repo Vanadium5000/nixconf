@@ -72,6 +72,11 @@ let
     };
 
     services = {
+      bifrost = [
+        "services"
+        "bifrost"
+        "enable"
+      ];
       cliproxyapi = [
         "services"
         "cliproxyapi"

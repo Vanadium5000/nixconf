@@ -57,7 +57,7 @@ flake.nix
 | --- | --- | --- | --- | --- |
 | `legion5i` | Primary graphical laptop | `terminal`, `desktop`, `laptop` | `matrix` | Hyprland/DankMaterialShell, CUDA/Nvidia, OBS, Obsidian, local VPN proxy, ntfy, mitmproxy, Unison |
 | `macbook` | T2 graphical laptop | `terminal`, `desktop`, `laptop` | `matrix` | Hyprland/DankMaterialShell, Apple T2 support, T2 firmware bundle, ntfy, mitmproxy, local VPN proxy, Unison |
-| `main_vps` | Headless service host | `terminal`, `server` | `server` | Traefik edge, Dokploy, OmniRoute, CLIProxyAPI, CPA Usage Keeper, services-auth-gateway, ntfy, homepage, mitmproxy, VPN proxy |
+| `main_vps` | Headless service host | `terminal`, `server` | `server` | Traefik edge, Dokploy, CLIProxyAPI, Bifrost, OmniRoute, CPA Usage Keeper, services-auth-gateway, ntfy, homepage, mitmproxy, VPN proxy |
 
 > [!TIP]
 > `modules/hosts/ionos_vps/` exists as a directory but is not exported as a current `nixosConfiguration`.
@@ -176,7 +176,7 @@ Graphical hosts import `modules/nixos/desktop/default.nix`, which extends the te
 
 | Path | Purpose |
 | --- | --- |
-| `modules/hosts/main_vps/configuration.nix` | Enables Dokploy, OmniRoute, CLIProxyAPI, CPA Usage Keeper, VPN proxy, ntfy, homepage, mitmproxy, Unison. |
+| `modules/hosts/main_vps/configuration.nix` | Enables Dokploy, CLIProxyAPI, Bifrost, OmniRoute, CPA Usage Keeper, VPN proxy, ntfy, homepage, mitmproxy, Unison. |
 | `modules/hosts/main_vps/my-website.nix` | Traefik edge, wildcard ACME, protected dashboard routing, services-auth-gateway integration. |
 | `modules/hosts/main_vps/remote-unlock.nix` | Initrd network and SSH unlock on public port 22 before stage-2 sshd. |
 | `modules/nixos/terminal/services-auth-gateway.nix` | Shared auth gateway service module. |
@@ -185,8 +185,9 @@ Graphical hosts import `modules/nixos/desktop/default.nix`, which extends the te
 ```text
 :80/:443 Traefik + wildcard ACME
 ├─ apex/www/openclaw/dokploy app routes -> dokploy-traefik on 127.0.0.1:81 where needed
-├─ omniroute.<domain>    -> OmniRoute on 127.0.0.1:20128
 ├─ cliproxyapi.<domain>  -> CLIProxyAPI on 127.0.0.1:8317
+├─ bifrost.<domain>      -> Bifrost on 127.0.0.1:20129; proxies to CLIProxyAPI
+├─ omniroute.<domain>    -> OmniRoute on 127.0.0.1:20128
 ├─ cpa-usage.<domain>   -> CPA Usage Keeper
 └─ dashboard/cockpit/mitmproxy/vpn/mongo -> services-auth-gateway on 127.0.0.1:41276
 ```

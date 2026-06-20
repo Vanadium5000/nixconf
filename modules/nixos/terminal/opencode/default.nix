@@ -13,6 +13,9 @@
       configSourceDirectory = config.preferences.paths.configSourceDirectory;
       publicBaseDomain = self.secrets.PUBLIC_BASE_DOMAIN;
       system = pkgs.stdenv.hostPlatform.system;
+      routerProviderId = "router";
+      routerDefaultBaseUrl = "https://cliproxyapi.${publicBaseDomain}/v1";
+      routerDefaultApiKey = self.secrets.CLIPROXYAPI_KEY;
 
       languages = import ./_languages.nix { inherit pkgs self; };
       providers = import ./_providers.nix { inherit self lib; };
@@ -141,8 +144,8 @@
           type = "local";
           command = [
             (pkgs.writeShellScript "image-gen-mcp-wrapper" ''
-              export OMNIROUTE_OPENCODE_API_KEY="${self.secrets.OMNIROUTE_OPENCODE_API_KEY}"
-              export OMNIROUTE_BASE_URL="https://omniroute.${publicBaseDomain}/v1"
+              export ROUTER_API_KEY="${routerDefaultApiKey}"
+              export ROUTER_BASE_URL="${routerDefaultBaseUrl}"
               MODELS_FILE="${configSourceDirectory}/modules/nixos/terminal/opencode/models.json"
               PATCHES_FILE="${configSourceDirectory}/modules/nixos/terminal/opencode/_model-local-patches.json"
 
@@ -163,21 +166,21 @@
                           else
                             {}
                           end);
-                    (.providers.omniroute.models // {}) as $models
+                    (.providers.${routerProviderId}.models // .providers.omniroute.models // {}) as $models
                     | $models * (($patches[0] // {}) | with_entries(select($models[.key] != null)))
                     | map_values(normalize_model)
                     | to_entries[]
                     | select(((.value.modalities.output // []) | index("image")) != null)
-                    | "omniroute/\(.key)"
+                    | "${routerProviderId}/\(.key)"
                   ) // empty
                 ' "$MODELS_FILE")"
               else
                 export IMAGE_MODEL="$(${pkgs.jq}/bin/jq -r '
                   first(
-                    (.providers.omniroute.models // {})
+                    (.providers.${routerProviderId}.models // .providers.omniroute.models // {})
                     | to_entries[]
                     | select(((.value.modalities.output // []) | index("image")) != null)
-                    | "omniroute/\(.key)"
+                    | "${routerProviderId}/\(.key)"
                   ) // empty
                 ' "$MODELS_FILE")"
               fi
@@ -193,7 +196,7 @@
       baseConfig = {
         "$schema" = "https://opencode.ai/config.json";
         plugin = pluginsConfig.plugins;
-        small_model = "omniroute/kilocode/kilo-auto/free";
+        small_model = "${routerProviderId}/kilocode/kilo-auto/free";
         autoupdate = false;
         share = "disabled";
         permission = {
@@ -234,7 +237,7 @@
         ];
         enabled_providers = [
           "opencode"
-          "omniroute"
+          routerProviderId
         ];
         mcp = mcpConfig;
         inherit (languages) formatter lsp;
@@ -255,8 +258,8 @@
         embeddingModel = "Xenova/nomic-embed-text-v1";
         memoryProvider = "openai-chat";
         memoryModel = state.categories.deep.model;
-        memoryApiUrl = "https://omniroute.${publicBaseDomain}/v1";
-        memoryApiKey = self.secrets.OMNIROUTE_OPENCODE_API_KEY;
+        memoryApiUrl = routerDefaultBaseUrl;
+        memoryApiKey = routerDefaultApiKey;
         autoCaptureEnabled = true;
         webServerEnabled = true;
         webServerPort = 4747;
