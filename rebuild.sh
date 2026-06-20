@@ -216,6 +216,7 @@ declare -A SECRETS_MAP=(
  ["MONGO_EXPRESS_PASSWORD"]="system/mongo_express_password"
  ["CLIPROXYAPI_KEY"]="system/cliproxyapi-key"
  ["BIFROST_ENCRYPTION_KEY"]="system/bifrost/encryption-key"
+ ["BIFROST_API_KEY"]="system/bifrost/api-key"
  ["OMNIROUTE_OPENCODE_API_KEY"]="system/omniroute/opencode-api-key"
  ["OMNIROUTE_PI_API_KEY"]="system/omniroute/pi-api-key"
  ["EXA_API_KEY"]="system/exa-api-key"
@@ -236,6 +237,7 @@ SECRET_NAMES=(
  MONGO_EXPRESS_PASSWORD
  CLIPROXYAPI_KEY
  BIFROST_ENCRYPTION_KEY
+ BIFROST_API_KEY
  OMNIROUTE_OPENCODE_API_KEY
  OMNIROUTE_PI_API_KEY
  EXA_API_KEY

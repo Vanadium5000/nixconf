@@ -82,7 +82,7 @@ flake.nix
 | --- | --- |
 | `self.moduleSets.profiles` | `common`, `terminal`, `desktop` |
 | `self.moduleSets.features` | audio, bluetooth, Firefox, DMS, Hyprland, OBS, Obsidian, Qt, Syncthing, TLP, tuigreet, VSCodium |
-| `self.moduleSets.services` | OmniRoute, CLIProxyAPI, CPA Usage Keeper, services-auth-gateway, monitoring, nix, OpenCode, tailscale, Unison, virtualisation, VPN proxy, cockpit |
+| `self.moduleSets.services` | CLIProxyAPI, Bifrost, OmniRoute, CPA Usage Keeper, services-auth-gateway, monitoring, nix, OpenCode, tailscale, Unison, virtualisation, VPN proxy, cockpit |
 | `self.moduleSets.hosts` | `main_vps`, `legion5i`, `macbook` |
 | `hostModuleMatrix` | Evaluated profile/feature/service matrix consumed by `rebuild.sh matrix` |
 
@@ -180,6 +180,7 @@ Graphical hosts import `modules/nixos/desktop/default.nix`, which extends the te
 | `modules/hosts/main_vps/my-website.nix` | Traefik edge, wildcard ACME, protected dashboard routing, services-auth-gateway integration. |
 | `modules/hosts/main_vps/remote-unlock.nix` | Initrd network and SSH unlock on public port 22 before stage-2 sshd. |
 | `modules/nixos/terminal/services-auth-gateway.nix` | Shared auth gateway service module. |
+| `modules/nixos/terminal/bifrost.nix` | Imports upstream Bifrost flake module; host config seeds `/var/lib/bifrost/config.json`. |
 | `modules/nixos/terminal/monitoring/` | Homepage, Netdata, mitmproxy modules. |
 
 ```text

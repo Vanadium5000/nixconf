@@ -177,6 +177,7 @@ in
       };
 
       services = {
+        bifrost = self.nixosModules.bifrost;
         cliproxyapi = self.nixosModules.cliproxyapi;
         cpa-usage-keeper = self.nixosModules.cpa-usage-keeper;
         omniroute = self.nixosModules.omniroute;

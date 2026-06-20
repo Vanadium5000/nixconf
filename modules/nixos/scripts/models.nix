@@ -5,6 +5,7 @@
     let
       opencodeApiKey = self.secrets.OMNIROUTE_OPENCODE_API_KEY;
       cliproxyApiKey = self.secrets.CLIPROXYAPI_KEY;
+      bifrostApiKey = self.secrets.BIFROST_API_KEY or "";
       opencodeStateDirectory = self.lib.configFiles.known.opencodeStateDirectory;
 
       modelStateAssetsDir = pkgs.runCommand "models-state-assets" { } ''
@@ -51,7 +52,7 @@
           OMP_PROVIDER_NAME="''${MODELS_OMP_PROVIDER_NAME:-$ROUTER_PROVIDER_NAME}"
           CLIPROXYAPI_KEY="''${CLIPROXYAPI_KEY:-${cliproxyApiKey}}"
           OMNIROUTE_OPENCODE_API_KEY="''${OMNIROUTE_OPENCODE_API_KEY:-${opencodeApiKey}}"
-          BIFROST_API_KEY="''${BIFROST_API_KEY:-$CLIPROXYAPI_KEY}"
+          BIFROST_API_KEY="''${BIFROST_API_KEY:-${bifrostApiKey}}"
           # Keep generated OMP provider metadata aligned with the NixOS module's
           # PI_STREAM_FIRST_EVENT_TIMEOUT_MS; OmniRoute can legitimately spend
           # longer than OMP's 100s default routing/cold-starting upstreams before
@@ -360,7 +361,16 @@
 
             local base_provider
             local config_provider
-            base_provider=$($JQ -cS --arg provider_id "$ROUTER_PROVIDER_ID" '.provider[$provider_id] | del(.models)' "$OPENCODE_BASE_CONFIG_FILE")
+            base_provider=$($JQ -cS \
+              --arg provider_id "$ROUTER_PROVIDER_ID" \
+              --arg base_url "$(get_router_base_url)" \
+              --arg api_key "$(get_router_api_key)" '
+                .provider[$provider_id]
+                | del(.models)
+                | .name = "Router"
+                | .options.baseURL = $base_url
+                | .options.apiKey = $api_key
+              ' "$OPENCODE_BASE_CONFIG_FILE")
             config_provider=$($JQ -cS --arg provider_id "$ROUTER_PROVIDER_ID" '.provider[$provider_id] | del(.models)' "$cfg_file")
 
             [ "$base_provider" = "$config_provider" ]
@@ -379,6 +389,8 @@
                 | map([.path + ["model"], .path + ["variant"]])
                 | add // []) as $agent_model_paths
               | del(.provider.router.models)
+              | del(.provider.router.options.baseURL)
+              | del(.provider.router.options.apiKey)
               | delpaths($agent_model_paths)
             '
 
@@ -876,7 +888,7 @@
             sync_all_runtime_configs_from_state
           }
 
-          # Write OMP's mutable model catalog from the effective OmniRoute cache.
+          # Write OMP's mutable model catalog from the effective Router cache.
           # OMP loads custom providers from ~/.omp/agent/models.yml and expects
           # contextWindow/maxTokens instead of OpenCode's limit object.
           # Source: https://github.com/can1357/oh-my-pi/blob/main/docs/models.md.
@@ -885,11 +897,14 @@
           # so current pi-ai stream watchdogs use the same finite first-event window.
           sync_omp_models() {
             local quiet="''${1:-0}"
-            local pi_api_key="''${MODELS_OMP_API_KEY:-''${OMNIROUTE_PI_API_KEY:-${
-              self.secrets.OMNIROUTE_PI_API_KEY or ""
-            }}}"
+            local router_provider
+            local pi_api_key
+            local omp_base_url
+            router_provider=$(get_router_provider)
+            pi_api_key="''${MODELS_OMP_API_KEY:-$(router_api_key_for "$router_provider")}"
+            omp_base_url="''${MODELS_OMP_BASE_URL:-$(router_base_url_for "$router_provider")}"
             if [ -z "$pi_api_key" ]; then
-              $GUM style --foreground 196 "Error: OMNIROUTE_PI_API_KEY is required for OMP model sync. Add system/omniroute/pi-api-key to pass and rerun rebuild.sh."
+              $GUM style --foreground 196 "Error: Router API key is required for OMP model sync. Check the selected provider credential and rerun rebuild.sh."
               return 1
             fi
 
@@ -901,11 +916,11 @@
             mkdir -p "$(dirname "$OMP_MODELS_FILE")"
 
             {
-              printf '%s\n' '# Managed by `models sync-omp`; edit for local OMP experiments, then rerun sync when refreshing OmniRoute.'
+              printf '%s\n' '# Managed by `models sync-omp`; edit for local OMP experiments, then rerun sync when refreshing Router.'
               get_effective_models_json | $JQ -r \
                 --arg provider_id "$OMP_PROVIDER_ID" \
                 --arg provider_name "$OMP_PROVIDER_NAME" \
-                --arg base_url "$OMP_BASE_URL" \
+                --arg base_url "$omp_base_url" \
                 --arg api_key "$pi_api_key" \
                 --argjson provider_timeout_ms "$PROVIDER_TIMEOUT_MS" '
                 def q: @json;
@@ -1009,7 +1024,7 @@
           model_picker_lines() {
             get_effective_models_json | $JQ -r '
               to_entries[]
-              | "omniroute/\(.key)\tomniroute: \(.value.name) (\(.key))"
+              | "router/\(.key)\tRouter: \(.value.name) (\(.key))"
             '
           }
 
@@ -1039,8 +1054,75 @@
             printf '%s\n' "$selection" | cut -f1
           }
 
+          set_router_provider() {
+            local provider="''${1:-}"
+
+            if [ -z "$provider" ]; then
+              local selected
+              if ! selected=$(printf '%s\n' \
+                "cliproxyapi\tCLIProxyAPI (default)\t$(router_base_url_for cliproxyapi)" \
+                "bifrost\tBifrost\t$(router_base_url_for bifrost)" \
+                "omniroute\tOmniRoute\t$(router_base_url_for omniroute)" \
+                | $GUM choose \
+                  --header "Router provider: $(router_provider_label)" \
+                  --cursor="▶ " \
+                  --selected.foreground="212" \
+                  --cursor.foreground="212"); then
+                return 0
+              fi
+
+              if [ -z "$selected" ]; then
+                return 0
+              fi
+
+              provider=$(printf '%s\n' "$selected" | cut -f1)
+            fi
+
+            case "$provider" in
+              cliproxyapi|bifrost|omniroute) ;;
+              *)
+                $GUM style --foreground 196 "Error: provider must be cliproxyapi, bifrost, or omniroute"
+                return 1
+                ;;
+            esac
+
+            ensure_provider_file
+            local tmp
+            tmp=$(mktemp)
+            $JQ --arg provider "$provider" '.provider = $provider' "$PROVIDER_FILE" > "$tmp"
+            mv "$tmp" "$PROVIDER_FILE"
+
+            sync_models
+            $GUM style --foreground 212 "Router provider: $(router_provider_label "$provider")"
+          }
+
+          invalid_category_model_count() {
+            ensure_state_file
+            get_effective_models_json | $JQ -r --slurpfile state "$STATE_FILE" '
+              . as $models
+              | [
+                  (($state[0].categories // {}) | to_entries[] | .value | if type == "object" then .model else . end)
+                  | select(type == "string" and startswith("router/"))
+                  | sub("^router/"; "")
+                  | select($models[.] == null)
+                ]
+              | unique
+              | length
+            '
+          }
+
           category_picker_lines() {
-            $JQ -r '.categories | to_entries[] | "\(.key)\t\(.value.label) [\(.key)] (\(.value.description))"' "$OPENCODE_METADATA_FILE"
+            ensure_state_file
+            get_effective_models_json | $JQ -r --slurpfile state "$STATE_FILE" --slurpfile meta "$OPENCODE_METADATA_FILE" '
+              . as $models
+              | $meta[0].categories
+              | to_entries[]
+              | .key as $category_id
+              | ((($state[0].categories // {})[$category_id] // .value.defaultModel) | if type == "object" then .model else . end) as $model
+              | ($model | sub("^router/"; "")) as $model_id
+              | (if (($model | startswith("router/")) and ($models[$model_id] == null)) then "\u001b[31m✗ invalid\u001b[0m" else "\u001b[32m✓ valid\u001b[0m" end) as $status
+              | "\(.key)\t\($status)  \(.value.label) [\(.key)] — \($model) (\(.value.description))"
+            '
           }
 
           choose_categories() {
@@ -1327,26 +1409,47 @@
           }
 
           render_state_summary() {
+            local invalid_count
+            local effective_models
+            invalid_count=$(invalid_category_model_count)
+            effective_models=$(get_effective_models_json)
+
             local categories_summary
             categories_summary=$(
               while IFS=$'\t' read -r label category_id; do
                 local model
                 local effort
                 local detail=""
+                local color="82"
+                local status="valid"
 
                 model=$(get_group_model "$category_id")
                 effort=$(get_group_reasoning_effort "$category_id")
+
+                if [ "$(printf '%s\n' "$model" | $JQ -Rr --argjson models "$effective_models" '
+                  sub("^router/"; "") as $model_id
+                  | if startswith("router/") and ($models[$model_id] == null) then "bad" else "ok" end
+                ')" = "bad" ]; then
+                  color="196"
+                  status="invalid"
+                fi
 
                 if [ -n "$effort" ]; then
                   detail=" (effort: $effort)"
                 fi
 
-                printf -- '- %s: %s%s\n' "$label" "$model" "$detail"
+                $GUM style --foreground "$color" "- $label: $model$detail [$status]"
               done < <($JQ -r '.categories | to_entries[] | "\(.value.label)\t\(.key)"' "$OPENCODE_METADATA_FILE")
             )
 
+            $GUM style --foreground 39 "Router: $(router_provider_label) ($(get_router_base_url))"
+            if [ "$invalid_count" -gt 0 ]; then
+              $GUM style --foreground 196 "$invalid_count Invalid category model(s)"
+            else
+              $GUM style --foreground 82 "0 Invalid category models"
+            fi
             printf '%s\n%s' \
-              "$(get_menu_text categoryStatePrefix):" \
+              "$($GUM style --foreground 212 "$(get_menu_text categoryStatePrefix):")" \
               "$categories_summary"
           }
 
@@ -1398,11 +1501,21 @@
                 sync_warning=" (⚠️ Models list empty, please sync!)"
               fi
 
+              local invalid_count
+              local invalid_suffix
+              invalid_count=$(invalid_category_model_count)
+              if [ "$invalid_count" -gt 0 ]; then
+                invalid_suffix=" ($invalid_count Invalid)"
+              else
+                invalid_suffix=" (0 Invalid)"
+              fi
+
               local action
               if ! action=$($GUM choose \
                 "$(get_menu_text syncAction)$sync_warning" \
                 "$(get_menu_text syncConfigAction)" \
-                "$(get_menu_text changeCategoriesAction)" \
+                "$(get_menu_text providerAction)" \
+                "$(get_menu_text changeCategoriesAction)$invalid_suffix" \
                 "$(get_menu_text replaceModelAction)" \
                 "$(get_menu_text presetSaveAction)" \
                 "$(get_menu_text presetManageAction)" \
@@ -1419,7 +1532,8 @@
               case "$action" in
                 "$(get_menu_text syncAction)"*) sync_models || true ;;
                 "$(get_menu_text syncConfigAction)") sync_config_from_state || true ;;
-                "$(get_menu_text changeCategoriesAction)") choose_categories || true ;;
+                "$(get_menu_text providerAction)") set_router_provider || true ;;
+                "$(get_menu_text changeCategoriesAction)"*) choose_categories || true ;;
                 "$(get_menu_text replaceModelAction)") replace_model_across_categories || true ;;
                 "$(get_menu_text presetSaveAction)") save_preset || true ;;
                 "$(get_menu_text presetManageAction)") preset_manager || true ;;
@@ -1439,8 +1553,9 @@
             sync-opencode) sync_opencode_config_from_state ;;
             sync-config) sync_config_from_state 1 ;;
             sync-omp) sync_omp_models ;;
+            provider) set_router_provider "''${2:-}" ;;
             init) init_project ;;
-            *) echo "Usage: models [sync|sync-all|sync-opencode|sync-config|sync-omp|init]"; exit 1 ;;
+            *) echo "Usage: models [sync|sync-all|sync-opencode|sync-config|sync-omp|provider|init]"; exit 1 ;;
           esac
         '';
       };

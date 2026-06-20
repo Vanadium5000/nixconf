@@ -21,6 +21,7 @@
       exaApiKey = self.secrets.EXA_API_KEY or "";
       opencodeApiKey = self.secrets.OMNIROUTE_OPENCODE_API_KEY or "";
       routerApiKey = self.secrets.CLIPROXYAPI_KEY or "";
+      bifrostApiKey = self.secrets.BIFROST_API_KEY or "";
 
       ompDirectory = "${homeDirectory}/.omp";
       ompAgentDirectory = "${ompDirectory}/agent";
@@ -520,6 +521,7 @@
               printf '%s\n' ${lib.escapeShellArg "OMNIROUTE_OPENCODE_API_KEY=${opencodeApiKey}"}
               printf '%s\n' ${lib.escapeShellArg "OMNIROUTE_PI_API_KEY=${piApiKey}"}
               printf '%s\n' ${lib.escapeShellArg "ROUTER_API_KEY=${routerApiKey}"}
+              printf '%s\n' ${lib.escapeShellArg "BIFROST_API_KEY=${bifrostApiKey}"}
             } > "$tmp_env"
             install -m 0600 -o ${shellUser} -g users "$tmp_env" ${shellOmpEnvFile}
             rm -f "$tmp_env"

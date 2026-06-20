@@ -29,7 +29,8 @@ let
     in
     if isValid then builtins.fromJSON content else { };
 
-  baseModels = dynamicData.providers.${routerProviderId}.models or dynamicData.providers.omniroute.models or { };
+  baseModels =
+    dynamicData.providers.${routerProviderId}.models or dynamicData.providers.omniroute.models or { };
   filteredPatches = lib.filterAttrs (modelId: _: builtins.hasAttr modelId baseModels) localPatches;
 
   normalizeModel =

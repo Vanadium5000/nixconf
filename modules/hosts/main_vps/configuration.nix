@@ -157,12 +157,17 @@
         port = 20129;
         openFirewall = false;
         environment = {
-          BIFROST_ENCRYPTION_KEY = self.secrets.BIFROST_ENCRYPTION_KEY;
+          BIFROST_API_KEY = self.secrets.BIFROST_API_KEY or "";
+          BIFROST_ENCRYPTION_KEY = self.secrets.BIFROST_ENCRYPTION_KEY or "";
           CLIPROXYAPI_KEY = self.secrets.CLIPROXYAPI_KEY;
         };
         settings = {
           "$schema" = "https://www.getbifrost.ai/schema";
           encryption_key = "env.BIFROST_ENCRYPTION_KEY";
+          client = {
+            enable_logging = true;
+            enforce_auth_on_inference = true;
+          };
           providers.openai = {
             keys = [
               {
@@ -183,6 +188,8 @@
               base_provider_type = "openai";
               allowed_requests = {
                 list_models = true;
+                text_completion = false;
+                text_completion_stream = false;
                 chat_completion = true;
                 chat_completion_stream = true;
                 responses = false;
@@ -200,6 +207,23 @@
               };
             };
           };
+          governance.virtual_keys = [
+            {
+              id = "router";
+              name = "Router";
+              value = "env.BIFROST_API_KEY";
+              description = "Default Router key for OpenAI-compatible Bifrost clients";
+              is_active = true;
+              provider_configs = [
+                {
+                  provider = "openai";
+                  weight = 1.0;
+                  allowed_models = [ "*" ];
+                  key_ids = [ "*" ];
+                }
+              ];
+            }
+          ];
           config_store = {
             enabled = true;
             type = "sqlite";
@@ -269,9 +293,12 @@
       services.mitmproxy.proxyPort = 8084;
       services.mitmproxy.trustCA = true;
 
-      # ntfy keeps its cache, auth DB, and attachments in /var/lib/ntfy-sh.
-      # Use a normal persistent state path to avoid DynamicUser StateDirectory clashes.
-      impermanence.nixos.directories = [ "/var/lib/ntfy-sh" ];
+      # ntfy and Bifrost keep runtime databases below /var/lib; persist them
+      # explicitly because this host wipes the root filesystem on boot.
+      impermanence.nixos.directories = [
+        "/var/lib/bifrost"
+        "/var/lib/ntfy-sh"
+      ];
 
       # Preferences
       preferences = {

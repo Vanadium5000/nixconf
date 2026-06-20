@@ -7,16 +7,16 @@
 
 buildGo126Module rec {
   pname = "cliproxyapi";
-  version = "7.1.55";
+  version = "7.2.22";
 
   src = fetchFromGitHub {
     owner = "router-for-me";
     repo = "CLIProxyAPI";
     rev = "v${version}";
-    hash = "sha256-PolUWqtiwWd+ApGaE8F/ijcvlSjnxfyBKI/9hmRTC6E=";
+    hash = "sha256-iabSRs+qIsnz1r/rg3AnD8pqnzDwyKdFvpfKWyZ0+DU=";
   };
 
-  vendorHash = "sha256-AIue9XBsfsKGClRLB1DCME+36crapnOdQrEICFYG1a0=";
+  vendorHash = "sha256-vQU3hLDga5PMUwH4KSB3T5sZ1uPUgHQHeyQGJTKHIYs=";
 
   postPatch = ''
     if grep -q 'github.com/router-for-me/CLIProxyAPI/v6' sdk/cliproxy/auth/request_auth_prepare_test.go; then
