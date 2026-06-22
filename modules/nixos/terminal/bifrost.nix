@@ -1,7 +1,12 @@
 { inputs, ... }:
 {
   flake.nixosModules.bifrost =
-    { lib, pkgs, ... }:
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
     let
       system = pkgs.stdenv.hostPlatform.system;
       upstreamPackages = inputs.bifrost.packages.${system};
@@ -23,6 +28,27 @@
     in
     {
       imports = [ inputs.bifrost.nixosModules.bifrost ];
-      services.bifrost.package = lib.mkOverride 900 bifrostHttp;
+      config = lib.mkIf config.services.bifrost.enable {
+        services.bifrost.package = lib.mkOverride 900 bifrostHttp;
+
+        users.groups.bifrost = { };
+        users.users.bifrost = {
+          isSystemUser = true;
+          group = "bifrost";
+          home = toString config.services.bifrost.stateDir;
+          description = "Bifrost AI gateway service user";
+        };
+
+        systemd.services.bifrost.serviceConfig = {
+          # Upstream defaults to DynamicUser, but main_vps already had a public
+          # /var/lib/bifrost persistence mount. systemd rejects that combination
+          # before ExecStartPre with status=238/STATE_DIRECTORY, so use a stable
+          # service user for this repo module.
+          DynamicUser = lib.mkForce false;
+          User = "bifrost";
+          Group = "bifrost";
+          StateDirectoryMode = "0700";
+        };
+      };
     };
 }

@@ -941,7 +941,8 @@ pkgs.writeShellApplication {
       local pkg="cpa-usage-keeper"
       local file
       file=$(package_file "$pkg")
-      local current_version latest_tag latest_version src_hash
+      local current_version latest_tag latest_version src_hash before_update after_update
+      before_update=$(sha256sum "$file")
       current_version=$(grep -oP 'version = "\K[^"]+' "$file" | head -1 || true)
       latest_tag=$(get_latest_release "Willxup" "cpa-usage-keeper")
       latest_version="''${latest_tag#v}"
@@ -955,25 +956,36 @@ pkgs.writeShellApplication {
       echo "    Current version: $current_version"
       echo "    Latest version: $latest_version"
 
-      if [ "$current_version" = "$latest_version" ]; then
-        echo "    Already up to date"
-        return 1
-      fi
-
       src_hash=$(prefetch_github "Willxup" "cpa-usage-keeper" "v$latest_version")
       if [ -z "$src_hash" ]; then
         echo "    Could not prefetch source"
         return 1
       fi
 
-      sed -i "s|version = \"$current_version\"|version = \"$latest_version\"|" "$file"
+      if [ "$current_version" != "$latest_version" ]; then
+        echo "    Updating version: $current_version -> $latest_version"
+        sed -i "s|version = \"$current_version\"|version = \"$latest_version\"|" "$file"
+      else
+        echo "    Version unchanged; refreshing source and dependency hashes"
+      fi
       set_first_hash_after "$file" 'repo = "cpa-usage-keeper"' "$src_hash"
 
       echo "    Refreshing npmDepsHash..."
-      refresh_fake_hash_from_build "$file" npmDepsHash nix-build -E 'let pkgs = import <nixpkgs> {}; in (pkgs.callPackage ./cpa-usage-keeper.nix {}).web'
+      if ! refresh_fake_hash_from_build "$file" npmDepsHash nix-build -E 'let pkgs = import <nixpkgs> { config.allowUnfree = true; }; in (pkgs.callPackage ./cpa-usage-keeper.nix {}).web'; then
+        return 1
+      fi
 
       echo "    Refreshing vendorHash..."
-      refresh_fake_hash_from_build "$file" vendorHash nix-build -E 'let pkgs = import <nixpkgs> {}; in pkgs.callPackage ./cpa-usage-keeper.nix {}'
+      if ! refresh_fake_hash_from_build "$file" vendorHash nix-build -E 'let pkgs = import <nixpkgs> { config.allowUnfree = true; }; in pkgs.callPackage ./cpa-usage-keeper.nix {}'; then
+        return 1
+      fi
+
+      after_update=$(sha256sum "$file")
+      if [ "$before_update" = "$after_update" ]; then
+        echo "    Already up to date"
+        return 1
+      fi
+
       return 0
     }
 

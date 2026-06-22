@@ -72,6 +72,398 @@
           "name": "aisingapore/sea-lion-7b-instruct",
           "tool_call": true
         },
+        "auto/best-chat": {
+          "id": "auto/best-chat",
+          "limit": {
+            "context": 1000000,
+            "output": 131072
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/best-chat"
+          },
+          "name": "auto/best-chat",
+          "tool_call": true
+        },
+        "auto/best-coding": {
+          "id": "auto/best-coding",
+          "limit": {
+            "context": 1000000,
+            "output": 131072
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/best-coding"
+          },
+          "name": "auto/best-coding",
+          "tool_call": true
+        },
+        "auto/best-coding-fast": {
+          "id": "auto/best-coding-fast",
+          "limit": {
+            "context": 1000000,
+            "output": 131072
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/best-coding-fast"
+          },
+          "name": "auto/best-coding-fast",
+          "tool_call": true
+        },
+        "auto/best-fast": {
+          "id": "auto/best-fast",
+          "limit": {
+            "context": 1000000,
+            "output": 131072
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/best-fast"
+          },
+          "name": "auto/best-fast",
+          "tool_call": true
+        },
+        "auto/best-reasoning": {
+          "id": "auto/best-reasoning",
+          "limit": {
+            "context": 1000000,
+            "output": 131072
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/best-reasoning"
+          },
+          "name": "auto/best-reasoning",
+          "tool_call": true
+        },
+        "auto/best-vision": {
+          "id": "auto/best-vision",
+          "limit": {
+            "context": 1000000,
+            "output": 131072
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/best-vision"
+          },
+          "name": "auto/best-vision",
+          "tool_call": true
+        },
+        "auto/chat": {
+          "id": "auto/chat",
+          "limit": {
+            "context": 1000000,
+            "output": 131072
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/chat"
+          },
+          "name": "auto/chat",
+          "tool_call": true
+        },
+        "auto/cheap": {
+          "id": "auto/cheap",
+          "limit": {
+            "context": 1000000,
+            "output": 131072
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/cheap"
+          },
+          "name": "auto/cheap",
+          "tool_call": true
+        },
+        "auto/claude-opus": {
+          "id": "auto/claude-opus",
+          "limit": {
+            "context": 1000000,
+            "output": 131072
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/claude-opus"
+          },
+          "name": "auto/claude-opus",
+          "tool_call": true
+        },
+        "auto/claude-sonnet": {
+          "id": "auto/claude-sonnet",
+          "limit": {
+            "context": 1000000,
+            "output": 131072
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/claude-sonnet"
+          },
+          "name": "auto/claude-sonnet",
+          "tool_call": true
+        },
+        "auto/coding": {
+          "id": "auto/coding",
+          "limit": {
+            "context": 1000000,
+            "output": 131072
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/coding"
+          },
+          "name": "auto/coding",
+          "tool_call": true
+        },
+        "auto/coding:cheap": {
+          "id": "auto/coding:cheap",
+          "limit": {
+            "context": 1000000,
+            "output": 131072
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/coding:cheap"
+          },
+          "name": "auto/coding:cheap",
+          "tool_call": true
+        },
+        "auto/coding:fast": {
+          "id": "auto/coding:fast",
+          "limit": {
+            "context": 1000000,
+            "output": 131072
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/coding:fast"
+          },
+          "name": "auto/coding:fast",
+          "tool_call": true
+        },
+        "auto/coding:free": {
+          "id": "auto/coding:free",
+          "limit": {
+            "context": 1000000,
+            "output": 131072
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/coding:free"
+          },
+          "name": "auto/coding:free",
+          "tool_call": true
+        },
+        "auto/coding:pro": {
+          "id": "auto/coding:pro",
+          "limit": {
+            "context": 1000000,
+            "output": 131072
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/coding:pro"
+          },
+          "name": "auto/coding:pro",
+          "tool_call": true
+        },
+        "auto/coding:reliable": {
+          "id": "auto/coding:reliable",
+          "limit": {
+            "context": 1000000,
+            "output": 131072
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/coding:reliable"
+          },
+          "name": "auto/coding:reliable",
+          "tool_call": true
+        },
+        "auto/fast": {
+          "id": "auto/fast",
+          "limit": {
+            "context": 1000000,
+            "output": 131072
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/fast"
+          },
+          "name": "auto/fast",
+          "tool_call": true
+        },
+        "auto/multimodal": {
+          "id": "auto/multimodal",
+          "limit": {
+            "context": 400000,
+            "output": 128000
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/multimodal"
+          },
+          "name": "auto/multimodal",
+          "tool_call": true
+        },
+        "auto/offline": {
+          "id": "auto/offline",
+          "limit": {
+            "context": 1000000,
+            "output": 131072
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/offline"
+          },
+          "name": "auto/offline",
+          "tool_call": true
+        },
+        "auto/pro-chat": {
+          "id": "auto/pro-chat",
+          "limit": {
+            "context": 1000000,
+            "output": 131072
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/pro-chat"
+          },
+          "name": "auto/pro-chat",
+          "tool_call": true
+        },
+        "auto/pro-coding": {
+          "id": "auto/pro-coding",
+          "limit": {
+            "context": 1000000,
+            "output": 131072
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/pro-coding"
+          },
+          "name": "auto/pro-coding",
+          "tool_call": true
+        },
+        "auto/pro-fast": {
+          "id": "auto/pro-fast",
+          "limit": {
+            "context": 1000000,
+            "output": 131072
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/pro-fast"
+          },
+          "name": "auto/pro-fast",
+          "tool_call": true
+        },
+        "auto/pro-reasoning": {
+          "id": "auto/pro-reasoning",
+          "limit": {
+            "context": 1000000,
+            "output": 131072
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/pro-reasoning"
+          },
+          "name": "auto/pro-reasoning",
+          "tool_call": true
+        },
+        "auto/pro-vision": {
+          "id": "auto/pro-vision",
+          "limit": {
+            "context": 1000000,
+            "output": 131072
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/pro-vision"
+          },
+          "name": "auto/pro-vision",
+          "tool_call": true
+        },
+        "auto/reasoning": {
+          "id": "auto/reasoning",
+          "limit": {
+            "context": 1000000,
+            "output": 131072
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/reasoning"
+          },
+          "name": "auto/reasoning",
+          "tool_call": true
+        },
+        "auto/reasoning:pro": {
+          "id": "auto/reasoning:pro",
+          "limit": {
+            "context": 1000000,
+            "output": 131072
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/reasoning:pro"
+          },
+          "name": "auto/reasoning:pro",
+          "tool_call": true
+        },
+        "auto/smart": {
+          "id": "auto/smart",
+          "limit": {
+            "context": 1000000,
+            "output": 131072
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/smart"
+          },
+          "name": "auto/smart",
+          "tool_call": true
+        },
+        "auto/vision": {
+          "id": "auto/vision",
+          "limit": {
+            "context": 400000,
+            "output": 128000
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/vision"
+          },
+          "name": "auto/vision",
+          "tool_call": true
+        },
         "baai/bge-m3": {
           "id": "nvidia/baai/bge-m3",
           "limit": {
@@ -296,7 +688,7 @@
               "text"
             ]
           },
-          "name": "deepseek-ai/deepseek-v4-flash",
+          "name": "DeepSeek V4 Flash",
           "tool_call": true
         },
         "deepseek-ai/deepseek-v4-pro": {
@@ -1217,6 +1609,15 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/microsoft/phi-3-vision-128k-instruct"
           },
+          "modalities": {
+            "input": [
+              "image",
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          },
           "name": "microsoft/phi-3-vision-128k-instruct",
           "tool_call": true
         },
@@ -1309,6 +1710,15 @@
             "object": "model",
             "owned_by": "nvidia",
             "upstream_id": "nvidia/minimaxai/minimax-m3"
+          },
+          "modalities": {
+            "input": [
+              "image",
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
           },
           "name": "minimaxai/minimax-m3",
           "tool_call": true
@@ -1417,6 +1827,15 @@
             "owned_by": "nvidia",
             "upstream_id": "nvidia/mistralai/mistral-medium-3.5-128b"
           },
+          "modalities": {
+            "input": [
+              "image",
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          },
           "name": "mistralai/mistral-medium-3.5-128b",
           "tool_call": true
         },
@@ -1514,7 +1933,7 @@
               "text"
             ]
           },
-          "name": "moonshotai/kimi-k2.6",
+          "name": "Kimi K2.6",
           "tool_call": true
         },
         "nv-embedqa-e5-v5": {
@@ -2369,8 +2788,7 @@
           "modalities": {
             "input": [
               "image",
-              "text",
-              "video"
+              "text"
             ],
             "output": [
               "text"
@@ -2533,7 +2951,7 @@
             "owned_by": "chipotle",
             "upstream_id": "pepper/pepper-1"
           },
-          "name": "Pepper (Chipotle AI \ud83c\udf2f)",
+          "name": "Pepper (Chipotle AI 🌯)",
           "tool_call": true
         },
         "qwen/qwen3-next-80b-a3b-instruct": {
@@ -2684,7 +3102,7 @@
               "text"
             ]
           },
-          "name": "stepfun-ai/step-3.7-flash",
+          "name": "Step 3.7 Flash",
           "tool_call": true
         },
         "stockmark/stockmark-2-100b-instruct": {
@@ -2714,7 +3132,7 @@
         "tllm/GPT_4o": {
           "id": "tllm/GPT_4o",
           "limit": {
-            "context": 400000,
+            "context": 200000,
             "output": 8192
           },
           "metadata": {
@@ -2722,7 +3140,7 @@
             "owned_by": "theoldllm",
             "upstream_id": "tllm/GPT_4o"
           },
-          "name": "GPT-4o (The Old LLM \ud83c\udd93)",
+          "name": "GPT-4o (The Old LLM 🆓)",
           "tool_call": true
         },
         "tllm/GPT_5_4": {
@@ -2736,7 +3154,7 @@
             "owned_by": "theoldllm",
             "upstream_id": "tllm/GPT_5_4"
           },
-          "name": "GPT-5.4 (The Old LLM \ud83c\udd93)",
+          "name": "GPT-5.4 (The Old LLM 🆓)",
           "tool_call": true
         },
         "tllm/claude_haiku_3_5": {
@@ -2750,7 +3168,7 @@
             "owned_by": "theoldllm",
             "upstream_id": "tllm/claude_haiku_3_5"
           },
-          "name": "Claude Haiku 3.5 (The Old LLM \ud83c\udd93)",
+          "name": "Claude Haiku 3.5 (The Old LLM 🆓)",
           "tool_call": true
         },
         "tllm/claude_opus_4": {
@@ -2764,7 +3182,7 @@
             "owned_by": "theoldllm",
             "upstream_id": "tllm/claude_opus_4"
           },
-          "name": "Claude Opus 4 (The Old LLM \ud83c\udd93)",
+          "name": "Claude Opus 4 (The Old LLM 🆓)",
           "tool_call": true
         },
         "tllm/claude_sonnet_4": {
@@ -2778,13 +3196,13 @@
             "owned_by": "theoldllm",
             "upstream_id": "tllm/claude_sonnet_4"
           },
-          "name": "Claude Sonnet 4 (The Old LLM \ud83c\udd93)",
+          "name": "Claude Sonnet 4 (The Old LLM 🆓)",
           "tool_call": true
         },
         "tllm/deepseek_v4": {
           "id": "tllm/deepseek_v4",
           "limit": {
-            "context": 128000,
+            "context": 200000,
             "output": 8192
           },
           "metadata": {
@@ -2792,7 +3210,7 @@
             "owned_by": "theoldllm",
             "upstream_id": "tllm/deepseek_v4"
           },
-          "name": "DeepSeek V4 (The Old LLM \ud83c\udd93)",
+          "name": "DeepSeek V4 (The Old LLM 🆓)",
           "tool_call": true
         },
         "tllm/gemini_3_flash": {
@@ -2806,16 +3224,7 @@
             "owned_by": "theoldllm",
             "upstream_id": "tllm/gemini_3_flash"
           },
-          "modalities": {
-            "input": [
-              "image",
-              "text"
-            ],
-            "output": [
-              "text"
-            ]
-          },
-          "name": "Gemini 3 Flash (The Old LLM \ud83c\udd93)",
+          "name": "Gemini 3 Flash (The Old LLM 🆓)",
           "tool_call": true
         },
         "tllm/gemini_3_pro": {
@@ -2829,16 +3238,7 @@
             "owned_by": "theoldllm",
             "upstream_id": "tllm/gemini_3_pro"
           },
-          "modalities": {
-            "input": [
-              "image",
-              "text"
-            ],
-            "output": [
-              "text"
-            ]
-          },
-          "name": "Gemini 3 Pro (The Old LLM \ud83c\udd93)",
+          "name": "Gemini 3 Pro (The Old LLM 🆓)",
           "tool_call": true
         },
         "upstage/solar-10.7b-instruct": {
@@ -2999,9 +3399,9 @@
       "name": "Router",
       "npm": "@ai-sdk/openai-compatible",
       "options": {
-        "baseURL": "https://cliproxyapi.${PUBLIC_BASE_DOMAIN}/v1"
+        "baseURL": "https://omniroute.my-website.space/v1"
       },
-      "syncedAt": "2026-06-18T14:23:25Z"
+      "syncedAt": "2026-06-21T19:24:29Z"
     }
   }
 }

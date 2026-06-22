@@ -293,10 +293,12 @@
       services.mitmproxy.proxyPort = 8084;
       services.mitmproxy.trustCA = true;
 
-      # ntfy and Bifrost keep runtime databases below /var/lib; persist them
-      # explicitly because this host wipes the root filesystem on boot.
+      # ntfy keeps runtime databases below /var/lib; persist it explicitly
+      # because this host wipes the root filesystem on boot. Bifrost's state is
+      # owned by systemd StateDirectory and intentionally not bind-mounted here:
+      # a stale public /var/lib/bifrost mount made DynamicUser fail at
+      # status=238/STATE_DIRECTORY before the service could start.
       impermanence.nixos.directories = [
-        "/var/lib/bifrost"
         "/var/lib/ntfy-sh"
       ];
 

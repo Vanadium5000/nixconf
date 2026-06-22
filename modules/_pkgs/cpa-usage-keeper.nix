@@ -7,12 +7,12 @@
 }:
 
 let
-  version = "1.10.5";
+  version = "1.11.2";
   src = fetchFromGitHub {
     owner = "Willxup";
     repo = "cpa-usage-keeper";
     rev = "v${version}";
-    hash = "sha256-LChdcBzBFehB8QUdsj4KSDYym7YcPYOiMm+KB0GhTrY=";
+    hash = "sha256-zDzgSdB+ThiCG6grl9+hpAE8/qPojEs6QLnmcUjZP5k=";
   };
 
   web = buildNpmPackage {
@@ -20,7 +20,7 @@ let
     inherit version src;
 
     sourceRoot = "${src.name}/web";
-    npmDepsHash = "sha256-MHGGYiV4FY10niRYKOAi94Z9u8IwmVrEcOY+yxD93sk=";
+    npmDepsHash = "sha256-q0MnNXcVJREeeUrUmPsL0jml5RrzUvtsF+sMJHI5E48=";
 
     npmFlags = [ "--ignore-scripts" ];
 
@@ -40,6 +40,7 @@ buildGoModule {
   # beside the Go binary so static discovery works in packaged deployments.
   # Source: https://github.com/Willxup/cpa-usage-keeper/blob/v${version}/Dockerfile
   preBuild = ''
+    rm -rf web/dist
     cp -r ${web}/share/cpa-usage-keeper/web/dist web/dist
   '';
 

@@ -180,7 +180,7 @@ Graphical hosts import `modules/nixos/desktop/default.nix`, which extends the te
 | `modules/hosts/main_vps/my-website.nix` | Traefik edge, wildcard ACME, protected dashboard routing, services-auth-gateway integration. |
 | `modules/hosts/main_vps/remote-unlock.nix` | Initrd network and SSH unlock on public port 22 before stage-2 sshd. |
 | `modules/nixos/terminal/services-auth-gateway.nix` | Shared auth gateway service module. |
-| `modules/nixos/terminal/bifrost.nix` | Imports upstream Bifrost flake module; host config seeds `/var/lib/bifrost/config.json`. |
+| `modules/nixos/terminal/bifrost.nix` | Imports upstream Bifrost flake module and patched upstream fixed-output hashes; host config seeds config.json at service start. |
 | `modules/nixos/terminal/monitoring/` | Homepage, Netdata, mitmproxy modules. |
 
 ```text
