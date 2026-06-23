@@ -18,6 +18,7 @@
  *   DMENU_FILTER          - Filter mode: "fuzzy", "prefix", "exact"
  *   DMENU_DROPDOWN        - Dropdown mode: "hidden", "inline", "submenu"
  *   DMENU_DROPDOWN_INDENT - Indentation for sub-items in pixels (default: 24)
+ *   DMENU_MULTI_SELECT    - "true" to let Enter toggle items and Shift+Enter finish selection
  *
  * Dropdown Support:
  *   Items can have expandable sub-items. Add a dropdown marker after your text:
@@ -59,6 +60,8 @@ Scope {
     property int gridIconSize: parseInt(Quickshell.env("DMENU_ICON_SIZE") ?? "128")
     property string keybindsJson: Quickshell.env("DMENU_KEYBINDS") ?? "{}"
     property var keybinds: JSON.parse(keybindsJson)
+    property bool multiSelect: (Quickshell.env("DMENU_MULTI_SELECT") ?? "false") === "true"
+    property var selectedItems: ({})
     property string dropdownMode: Quickshell.env("DMENU_DROPDOWN") ?? "hidden" // "hidden", "inline", "submenu"
     property int dropdownIndent: parseInt(Quickshell.env("DMENU_DROPDOWN_INDENT") ?? "24")
 
@@ -335,6 +338,10 @@ Scope {
                                 }
 
                                 onAccepted: {
+                                    if (root.multiSelect) {
+                                        root.toggleCurrentMultiSelect();
+                                        return;
+                                    }
                                     var item = viewLoader.getCurrentItem();
                                     if (item) {
                                         if (item.isSubItem) {
@@ -360,6 +367,12 @@ Scope {
                                 }
 
                                 Keys.onPressed: event => {
+                                    if (root.multiSelect && (event.modifiers & Qt.ShiftModifier) && (event.key === Qt.Key_Return || event.key === Qt.Key_Enter)) {
+                                        root.finishMultiSelect();
+                                        event.accepted = true;
+                                        return;
+                                    }
+
                                     // Alt+Enter to toggle dropdown expansion
                                     if ((event.modifiers & Qt.AltModifier) && (event.key === Qt.Key_Return || event.key === Qt.Key_Enter)) {
                                         var dropdownItem = viewLoader.getCurrentItem();
@@ -499,6 +512,7 @@ Scope {
                                 radius: Theme.glass.cornerRadius - 6
 
                                 property bool isSelected: index === ListView.view.currentIndex
+                                property bool isMultiSelected: root.isMultiSelected(model)
                                 property bool isHovered: delegateMouseArea.containsMouse
                                 property bool isDropdownParent: model.hasDropdown && !model.isSubItem
                                 property bool isExpanded: model.hasDropdown && root.expandedItems[getOriginalIndex()]
@@ -517,6 +531,8 @@ Scope {
 
                                 // Glass button styling based on state
                                 color: {
+                                    if (isMultiSelected)
+                                        return Qt.rgba(Theme.glass.accentColor.r, Theme.glass.accentColor.g, Theme.glass.accentColor.b, 0.48);
                                     if (isSelected)
                                         return Qt.rgba(Theme.glass.accentColor.r, Theme.glass.accentColor.g, Theme.glass.accentColor.b, 0.32);
                                     if (isHovered)
@@ -540,6 +556,14 @@ Scope {
                                     spacing: 10
 
                                     // Dropdown expand/collapse indicator
+                                    Text {
+                                        visible: root.multiSelect
+                                        text: delegateItem.isMultiSelected ? "[x]" : "[ ]"
+                                        font.family: Theme.glass.fontFamily
+                                        font.pixelSize: Theme.glass.fontSizeMedium
+                                        color: delegateItem.isMultiSelected ? Theme.glass.accentColorAlt : Theme.glass.textTertiary
+                                    }
+
                                     Text {
                                         visible: delegateItem.isDropdownParent
                                         text: delegateItem.isExpanded ? "v" : ">"
@@ -578,6 +602,11 @@ Scope {
                                     anchors.fill: parent
                                     hoverEnabled: true
                                     onClicked: {
+                                        if (root.multiSelect) {
+                                            listView.currentIndex = index;
+                                            root.toggleMultiSelect(model);
+                                            return;
+                                        }
                                         if (model.isSubItem) {
                                             handleSubItemSelection(index);
                                         } else if (model.hasDropdown) {
@@ -631,15 +660,16 @@ Scope {
                                 height: gridView.cellHeight
 
                                 property bool isSelected: GridView.isCurrentItem
+                                property bool isMultiSelected: root.isMultiSelected(model)
                                 property bool isVisible: gridDelegate.y >= gridView.contentY - gridView.cellHeight && gridDelegate.y <= gridView.contentY + gridView.height + gridView.cellHeight
 
                                 Rectangle {
                                     anchors.fill: parent
                                     anchors.margins: 5
                                     radius: Theme.glass.cornerRadiusSmall
-                                    color: (gridDelegate.isSelected || mouseArea.containsMouse) ? Qt.rgba(1, 1, 1, 0.15) : Qt.rgba(1, 1, 1, 0.05)
-                                    border.color: gridDelegate.isSelected ? Theme.glass.accentColor : "transparent"
-                                    border.width: gridDelegate.isSelected ? 2 : 0
+                                    color: gridDelegate.isMultiSelected ? Qt.rgba(Theme.glass.accentColor.r, Theme.glass.accentColor.g, Theme.glass.accentColor.b, 0.28) : ((gridDelegate.isSelected || mouseArea.containsMouse) ? Qt.rgba(1, 1, 1, 0.15) : Qt.rgba(1, 1, 1, 0.05))
+                                    border.color: (gridDelegate.isSelected || gridDelegate.isMultiSelected) ? Theme.glass.accentColor : "transparent"
+                                    border.width: (gridDelegate.isSelected || gridDelegate.isMultiSelected) ? 2 : 0
 
                                     Behavior on color {
                                         ColorAnimation {
@@ -695,6 +725,16 @@ Scope {
 
                                         // Label
                                         Text {
+                                            anchors.top: parent.top
+                                            anchors.right: parent.right
+                                            anchors.margins: 8
+                                            visible: root.multiSelect
+                                            text: gridDelegate.isMultiSelected ? "[x]" : "[ ]"
+                                            font.pixelSize: 20
+                                            color: gridDelegate.isMultiSelected ? Theme.glass.accentColorAlt : Theme.glass.textTertiary
+                                        }
+
+                                        Text {
                                             id: labelText
                                             width: parent.width
                                             height: 28
@@ -715,6 +755,10 @@ Scope {
                                         hoverEnabled: true
                                         onClicked: {
                                             gridView.currentIndex = index;
+                                            if (root.multiSelect) {
+                                                root.toggleMultiSelect(model);
+                                                return;
+                                            }
                                             outputAndQuit(model.originalText || model.text);
                                         }
                                     }
@@ -759,6 +803,44 @@ Scope {
 
     function outputInputAndQuit(text) {
         writeOutputAndQuit((root.markInput ? "INPUT:" : "") + text);
+    }
+
+    function multiSelectKey(item) {
+        return String(item.originalIndex !== undefined ? item.originalIndex : (item.originalText || item.text));
+    }
+
+    function isMultiSelected(item) {
+        return root.multiSelect && root.selectedItems[root.multiSelectKey(item)] !== undefined;
+    }
+
+    function toggleMultiSelect(item) {
+        if (!item)
+            return;
+        var key = root.multiSelectKey(item);
+        var next = Object.assign({}, root.selectedItems);
+        if (next[key] !== undefined)
+            delete next[key];
+        else
+            next[key] = item.originalText || item.text;
+        root.selectedItems = next;
+    }
+
+    function toggleCurrentMultiSelect() {
+        toggleMultiSelect(viewLoader.getCurrentItem());
+    }
+
+    function finishMultiSelect() {
+        var output = [];
+        for (var i = 0; i < itemsModel.count; i++) {
+            var item = itemsModel.get(i);
+            var key = root.multiSelectKey(item);
+            if (root.selectedItems[key] !== undefined)
+                output.push(root.selectedItems[key]);
+        }
+        if (output.length > 0)
+            writeOutputAndQuit(output.join("\n"));
+        else
+            Qt.quit();
     }
 
     /**

@@ -245,6 +245,7 @@
           #   -mark-input            Prefix custom input output with INPUT:
           #   -placeholder TEXT      Placeholder text for input
           #   -filter MODE           Filter mode: fuzzy, prefix, exact (default: fuzzy)
+          #   -multi-select          Enter toggles items; Shift+Enter outputs only toggled items
           #   -dmenu                 Ignored (compatibility)
 
           PROMPT="Select"
@@ -258,6 +259,7 @@
           FILTER="fuzzy"
           MESSAGE=""
           KEYBINDS="{}"
+          MULTI_SELECT="false"
 
           # Parse args
           while [[ $# -gt 0 ]]; do
@@ -314,6 +316,10 @@
                 KEYBINDS="$2"
                 shift 2
                 ;;
+              -multi-select|-multi)
+                MULTI_SELECT="true"
+                shift
+                ;;
               -dmenu|-matching|-no-custom|-markup-rows)
                 # Ignored flags for rofi compatibility
                 shift
@@ -351,6 +357,7 @@
             DMENU_FILTER="$FILTER" \
             DMENU_MESSAGE="$MESSAGE" \
             DMENU_KEYBINDS="$KEYBINDS" \
+            DMENU_MULTI_SELECT="$MULTI_SELECT" \
             "$QS_BIN" -p "$QML_FILE" >"$LOG_FILE" 2>&1
           QS_STATUS=$?
           if [ "$QS_STATUS" -ne 0 ]; then

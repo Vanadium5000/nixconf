@@ -137,9 +137,8 @@ async function resolveInput(input: string): Promise<MediaItem[]> {
 
     // Strict deduplication by content
     // We treat "Title | Uploader" as a unique key.
-    const contentKey = `${item.title.replace("(Playlist) ", "")}|${
-      item.uploader
-    }`;
+    const contentKey = `${item.title.replace("(Playlist) ", "")}|${item.uploader
+      }`;
     if (seenKeys.has(contentKey)) return;
 
     results.push(item);
@@ -210,7 +209,7 @@ async function resolveInput(input: string): Promise<MediaItem[]> {
           const data = JSON.parse(line);
           const item = parseMediaItem(data);
           if (item) addItem(item);
-        } catch (e) {}
+        } catch (e) { }
       }
     }
   } catch (e) {
@@ -303,7 +302,7 @@ async function showMenu(items: MediaItem[]): Promise<MediaItem | null> {
 
   try {
     const menuCmd = process.env.QS_MENU || "qs-dmenu";
-    
+
     const proc = Bun.spawn(
       [
         menuCmd,
@@ -328,32 +327,100 @@ async function showMenu(items: MediaItem[]): Promise<MediaItem | null> {
     }
     const output = await new Response(proc.stdout).text();
     const indexStr = output.trim();
-    
+
     if (!indexStr) return null;
-    
+
     // Re-construct the display string for each item to match
-      for (const [idx, item] of itemMap.entries()) {
-        // We need to reconstruct the exact string we sent
-        const escapedTitle = item.title.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-        const escapedUploader = item.uploader.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-        const display = `<b>${escapedTitle}</b> <span size="small" alpha="70%">${escapedUploader} (${item.duration_string})</span>`;
-        let line = display;
-        if (item.localThumbnail) {
-            line += `\0icon\x1f${item.localThumbnail}`;
-        }
-        
-        // Match against full line (with icon) or just display text (without icon)
-        // This handles cases where dmenu/grep might strip the null-byte icon suffix
-        if (line.trim() === indexStr.trim() || display.trim() === indexStr.trim()) {
-            return item;
-        }
+    for (const [idx, item] of itemMap.entries()) {
+      // We need to reconstruct the exact string we sent
+      const escapedTitle = item.title.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      const escapedUploader = item.uploader.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      const display = `<b>${escapedTitle}</b> <span size="small" alpha="70%">${escapedUploader} (${item.duration_string})</span>`;
+      let line = display;
+      if (item.localThumbnail) {
+        line += `\0icon\x1f${item.localThumbnail}`;
       }
-      
-      console.warn("Failed to match selection to any item. Selection:", indexStr);
-      return null;
+
+      // Match against full line (with icon) or just display text (without icon)
+      // This handles cases where dmenu/grep might strip the null-byte icon suffix
+      if (line.trim() === indexStr.trim() || display.trim() === indexStr.trim()) {
+        return item;
+      }
+    }
+
+    console.warn("Failed to match selection to any item. Selection:", indexStr);
+    return null;
 
   } catch (e) {
     return null;
+  }
+}
+
+function formatMenuLine(item: MediaItem): string {
+  const escapedTitle = item.title
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+  const escapedUploader = item.uploader
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+  let line = `<b>${escapedTitle}</b> <span size="small" alpha="70%">${escapedUploader} (${item.duration_string})</span>`;
+  if (item.localThumbnail) {
+    line += `\0icon\x1f${item.localThumbnail}`;
+  }
+  return line;
+}
+
+function matchMenuLine(selection: string, items: MediaItem[]): MediaItem | null {
+  const trimmed = selection.trim();
+  if (!trimmed) return null;
+  for (const item of items) {
+    const line = formatMenuLine(item);
+    const display = line.split("\0icon\x1f", 1)[0]!;
+    if (line.trim() === trimmed || display.trim() === trimmed) return item;
+  }
+  return null;
+}
+
+async function showMultiSelectMenu(items: MediaItem[]): Promise<MediaItem[]> {
+  const inputString = items.map(formatMenuLine).join("\n") + "\n";
+
+  try {
+    const menuCmd = process.env.QS_MENU || "qs-dmenu";
+    const proc = Bun.spawn(
+      [
+        menuCmd,
+        "-p",
+        "Select Downloads",
+        "-multi-select",
+        "-mesg",
+        "Enter toggles items. Shift+Enter downloads only the toggled items. Nothing is downloaded until you finish.",
+      ],
+      {
+        stdin: "pipe",
+        stdout: "pipe",
+        env: {
+          ...process.env,
+          DMENU_VIEW: "grid",
+          DMENU_GRID_COLS: "3",
+          DMENU_ICON_SIZE: "256",
+        },
+      },
+    );
+    if (proc.stdin) {
+      proc.stdin.write(inputString);
+      proc.stdin.flush();
+      proc.stdin.end();
+    }
+
+    const output = await new Response(proc.stdout).text();
+    return output
+      .split("\n")
+      .map((line) => matchMenuLine(line, items))
+      .filter((item): item is MediaItem => item !== null);
+  } catch {
+    return [];
   }
 }
 
@@ -442,58 +509,58 @@ async function addToMpd(fullPath: string, playNow: boolean = false) {
     // Try to insert after current song and play immediately
     // Disable random temporarily so 'next' definitely goes to our inserted song
     await $`mpc random off`.nothrow();
-    
+
     // insert returns non-zero if playlist is empty or other errors, fallback to add
     const insertRes = await $`mpc insert "${relPath}"`.nothrow();
-    
+
     if (insertRes.exitCode === 0) {
-        // Inserted successfully (after current song)
-        
-        // Try 'next' - this works if playing/paused
-        const nextRes = await $`mpc next`.nothrow();
-        
-        if (nextRes.exitCode !== 0) {
-            // 'next' failed, which usually means MPD is stopped.
-            // If stopped, we are at 'current'. New song is 'current + 1'.
-            
-            const posStr = (await $`mpc current -f %position%`.text()).trim();
-            const pos = parseInt(posStr);
-            
-            if (!isNaN(pos)) {
-                // Play inserted song directly
-                await $`mpc play ${pos + 1}`.nothrow();
-            } else {
-                // Fallback: If we can't get position, force play (resumes current) then next
-                // This might play a split second of the old song but ensures we advance
-                await $`mpc play`.nothrow();
-                await $`mpc next`.nothrow();
-            }
+      // Inserted successfully (after current song)
+
+      // Try 'next' - this works if playing/paused
+      const nextRes = await $`mpc next`.nothrow();
+
+      if (nextRes.exitCode !== 0) {
+        // 'next' failed, which usually means MPD is stopped.
+        // If stopped, we are at 'current'. New song is 'current + 1'.
+
+        const posStr = (await $`mpc current -f %position%`.text()).trim();
+        const pos = parseInt(posStr);
+
+        if (!isNaN(pos)) {
+          // Play inserted song directly
+          await $`mpc play ${pos + 1}`.nothrow();
         } else {
-            // 'next' succeeded, ensure we are playing
-            await $`mpc play`.nothrow();
+          // Fallback: If we can't get position, force play (resumes current) then next
+          // This might play a split second of the old song but ensures we advance
+          await $`mpc play`.nothrow();
+          await $`mpc next`.nothrow();
         }
+      } else {
+        // 'next' succeeded, ensure we are playing
+        await $`mpc play`.nothrow();
+      }
     } else {
-        // Insert failed (e.g. playlist empty), add to end and play
-        await $`mpc add "${relPath}"`.nothrow();
-        
-        // Play the last song (the one we just added)
-        const playlist = (await $`mpc playlist`.text()).trim();
-        const count = playlist ? playlist.split('\n').length : 0;
-        
-        if (count > 0) {
-            await $`mpc play ${count}`.nothrow();
-        } else {
-            await $`mpc play`.nothrow();
-        }
+      // Insert failed (e.g. playlist empty), add to end and play
+      await $`mpc add "${relPath}"`.nothrow();
+
+      // Play the last song (the one we just added)
+      const playlist = (await $`mpc playlist`.text()).trim();
+      const count = playlist ? playlist.split('\n').length : 0;
+
+      if (count > 0) {
+        await $`mpc play ${count}`.nothrow();
+      } else {
+        await $`mpc play`.nothrow();
+      }
     }
   } else {
     const addRes = await $`mpc add "${relPath}"`.nothrow();
     if (addRes.exitCode !== 0) {
-        console.warn(
+      console.warn(
         `Failed to add ${relPath} to MPD (exit ${addRes.exitCode}). Retrying update...`
-        );
-        await $`mpc update --wait`.nothrow();
-        await $`mpc add "${relPath}"`.nothrow();
+      );
+      await $`mpc update --wait`.nothrow();
+      await $`mpc add "${relPath}"`.nothrow();
     }
   }
 }
@@ -528,7 +595,12 @@ async function main() {
   const isDirectUrl = query.startsWith("http");
 
   if (isDirectUrl) {
-    await downloadAndPlay(items);
+    await fetchThumbnails(items);
+    const selectedItem = items.length === 1 ? await showMenu(items) : null;
+    const selected = items.length > 1 ? await showMultiSelectMenu(items) : (selectedItem ? [selectedItem] : []);
+    if (selected.length > 0) {
+      await downloadAndPlay(selected);
+    }
   } else {
     await fetchThumbnails(items);
     const selected = await showMenu(items);
