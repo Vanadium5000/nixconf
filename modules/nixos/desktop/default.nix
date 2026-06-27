@@ -263,6 +263,7 @@
           ".config/BraveSoftware/Brave-Origin-Nightly"
           ".config/limux"
           ".config/orca"
+          ".paseo"
           ".local/share/akonadi"
           ".local/share/contacts"
           ".local/share/emailidentities"
@@ -278,6 +279,7 @@
           ".cache/dev.limux.linux"
           ".cache/limux"
           ".cache/orca"
+          ".cache/paseo"
         ];
         impermanence.home.files = [
           ".config/emaildefaults"

@@ -59,6 +59,7 @@ let
       "input"
       "output"
       "limit"
+      "id"
     ])
     // (lib.optionalAttrs (limit != { }) { inherit limit; });
 

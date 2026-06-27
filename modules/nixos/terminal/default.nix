@@ -27,6 +27,7 @@
           "powerpoint-mcp"
           "niri-screen-time"
           "orca"
+          "paseo"
           "sideloader"
           "sora-watermark-cleaner"
           "waydroid-total-spoof"
@@ -62,6 +63,7 @@
         # Opencode
         self.nixosModules.opencode
         self.nixosModules.omp
+        self.nixosModules.paseo
 
         self.nixosModules.dev
         self.nixosModules.nix
@@ -113,6 +115,7 @@
         # enable the bootstrap with terminal hosts so impermanence preserves that tree.
         # Source: local state layout observed at ~/.omp/agent/{config.yml,models.yml}.
         programs.omp.enable = lib.mkDefault true;
+        programs.paseo.enable = lib.mkDefault true;
 
         # CLI auth/state belongs in normal persistence; high-churn API and tool
         # caches stay in the cache tier. Sources: GitHub CLI stores XDG

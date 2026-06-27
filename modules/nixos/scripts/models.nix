@@ -33,6 +33,7 @@
                     PATCHES_FILE="$MODELS_STATE_DIR/_model-local-patches.json"
                     PROVIDER_FILE="$MODELS_STATE_DIR/provider.json"
                     OPENCODE_CONFIG_FILE="$HOME/.config/opencode/config.json"
+                    OPENCODE_COMPAT_CONFIG_FILE="''${MODELS_OPENCODE_COMPAT_CONFIG_FILE:-$HOME/.config/opencode/opencode.json}"
                     OMO_SLIM_CONFIG_FILE="$HOME/.config/opencode/oh-my-opencode-slim.jsonc"
                     OPENCODE_MEM_FILE="$HOME/.config/opencode/opencode-mem.jsonc"
                     LOCAL_JSONC_FILE="$PWD/opencode.jsonc"
@@ -161,7 +162,7 @@
                           | ($model.context // $model.limit.context // null) as $context
                           | ($model.input // $model.limit.input // null) as $input
                           | ($model.output // $model.limit.output // null) as $output
-                          | ($model | del(.context, .input, .output, .limit))
+                          | ($model | del(.context, .input, .output, .limit, .id))
                             + (if $context != null then
                                 { limit: ({ context: $context }
                                   + (if $input != null then { input: $input } else {} end)
@@ -463,6 +464,12 @@
                           log_opencode "Synced OpenCode + OMO Slim config from model-group state"
                         fi
                       fi
+
+                      if [ "$OPENCODE_COMPAT_CONFIG_FILE" != "$OPENCODE_CONFIG_FILE" ]; then
+                        mkdir -p "$(dirname "$OPENCODE_COMPAT_CONFIG_FILE")"
+                        cp "$OPENCODE_CONFIG_FILE" "$OPENCODE_COMPAT_CONFIG_FILE"
+                        chmod 0600 "$OPENCODE_COMPAT_CONFIG_FILE"
+                      fi
                     }
 
                     sync_all_runtime_configs_from_state() {
@@ -543,6 +550,11 @@
                       mkdir -p "$(dirname "$OPENCODE_CONFIG_FILE")"
                       mv "$opencode_tmp" "$OPENCODE_CONFIG_FILE"
                       chmod 0600 "$OPENCODE_CONFIG_FILE"
+                      if [ "$OPENCODE_COMPAT_CONFIG_FILE" != "$OPENCODE_CONFIG_FILE" ]; then
+                        mkdir -p "$(dirname "$OPENCODE_COMPAT_CONFIG_FILE")"
+                        cp "$OPENCODE_CONFIG_FILE" "$OPENCODE_COMPAT_CONFIG_FILE"
+                        chmod 0600 "$OPENCODE_COMPAT_CONFIG_FILE"
+                      fi
 
                       mkdir -p "$(dirname "$OMO_SLIM_CONFIG_FILE")"
                       mv "$slim_tmp" "$OMO_SLIM_CONFIG_FILE"
@@ -745,7 +757,6 @@
                                 name: (.name // .display_name // .displayName // .id),
                                 metadata: model_metadata
                               }
-                              + optional_value("id"; .id?)
                               + (if ($limit | length) > 0 then { limit: $limit } else {} end)
                               + (if ($modalities | length) > 0 then { modalities: $modalities } else {} end)
                               + (if ($efforts | length) > 0 then { reasoning: true, reasoning_effort: $efforts } else {} end)
@@ -770,8 +781,11 @@
                               ) == true) or (($supported | index("tools")) != null) or (($supported | index("tool_choice")) != null) then { tool_call: true } else {} end))
                             };
 
+                        def effective_id:
+                          .value.id // .value.metadata.upstream_id // .key;
+
                         def transport_priority:
-                          (.value.metadata.upstream_id | split("/")[0]) as $prefix
+                          (effective_id | split("/")[0]) as $prefix
                           | if $prefix == "codex" then 0
                             elif $prefix == "cx" then 1
                             elif $prefix == "kilo-gateway" then 2
@@ -787,13 +801,13 @@
                           | map(
                               sort_by(transport_priority) as $group
                               | $group[0] as $selected
-                              | ($group | map(.value.metadata.upstream_id) | unique) as $upstream_ids
+                              | ($group | map(.value.id // .value.metadata.upstream_id) | unique) as $upstream_ids
                               | $selected
                                 + (if ($upstream_ids | length) > 1 then
                                     {
                                       value: ($selected.value + {
                                         metadata: ($selected.value.metadata + {
-                                          alternate_upstream_ids: ($upstream_ids | map(select(. != $selected.value.metadata.upstream_id)))
+                                          alternate_upstream_ids: ($upstream_ids | map(select(. != ($selected.value.id // $selected.value.metadata.upstream_id))))
                                         })
                                       })
                                     }
@@ -938,7 +952,7 @@
                           "providers:\n  \($provider_id):\n    name: \($provider_name | q)\n    baseUrl: \($base_url | q)\n    apiKey: \($api_key | q)\n    api: openai-completions\n    timeoutMs: \($provider_timeout_ms)\n    models:\n" +
                           (to_entries | sort_by(.key) | map(
                             .value as $model
-                            | "      - id: \(.key | q)\n        name: \(($model.name // .key) | q)\n        api: openai-completions\n        provider: \($provider_id | q)\n        baseUrl: \($base_url | q)\n        input: \(($model.modalities.input // ["text"]) | map(select(. == "text" or . == "image")) | if length > 0 then . else ["text"] end | q)\n        cost: \(($model | cost) | q)" +
+                            | "      - id: \(($model.id // .key) | q)\n        name: \(($model.name // .key) | q)\n        api: openai-completions\n        provider: \($provider_id | q)\n        baseUrl: \($base_url | q)\n        input: \((($model.modalities.input // ["text"]) | map(select(. == "text" or . == "image")) | if length > 0 then . else ["text"] end) | q)\n        cost: \(($model | cost) | q)" +
                               (if $model.reasoning == true then "\n        reasoning: true" else "" end) +
                               (if $model.limit.context? != null and $model.limit.context > 0 then "\n        contextWindow: \($model.limit.context)" else "" end) +
                               (if $model.limit.output? != null then "\n        maxTokens: \($model.limit.output)" else "" end)

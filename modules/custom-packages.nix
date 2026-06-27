@@ -1,4 +1,4 @@
-{ ... }:
+{ inputs, ... }:
 let
   # Stable is the default package universe. Edge AI/web gateway and fast-moving
   # GUI packages are routed through nixpkgs-unstable here so their package
@@ -43,7 +43,13 @@ let
         };
 
     in
-    builtins.foldl' (acc: filename: acc // (toPackage filename)) { } files;
+    (builtins.foldl' (acc: filename: acc // (toPackage filename)) { } files)
+    // {
+      # Re-export the locked llm-agents Paseo desktop package so terminal
+      # profiles install it with the rest of this flake's system packages.
+      # Source: github:numtide/llm-agents.nix packages.<system>.paseo-desktop.
+      paseo = inputs.llm-agents.packages.${stablePkgs.stdenv.hostPlatform.system}.paseo-desktop;
+    };
 in
 {
   flake.overlays.customPackages = final: prev: {

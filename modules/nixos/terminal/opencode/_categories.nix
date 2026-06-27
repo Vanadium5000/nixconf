@@ -359,7 +359,6 @@ in
         timeoutMs = 15000;
         retryDelayMs = 500;
         retry_on_empty = true;
-        chains = { };
       };
 
       presets.${presetName} = mapAttrs (mkAgentConfig state) agentAssignments;
