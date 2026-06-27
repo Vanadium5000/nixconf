@@ -65,6 +65,7 @@ interface LyricsWidgetOutput {
   upcoming: string[];
   lines: string[];
   timedLines: TimedLyricLine[];
+  allTimedLines: TimedLyricLine[];
   currentIndex: number;
   nextLineTime: number | null;
   nextChangeInMs: number;
@@ -272,6 +273,7 @@ function stoppedOutput(tooltip: string): LyricsWidgetOutput {
     upcoming: [],
     lines: [],
     timedLines: [],
+    allTimedLines: [],
     currentIndex: -1,
     nextLineTime: null,
     nextChangeInMs: 1000,
@@ -572,21 +574,40 @@ function getCurrentLines(
   }
 
   const current = currentIndex >= 0 ? (lyrics.lines[currentIndex]?.text || "") : "";
-  const upcoming: string[] = [];
+  const { start, end } = getLyricWindowBounds(lyrics.lines.length, currentIndex, numLines);
   const previous: string[] = [];
+  const upcoming: string[] = [];
 
-  if (currentIndex > 0) {
-    for (let i = Math.max(0, currentIndex - 5); i < currentIndex; i++) {
-      previous.push(lyrics.lines[i]!.text);
-    }
-  }
-
-  const start = currentIndex >= 0 ? currentIndex + 1 : 0;
-  for (let i = start; upcoming.length < Math.max(0, numLines - 1) && i < lyrics.lines.length; i++) {
-    upcoming.push(lyrics.lines[i]!.text);
+  for (let i = start; i < end; i++) {
+    if (i < currentIndex) previous.push(lyrics.lines[i]!.text);
+    else if (i > currentIndex || currentIndex < 0) upcoming.push(lyrics.lines[i]!.text);
   }
 
   return { current, upcoming, previous, index: currentIndex };
+}
+
+function getLyricWindowBounds(
+  lineCount: number,
+  currentIndex: number,
+  windowSize: number,
+): { start: number; end: number } {
+  const size = Math.max(1, Math.min(windowSize, lineCount));
+  if (lineCount <= size) return { start: 0, end: lineCount };
+  if (currentIndex < 0) return { start: 0, end: size };
+
+  const preferredBefore = Math.min(5, Math.floor((size - 1) / 2));
+  let start = currentIndex - preferredBefore;
+  let end = start + size;
+
+  if (start < 0) {
+    start = 0;
+    end = size;
+  } else if (end > lineCount) {
+    end = lineCount;
+    start = lineCount - size;
+  }
+
+  return { start, end };
 }
 
 // --- Caching ---
@@ -687,19 +708,26 @@ function formatLyricsWidgetOutput(
       .slice(0, options.lines)
     : [];
   const displayLines = lyrics?.synced
-    ? [...previous, current || "♪", ...upcoming].map((line) => truncate(line, options.length))
+    ? (currentIndex >= 0 ? [...previous, current || "♪", ...upcoming] : upcoming).map((line) => truncate(line, options.length))
     : plainLines;
+  const windowBounds = lyrics?.synced
+    ? getLyricWindowBounds(lyrics.lines.length, currentIndex, options.lines)
+    : { start: 0, end: 0 };
   const timedLines = lyrics?.synced
     ? lyrics.lines
-      .slice(
-        currentIndex >= 0 ? Math.max(0, currentIndex - 5) : 0,
-        (currentIndex >= 0 ? currentIndex : 0) + options.lines,
-      )
+      .slice(windowBounds.start, windowBounds.end)
       .map((line) => ({
         time: line.time,
         text: truncate(line.text, options.length),
         current: currentIndex >= 0 && line.time === lyrics.lines[currentIndex]?.time,
       }))
+    : [];
+  const allTimedLines = lyrics?.synced
+    ? lyrics.lines.map((line, index) => ({
+      time: line.time,
+      text: truncate(line.text, options.length),
+      current: index === currentIndex,
+    }))
     : [];
 
   // If no lyrics found (or only plain text), fallback to title
@@ -760,6 +788,7 @@ function formatLyricsWidgetOutput(
     upcoming,
     lines: displayLines,
     timedLines,
+    allTimedLines,
     currentIndex,
     nextLineTime,
     nextChangeInMs,
@@ -804,18 +833,24 @@ async function controlOverlay(
   options: CliOptions,
 ): Promise<void> {
   try {
-    // Pass options as environment variables to the wrapper
-    const env = {
-      ...process.env,
-      LYRICS_LINES: options.lines.toString(),
-      LYRICS_POSITION: options.position,
-      LYRICS_FONT_SIZE: options.fontSize.toString(),
-      LYRICS_COLOR: options.color,
-      LYRICS_OPACITY: options.opacity.toString(),
-      LYRICS_SHADOW: options.shadow.toString(),
-      LYRICS_SPACING: options.spacing.toString(),
-      LYRICS_LENGTH: options.length.toString(),
-    };
+    // Let toggle-lyrics-overlay own visual defaults, matching the Hyprland
+    // Super+Alt+M binding. Only override the data command when the user chose a
+    // non-default player source in the DMS widget.
+    const env = { ...process.env };
+    if (options.player !== DEFAULT_PLAYER) {
+      env.OVERLAY_COMMAND = [
+        Bun.argv[0] || "lyricsctl",
+        import.meta.path,
+        "current",
+        "--json",
+        "--player",
+        options.player,
+        "--lines",
+        "4",
+        "--length",
+        options.length.toString(),
+      ].join(" ");
+    }
 
     await $`toggle-lyrics-overlay ${action}`.env(env).quiet();
   } catch (e) {
@@ -889,6 +924,7 @@ async function watchMode(options: CliOptions): Promise<void> {
             upcoming: [],
             lines: [],
             timedLines: [],
+            allTimedLines: [],
             currentIndex: -1,
             nextLineTime: null,
             nextChangeInMs: 1000,

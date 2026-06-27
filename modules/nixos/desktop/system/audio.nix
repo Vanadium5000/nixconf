@@ -40,6 +40,7 @@
         user = user; # Required so the musicDirectory can be accessed
         settings = {
           music_directory = "${config.preferences.paths.sharedDirectory}/Music";
+          replaygain = "track";
           audio_output = [
             {
               type = "pipewire";

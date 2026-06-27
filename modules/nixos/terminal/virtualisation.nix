@@ -86,26 +86,26 @@
             is_section = stripped.startswith("[") and stripped.endswith("]")
             if is_section:
                 if in_waydroid and not wrote_suspend_action:
-                    out.append("suspend_action = stop")
+                    out.append("suspend_action = freeze")
                     wrote_suspend_action = True
                 in_waydroid = stripped == "[waydroid]"
                 saw_waydroid = saw_waydroid or in_waydroid
 
             if in_waydroid and stripped.startswith("suspend_action") and "=" in stripped:
                 if not wrote_suspend_action:
-                    out.append("suspend_action = stop")
+                    out.append("suspend_action = freeze")
                     wrote_suspend_action = True
                 continue
 
             out.append(line)
 
         if in_waydroid and not wrote_suspend_action:
-            out.append("suspend_action = stop")
+            out.append("suspend_action = freeze")
             wrote_suspend_action = True
         if not saw_waydroid:
             if out and out[-1]:
                 out.append("")
-            out.extend(["[waydroid]", "suspend_action = stop"])
+            out.extend(["[waydroid]", "suspend_action = freeze"])
 
         if out != lines:
             path.write_text("\n".join(out) + "\n")
@@ -194,9 +194,10 @@
           lib.mkIf config.preferences.profiles.desktop.enable
             [ waydroidPreStartRepair ];
 
-        # Waydroid 1.6.3 defaults inactive sessions to `lxc-freeze`; Roblox can
-        # then keep a focused splash/activity while Android is FROZEN, so use the
-        # upstream stop path and repair persisted waydroid.cfg before container start.
+        # Waydroid's Android side sends hardware suspend when the host window
+        # closes/loses foreground; mapping that to `stop` tears down LXC during
+        # launch and the next UI activation starts it again, so keep upstream
+        # freeze semantics and repair persisted waydroid.cfg before container start.
 
         # Waydroid bind-mounts Android /data from the host user tree, but Android
         # services require numeric Android UIDs inside that tree; keystore2 aborts

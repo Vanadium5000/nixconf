@@ -52,7 +52,9 @@
           (builtins.readFile ./dank-material-shell/voxtype-widget/VoxtypeWidget.qml);
       voxtypeWidgetPluginQmlFile = pkgs.writeText "VoxtypeWidget.qml" voxtypeWidgetPluginQml;
       lyricsWidgetPluginQml =
-        builtins.replaceStrings [ "__LYRICSCTL__" ] [ "${lib.getExe selfpkgs.lyricsctl}" ]
+        builtins.replaceStrings
+          [ "__LYRICSCTL__" "__TOGGLE_LYRICS_OVERLAY__" ]
+          [ "${lib.getExe selfpkgs.lyricsctl}" "${lib.getExe selfpkgs.toggle-lyrics-overlay}" ]
           (builtins.readFile ./dank-material-shell/lyrics-widget/LyricsWidget.qml);
       lyricsWidgetPluginQmlFile = pkgs.writeText "LyricsWidget.qml" lyricsWidgetPluginQml;
       localDmsPluginsInstaller = pkgs.writeShellScript "install-local-dms-plugins" ''

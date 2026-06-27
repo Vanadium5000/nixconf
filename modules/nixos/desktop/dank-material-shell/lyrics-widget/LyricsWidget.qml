@@ -10,6 +10,7 @@ PluginComponent {
     id: root
 
     readonly property string lyricsCommand: "__LYRICSCTL__"
+    readonly property string overlayCommand: "__TOGGLE_LYRICS_OVERLAY__"
     readonly property int previousLyricLines: 5
     readonly property int upcomingLyricLines: 5
     readonly property int contextLines: previousLyricLines + 1 + upcomingLyricLines
@@ -25,6 +26,7 @@ PluginComponent {
     property bool synced: false
     property bool compactText: false
     property bool commandBusy: false
+    property bool showAllLyrics: false
     property string selectedPlayer: defaultPlayer
     property var sources: [
         {
@@ -34,6 +36,7 @@ PluginComponent {
         }
     ]
     property var lines: []
+    property var allLines: []
     property int nextRefreshMs: 500
 
     readonly property bool isPlaying: status === "Playing"
@@ -78,7 +81,6 @@ PluginComponent {
     function runControl(action) {
         if (controlProcess.running)
             return;
-        root.commandBusy = true;
         controlProcess.command = root.commandLine(["control", action].concat(root.playerArgs()));
         controlProcess.running = true;
     }
@@ -86,15 +88,13 @@ PluginComponent {
     function runOverlay(action) {
         if (overlayProcess.running)
             return;
-        root.commandBusy = true;
-        overlayProcess.command = root.commandLine([action, "--lines", "4"].concat(root.playerArgs()));
+        overlayProcess.command = root.selectedPlayer === root.defaultPlayer ? [root.overlayCommand, action] : root.commandLine([action].concat(root.playerArgs()));
         overlayProcess.running = true;
     }
 
     function seekTo(position) {
         if (seekProcess.running)
             return;
-        root.commandBusy = true;
         seekProcess.command = root.commandLine(["seek", Number(position).toFixed(3)].concat(root.playerArgs()));
         seekProcess.running = true;
     }
@@ -138,6 +138,7 @@ PluginComponent {
                             time: -1,
                             current: index === 0
                         })) : []);
+            root.allLines = Array.isArray(data.allTimedLines) && data.allTimedLines.length > 0 ? data.allTimedLines : root.lines;
             root.applyCurrentLine();
             const elapsed = data.generatedAtMs ? Math.max(0, Date.now() - data.generatedAtMs) : 0;
             root.nextRefreshMs = data.nextChangeInMs ? Math.max(80, Math.min(200, data.nextChangeInMs - elapsed + 24)) : 200;
@@ -152,6 +153,7 @@ PluginComponent {
             root.statusClass = "error";
             root.synced = false;
             root.lines = [];
+            root.allLines = [];
             root.scheduleRefresh(500);
             console.warn("LyricsWidget: failed to parse status", error);
         }
@@ -196,7 +198,7 @@ PluginComponent {
 
     Process {
         id: statusProcess
-        command: root.commandLine(["status", "--lines", (root.upcomingLyricLines + 1).toString(), "--length", "96"].concat(root.playerArgs()))
+        command: root.commandLine(["status", "--lines", root.contextLines.toString(), "--length", "96"].concat(root.playerArgs()))
         running: false
 
         stdout: StdioCollector {
@@ -346,6 +348,14 @@ PluginComponent {
 
                 DankActionButton {
                     buttonSize: 32
+                    iconName: root.showAllLyrics ? "lyrics" : "format_list_bulleted"
+                    iconColor: root.showAllLyrics ? Theme.primary : Theme.surfaceVariantText
+                    Layout.alignment: Qt.AlignVCenter
+                    onClicked: root.showAllLyrics = !root.showAllLyrics
+                }
+
+                DankActionButton {
+                    buttonSize: 32
                     iconName: "refresh"
                     iconColor: Theme.surfaceVariantText
                     Layout.alignment: Qt.AlignVCenter
@@ -355,56 +365,87 @@ PluginComponent {
 
             StyledRect {
                 width: parent.width
-                height: lyricsColumn.implicitHeight + Theme.spacingM * 2
+                height: Math.min(root.showAllLyrics ? 520 : 9999, lyricsFlick.contentHeight + Theme.spacingM * 2)
                 radius: Theme.cornerRadius
                 color: Theme.surfaceContainerHigh
 
-                Column {
-                    id: lyricsColumn
+                Behavior on height {
+                    NumberAnimation {
+                        duration: 180
+                        easing.type: Easing.OutCubic
+                    }
+                }
+
+                Flickable {
+                    id: lyricsFlick
                     width: parent.width - Theme.spacingM * 2
+                    height: parent.height - Theme.spacingM * 2
                     x: Theme.spacingM
                     y: Theme.spacingM
-                    spacing: Theme.spacingXS
+                    contentWidth: width
+                    contentHeight: lyricsColumn.implicitHeight
+                    clip: root.showAllLyrics
 
-                    StyledText {
-                        text: "Lyrics"
-                        font.pixelSize: Theme.fontSizeMedium
-                        font.weight: Font.Medium
-                        color: Theme.surfaceText
+                    Behavior on contentY {
+                        NumberAnimation {
+                            duration: 120
+                            easing.type: Easing.OutCubic
+                        }
                     }
 
-                    Repeater {
-                        model: root.lines.length > 0 ? root.lines : [root.lyricText.length > 0 ? root.lyricText : "No lyrics available"]
+                    Column {
+                        id: lyricsColumn
+                        width: lyricsFlick.width
+                        spacing: Theme.spacingXS
 
-                        delegate: StyledRect {
-                            required property int index
-                            required property var modelData
-
+                        StyledText {
                             width: parent.width
-                            height: lineText.implicitHeight + Theme.spacingXS
-                            radius: Math.max(4, Math.round(Theme.cornerRadius / 2))
-                            color: lineMouse.containsMouse && Number(modelData.time) >= 0 ? Theme.withAlpha(Theme.primary, 0.14) : ((typeof modelData !== "string" && modelData.current) ? Theme.withAlpha(Theme.primary, 0.08) : "transparent")
-                            border.width: lineMouse.containsMouse && Number(modelData.time) >= 0 ? 1 : 0
-                            border.color: Theme.withAlpha(Theme.primary, 0.32)
+                            text: root.showAllLyrics ? "Lyrics · Current: " + (root.lyricText.length > 0 ? root.lyricText : "♪") : "Lyrics"
+                            font.pixelSize: Theme.fontSizeMedium
+                            font.weight: Font.Medium
+                            color: Theme.surfaceText
+                            wrapMode: Text.WordWrap
+                        }
 
-                            StyledText {
-                                id: lineText
-                                width: parent.width - Theme.spacingS * 2
-                                anchors.centerIn: parent
-                                text: typeof modelData === "string" ? modelData : modelData.text
-                                font.pixelSize: (typeof modelData !== "string" && modelData.current) ? Theme.fontSizeMedium : Theme.fontSizeSmall
-                                font.weight: (typeof modelData !== "string" && modelData.current) ? Font.Medium : Font.Normal
-                                color: lineMouse.containsMouse && Number(modelData.time) >= 0 ? Theme.surfaceText : ((typeof modelData !== "string" && modelData.current) ? Theme.primary : Theme.surfaceVariantText)
-                                wrapMode: Text.WordWrap
-                            }
+                        Repeater {
+                            model: root.showAllLyrics ? (root.allLines.length > 0 ? root.allLines : [root.lyricText.length > 0 ? root.lyricText : "No lyrics available"]) : (root.lines.length > 0 ? root.lines : [root.lyricText.length > 0 ? root.lyricText : "No lyrics available"])
 
-                            MouseArea {
-                                id: lineMouse
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Number(modelData.time) >= 0 ? Qt.PointingHandCursor : Qt.ArrowCursor
-                                enabled: Number(modelData.time) >= 0
-                                onClicked: root.seekTo(modelData.time)
+                            delegate: StyledRect {
+                                required property int index
+                                required property var modelData
+
+                                width: parent.width
+                                height: lineText.implicitHeight + Theme.spacingXS
+                                radius: Math.max(4, Math.round(Theme.cornerRadius / 2))
+                                color: lineMouse.containsMouse && Number(modelData.time) >= 0 ? Theme.withAlpha(Theme.primary, 0.14) : ((typeof modelData !== "string" && modelData.current) ? Theme.withAlpha(Theme.primary, 0.08) : "transparent")
+                                border.width: lineMouse.containsMouse && Number(modelData.time) >= 0 ? 1 : 0
+                                border.color: Theme.withAlpha(Theme.primary, 0.32)
+
+                                Behavior on color {
+                                    ColorAnimation {
+                                        duration: 120
+                                    }
+                                }
+
+                                StyledText {
+                                    id: lineText
+                                    width: parent.width - Theme.spacingS * 2
+                                    anchors.centerIn: parent
+                                    text: typeof modelData === "string" ? modelData : modelData.text
+                                    font.pixelSize: (typeof modelData !== "string" && modelData.current) ? Theme.fontSizeMedium : Theme.fontSizeSmall
+                                    font.weight: (typeof modelData !== "string" && modelData.current) ? Font.Medium : Font.Normal
+                                    color: lineMouse.containsMouse && Number(modelData.time) >= 0 ? Theme.surfaceText : ((typeof modelData !== "string" && modelData.current) ? Theme.primary : Theme.surfaceVariantText)
+                                    wrapMode: Text.WordWrap
+                                }
+
+                                MouseArea {
+                                    id: lineMouse
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Number(modelData.time) >= 0 ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                    enabled: Number(modelData.time) >= 0
+                                    onClicked: root.seekTo(modelData.time)
+                                }
                             }
                         }
                     }
@@ -419,7 +460,6 @@ PluginComponent {
                     buttonSize: 36
                     iconName: "skip_previous"
                     iconColor: Theme.surfaceVariantText
-                    enabled: !root.commandBusy
                     onClicked: root.runControl("previous")
                 }
 
@@ -428,7 +468,9 @@ PluginComponent {
                     iconName: root.isPlaying ? "pause" : "play_arrow"
                     backgroundColor: Theme.primary
                     textColor: Theme.primaryText
-                    enabled: !root.commandBusy
+                    enabled: true
+                    Layout.preferredHeight: 36
+                    Layout.minimumWidth: 160
                     Layout.fillWidth: true
                     onClicked: root.runControl("play-pause")
                 }
@@ -437,7 +479,6 @@ PluginComponent {
                     buttonSize: 36
                     iconName: "skip_next"
                     iconColor: Theme.surfaceVariantText
-                    enabled: !root.commandBusy
                     onClicked: root.runControl("next")
                 }
             }
@@ -451,7 +492,6 @@ PluginComponent {
                     iconName: "open_in_full"
                     backgroundColor: Theme.surfaceContainerHigh
                     textColor: Theme.surfaceText
-                    enabled: !root.commandBusy
                     Layout.fillWidth: true
                     onClicked: root.runOverlay("toggle")
                 }
@@ -461,7 +501,6 @@ PluginComponent {
                     iconName: "close_fullscreen"
                     backgroundColor: Theme.surfaceContainerHigh
                     textColor: Theme.surfaceText
-                    enabled: !root.commandBusy
                     Layout.fillWidth: true
                     onClicked: root.runOverlay("hide")
                 }
@@ -498,7 +537,6 @@ PluginComponent {
                             iconName: (modelData.id || root.defaultPlayer) === root.selectedPlayer ? "radio_button_checked" : "radio_button_unchecked"
                             backgroundColor: (modelData.id || root.defaultPlayer) === root.selectedPlayer ? Theme.withAlpha(Theme.primary, 0.14) : Theme.surfaceContainer
                             textColor: (modelData.id || root.defaultPlayer) === root.selectedPlayer ? Theme.primary : Theme.surfaceText
-                            enabled: !root.commandBusy
                             onClicked: root.selectPlayer(modelData.id || root.defaultPlayer)
                         }
                     }
