@@ -38,6 +38,13 @@ PluginComponent {
     property var lines: []
     property var allLines: []
     property int nextRefreshMs: 500
+    property string source: ""
+    property string sourceId: ""
+    property real sourceDuration: 0
+    property string sourceAlbum: ""
+    property real timingOffset: 0
+    property string timingOffsetReason: ""
+    property string diagnostics: ""
 
     readonly property bool isPlaying: status === "Playing"
     readonly property string statusIcon: status === "Playing" ? "pause" : (status === "Paused" ? "play_arrow" : "music_note")
@@ -133,6 +140,13 @@ PluginComponent {
             root.status = root.safeText(data.status, "Stopped");
             root.statusClass = root.safeText(data.class, "stopped");
             root.synced = data.synced === true;
+            root.source = root.safeText(data.source, "");
+            root.sourceId = root.safeText(data.sourceId, "");
+            root.sourceDuration = Number(data.sourceDuration || 0);
+            root.sourceAlbum = root.safeText(data.sourceAlbum, "");
+            root.timingOffset = Number(data.timingOffset || 0);
+            root.timingOffsetReason = root.safeText(data.timingOffsetReason, "");
+            root.diagnostics = root.safeText(data.diagnostics, "");
             root.lines = Array.isArray(data.timedLines) && data.timedLines.length > 0 ? data.timedLines.slice(0, root.contextLines) : (Array.isArray(data.lines) ? data.lines.slice(0, root.contextLines).map((line, index) => ({
                             text: line,
                             time: -1,
@@ -154,6 +168,13 @@ PluginComponent {
             root.synced = false;
             root.lines = [];
             root.allLines = [];
+            root.source = "";
+            root.sourceId = "";
+            root.sourceDuration = 0;
+            root.sourceAlbum = "";
+            root.timingOffset = 0;
+            root.timingOffsetReason = "";
+            root.diagnostics = "";
             root.scheduleRefresh(500);
             console.warn("LyricsWidget: failed to parse status", error);
         }
@@ -344,6 +365,14 @@ PluginComponent {
                         elide: Text.ElideRight
                         Layout.fillWidth: true
                     }
+
+                    StyledText {
+                        text: root.diagnostics.length > 0 ? root.diagnostics : (root.source.length > 0 ? root.source : "No lyrics source")
+                        font.pixelSize: Theme.fontSizeSmall
+                        color: root.timingOffset !== 0 ? Theme.primary : Theme.surfaceVariantText
+                        elide: Text.ElideRight
+                        Layout.fillWidth: true
+                    }
                 }
 
                 DankActionButton {
@@ -503,6 +532,36 @@ PluginComponent {
                     textColor: Theme.surfaceText
                     Layout.fillWidth: true
                     onClicked: root.runOverlay("hide")
+                }
+            }
+
+            StyledRect {
+                width: parent.width
+                height: sourceColumn.implicitHeight + Theme.spacingM * 2
+                radius: Theme.cornerRadius
+                color: Theme.surfaceContainerHigh
+
+                Column {
+                    id: sourceColumn
+                    width: parent.width - Theme.spacingM * 2
+                    x: Theme.spacingM
+                    y: Theme.spacingM
+                    spacing: Theme.spacingXS
+
+                    StyledText {
+                        text: "Lyrics source"
+                        font.pixelSize: Theme.fontSizeMedium
+                        font.weight: Font.Medium
+                        color: Theme.surfaceText
+                    }
+
+                    StyledText {
+                        width: parent.width
+                        text: root.diagnostics.length > 0 ? root.diagnostics : "No lyrics source"
+                        font.pixelSize: Theme.fontSizeSmall
+                        color: Theme.surfaceVariantText
+                        wrapMode: Text.WordWrap
+                    }
                 }
             }
 

@@ -1,17 +1,20 @@
 #!/usr/bin/env bun
 // lyricsctl - synced lyrics fetcher, shell widget JSON source, and terminal UI
 import { $ } from "bun";
-import { mkdir } from "node:fs/promises";
+import { mkdir, unlink } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
 // --- Configuration ---
 const CACHE_DIR = join(tmpdir(), "synced-lyrics-cache");
-const CACHE_VERSION = 2;
+const CACHE_VERSION = 4;
 const DEFAULT_PLAYER = "mpd,%any";
 const LRCLIB_API = "https://lrclib.net/api";
 const LRCCX_API = "https://api.lrc.cx/lyrics";
 const USER_AGENT = "lyricsctl/1.0";
+const MAX_LEADING_OFFSET_SECONDS = 30;
+const MIN_LEADING_OFFSET_SECONDS = 4;
+const LRCLIB_DURATION_TOLERANCE_SECONDS = 2;
 
 // --- Types ---
 interface TrackMetadata {
@@ -39,6 +42,11 @@ interface LyricsData {
   lines: LyricLine[];
   plainText?: string;
   source?: string;
+  sourceId?: string;
+  sourceDuration?: number;
+  sourceAlbum?: string;
+  timingOffset?: number;
+  timingOffsetReason?: string;
   cacheVersion?: number;
 }
 
@@ -71,6 +79,12 @@ interface LyricsWidgetOutput {
   nextChangeInMs: number;
   generatedAtMs: number;
   source: string;
+  sourceId: string;
+  sourceDuration: number;
+  sourceAlbum: string;
+  timingOffset: number;
+  timingOffsetReason: string;
+  diagnostics: string;
 }
 
 // --- CLI Parsing ---
@@ -82,6 +96,7 @@ interface CliOptions {
   lookupArtist: string;
   lookupAlbum: string;
   lookupDuration: number;
+  lookupPosition: number;
   json: boolean;
   progress: boolean;
   lines: number;
@@ -107,6 +122,7 @@ function parseArgs(): CliOptions {
     lookupArtist: "",
     lookupAlbum: "",
     lookupDuration: 0,
+    lookupPosition: 0,
     json: false,
     progress: false,
     lines: 3,
@@ -199,7 +215,12 @@ function parseArgs(): CliOptions {
         break;
       case "--duration":
         i++;
-        options.lookupDuration = Math.max(0, parseFloat(args[i] || "0") || 0);
+        options.lookupDuration = parseFloat(args[i] || "0") || 0;
+        break;
+      case "--lookup-position":
+      case "--test-position":
+        i++;
+        options.lookupPosition = Math.max(0, parseFloat(args[i] || "0") || 0);
         break;
       case "--quiet":
       case "-q":
@@ -233,6 +254,7 @@ Options:
   --artist TEXT   Lookup artist for the lookup command
   --album TEXT    Lookup album for the lookup command
   --duration N    Lookup duration in seconds
+  --test-position N  Print lookup current line at this song position
   --quiet, -q     Suppress errors
   
 Overlay Options:
@@ -279,6 +301,12 @@ function stoppedOutput(tooltip: string): LyricsWidgetOutput {
     nextChangeInMs: 1000,
     generatedAtMs: Date.now(),
     source: "",
+    sourceId: "",
+    sourceDuration: 0,
+    sourceAlbum: "",
+    timingOffset: 0,
+    timingOffsetReason: "",
+    diagnostics: tooltip,
   };
 }
 
@@ -365,6 +393,8 @@ function normalizeTitle(title: string): string {
       .replace(/\s*-\s*Remaster(ed)?\s*\d*/gi, "")
       // Remove year (e.g. (1966))
       .replace(/\s*\(\d{4}\)/g, "")
+      // Normalize punctuation that sources commonly disagree about.
+      .replace(/[?'’]+$/g, "")
       // Clean up
       .replace(/\s+/g, " ")
       .trim()
@@ -386,15 +416,197 @@ function lyricTextToPlainData(text: string | null | undefined): LyricsData | nul
   return text ? { synced: false, lines: [], plainText: text } : null;
 }
 
+function withLrclibMetadata(lyrics: LyricsData, result: any, source: string, duration: number): LyricsData {
+  const sourceDuration = Number.isFinite(Number(result?.duration)) ? Number(result.duration) : 0;
+  const firstTime = lyrics.lines[0]?.time ?? 0;
+  const durationDelta = sourceDuration > 0 && duration > 0 ? duration - sourceDuration : 0;
+  // LRCLIB's signature API treats ±2s as the same track, so leave that slack unshifted when reconciling video-duration MPRIS tracks with audio-duration lyric records. Ref: https://lrclib.net/docs
+  const leadingOffset = durationDelta > 0 ? Math.max(0, durationDelta - LRCLIB_DURATION_TOLERANCE_SECONDS) : durationDelta;
+  const shouldOffsetForLongerTrack = lyrics.synced
+    && firstTime <= 8
+    && leadingOffset >= MIN_LEADING_OFFSET_SECONDS
+    && leadingOffset <= MAX_LEADING_OFFSET_SECONDS;
+  const base = {
+    ...lyrics,
+    source,
+    sourceId: result?.id !== undefined ? String(result.id) : "",
+    sourceDuration,
+    sourceAlbum: String(result?.albumName || ""),
+    timingOffset: 0,
+    timingOffsetReason: timingDiagnosticReason(lyrics, duration, sourceDuration),
+    cacheVersion: CACHE_VERSION,
+  };
+
+  if (!shouldOffsetForLongerTrack) return base;
+  return applyTimingOffset(
+    base,
+    leadingOffset,
+    `shifted by source/track duration delta minus tolerance (+${leadingOffset.toFixed(2)}s); ${base.timingOffsetReason || ""}`.trim(),
+  );
+}
+
+function withLrcCxMetadata(lyrics: LyricsData, duration: number): LyricsData {
+  return {
+    ...lyrics,
+    source: "lrc.cx",
+    sourceId: "",
+    sourceDuration: 0,
+    sourceAlbum: "",
+    timingOffset: 0,
+    timingOffsetReason: timingDiagnosticReason(lyrics, duration, 0),
+    cacheVersion: CACHE_VERSION,
+  };
+}
+
 function normalizedKey(value: string): string {
   return normalizeTitle(value).toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }
 
+function normalizedLineText(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function lyricSignature(lyrics: LyricsData | null): string {
+  if (!lyrics?.synced) return "";
+  return lyrics.lines.map((line) => normalizedLineText(line.text)).filter(Boolean).join("\n");
+}
+
+function titleCandidates(title: string, artist: string): string[] {
+  const candidates = [title, normalizeTitle(title)];
+  const separator = " - ";
+  const separatorIndex = title.indexOf(separator);
+
+  if (separatorIndex > 0) {
+    const prefix = title.slice(0, separatorIndex).trim();
+    const suffix = title.slice(separatorIndex + separator.length).trim();
+    if (normalizedKey(prefix) === normalizedKey(artist) && suffix) {
+      candidates.push(suffix, normalizeTitle(suffix));
+    }
+  }
+
+  return [...new Set(candidates.map(normalizedKey).filter(Boolean))];
+}
+
+function lastLyricTime(lyrics: LyricsData): number {
+  return lyrics.lines[lyrics.lines.length - 1]?.time ?? 0;
+}
+
+function lyricSpan(lyrics: LyricsData): number {
+  if (!lyrics.synced || lyrics.lines.length < 2) return 0;
+  return Math.max(0, lastLyricTime(lyrics) - lyrics.lines[0]!.time);
+}
+
+function timingDiagnosticReason(lyrics: LyricsData | null, trackDuration: number, sourceDuration: number): string {
+  if (!lyrics?.synced || lyrics.lines.length === 0) return "";
+  const parts: string[] = [];
+  const firstTime = lyrics.lines[0]!.time;
+  const lastTime = lastLyricTime(lyrics);
+
+  if (sourceDuration > 0 && trackDuration > 0) {
+    parts.push(`source ${sourceDuration.toFixed(1)}s vs track ${trackDuration.toFixed(1)}s`);
+  } else if (trackDuration > 0) {
+    parts.push(`track ${trackDuration.toFixed(1)}s`);
+  }
+
+  parts.push(`lyrics ${firstTime.toFixed(2)}s-${lastTime.toFixed(2)}s`);
+  if (sourceDuration > 0 && trackDuration > 0 && Math.abs(sourceDuration - trackDuration) > 2) {
+    parts.push(`duration delta ${(sourceDuration - trackDuration).toFixed(1)}s`);
+  }
+  return parts.join(" · ");
+}
+
+function firstMatchedLineDelta(candidate: LyricsData, reference: LyricsData): number | null {
+  if (!candidate.synced || !reference.synced) return null;
+  const referenceTimes = new Map<string, number>();
+
+  for (const line of reference.lines) {
+    const key = normalizedLineText(line.text);
+    if (key && !referenceTimes.has(key)) referenceTimes.set(key, line.time);
+  }
+
+  for (const line of candidate.lines) {
+    const key = normalizedLineText(line.text);
+    const referenceTime = key ? referenceTimes.get(key) : undefined;
+    if (referenceTime !== undefined) return referenceTime - line.time;
+  }
+
+  return null;
+}
+
+function lineTimingShapePenalty(candidate: LyricsData, reference: LyricsData | null): number {
+  if (!candidate.synced || !reference?.synced) return 0;
+  const referenceTimes = new Map<string, number>();
+  const deltas: number[] = [];
+
+  for (const line of reference.lines) {
+    const key = normalizedLineText(line.text);
+    if (key && !referenceTimes.has(key)) referenceTimes.set(key, line.time);
+  }
+
+  for (const line of candidate.lines) {
+    const key = normalizedLineText(line.text);
+    const referenceTime = key ? referenceTimes.get(key) : undefined;
+    if (referenceTime !== undefined) deltas.push(referenceTime - line.time);
+    if (deltas.length >= 16) break;
+  }
+
+  if (deltas.length < 4) return 0;
+  const first = deltas[0]!;
+  const maxDrift = Math.max(...deltas.map((delta) => Math.abs(delta - first)));
+  return Math.min(160, maxDrift * 8);
+}
+
+function applyTimingOffset(lyrics: LyricsData, offset: number, reason: string): LyricsData {
+  if (!lyrics.synced || Math.abs(offset) < 0.01) return lyrics;
+  return {
+    ...lyrics,
+    lines: lyrics.lines.map((line) => ({ ...line, time: Math.max(0, line.time + offset) })),
+    timingOffset: Number(offset.toFixed(3)),
+    timingOffsetReason: reason,
+  };
+}
+
+function hasSuspiciousEarlyEnd(lyrics: LyricsData, duration: number): boolean {
+  if (!lyrics.synced || lyrics.lines.length === 0 || duration < 90) return false;
+
+  const lastTime = lastLyricTime(lyrics);
+  const trailingSilence = duration - lastTime;
+
+  // Some songs have long instrumental outros, so only reject lyrics that are
+  // both far from the track end and proportionally much shorter than the track.
+  return trailingSilence > 45 && lastTime / duration < 0.65;
+}
+
+function syncedTimingPenalty(lyrics: LyricsData | null, duration: number): number {
+  if (!lyrics?.synced || lyrics.lines.length === 0 || duration <= 0) return 0;
+  if (hasSuspiciousEarlyEnd(lyrics, duration)) return 1_000;
+
+  const distanceFromEnd = Math.abs(duration - lastLyricTime(lyrics));
+  const leadingOffset = lyrics.lines[0]?.time ?? 0;
+  const spanDistance = Math.abs(duration - lyricSpan(lyrics));
+  return Math.min(80, distanceFromEnd / 2) + Math.min(40, spanDistance / 4) + Math.min(20, leadingOffset / 2);
+}
+
 function scoreLrclibResult(result: any, title: string, artist: string, duration: number): number {
-  const titleScore = normalizedKey(result.trackName || result.name || "") === normalizedKey(title) ? 0 : 20;
+  const resultTitle = normalizedKey(result.trackName || result.name || "");
+  const possibleTitles = titleCandidates(title, artist);
+  const titleScore = possibleTitles.includes(resultTitle)
+    ? 0
+    : possibleTitles.some((candidate) => resultTitle.includes(candidate) || candidate.includes(resultTitle))
+      ? 10
+      : 40;
   const artistScore = normalizedKey(result.artistName || "") === normalizedKey(artist) ? 0 : 20;
-  const durationScore = Number.isFinite(Number(result.duration)) ? Math.min(60, Math.abs(Number(result.duration) - duration)) : 30;
-  return titleScore + artistScore + durationScore;
+  const durationScore = Number.isFinite(Number(result.duration)) ? Math.min(60, Math.abs(Number(result.duration) - duration) * 1.2) : 30;
+  const synced = lyricTextToSyncedData(result?.syncedLyrics);
+  return titleScore + artistScore + durationScore + syncedTimingPenalty(synced, duration);
+}
+
+function scoreAnySyncedLyrics(lyrics: LyricsData, sourceDuration: number, duration: number, reference: LyricsData | null = null): number {
+  const sourceDelta = sourceDuration > 0 && duration > 0 ? Math.abs(sourceDuration - duration) : 12;
+  const firstTime = lyrics.lines[0]?.time ?? 0;
+  const spanDelta = duration > 0 ? Math.abs(duration - lyricSpan(lyrics)) : 0;
+  const offsetPenalty = lyrics.timingOffset ? Math.max(0, 14 - Math.abs(lyrics.timingOffset)) * 8 : 0;
+  return sourceDelta * 1.2 + Math.min(30, firstTime) + Math.min(60, spanDelta / 4) + syncedTimingPenalty(lyrics, duration) + lineTimingShapePenalty(lyrics, reference) + offsetPenalty;
 }
 
 // --- LRCLIB API ---
@@ -406,6 +618,7 @@ async function fetchFromLrclib(
 ): Promise<LyricsData | null> {
   const headers = { "User-Agent": USER_AGENT };
   let bestPlain: LyricsData | null = null;
+  const syncedCandidates: LyricsData[] = [];
 
   async function getByParams(trackName: string, artistName: string, albumName?: string): Promise<LyricsData | null> {
     const params = new URLSearchParams({
@@ -420,9 +633,9 @@ async function fetchFromLrclib(
       if (!response.ok) return null;
       const data = (await response.json()) as any;
       const synced = lyricTextToSyncedData(data.syncedLyrics);
-      if (synced) return { ...synced, source: "lrclib/get", cacheVersion: CACHE_VERSION };
+      if (synced && !hasSuspiciousEarlyEnd(synced, duration)) return withLrclibMetadata(synced, data, "lrclib/get", duration);
       const plain = lyricTextToPlainData(data.plainLyrics);
-      if (plain && !bestPlain) bestPlain = { ...plain, source: "lrclib/get", cacheVersion: CACHE_VERSION };
+      if (plain && !bestPlain) bestPlain = withLrclibMetadata(plain, data, "lrclib/get", duration);
     } catch { }
     return null;
   }
@@ -465,22 +678,64 @@ async function fetchFromLrclib(
       const results = (await response.json()) as any[];
 
       const sorted = results
-        .filter((r) => normalizedKey(r.trackName || r.name || "").includes(normalizedKey(normTitle)) || normalizedKey(normTitle).includes(normalizedKey(r.trackName || r.name || "")))
+        .filter((r) => {
+          const resultTitle = normalizedKey(r.trackName || r.name || "");
+          return titleCandidates(title, artist).some((candidate) => resultTitle.includes(candidate) || candidate.includes(resultTitle));
+        })
         .sort((a, b) => scoreLrclibResult(a, title, artist, duration) - scoreLrclibResult(b, title, artist, duration));
 
       for (const match of sorted.length > 0 ? sorted : results) {
         const synced = lyricTextToSyncedData(match?.syncedLyrics);
-        if (synced) return { ...synced, source: "lrclib/search", cacheVersion: CACHE_VERSION };
+        if (synced && !hasSuspiciousEarlyEnd(synced, duration)) syncedCandidates.push(withLrclibMetadata(synced, match, "lrclib/search", duration));
         const plain = lyricTextToPlainData(match?.plainLyrics);
-        if (plain && !bestPlain) bestPlain = { ...plain, source: "lrclib/search", cacheVersion: CACHE_VERSION };
+        if (plain && !bestPlain) bestPlain = withLrclibMetadata(plain, match, "lrclib/search", duration);
       }
     }
   } catch { }
 
+  if (syncedCandidates.length > 0) {
+    syncedCandidates.sort((a, b) =>
+      scoreAnySyncedLyrics(a, a.sourceDuration || 0, duration) - scoreAnySyncedLyrics(b, b.sourceDuration || 0, duration),
+    );
+    return syncedCandidates[0]!;
+  }
+
   return bestPlain;
 }
 
-async function fetchFromLrcCx(title: string, artist: string): Promise<LyricsData | null> {
+async function fetchLrclibSyncedCandidates(title: string, artist: string, duration: number): Promise<LyricsData[]> {
+  const headers = { "User-Agent": USER_AGENT };
+  const normTitle = [...titleCandidates(title, artist)].sort((a, b) => a.length - b.length)[0] || normalizeTitle(title);
+  const normArtist = normalizeArtist(artist);
+  const params = new URLSearchParams({ track_name: normTitle, artist_name: normArtist });
+
+  try {
+    const response = await fetch(`${LRCLIB_API}/search?${params}`, { headers });
+    if (!response.ok) return [];
+    const seen = new Set<string>();
+    const results = (await response.json()) as any[];
+    return results
+      .filter((result) => {
+        const resultTitle = normalizedKey(result.trackName || result.name || "");
+        return titleCandidates(title, artist).some((candidate) => resultTitle.includes(candidate) || candidate.includes(resultTitle));
+      })
+      .map((result) => {
+        const synced = lyricTextToSyncedData(result?.syncedLyrics);
+        return synced ? withLrclibMetadata(synced, result, "lrclib/search", duration) : null;
+      })
+      .filter((lyrics): lyrics is LyricsData => {
+        if (!lyrics || (!lyrics.timingOffset && hasSuspiciousEarlyEnd(lyrics, duration))) return false;
+        const key = lyrics.sourceId || `${lyrics.sourceDuration}:${lyricSignature(lyrics).slice(0, 64)}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+  } catch { }
+
+  return [];
+}
+
+async function fetchFromLrcCx(title: string, artist: string, duration: number): Promise<LyricsData | null> {
   const attempts = [
     { title, artist },
     { title: normalizeTitle(title), artist: normalizeArtist(artist) },
@@ -498,7 +753,7 @@ async function fetchFromLrcCx(title: string, artist: string): Promise<LyricsData
       if (!response.ok) continue;
       const text = await response.text();
       const synced = lyricTextToSyncedData(text);
-      if (synced) return { ...synced, source: "lrc.cx", cacheVersion: CACHE_VERSION };
+      if (synced && !hasSuspiciousEarlyEnd(synced, duration)) return withLrcCxMetadata(synced, duration);
     } catch { }
   }
 
@@ -512,9 +767,46 @@ async function fetchLyricsFromSources(
   duration: number,
 ): Promise<LyricsData | null> {
   const lrclib = await fetchFromLrclib(title, artist, album, duration);
-  if (lrclib?.synced) return lrclib;
+  const lrcCx = await fetchFromLrcCx(title, artist, duration);
+  const lrclibCandidates = lrcCx?.synced ? await fetchLrclibSyncedCandidates(title, artist, duration) : [];
+  const shiftedLrclibCandidate = lrclibCandidates
+    .filter((candidate) => candidate.timingOffset && Math.abs(candidate.timingOffset) >= MIN_LEADING_OFFSET_SECONDS)
+    .sort((a, b) => Math.abs((a.sourceDuration || duration) - duration) - Math.abs((b.sourceDuration || duration) - duration))[0] || null;
+  if (shiftedLrclibCandidate) return shiftedLrclibCandidate;
 
-  const lrcCx = await fetchFromLrcCx(title, artist);
+  const lrclibBest = lrclibCandidates.length > 0
+    ? lrclibCandidates.sort((a, b) => scoreAnySyncedLyrics(a, a.sourceDuration || 0, duration, lrcCx) - scoreAnySyncedLyrics(b, b.sourceDuration || 0, duration, lrcCx))[0]!
+    : lrclib;
+
+  if (lrclibBest?.synced && lrcCx?.synced) {
+    const lrclibFirst = lrclibBest.lines[0]?.time ?? 0;
+    const lrcCxFirst = lrcCx.lines[0]?.time ?? 0;
+    const deltaToLrcCx = firstMatchedLineDelta(lrclibBest, lrcCx);
+    const lrclibDurationDelta = lrclibBest.sourceDuration && duration > 0 ? Math.abs(lrclibBest.sourceDuration - duration) : Number.POSITIVE_INFINITY;
+    const lrclibLooksEarly = deltaToLrcCx !== null
+      && deltaToLrcCx >= MIN_LEADING_OFFSET_SECONDS
+      && deltaToLrcCx <= MAX_LEADING_OFFSET_SECONDS
+      && lrclibFirst + MIN_LEADING_OFFSET_SECONDS < lrcCxFirst
+      && lrclibDurationDelta > 2;
+
+    if (lrclibLooksEarly) {
+      return applyTimingOffset(
+        lrclibBest,
+        deltaToLrcCx,
+        `aligned to lrc.cx first shared line (+${deltaToLrcCx.toFixed(2)}s); ${lrclibBest.timingOffsetReason || ""}`.trim(),
+      );
+    }
+
+    if (lrclibBest.timingOffset && Math.abs(lrclibBest.timingOffset) >= MIN_LEADING_OFFSET_SECONDS) {
+      return lrclibBest;
+    }
+
+    return scoreAnySyncedLyrics(lrclibBest, lrclibBest.sourceDuration || 0, duration, lrcCx) <= scoreAnySyncedLyrics(lrcCx, lrcCx.sourceDuration || 0, duration)
+      ? lrclibBest
+      : lrcCx;
+  }
+
+  if (lrclibBest?.synced) return lrclibBest;
   if (lrcCx?.synced) return lrcCx;
 
   return lrclib;
@@ -627,7 +919,10 @@ async function getCachedLyrics(
       const content = await file.text();
       const data = JSON.parse(content);
       const lyrics = data as LyricsData;
-      if (lyrics.cacheVersion !== CACHE_VERSION || !lyrics.synced) return null;
+      if (lyrics.cacheVersion !== CACHE_VERSION || !lyrics.synced) {
+        await unlink(cacheFile).catch(() => { });
+        return null;
+      }
       return lyrics;
     }
   } catch { }
@@ -673,6 +968,21 @@ function formatProgress(position: number, duration: number): string {
     return `${m}:${sec.toString().padStart(2, "0")}`;
   };
   return `[${formatTime(position)}/${formatTime(duration)}]`;
+}
+
+function formatLyricsDiagnostics(lyrics: LyricsData | null, metadata: TrackMetadata | null): string {
+  if (!lyrics) return "No lyrics source";
+  const parts = [lyrics.source || "unknown"];
+  if (lyrics.sourceId) parts.push(`#${lyrics.sourceId}`);
+  if (lyrics.sourceAlbum) parts.push(lyrics.sourceAlbum);
+  if (lyrics.sourceDuration && lyrics.sourceDuration > 0) parts.push(`source ${lyrics.sourceDuration.toFixed(1)}s`);
+  if (metadata?.duration && metadata.duration > 0) parts.push(`track ${metadata.duration.toFixed(1)}s`);
+  if (lyrics.synced && lyrics.lines.length > 0) {
+    parts.push(`lyrics ${lyrics.lines[0]!.time.toFixed(2)}s-${lastLyricTime(lyrics).toFixed(2)}s`);
+  }
+  if (lyrics.timingOffset && Math.abs(lyrics.timingOffset) >= 0.01) parts.push(`offset ${lyrics.timingOffset.toFixed(2)}s`);
+  if (lyrics.timingOffsetReason) parts.push(lyrics.timingOffsetReason);
+  return parts.filter(Boolean).join(" · ");
 }
 
 function formatLyricsWidgetOutput(
@@ -770,6 +1080,7 @@ function formatLyricsWidgetOutput(
         ? "playing"
         : "no-lyrics"
       : "paused";
+  const diagnostics = formatLyricsDiagnostics(lyrics, metadata);
 
   return {
     text: text, // Widgets may truncate text, but we still respect the requested length.
@@ -794,6 +1105,12 @@ function formatLyricsWidgetOutput(
     nextChangeInMs,
     generatedAtMs,
     source: lyrics?.source || "",
+    sourceId: lyrics?.sourceId || "",
+    sourceDuration: lyrics?.sourceDuration || 0,
+    sourceAlbum: lyrics?.sourceAlbum || "",
+    timingOffset: lyrics?.timingOffset || 0,
+    timingOffsetReason: lyrics?.timingOffsetReason || "",
+    diagnostics,
   };
 }
 
@@ -930,6 +1247,12 @@ async function watchMode(options: CliOptions): Promise<void> {
             nextChangeInMs: 1000,
             generatedAtMs: Date.now(),
             source: "",
+            sourceId: "",
+            sourceDuration: 0,
+            sourceAlbum: "",
+            timingOffset: 0,
+            timingOffsetReason: "",
+            diagnostics: "Error",
           }),
         );
       }
@@ -992,6 +1315,9 @@ async function lookupMode(options: CliOptions): Promise<void> {
     options.lookupAlbum,
     Math.round(options.lookupDuration),
   );
+  const lookupCurrent = lyrics?.synced && options.lookupPosition > 0
+    ? getCurrentLines(lyrics, options.lookupPosition, options.lines)
+    : { current: "", upcoming: [], previous: [], index: -1 };
 
   console.log(JSON.stringify({
     title: options.lookupTitle,
@@ -999,8 +1325,27 @@ async function lookupMode(options: CliOptions): Promise<void> {
     duration: options.lookupDuration,
     synced: lyrics?.synced === true,
     source: lyrics?.source || "",
+    sourceId: lyrics?.sourceId || "",
+    sourceDuration: lyrics?.sourceDuration || 0,
+    sourceAlbum: lyrics?.sourceAlbum || "",
+    timingOffset: lyrics?.timingOffset || 0,
+    timingOffsetReason: lyrics?.timingOffsetReason || "",
+    diagnostics: formatLyricsDiagnostics(lyrics, {
+      title: options.lookupTitle,
+      artist: options.lookupArtist,
+      album: options.lookupAlbum,
+      duration: options.lookupDuration,
+      position: 0,
+      status: "Stopped",
+      player: "lookup",
+      capturedAtMs: Date.now(),
+    }),
     lineCount: lyrics?.lines.length || 0,
     firstLine: lyrics?.lines[0] || null,
+    lastLine: lyrics?.lines.at(-1) || null,
+    lookupPosition: options.lookupPosition,
+    currentAtLookupPosition: lookupCurrent.current,
+    currentIndexAtLookupPosition: lookupCurrent.index,
     plain: lyrics?.plainText ? true : false,
   }));
 }

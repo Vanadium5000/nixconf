@@ -97,6 +97,7 @@ PanelWindow {
     property var displayLines: []
     property string trackInfo: ""
     property bool isPlaying: false
+    property string diagnostics: ""
     property string osdText: ""
     property bool osdVisible: false
     property int nextChangeInMs: 400
@@ -468,8 +469,22 @@ PanelWindow {
                 Item {
                     id: editHeader
                     width: parent.width
-                    height: 0
-                    visible: false
+                    height: root.editMode && root.diagnostics.length > 0 ? diagnosticsText.implicitHeight + root.effectiveLineSpacing() : 0
+                    visible: root.editMode && root.diagnostics.length > 0
+
+                    Text {
+                        id: diagnosticsText
+                        width: parent.width
+                        text: root.diagnostics
+                        color: root.textColor
+                        opacity: 0.64
+                        font.family: root.fontFamily
+                        font.pixelSize: Math.max(8, Math.round(root.adaptiveUpcomingFontSize * 0.82))
+                        maximumLineCount: 2
+                        wrapMode: Text.WordWrap
+                        elide: Text.ElideRight
+                        horizontalAlignment: Text.AlignHCenter
+                    }
                 }
 
                 Column {
@@ -743,6 +758,8 @@ PanelWindow {
             var data = JSON.parse(output.trim());
             root.currentLine = data.text || data.current || "";
             root.isPlaying = data.alt === "playing";
+            root.trackInfo = (data.title || "") + (data.artist ? " — " + data.artist : "");
+            root.diagnostics = data.diagnostics || data.source || "";
 
             if (data.timedLines && data.timedLines.length > 0) {
                 var sourceLines = data.allTimedLines && data.allTimedLines.length > 0 ? data.allTimedLines : data.timedLines;
@@ -802,6 +819,7 @@ PanelWindow {
             root.nextChangeInMs = data.nextChangeInMs ? root.clamp(data.nextChangeInMs - elapsed + 24, 80, 200) : 200;
         } catch (e) {
             console.log("Parse error:", e);
+            root.diagnostics = "Lyrics parse error";
             root.nextChangeInMs = 400;
         }
     }
