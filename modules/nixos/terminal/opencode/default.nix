@@ -39,11 +39,19 @@
       # OpenCode scans `~/.config/opencode/skills/<name>/SKILL.md`; install each
       # skill file explicitly so activation can preserve the expected tree shape.
       # Source: https://opencode.ai/docs/skills/
+      opencodeUserAssets = pkgs.runCommand "opencode-user-assets" { } ''
+        mkdir -p "$out/skill"
+        cp -R ${./command} "$out/command"
+        cp -R ${./plugin} "$out/plugin"
+        cp ${./_AGENTS.md} "$out/AGENTS.md"
+        cp ${./_package.json} "$out/package.json"
+        cp -R ${./skill}/. "$out/skill/"
+      '';
       opencodeSkillFiles = builtins.listToAttrs (
         map (skillName: {
           name = ".config/opencode/skills/${skillName}/SKILL.md";
           value = {
-            source = ./skill + "/${skillName}/SKILL.md";
+            source = "${opencodeUserAssets}/skill/${skillName}/SKILL.md";
             type = "copy";
             permissions = "0644";
           };
@@ -452,22 +460,22 @@
                 permissions = "0600";
               };
               ".config/opencode/command" = {
-                source = ./command;
+                source = "${opencodeUserAssets}/command";
                 type = "copy";
                 permissions = "0755";
               };
               ".config/opencode/plugin" = {
-                source = ./plugin;
+                source = "${opencodeUserAssets}/plugin";
                 type = "copy";
                 permissions = "0755";
               };
               ".config/opencode/AGENTS.md" = {
-                source = ./_AGENTS.md;
+                source = "${opencodeUserAssets}/AGENTS.md";
                 type = "copy";
                 permissions = "0644";
               };
               ".config/opencode/package.json" = {
-                source = ./_package.json;
+                source = "${opencodeUserAssets}/package.json";
                 type = "copy";
                 permissions = "0644";
               };

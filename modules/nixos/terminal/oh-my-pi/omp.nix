@@ -541,17 +541,25 @@
             chown ${shellUser}:users ${shellOmpConfigFile}
 
             if [ ! -e ${shellOmpModelsFile} ]; then
-              if [ -z ${lib.escapeShellArg routerApiKey} ]; then
-                echo "CLIPROXYAPI_KEY is required for default Router OMP models; add system/cliproxyapi-key to pass and rerun rebuild.sh." >&2
+              if [ -z ${lib.escapeShellArg piApiKey} ]; then
+                echo "OMNIROUTE_PI_API_KEY is required for default OmniRoute OMP models; add system/omniroute/pi-api-key to pass and rerun rebuild.sh." >&2
                 exit 1
               fi
 
               ${pkgs.util-linux}/bin/runuser -u ${shellUser} -- env \
                 HOME=${shellHomeDirectory} \
                 MODELS_OMP_FILE=${shellOmpModelsFile} \
-                MODELS_OMP_API_KEY=${lib.escapeShellArg routerApiKey} \
+                MODELS_OMP_API_KEY=${lib.escapeShellArg piApiKey} \
                 MODELS_STATE_DIR=${shellConfigSourceDirectory}/modules/nixos/terminal/opencode \
                 ${modelsCommand}/bin/models sync-omp >/dev/null
+              chmod 0600 ${shellOmpModelsFile}
+              chown ${shellUser}:users ${shellOmpModelsFile}
+            fi
+
+            if [ -e ${shellOmpModelsFile} ] && [ -n ${lib.escapeShellArg piApiKey} ]; then
+              OMNIROUTE_PI_API_KEY=${lib.escapeShellArg piApiKey} ${pkgs.yq-go}/bin/yq -i \
+                '.providers.router.apiKey = strenv(OMNIROUTE_PI_API_KEY)' \
+                ${shellOmpModelsFile}
               chmod 0600 ${shellOmpModelsFile}
               chown ${shellUser}:users ${shellOmpModelsFile}
             fi

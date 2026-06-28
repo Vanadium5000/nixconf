@@ -16,6 +16,7 @@ let
 
   getPackages =
     {
+      lib,
       stablePkgs,
       unstablePkgs ? stablePkgs.unstable,
     }:
@@ -42,18 +43,55 @@ let
           "${name}" = (callPackageFor name) (./_pkgs + "/${filename}") { };
         };
 
+      paseoDesktop = inputs.llm-agents.packages.${stablePkgs.stdenv.hostPlatform.system}.paseo-desktop;
+      paseoTerminalFontFamily = [
+        "JetBrainsMono Nerd Font"
+        "JetBrains Mono"
+        "Symbols Nerd Font"
+        "Noto Color Emoji"
+        "Noto Sans Symbols 2"
+        "Noto Sans Symbols"
+        "Noto Sans"
+        "monospace"
+      ];
+      paseoTerminalFontFamilyJson = builtins.toJSON (lib.concatStringsSep ", " paseoTerminalFontFamily);
+      paseoTerminalFontPatch = stablePkgs.writeText "patch-paseo-terminal-font.py" ''
+        import os
+        import re
+        from pathlib import Path
+
+        root = Path(os.environ["out"]) / "share/paseo-desktop/packages/app/dist/_expo/static/js/web"
+        replacement = ${paseoTerminalFontFamilyJson}
+        patched = False
+        for path in root.glob("index-*.js"):
+            text = path.read_text(encoding="utf-8")
+            new = f'const F={replacement!r};'
+            text, count = re.subn(r'const F=\[[^;]+\]\.join\(", "\);(?=function E)', new, text, count=1)
+            if count != 1:
+                raise SystemExit(f"Paseo terminal font-family patch target not found in {path}")
+            path.write_text(text, encoding="utf-8")
+            patched = True
+        if not patched:
+            raise SystemExit(f"Paseo terminal bundle not found under {root}")
+      '';
     in
     (builtins.foldl' (acc: filename: acc // (toPackage filename)) { } files)
     // {
-      # Re-export the locked llm-agents Paseo desktop package so terminal
-      # profiles install it with the rest of this flake's system packages.
-      # Source: github:numtide/llm-agents.nix packages.<system>.paseo-desktop.
-      paseo = inputs.llm-agents.packages.${stablePkgs.stdenv.hostPlatform.system}.paseo-desktop;
+      # Paseo's bundled xterm defaults to web/CSS monospace fallbacks, and Electron
+      # does not match Kitty's font fallback stack. Force the embedded terminal to
+      # see the same symbol-capable families so zsh/OMP/Nerd glyphs do not render
+      # as tofu blocks. Source: @xterm/xterm Terminal option `fontFamily`.
+      paseo = paseoDesktop.overrideAttrs (old: {
+        postInstall = (old.postInstall or "") + ''
+          ${stablePkgs.python3}/bin/python3 ${paseoTerminalFontPatch}
+        '';
+      });
     };
 in
 {
   flake.overlays.customPackages = final: prev: {
     customPackages = getPackages {
+      inherit (final) lib;
       stablePkgs = final;
       unstablePkgs = final.unstable;
     };
@@ -63,6 +101,7 @@ in
     { pkgs, ... }:
     {
       packages = getPackages {
+        inherit (pkgs) lib;
         stablePkgs = pkgs;
         unstablePkgs = pkgs.unstable;
       };

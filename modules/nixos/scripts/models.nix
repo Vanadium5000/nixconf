@@ -4,6 +4,7 @@
     { pkgs, self', ... }:
     let
       opencodeApiKey = self.secrets.OMNIROUTE_OPENCODE_API_KEY;
+      piApiKey = self.secrets.OMNIROUTE_PI_API_KEY;
       cliproxyApiKey = self.secrets.CLIPROXYAPI_KEY;
       bifrostApiKey = self.secrets.BIFROST_API_KEY or "";
       opencodeStateDirectory = self.lib.configFiles.known.opencodeStateDirectory;
@@ -55,6 +56,7 @@
                     OMP_PROVIDER_NAME="''${MODELS_OMP_PROVIDER_NAME:-$ROUTER_PROVIDER_NAME}"
                     CLIPROXYAPI_KEY="''${CLIPROXYAPI_KEY:-${cliproxyApiKey}}"
                     OMNIROUTE_OPENCODE_API_KEY="''${OMNIROUTE_OPENCODE_API_KEY:-${opencodeApiKey}}"
+                    OMNIROUTE_PI_API_KEY="''${OMNIROUTE_PI_API_KEY:-${piApiKey}}"
                     BIFROST_API_KEY="''${BIFROST_API_KEY:-${bifrostApiKey}}"
                     # Keep generated OMP provider metadata aligned with the NixOS module's
                     # PI_STREAM_FIRST_EVENT_TIMEOUT_MS; OmniRoute can legitimately spend
@@ -118,6 +120,13 @@
                         bifrost) printf '%s\n' "$BIFROST_API_KEY" ;;
                         omniroute) printf '%s\n' "$OMNIROUTE_OPENCODE_API_KEY" ;;
                         *) return 1 ;;
+                      esac
+                    }
+
+                    omp_api_key_for() {
+                      case "$1" in
+                        omniroute) printf '%s\n' "$OMNIROUTE_PI_API_KEY" ;;
+                        *) router_api_key_for "$1" ;;
                       esac
                     }
 
@@ -917,7 +926,7 @@
                       local pi_api_key
                       local omp_base_url
                       router_provider=$(get_router_provider)
-                      pi_api_key="''${MODELS_OMP_API_KEY:-$(router_api_key_for "$router_provider")}"
+                      pi_api_key="''${MODELS_OMP_API_KEY:-$(omp_api_key_for "$router_provider")}"
                       omp_base_url="''${MODELS_OMP_BASE_URL:-$(router_base_url_for "$router_provider")}"
                       if [ -z "$pi_api_key" ]; then
                         $GUM style --foreground 196 "Error: Router API key is required for OMP model sync. Check the selected provider credential and rerun rebuild.sh."

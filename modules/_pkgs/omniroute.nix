@@ -16,12 +16,12 @@
 }:
 
 let
-  version = "3.8.30";
+  version = "3.8.38";
   docsSrc = fetchFromGitHub {
     owner = "diegosouzapw";
     repo = "OmniRoute";
     rev = "v${version}";
-    hash = "sha256-TpfWWeXuPW9bZwyxnSoo84xtNWOPspN3cHeZDLXl0SI=";
+    hash = "sha256-Ny7nhDQrn0lwOgeUJWmhP9O0/Atb83LAcqTC+4Cuqrg=";
   };
 in
 buildNpmPackage (finalAttrs: {
@@ -32,7 +32,7 @@ buildNpmPackage (finalAttrs: {
   # already contains the Next.js standalone app that upstream publishes.
   src = fetchurl {
     url = "https://registry.npmjs.org/omniroute/-/omniroute-${finalAttrs.version}.tgz";
-    hash = "sha256-rK2pPWT3nI33isR+RyPAmoXNa5l7r9g52QBBDkLiX4I=";
+    hash = "sha256-TBUzIn7K1F6CLxhZCjErLhaHPDZvMUK7DKetJehSIFM=";
   };
 
   sourceRoot = "package";
@@ -59,7 +59,7 @@ buildNpmPackage (finalAttrs: {
   '';
 
   # Hash of the dependencies from package-lock.json
-  npmDepsHash = "sha256-CHZl8/hLhgYRMUjopE9uNge5zfBq1TZoGm+rPRp8u4M=";
+  npmDepsHash = "sha256-HDt8Er91r5PrRMffVKL87Uaobmb8Nfi/dD0wxlo1YEM=";
   npmFlags = [ "--legacy-peer-deps" ];
   # onnxruntime-node downloads optional CUDA EP binaries when CPU binaries are
   # already bundled; the postinstall flag keeps npmDepsHash refreshes network-free.

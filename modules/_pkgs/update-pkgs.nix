@@ -814,6 +814,23 @@ pkgs.writeShellApplication {
       python -c 'import pathlib, re, sys; path = pathlib.Path(sys.argv[1]); attr = sys.argv[2]; new_hash = sys.argv[3]; text = path.read_text(); text = re.sub(rf"{re.escape(attr)} = \"sha256-[^\"]+\"", f"{attr} = \"{new_hash}\"", text, count=1); path.write_text(text)' "$file" "$attr" "$new_hash"
     }
 
+    attr_hash() {
+      local file="$1"
+      local attr="$2"
+      python -c 'import pathlib, re, sys; text = pathlib.Path(sys.argv[1]).read_text(); match = re.search(rf"{re.escape(sys.argv[2])} = \"(sha256-[^\"]+)\"", text); print(match.group(1) if match else "")' "$file" "$attr"
+    }
+
+    is_sri_sha256() {
+      case "$1" in
+      sha256-????????????????????????????????????????????)
+        return 0
+        ;;
+      *)
+        return 1
+        ;;
+      esac
+    }
+
     update_orca_package() {
       local pkg="orca"
       local file
@@ -856,6 +873,12 @@ pkgs.writeShellApplication {
       local attr="$2"
       shift 2
       local fake="sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+      local original_hash
+      original_hash=$(attr_hash "$file" "$attr")
+      if ! is_sri_sha256 "$original_hash"; then
+        echo "    Could not find complete $attr before refresh"
+        return 1
+      fi
       local output=""
       set_attr_hash "$file" "$attr" "$fake"
       set +e
@@ -863,8 +886,9 @@ pkgs.writeShellApplication {
       local status=$?
       set -e
       local got
-      got=$(printf '%s\n' "$output" | grep -oP 'got:\s+\Ksha256-[A-Za-z0-9+/=]+' | tail -1 || true)
-      if [ -z "$got" ]; then
+      got=$(printf '%s\n' "$output" | grep -oP '(got:|got)\s+\Ksha256-[A-Za-z0-9+/=]{44}' | tail -1 || true)
+      if ! is_sri_sha256 "$got"; then
+        set_attr_hash "$file" "$attr" "$original_hash"
         printf '%s\n' "$output"
         return "$status"
       fi
