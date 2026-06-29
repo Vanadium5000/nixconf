@@ -11,7 +11,7 @@ services:
       VPN_TYPE: openvpn
       OPENVPN_USER_SECRETFILE: /run/secrets/openvpn_user
       OPENVPN_PASSWORD_SECRETFILE: /run/secrets/openvpn_password
-      SERVER_REGIONS: Netherlands
+      SERVER_REGIONS: ${GLUETUN_SERVER_REGIONS:-Belgium}
       PORT_FORWARD_ONLY: "true"
       VPN_PORT_FORWARDING: "on"
       FIREWALL_OUTBOUND_SUBNETS: 127.0.0.1/32,100.64.0.0/10,192.168.0.0/16,172.16.0.0/12
@@ -19,13 +19,14 @@ services:
       TZ: Europe/London
       # Gluetun executes this inside the shared network namespace, so localhost reaches qBittorrent.
       # It pins qBittorrent to tun0, disables random/UPnP ports, and follows PIA's refreshed forwarded port.
-      VPN_PORT_FORWARDING_UP_COMMAND: /bin/sh -c 'wget -O- -nv --retry-connrefused --post-data "json={\"listen_port\":{{PORT}},\"current_network_interface\":\"{{VPN_INTERFACE}}\",\"random_port\":false,\"upnp\":false}" http://127.0.0.1:8080/api/v2/app/setPreferences'
+      VPN_PORT_FORWARDING_UP_COMMAND: /bin/sh -c 'for i in $(seq 1 60); do wget -O- -nv --retry-connrefused --post-data "json={\"listen_port\":{{PORT}},\"current_network_interface\":\"{{VPN_INTERFACE}}\",\"random_port\":false,\"upnp\":false}" http://127.0.0.1:8080/api/v2/app/setPreferences && exit 0; sleep 5; done; exit 1'
       VPN_PORT_FORWARDING_DOWN_COMMAND: /bin/sh -c 'wget -O- -nv --retry-connrefused --post-data "json={\"listen_port\":0,\"current_network_interface\":\"lo\"}" http://127.0.0.1:8080/api/v2/app/setPreferences'
     secrets:
       - openvpn_user
       - openvpn_password
     volumes:
       - gluetun-data:/gluetun
+      - gluetun-forwarded-port:/tmp/gluetun
     ports:
       - 127.0.0.1:8088:8080/tcp
     restart: unless-stopped
@@ -45,6 +46,35 @@ services:
       - ${QBITTORRENT_DOWNLOADS_DIR:?qBittorrent downloads directory is missing}:/downloads
     restart: unless-stopped
 
+  qbittorrent-port-sync:
+    image: curlimages/curl:latest
+    container_name: qbittorrent-port-sync
+    network_mode: service:gluetun
+    depends_on:
+      - gluetun
+      - qbittorrent
+    command:
+      - /bin/sh
+      - -c
+      - |
+        set -eu
+        last=""
+        while :; do
+          port="$$(cat /tmp/gluetun/forwarded_port 2>/dev/null || true)"
+          if [ -n "$$port" ] && [ "$$port" != "$$last" ]; then
+            if curl -fsS --retry 30 --retry-connrefused --retry-delay 2 \
+              --data "json={\"listen_port\":$$port,\"current_network_interface\":\"tun0\",\"random_port\":false,\"upnp\":false}" \
+              http://127.0.0.1:8080/api/v2/app/setPreferences; then
+              last="$$port"
+              echo "qBittorrent listen_port synced to $$port"
+            fi
+          fi
+          sleep 300
+        done
+    volumes:
+      - gluetun-forwarded-port:/tmp/gluetun:ro
+    restart: unless-stopped
+
 secrets:
   openvpn_user:
     file: ${PIA_OPENVPN_USER_FILE:?PIA OpenVPN username credential is missing}
@@ -54,3 +84,5 @@ secrets:
 volumes:
   gluetun-data:
     name: gluetun_data
+  gluetun-forwarded-port:
+    name: gluetun_forwarded_port

@@ -21,6 +21,7 @@
 
         self.nixosModules.audio
         self.nixosModules.bluetooth
+        self.nixosModules.hdmi-cec
 
         self.nixosModules.firefox
         self.nixosModules.hyprland
@@ -270,8 +271,6 @@
           ".local/share/kmail2"
           ".local/share/limux"
           ".local/share/local-mail"
-          ".local/share/mail"
-          ".local/state/limux"
         ];
         impermanence.home.cache.directories = [
           ".cache/BraveSoftware/Brave-Origin-Nightly"
@@ -280,7 +279,6 @@
           ".config/emaildefaults"
           ".config/emailidentities"
           ".config/kmail2rc"
-          ".config/mailtransports"
         ];
 
         # Orca rewrites Electron profile/auth and workspace/session files during
