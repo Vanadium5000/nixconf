@@ -222,13 +222,14 @@ Rules:
 ## 🔐 Secrets
 
 ```text
-pass -> rebuild.sh SECRETS_MAP -> generated secrets.nix -> self.secrets
+pass -> rebuild.sh SECRETS_MAP/SECRET_FIELDS -> generated secrets.nix -> self.secrets
 ```
 
 | Rule | Why |
 | --- | --- |
 | `secrets.nix` is generated and uncommitted | Keeps secret material out of git |
 | Modules consume `self.secrets.NAME` | Keeps secret access declarative and searchable |
+| Credential field parsing requires `SECRET_FIELDS` | Prevents multi-field pass entries from silently replacing raw secrets |
 | Use `path:.#...` for eval/builds | Includes generated and untracked files |
 | Use `--skip-secrets` only for secret-independent validation | Avoids false confidence when regenerated secrets are required |
 
@@ -269,7 +270,7 @@ acp-chat, antigravity-manager, aptos-fonts, brave-origin, cake-wallet-flatpak,
 cliproxyapi, cpa-usage-keeper, daisyui-mcp, dogecoin, iloader, limux,
 mattpocock-skills, niri-screen-time, omniroute, omp-desktop, openchamber-web,
 orca, patchright, playwright-cli, quickshell-docs-markdown, seance,
-services-auth-gateway, sideloader, snitch, stdio-to-ws, update-pkgs,
+pass-credential, services-auth-gateway, sideloader, snitch, stdio-to-ws, update-pkgs,
 wallpapers, waydroid-script, waydroid-total-spoof
 ```
 
@@ -372,9 +373,10 @@ HOST=legion5i ./rebuild.sh generations
 ### 🔑 Add a secret
 
 1. Add the entry to `SECRETS_MAP` in `rebuild.sh`.
-2. Insert the value into `pass`.
-3. Consume it as `self.secrets.NAME`.
-4. Validate with `HOST=<host> ./rebuild.sh --debug validate` when secrets are available, or `--skip-secrets` only for paths that do not need regenerated secrets.
+2. If the pass entry is a credential record, add the required field to `SECRET_FIELDS`; otherwise it is loaded as raw `pass show` output.
+3. Insert the value into `pass`.
+4. Consume it as `self.secrets.NAME`.
+5. Validate with `HOST=<host> ./rebuild.sh --debug validate` when secrets are available, or `--skip-secrets` only for paths that do not need regenerated secrets.
 
 ### 📦 Add a package
 

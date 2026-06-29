@@ -43,8 +43,10 @@
         hashedPassword = lib.mkOption {
           type = lib.types.str;
           default = self.secrets.COCKPIT_ADMIN_HASHED_PASSWORD;
-          defaultText = lib.literalExpression "self.secrets.COCKPIT_ADMIN_HASHED_PASSWORD";
-          description = "Hashed password for the Cockpit login account.";
+          defaultText = lib.literalExpression ''
+            (pass field "hashedpassword" from system/cockpit-admin via self.secrets.COCKPIT_ADMIN_HASHED_PASSWORD)
+          '';
+          description = "Hashed password field from the Cockpit password-store credential.";
         };
       };
 

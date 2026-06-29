@@ -227,7 +227,16 @@ declare -A SECRETS_MAP=(
  ["SERVICES_AUTH_PASSWORD"]="system/services-auth-password"
  ["MAIN_VPS_INITRD_SSH_HOST_KEY"]="system/main-vps/initrd-ssh-host-ed25519-key"
  ["DOKPLOY_AUTH_SECRET"]="system/dokploy/auth-secret"
- ["COCKPIT_ADMIN_HASHED_PASSWORD"]="system/cockpit-admin-hashedPassword"
+ ["COCKPIT_ADMIN_HASHED_PASSWORD"]="system/cockpit-admin"
+)
+
+# Credential field parsing is opt-in: entries listed here are parsed as
+# password-store credential records, and all other secret paths are consumed as
+# raw `pass show` output. Declare every field-backed credential explicitly so a
+# multi-field entry cannot silently replace a raw secret.
+# Format: ["env_var_name"]="credential_field_name"
+declare -A SECRET_FIELDS=(
+ ["COCKPIT_ADMIN_HASHED_PASSWORD"]="hashedpassword"
 )
 
 SECRET_NAMES=(
@@ -251,6 +260,8 @@ SECRET_NAMES=(
  DOKPLOY_AUTH_SECRET
  COCKPIT_ADMIN_HASHED_PASSWORD
 )
+
+PASS_CREDENTIAL_PARSER="${PASS_CREDENTIAL_PARSER:-${FLAKE_DIR}/modules/_pkgs/pass-credential/pass-credential}"
 
 nix_escape_double_quoted() {
  local value="$1"
@@ -278,6 +289,23 @@ write_secret_assignment() {
   printf "'';\n"
  else
   printf '  %s = "%s";\n' "$env_var" "$(nix_escape_double_quoted "$var_value")"
+ fi
+}
+
+load_secret_value() {
+ local env_var="$1"
+ local pass_path="$2"
+ local output_file="$3"
+ local secret_field="${SECRET_FIELDS[$env_var]:-}"
+
+ if [ -n "$secret_field" ]; then
+  if [ ! -x "$PASS_CREDENTIAL_PARSER" ]; then
+   printf 'Credential parser is missing or not executable: %s\n' "$PASS_CREDENTIAL_PARSER" >&2
+   return 1
+  fi
+  pass "$pass_path" | "$PASS_CREDENTIAL_PARSER" "$secret_field" >"$output_file"
+ else
+  pass "$pass_path" >"$output_file"
  fi
 }
 
@@ -361,8 +389,9 @@ load_secrets() {
    error "Invalid secret configuration: env_var='$env_var', pass_path='$pass_path'"
    return 1
   fi
-  debug_log "Queueing ${env_var} from ${pass_path}"
-  pass "$pass_path" >"${secrets_tmp}/${env_var}.value" 2>"${secrets_tmp}/${env_var}.err" &
+  local secret_field="${SECRET_FIELDS[$env_var]:-}"
+  debug_log "Queueing ${env_var} from ${pass_path}${secret_field:+ field ${secret_field}}"
+  load_secret_value "$env_var" "$pass_path" "${secrets_tmp}/${env_var}.value" 2>"${secrets_tmp}/${env_var}.err" &
   secret_names+=("$env_var")
   secret_paths+=("$pass_path")
   secret_pids+=("$!")

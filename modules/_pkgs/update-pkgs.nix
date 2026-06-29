@@ -94,7 +94,7 @@ pkgs.writeShellApplication {
       cliproxyapi | niri-screen-time)
         printf '%s\n' nix-update
         ;;
-      antigravity-manager | aptos-fonts | iloader | lyricsctl | patchright | playwright-cli | quickshell-docs-markdown | services-auth-gateway | sideloader | snitch | wallpapers)
+      antigravity-manager | aptos-fonts | iloader | lyricsctl | pass-credential | patchright | playwright-cli | quickshell-docs-markdown | services-auth-gateway | sideloader | snitch | wallpapers)
         printf '%s\n' manual
         ;;
       *) printf '%s\n' nix-update+fallback ;;
@@ -107,6 +107,7 @@ pkgs.writeShellApplication {
       aptos-fonts) printf '%s\n' "static font CDN URL" ;;
       iloader) printf '%s\n' "iOS AppImage with manual download" ;;
       lyricsctl) printf '%s\n' "repo-local Bun script packaged from this flake" ;;
+      pass-credential) printf '%s\n' "repo-local shell parser packaged from this flake" ;;
       patchright) printf '%s\n' "NPM CLI must stay in lockstep with patchright-core" ;;
       playwright-cli) printf '%s\n' "NPM package with browser bundles" ;;
       quickshell-docs-markdown) printf '%s\n' "multi-source Rust with pinned deps" ;;
@@ -377,7 +378,7 @@ pkgs.writeShellApplication {
     package_smoke_commands() {
       local pkg="$1" bin="$2"
       case "$pkg" in
-      acp-chat | cliproxyapi | cpa-usage-keeper | dogecoin | limux | lyricsctl | niri-screen-time | omniroute | openchamber-web | patchright | playwright-cli | seance | services-auth-gateway | sideloader | snitch | stdio-to-ws | waydroid-script | waydroid-total-spoof)
+      acp-chat | cliproxyapi | cpa-usage-keeper | dogecoin | limux | lyricsctl | niri-screen-time | omniroute | openchamber-web | pass-credential | patchright | playwright-cli | seance | services-auth-gateway | sideloader | snitch | stdio-to-ws | waydroid-script | waydroid-total-spoof)
         printf '%s\t%s\n' "$bin" "--help"
         ;;
       *)
@@ -1409,6 +1410,12 @@ pkgs.writeShellApplication {
         "lyricsctl")
           # Skip: repo-local Bun script is updated with the flake source tree.
           echo " Skipping lyricsctl (manual update required - repo-local Bun script)"
+          SKIPPED+=("$pkg")
+          ;;
+
+        "pass-credential")
+          # Skip: repo-local shell parser is updated with the flake source tree.
+          echo " Skipping pass-credential (manual update required - repo-local shell parser)"
           SKIPPED+=("$pkg")
           ;;
 
