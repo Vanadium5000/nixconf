@@ -55,7 +55,7 @@ flake.nix
 
 | Host | Role | Profile flags | User | Main responsibilities |
 | --- | --- | --- | --- | --- |
-| `legion5i` | Primary graphical laptop | `terminal`, `desktop`, `laptop` | `matrix` | Hyprland/DankMaterialShell, CUDA/Nvidia, OBS, Obsidian, local VPN proxy, ntfy, mitmproxy, Unison |
+| `legion5i` | Primary graphical laptop | `terminal`, `desktop`, `laptop` | `matrix` | Hyprland/DankMaterialShell, CUDA/Nvidia, OBS, Obsidian, HDMI-CEC TV remote media controls, local VPN proxy, ntfy, mitmproxy, Unison |
 | `macbook` | T2 graphical laptop | `terminal`, `desktop`, `laptop` | `matrix` | Hyprland/DankMaterialShell, Apple T2 support, T2 firmware bundle, ntfy, mitmproxy, local VPN proxy, Unison |
 | `main_vps` | Headless service host | `terminal`, `server` | `server` | Traefik edge, Dokploy, CLIProxyAPI, Bifrost, OmniRoute, CPA Usage Keeper, services-auth-gateway, ntfy, homepage, mitmproxy, VPN proxy |
 
@@ -81,7 +81,7 @@ flake.nix
 | Export | Contents |
 | --- | --- |
 | `self.moduleSets.profiles` | `common`, `terminal`, `desktop` |
-| `self.moduleSets.features` | audio, bluetooth, Firefox, DMS, Hyprland, OBS, Obsidian, Qt, Syncthing, TLP, tuigreet, VSCodium |
+| `self.moduleSets.features` | audio, bluetooth, HDMI-CEC, Firefox, DMS, Hyprland, OBS, Obsidian, Qt, Syncthing, TLP, tuigreet, VSCodium |
 | `self.moduleSets.services` | CLIProxyAPI, Bifrost, OmniRoute, CPA Usage Keeper, services-auth-gateway, monitoring, nix, OpenCode, tailscale, Unison, virtualisation, VPN proxy, cockpit |
 | `self.moduleSets.hosts` | `main_vps`, `legion5i`, `macbook` |
 | `hostModuleMatrix` | Evaluated profile/feature/service matrix consumed by `rebuild.sh matrix` |
@@ -161,6 +161,7 @@ Graphical hosts import `modules/nixos/desktop/default.nix`, which extends the te
 | 🐚 Shell | `modules/nixos/desktop/dank-material-shell.nix` | DankMaterialShell is active. It replaces Waybar, Hyprlock, Hyprsunset, qs-launcher, qs-notifications, and old shell surfaces. |
 | 🪟 Compositor | `modules/nixos/desktop/hyprland/` + `modules/user/hyprland.nix` | Hyprland/UWSM config, bindings, idle hooks. DMS IPC handles shell actions. |
 | 🔊 Audio | `modules/nixos/desktop/system/audio.nix` | PipeWire/WirePlumber, MPD, player control. |
+| 📺 HDMI-CEC | `modules/nixos/desktop/system/hdmi-cec.nix` | Optional `preferences.hardware.hdmiCec.enable`; configures `/dev/cec*` adapters as playback devices so TV remote media keys reach Linux input. |
 | 🌍 Browser | `modules/nixos/desktop/firefox/firefox.nix` | LibreWolf/Firefox policy and user config. |
 | ✍️ Editor/IDE | `modules/programmes/fresh.nix`, `modules/nixos/desktop/vscodium/` | Fresh as terminal editor; VSCodium with declarative extensions/theme. |
 | 🧰 Apps | `modules/nixos/desktop/flatpaks/`, `obs.nix`, `obsidian.nix`, `qt.nix`, `tuigreet.nix` | Desktop app set, Flatpak integration, display greeter, Qt theming. |

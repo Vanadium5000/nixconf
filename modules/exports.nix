@@ -168,6 +168,7 @@ in
       features = {
         audio = self.nixosModules.audio;
         bluetooth = self.nixosModules.bluetooth;
+        hdmi-cec = self.nixosModules.hdmi-cec;
         firefox = self.nixosModules.firefox;
         dankmemershell = self.nixosModules.dankmemershell;
         hyprland = self.nixosModules.hyprland;

@@ -61,6 +61,7 @@
           enable = true;
           dedupe.enable = true;
         };
+        hardware.hdmiCec.enable = true;
         system = {
           backlightDevice = "intel_backlight";
           keyboardBacklightDevice = "platform::kbd_backlight";
