@@ -143,6 +143,7 @@ services.netdata-monitor.enable = true;
 services.unison-sync.enable = true;
 services.vpn-proxy.enable = true;
 services.cockpit-managed.enable = true;
+services.docker-compose-stacks.stacks.<stack>.enable = true;
 ```
 
 `services.cockpit-managed` runs the stock Cockpit socket with normal PAM login. Use `cockpit-admin` and the generated password-store entry at `system/cockpit-admin`; direct exposure still relies on the closed firewall or the shared edge auth route.
@@ -183,6 +184,7 @@ Graphical hosts import `modules/nixos/desktop/default.nix`, which extends the te
 | `modules/hosts/main_vps/remote-unlock.nix` | Initrd network and SSH unlock on public port 22 before stage-2 sshd. |
 | `modules/nixos/terminal/services-auth-gateway.nix` | Shared auth gateway service module. |
 | `modules/nixos/terminal/bifrost.nix` | Imports upstream Bifrost flake module and patched upstream fixed-output hashes; host config seeds config.json at service start. |
+| `modules/nixos/terminal/docker-compose-stacks.nix` | Discovers `modules/docker/compose/<stack>/*.yaml` and creates per-stack systemd `docker compose up/down` units. |
 | `modules/nixos/terminal/monitoring/` | Homepage, Netdata, mitmproxy modules. |
 
 ```text
@@ -192,11 +194,13 @@ Graphical hosts import `modules/nixos/desktop/default.nix`, which extends the te
 ├─ bifrost.<domain>      -> Bifrost on 127.0.0.1:20129; proxies to CLIProxyAPI
 ├─ omniroute.<domain>    -> OmniRoute on 127.0.0.1:20128
 ├─ cpa-usage.<domain>   -> CPA Usage Keeper
-└─ dashboard/cockpit/mitmproxy/vpn/mongo -> services-auth-gateway on 127.0.0.1:41276
+└─ dashboard/cockpit/mitmproxy/vpn/portainer/mongo -> services-auth-gateway on 127.0.0.1:41276
 ```
 
 > [!IMPORTANT]
 > Baikal/DAV-style routes bypass shared auth where the service protocol requires it.
+
+`portainer` is enabled fleet-wide from `modules/docker/compose/portainer/compose.yaml` and seeds the initial admin password from `system/portainer-admin`. `gluetun-qbittorrent` is enabled on `macbook` and `legion5i` only; qBittorrent shares Gluetun's network namespace, binds its WebUI at `127.0.0.1:8088`, stores credentials in `personal/qbittorrent-webui`, persists config under `/var/lib/qbittorrent-vpn`, and downloads to persisted `~/Torrents`.
 
 ---
 

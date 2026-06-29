@@ -34,14 +34,15 @@ main_vps: modules/hosts/main_vps/
 │  ├─ primary AI gateway: CLIProxyAPI 127.0.0.1:8317 -> https://cliproxyapi.<domain>; used by CPA Usage Keeper
 │  ├─ Bifrost gateway/dashboard: 127.0.0.1:20129 -> https://bifrost.<domain>; proxies OpenAI-compatible requests to CLIProxyAPI
 │  ├─ OmniRoute gateway/dashboard: 127.0.0.1:20128 -> https://omniroute.<domain>
-│  └─ protected dashboards: dashboard/cockpit/mitmproxy/vpn/cpa-usage/mongo via services-auth; Baikal/DAV bypasses shared auth
+│  └─ protected dashboards: dashboard/cockpit/mitmproxy/vpn/cpa-usage/portainer/mongo via services-auth; Baikal/DAV bypasses shared auth
 └─ service settings/packages
    ├─ services.omniroute: modules/nixos/terminal/omniroute.nix; modules/_pkgs/omniroute.nix
    ├─ services.bifrost: modules/nixos/terminal/bifrost.nix; upstream input github:maximhq/bifrost/transports/v1.5.15
    ├─ services.cliproxyapi: modules/nixos/terminal/cliproxyapi.nix; modules/_pkgs/cliproxyapi.nix
    ├─ services.cpa-usage-keeper: modules/nixos/terminal/cpa-usage-keeper.nix; modules/_pkgs/cpa-usage-keeper.nix
    ├─ services.services-auth-gateway: modules/nixos/terminal/services-auth-gateway.nix; modules/_pkgs/services-auth-gateway.nix
-   └─ services.vpn-proxy: modules/nixos/scripts/bunjs/proxy/service.nix; docs/scripts in modules/nixos/scripts/bunjs/proxy/
+   ├─ services.vpn-proxy: modules/nixos/scripts/bunjs/proxy/service.nix; docs/scripts in modules/nixos/scripts/bunjs/proxy/
+   └─ docker compose stacks: modules/nixos/terminal/docker-compose-stacks.nix discovers modules/docker/compose/<stack>/*.yaml; portainer enabled fleet-wide; gluetun-qbittorrent enabled on desktop hosts only
 
 graphical hosts: modules/hosts/{legion5i,macbook}/
 ├─ desktop profile: modules/nixos/desktop/default.nix; terminal profile: modules/nixos/terminal/default.nix
@@ -49,7 +50,8 @@ graphical hosts: modules/hosts/{legion5i,macbook}/
 ├─ DMS replaces Waybar, Hyprlock, Hyprsunset, qs-launcher, qs-notifications; keep dgop on pkgs.unstable.dgop
 ├─ keep unrelated qs-* tools (qs-dmenu/passmenu/wallpaper) until explicitly migrated
 ├─ Hyprland: modules/nixos/desktop/hyprland/ plus modules/user/hyprland.nix
-└─ local VPN proxy enabled for desktop routing/testing
+├─ local VPN proxy enabled for desktop routing/testing
+└─ qBittorrent WebUI: Gluetun/PIA stack binds 127.0.0.1:8088; qBittorrent shares Gluetun network namespace, pins torrent traffic to tun0, and downloads to persisted ~/Torrents
 
 persistence helpers: modules/lib/_internal/persistence.nix; NixOS module modules/common/impermanence.nix; app state split across home persistence/cache for Orca, Limux, gh, OpenCode, OMP
 monitoring dashboards: modules/nixos/terminal/monitoring/

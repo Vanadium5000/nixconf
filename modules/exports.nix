@@ -97,6 +97,11 @@ let
         "dokploy"
         "enable"
       ];
+      docker-compose-stacks = [
+        "services"
+        "docker-compose-stacks"
+        "enable"
+      ];
       homepage-monitor = [
         "services"
         "homepage-monitor"
@@ -183,6 +188,7 @@ in
         omniroute = self.nixosModules.omniroute;
         services-auth-gateway = self.nixosModules.services-auth-gateway;
         dev = self.nixosModules.dev;
+        docker-compose-stacks = self.nixosModules.docker-compose-stacks;
         homepage-monitor = self.nixosModules.homepage-monitor;
         mitmproxy = self.nixosModules.mitmproxy;
         netdata-monitor = self.nixosModules.netdata-monitor;

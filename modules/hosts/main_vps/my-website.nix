@@ -44,6 +44,7 @@
       bifrostDomain = mkHostname "bifrost";
       cpaUsageKeeperDomain = mkHostname "cpa-usage";
       dokployDomain = mkHostname "dokploy";
+      portainerDomain = mkHostname "portainer";
       mongoDomain = mkHostname "mongo";
       wildcardDomainPattern = lib.replaceStrings [ "." ] [ "\\." ] publicBaseDomain;
       servicesAuthSigningKey = builtins.hashString "sha256" "${servicesAuthPassword}:${publicBaseDomain}:services-auth-gateway";
@@ -245,6 +246,10 @@
                 entryPoints = [ "websecure" ];
                 tls = { };
               };
+              portainer = mkProtectedServiceRouter {
+                rule = "Host(`${portainerDomain}`)";
+                service = "portainer";
+              };
               mongo = mkProtectedServiceRouter {
                 rule = "Host(`${mongoDomain}`)";
                 service = "mongo";
@@ -272,6 +277,7 @@
               omniroute = mkDirectService 20128;
               bifrost = mkDirectService config.services.bifrost.port;
               cpa-usage-keeper = mkDirectService 8080;
+              portainer = mkDirectService 9000;
               mongo = mkDirectService 41275;
               dokploy-traefik.loadBalancer.servers = [
                 {

@@ -71,6 +71,7 @@
         self.nixosModules.btrfs-maintenance
         self.nixosModules.tailscale
         self.nixosModules.virtualisation
+        self.nixosModules.docker-compose-stacks
         self.nixosModules.unison
 
         # VPN Proxy Services (SOCKS5 + HTTP CONNECT)

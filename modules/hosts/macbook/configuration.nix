@@ -164,12 +164,17 @@
       };
       systemd.services.ntfy-sh.serviceConfig.DynamicUser = lib.mkForce false;
       services.vpn-proxy.enable = true;
+      services.docker-compose-stacks.stacks.gluetun-qbittorrent.enable = true;
       services.unison-sync.enable = true;
       services.hypridle.enable = true;
 
       # ntfy keeps its cache, auth DB, and attachments in /var/lib/ntfy-sh.
       # Use a normal persistent state path to avoid DynamicUser StateDirectory clashes.
-      impermanence.nixos.directories = [ "/var/lib/ntfy-sh" ];
+      impermanence.nixos.directories = [
+        "/var/lib/ntfy-sh"
+        "/var/lib/qbittorrent-vpn"
+      ];
+      impermanence.home.directories = [ "Torrents" ];
 
       # No cuda - doesn't have an Nvidia GPU
       nixpkgs.config.cudaSupport = false;

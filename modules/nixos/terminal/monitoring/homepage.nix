@@ -41,6 +41,8 @@
         omniroute = portOf [ "services" "omniroute" "port" ] 20128;
         cpaUsage = portOf [ "services" "cpa-usage-keeper" "port" ] 8080;
         dokploy = portOf [ "services" "dokploy" "port" ] 3000;
+        portainer = 9000;
+        qbittorrent = 8088;
         mongo = 41275;
       };
       mkPublicUrl =
@@ -64,6 +66,8 @@
         omniroute = ports.omniroute;
         "cpa-usage" = ports.cpaUsage;
         dokploy = ports.dokploy;
+        portainer = ports.portainer;
+        qbittorrent = ports.qbittorrent;
         mongo = ports.mongo;
       };
       mkTraefikServiceName = name: "local-${name}";
@@ -216,6 +220,20 @@
                     description = "SOCKS5/HTTP VPN proxy management";
                   };
                 }
+                {
+                  "Portainer — local" = {
+                    icon = "mdi-docker";
+                    href = mkLocalUrl ports.portainer "";
+                    description = "Local Docker and Compose stack management";
+                  };
+                }
+                {
+                  "qBittorrent — VPN" = {
+                    icon = "mdi-download-network";
+                    href = mkLocalUrl ports.qbittorrent "";
+                    description = "Torrent WebUI exposed only through Gluetun's network namespace";
+                  };
+                }
               ];
             }
             {
@@ -260,6 +278,13 @@
                     icon = "mdi-docker";
                     href = mkPublicUrl "dokploy" "";
                     description = "Self-hosted deployment control plane";
+                  };
+                }
+                {
+                  "Portainer" = {
+                    icon = "mdi-docker";
+                    href = mkPublicUrl "portainer" "";
+                    description = "Docker management UI protected by shared auth";
                   };
                 }
                 {
@@ -352,6 +377,22 @@
                     {
                       icon = "mdi-vpn";
                       href = mkShortUrl "vpn" ports.vpn "";
+                    }
+                  ];
+                }
+                {
+                  "portainer/" = [
+                    {
+                      icon = "mdi-docker";
+                      href = mkShortUrl "portainer" ports.portainer "";
+                    }
+                  ];
+                }
+                {
+                  "qbittorrent/" = [
+                    {
+                      icon = "mdi-download-network";
+                      href = mkShortUrl "qbittorrent" ports.qbittorrent "";
                     }
                   ];
                 }

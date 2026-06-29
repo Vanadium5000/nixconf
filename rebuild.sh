@@ -228,6 +228,12 @@ declare -A SECRETS_MAP=(
  ["MAIN_VPS_INITRD_SSH_HOST_KEY"]="system/main-vps/initrd-ssh-host-ed25519-key"
  ["DOKPLOY_AUTH_SECRET"]="system/dokploy/auth-secret"
  ["COCKPIT_ADMIN_HASHED_PASSWORD"]="system/cockpit-admin"
+ ["PIA_OPENVPN_USERNAME"]="personal/private-internet-access"
+ ["PIA_OPENVPN_PASSWORD"]="personal/private-internet-access"
+ ["PORTAINER_ADMIN_USERNAME"]="system/portainer-admin"
+ ["PORTAINER_ADMIN_PASSWORD"]="system/portainer-admin"
+ ["QBITTORRENT_WEBUI_USERNAME"]="personal/qbittorrent-webui"
+ ["QBITTORRENT_WEBUI_PASSWORD"]="personal/qbittorrent-webui"
 )
 
 # Credential field parsing is opt-in: entries listed here are parsed as
@@ -237,6 +243,12 @@ declare -A SECRETS_MAP=(
 # Format: ["env_var_name"]="credential_field_name"
 declare -A SECRET_FIELDS=(
  ["COCKPIT_ADMIN_HASHED_PASSWORD"]="hashedpassword"
+ ["PIA_OPENVPN_USERNAME"]="username"
+ ["PIA_OPENVPN_PASSWORD"]="password"
+ ["PORTAINER_ADMIN_USERNAME"]="username"
+ ["PORTAINER_ADMIN_PASSWORD"]="password"
+ ["QBITTORRENT_WEBUI_USERNAME"]="username"
+ ["QBITTORRENT_WEBUI_PASSWORD"]="password"
 )
 
 SECRET_NAMES=(
@@ -259,6 +271,12 @@ SECRET_NAMES=(
  MAIN_VPS_INITRD_SSH_HOST_KEY
  DOKPLOY_AUTH_SECRET
  COCKPIT_ADMIN_HASHED_PASSWORD
+ PIA_OPENVPN_USERNAME
+ PIA_OPENVPN_PASSWORD
+ PORTAINER_ADMIN_USERNAME
+ PORTAINER_ADMIN_PASSWORD
+ QBITTORRENT_WEBUI_USERNAME
+ QBITTORRENT_WEBUI_PASSWORD
 )
 
 PASS_CREDENTIAL_PARSER="${PASS_CREDENTIAL_PARSER:-${FLAKE_DIR}/modules/_pkgs/pass-credential/pass-credential}"
