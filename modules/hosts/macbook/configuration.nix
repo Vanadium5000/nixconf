@@ -140,7 +140,7 @@
       # HTTPS traffic analyzer — on-demand: systemctl start mitmproxy
       services.mitmproxy.enable = true;
       services.mitmproxy.trustCA = true;
-      services.cockpit-autologin = {
+      services.cockpit-managed = {
         enable = true;
         host = "0.0.0.0";
         port = 9090;

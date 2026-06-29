@@ -274,12 +274,7 @@
           ".local/state/limux"
         ];
         impermanence.home.cache.directories = [
-          ".cache/akonadi"
           ".cache/BraveSoftware/Brave-Origin-Nightly"
-          ".cache/dev.limux.linux"
-          ".cache/limux"
-          ".cache/orca"
-          ".cache/paseo"
         ];
         impermanence.home.files = [
           ".config/emaildefaults"

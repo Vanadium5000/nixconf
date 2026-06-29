@@ -8,15 +8,11 @@
       ...
     }:
     let
-      cfg = config.services.cockpit-autologin;
-      cockpitPackage = config.services.cockpit.package;
-      cockpitWs = "${cockpitPackage}/libexec/cockpit-ws";
-      publicBaseDomain = self.secrets.PUBLIC_BASE_DOMAIN;
-      cockpitBridge = "${cockpitPackage}/bin/cockpit-bridge";
+      cfg = config.services.cockpit-managed;
     in
     {
-      options.services.cockpit-autologin = {
-        enable = lib.mkEnableOption "unauthenticated Cockpit system administration panel";
+      options.services.cockpit-managed = {
+        enable = lib.mkEnableOption "Cockpit system administration panel";
 
         host = lib.mkOption {
           type = lib.types.str;
@@ -36,13 +32,17 @@
           description = "Whether to open the Cockpit port in the host firewall.";
         };
 
-        superuser = lib.mkOption {
-          type = lib.types.enum [
-            "none"
-            "pkexec"
-          ];
-          default = "pkexec";
-          description = "Cockpit superuser bridge mode.";
+        user = lib.mkOption {
+          type = lib.types.str;
+          default = "cockpit-admin";
+          description = "Local account used for Cockpit PAM login.";
+        };
+
+        hashedPassword = lib.mkOption {
+          type = lib.types.str;
+          default = self.secrets.COCKPIT_ADMIN_HASHED_PASSWORD;
+          defaultText = lib.literalExpression "self.secrets.COCKPIT_ADMIN_HASHED_PASSWORD";
+          description = "Hashed password for the Cockpit login account.";
         };
       };
 
@@ -50,20 +50,16 @@
         assertions = [
           {
             assertion = !(cfg.host == "0.0.0.0" && cfg.openFirewall);
-            message = "services.cockpit-autologin.host = 0.0.0.0 must not be combined with services.cockpit-autologin.openFirewall.";
+            message = "services.cockpit-managed.host = 0.0.0.0 must not be combined with services.cockpit-managed.openFirewall.";
           }
         ];
 
         services.cockpit = {
           enable = true;
-          openFirewall = false;
+          port = cfg.port;
+          openFirewall = cfg.openFirewall;
           showBanner = false;
-          allowed-origins = [
-            "https://*.${publicBaseDomain}"
-            "http://*.${publicBaseDomain}"
-            "http://localhost:${toString cfg.port}"
-            "http://127.0.0.1:${toString cfg.port}"
-          ];
+          allowed-origins = [ "*" ];
           settings.WebService = {
             AllowUnencrypted = true;
             LoginTo = false;
@@ -71,51 +67,18 @@
           };
         };
 
-        systemd.sockets.cockpit = {
-          wantedBy = lib.mkForce [ ];
-          listenStreams = lib.mkForce [ ];
-          enable = lib.mkForce false;
-        };
+        systemd.sockets.cockpit.listenStreams = lib.mkForce [ "${cfg.host}:${toString cfg.port}" ];
 
-        systemd.services.cockpit-autologin = {
-          description = "Unauthenticated Cockpit web console";
-          documentation = [
-            "man:cockpit-ws(8)"
-            "https://cockpit-project.org/guide/latest/cockpit-ws.8.html"
-          ];
-          wantedBy = [ "multi-user.target" ];
-          after = [ "network.target" ];
-          path = [
-            config.systemd.package
-            pkgs.coreutils
-            pkgs.polkit
-          ];
-          environment = {
-            COCKPIT_SUPERUSER = cfg.superuser;
-            # Direct cockpit-ws does not inherit the system profile's XDG data
-            # search path, so it otherwise serves only static/login endpoints and
-            # returns Cockpit's own 404 for /shell. Source: cockpit-ws(8) XDG_DATA_DIRS.
-            XDG_DATA_DIRS = "/run/current-system/sw/share:/nix/var/nix/profiles/default/share";
-          };
-          serviceConfig = {
-            # --local-session intentionally skips Cockpit's login screen; public access is gated by
-            # the existing Traefik forward-auth middleware and LAN access relies on closed firewall + Tailscale.
-            # Source: cockpit-ws(8), --local-session warning requires external TCP isolation.
-            Type = "simple";
-            ExecStart = lib.escapeShellArgs [
-              cockpitWs
-              "--no-tls"
-              "--address"
-              cfg.host
-              "--port"
-              (toString cfg.port)
-              "--local-session=${cockpitBridge}"
-            ];
-            Restart = "on-failure";
-          };
+        users.users.${cfg.user} = {
+          isNormalUser = true;
+          home = "/var/lib/${cfg.user}";
+          createHome = true;
+          group = cfg.user;
+          extraGroups = [ "wheel" ];
+          shell = pkgs.bashInteractive;
+          hashedPassword = cfg.hashedPassword;
         };
-
-        networking.firewall.allowedTCPPorts = lib.mkIf cfg.openFirewall [ cfg.port ];
+        users.groups.${cfg.user} = { };
       };
     };
 }

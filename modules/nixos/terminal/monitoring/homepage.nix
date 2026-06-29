@@ -33,7 +33,7 @@
       traefikEnabled = attrByPath [ "services" "traefik" "enable" ] false config;
       ports = {
         dashboard = cfg.port;
-        cockpit = portOf [ "services" "cockpit-autologin" "port" ] 9090;
+        cockpit = portOf [ "services" "cockpit-managed" "port" ] 9090;
         acpChat = portOf [ "services" "acp-chat" "port" ] 8732;
         mitmproxy = portOf [ "services" "mitmproxy" "webPort" ] 8083;
         vpn = portOf [ "services" "vpn-proxy" "webUiPort" ] 10802;

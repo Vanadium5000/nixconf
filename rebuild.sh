@@ -227,6 +227,7 @@ declare -A SECRETS_MAP=(
  ["SERVICES_AUTH_PASSWORD"]="system/services-auth-password"
  ["MAIN_VPS_INITRD_SSH_HOST_KEY"]="system/main-vps/initrd-ssh-host-ed25519-key"
  ["DOKPLOY_AUTH_SECRET"]="system/dokploy/auth-secret"
+ ["COCKPIT_ADMIN_HASHED_PASSWORD"]="system/cockpit-admin-hashedPassword"
 )
 
 SECRET_NAMES=(
@@ -248,6 +249,7 @@ SECRET_NAMES=(
  SERVICES_AUTH_PASSWORD
  MAIN_VPS_INITRD_SSH_HOST_KEY
  DOKPLOY_AUTH_SECRET
+ COCKPIT_ADMIN_HASHED_PASSWORD
 )
 
 nix_escape_double_quoted() {

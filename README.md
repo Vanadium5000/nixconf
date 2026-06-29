@@ -142,8 +142,10 @@ services.mitmproxy.enable = true;
 services.netdata-monitor.enable = true;
 services.unison-sync.enable = true;
 services.vpn-proxy.enable = true;
-services.cockpit-autologin.enable = true;
+services.cockpit-managed.enable = true;
 ```
+
+`services.cockpit-managed` runs the stock Cockpit socket with normal PAM login. Use `cockpit-admin` and the generated password-store entry at `system/cockpit-admin`; direct exposure still relies on the closed firewall or the shared edge auth route.
 
 </details>
 

@@ -118,7 +118,7 @@
         requireApiKey = true;
       };
 
-      services.cockpit-autologin = {
+      services.cockpit-managed = {
         enable = true;
         host = "0.0.0.0";
         port = 9090;
@@ -195,9 +195,8 @@
                 service = "dashboard";
               };
               cockpit = {
-                # Cockpit runs without in-app auth via --local-session; keep public access
-                # behind the shared edge-auth gateway and the direct port behind the firewall/Tailscale.
-                # Source: https://cockpit-project.org/guide/latest/cockpit-ws.8.html
+                # Cockpit keeps normal PAM login; the public route adds shared edge auth while
+                # direct host access stays behind the firewall/Tailscale. Source: cockpit.conf(5) Origins.
                 rule = "Host(`${cockpitDomain}`)";
                 service = "cockpit";
                 entryPoints = [ "websecure" ];
@@ -266,7 +265,7 @@
             services = {
               services-auth-gateway = mkDirectService servicesAuthGatewayPort;
               dashboard = mkDirectService 8082;
-              cockpit = mkDirectService config.services.cockpit-autologin.port;
+              cockpit = mkDirectService config.services.cockpit-managed.port;
               mitmproxy = mkDirectService 8083;
               vpn = mkDirectService 10802;
               cliproxyapi = mkDirectService 8317;

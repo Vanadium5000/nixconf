@@ -129,7 +129,7 @@ let
       ];
       cockpit = [
         "services"
-        "cockpit-autologin"
+        "cockpit-managed"
         "enable"
       ];
     };
