@@ -201,7 +201,7 @@ Graphical hosts import `modules/nixos/desktop/default.nix`, which extends the te
 > [!IMPORTANT]
 > Baikal/DAV-style routes bypass shared auth where the service protocol requires it.
 
-`portainer` is enabled fleet-wide from `modules/docker/compose/portainer/compose.yaml` and seeds the initial admin password from `system/portainer-admin`. `gluetun-qbittorrent` is enabled on `macbook` and `legion5i` only; qBittorrent shares Gluetun's network namespace, binds its WebUI at `127.0.0.1:8088`, stores credentials in `personal/qbittorrent-webui`, persists config under `/var/lib/qbittorrent-vpn`, and downloads to persisted `~/Torrents`.
+`portainer` is enabled fleet-wide from `modules/docker/compose/portainer/compose.yaml` and seeds the initial admin password from `system/portainer-admin`. `gluetun-qbittorrent` is enabled on `macbook` and `legion5i` only; qBittorrent shares Gluetun's network namespace, binds its WebUI at `127.0.0.1:8088`, stores credentials in `personal/qbittorrent-webui`, persists config under `/var/lib/qbittorrent-vpn`, and downloads to cache-persisted `~/Torrents`.
 
 ---
 
@@ -213,14 +213,15 @@ Root is wiped on boot. Persist only state that must survive.
 | --- | --- | --- |
 | NixOS module | `modules/common/impermanence.nix` | Filesystem/persistence wiring |
 | Library | `modules/lib/_internal/persistence.nix` | Helpers for persisted files/directories |
-| Hosts/services | `impermanence.nixos.directories` | Service-owned state paths |
+| Apps/services | `impermanence.*` near the module using the path | Service/app-owned state paths |
 
 Rules:
 
 - Critical state goes to persistent directories.
 - Regenerable data belongs in cache paths.
-- Service modules should own their state paths instead of relying on mutable host setup.
-- Terminal/desktop apps split mutable XDG state explicitly: `gh` auth and Orca/Limux workspace state are persisted; OpenCode, Limux, and GitHub CLI caches stay cache-tier. Orca keeps one persisted Electron profile directory to avoid per-file impermanence races with first-run profile writes.
+- Global user state is limited to broad directories and credentials; app paths live beside the programme/service module that uses them.
+- Heavy or reinstallable data is cache-tier: `~/Downloads`, `~/Torrents`, `~/.bun`, `~/.npm`, `~/.paseo`, Orca speech models/logs/browser caches, `/var/log`, and `/var/lib/systemd`.
+- Terminal/desktop apps split mutable XDG state explicitly: `gh` auth and Orca workspace/session state are persisted; OpenCode, Limux, GitHub CLI, and editor caches stay cache-tier. Orca keeps one persisted Electron profile directory to avoid per-file impermanence races with first-run profile writes.
 
 ---
 

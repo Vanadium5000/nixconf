@@ -112,10 +112,8 @@
             allowTrash = true;
             directories = dedupePersistenceEntries "directory" (
               [
-                "/var/log"
                 "/var/lib/bluetooth"
                 "/var/lib/nixos"
-                "/var/lib/systemd/coredump"
                 "/etc/NetworkManager/system-connections"
               ]
               ++ cfg.nixos.directories
@@ -137,7 +135,6 @@
                 [
                   "Media"
                   "Documents"
-                  "Downloads"
                   "Shared"
                   "nixconf"
 
@@ -173,10 +170,22 @@
             # Source: https://github.com/nix-community/impermanence#persistent
             allowTrash = true;
 
-            directories = dedupePersistenceEntries "directory" cfg.nixos.cache.directories;
+            directories = dedupePersistenceEntries "directory" (
+              [
+                "/var/log"
+                "/var/lib/systemd"
+              ]
+              ++ cfg.nixos.cache.directories
+            );
             files = dedupePersistenceEntries "file" cfg.nixos.cache.files;
             users.${username} = {
-              directories = dedupePersistenceEntries "directory" ([ "Passlists" ] ++ cfg.home.cache.directories);
+              directories = dedupePersistenceEntries "directory" (
+                [
+                  "Downloads"
+                  "Passlists"
+                ]
+                ++ cfg.home.cache.directories
+              );
               files = dedupePersistenceEntries "file" cfg.home.cache.files;
             };
           };

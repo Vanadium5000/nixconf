@@ -174,7 +174,7 @@
         "/var/lib/ntfy-sh"
         "/var/lib/qbittorrent-vpn"
       ];
-      impermanence.home.directories = [ "Torrents" ];
+      impermanence.home.cache.directories = [ "Torrents" ];
 
       # No cuda - doesn't have an Nvidia GPU
       nixpkgs.config.cudaSupport = false;

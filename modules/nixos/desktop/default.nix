@@ -254,26 +254,17 @@
           };
         };
 
-        # Browser and mail persistence
-        # Keep GUI profile/account state in normal persistence. KMail/Akonadi keep
-        # account/resource config in XDG config and mail/contact data plus Akonadi
-        # metadata under XDG data; browser and Akonadi cache dirs stay cache-tier.
+        # KMail/Akonadi account/resource config and local mail/contact data are
+        # user state; browser/IDE caches are declared beside those applications.
         # Sources: KDE UserBase KMail migration + Akonadi storage docs.
         impermanence.home.directories = [
           ".config/akonadi"
-          ".config/BraveSoftware/Brave-Origin-Nightly"
-          ".config/limux"
           ".config/orca"
-          ".paseo"
           ".local/share/akonadi"
           ".local/share/contacts"
           ".local/share/emailidentities"
           ".local/share/kmail2"
-          ".local/share/limux"
           ".local/share/local-mail"
-        ];
-        impermanence.home.cache.directories = [
-          ".cache/BraveSoftware/Brave-Origin-Nightly"
         ];
         impermanence.home.files = [
           ".config/emaildefaults"
@@ -282,10 +273,23 @@
         ];
 
         # Orca rewrites Electron profile/auth and workspace/session files during
-        # startup, so persist the whole profile as one directory instead of many
-        # file units that can race first-run writes; Limux uses XDG
-        # config/data/state for settings, layouts, and hooks.
-        # Sources: local ~/.config/orca layout; Limux layout_state.rs and shortcut_config.rs.
+        # startup; persist the profile, but route downloadable speech models,
+        # logs, and browser caches to the cache tier.
+        # Sources: local ~/.config/orca layout; Electron profile cache layout.
+        impermanence.home.cache.directories = [
+          ".config/BraveSoftware/Brave-Origin-Nightly"
+          ".config/limux"
+          ".config/orca/Cache"
+          ".config/orca/Code Cache"
+          ".config/orca/DawnGraphiteCache"
+          ".config/orca/DawnWebGPUCache"
+          ".config/orca/GPUCache"
+          ".config/orca/Crashpad"
+          ".config/orca/logs"
+          ".config/orca/speech-models"
+          ".local/share/limux"
+          ".cache/BraveSoftware/Brave-Origin-Nightly"
+        ];
         # XDG Integration
         # Enable the NixOS XDG generators so non-Plasma sessions still expose
         # desktop files, icons, autostart entries, and terminal handlers.

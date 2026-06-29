@@ -59,6 +59,7 @@
         # Requirements
         self.nixosModules.common
         self.nixosModules.zsh
+        self.nixosModules.environment-user-packages-cache
 
         # Opencode
         self.nixosModules.opencode
@@ -118,16 +119,13 @@
         programs.omp.enable = lib.mkDefault true;
         programs.paseo.enable = lib.mkDefault true;
 
-        # CLI auth/state belongs in normal persistence; high-churn API and tool
-        # caches stay in the cache tier. Sources: GitHub CLI stores XDG
-        # config/cache under gh, OpenCode wrapper uses ~/.local/cache/opencode.
+        # GitHub CLI auth/config is durable terminal profile state; request and
+        # extension caches are cache-tier. Source: gh XDG config/cache layout.
         impermanence.home.directories = [
           ".config/gh"
         ];
         impermanence.home.cache.directories = [
           ".cache/gh"
-          ".cache/opencode"
-          ".local/cache/opencode"
         ];
 
         # Git-sync, a utility to sync folders via git

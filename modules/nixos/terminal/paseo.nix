@@ -25,13 +25,6 @@
       shellPaseoHome = lib.escapeShellArg paseoHome;
       shellPaseoCache = lib.escapeShellArg paseoCache;
 
-      paseoPersistence = self.lib.persistence.mkPersistent {
-        method = "bind";
-        inherit user;
-        fileName = "paseo";
-        targetFile = paseoHome;
-        isDirectory = true;
-      };
     in
     {
       options.programs.paseo.enable = mkEnableOption "Paseo package and mutable state persistence";
@@ -80,12 +73,7 @@
           deps = [ "users" ];
         };
 
-        system.activationScripts.paseo-persistence = {
-          text = paseoPersistence.activationScript;
-          deps = [ "users" ];
-        };
-
-        fileSystems = paseoPersistence.fileSystems;
+        impermanence.home.cache.directories = [ ".paseo" ];
 
         environment.systemPackages = [ paseoPackage ];
       };

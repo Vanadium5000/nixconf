@@ -423,6 +423,14 @@
       ]
       ++ languages.packages;
 
+      # OpenCode downloads provider/plugin/runtime artifacts at launch; keep the
+      # generated caches across reboot without promoting them to backup state.
+      # Source: opencodeInitScript creates ~/.local/cache/opencode.
+      impermanence.home.cache.directories = [
+        ".cache/opencode"
+        ".local/cache/opencode"
+      ];
+
       # Setup script ensures mount targets exist before the bind mounts are
       # activated, which keeps impermanence boot ordering predictable.
       system.activationScripts.opencode-persistence = {

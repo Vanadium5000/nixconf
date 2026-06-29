@@ -1,5 +1,12 @@
 { self, inputs, ... }:
 {
+  flake.nixosModules.environment-user-packages-cache = {
+    # Mutable user-scoped package installs and their download/build caches can
+    # be rebuilt or reinstalled; keep them cache-tier, not backup-tier state.
+    # Sources: self.lib.userPackages env/path contract; npm, pnpm, Yarn, Bun docs.
+    impermanence.home.cache.directories = self.lib.userPackages.cacheDirectories;
+  };
+
   perSystem =
     {
       pkgs,

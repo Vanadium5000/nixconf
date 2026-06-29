@@ -250,22 +250,11 @@
           # Add the default shell to environment
           environment.shells = [ self.packages.${pkgs.stdenv.hostPlatform.system}.environment ];
 
-          # Persist user-scoped package manager installs as home state because
-          # global npm/pnpm/yarn/Bun CLIs are mutable developer tools outside
-          # Nix; paths come from self.lib.userPackages and upstream install docs.
-          impermanence.home.directories = self.lib.userPackages.persistentDirectories;
-
-          # Persist Tealdeer plus package-manager download caches in the cache
-          # tier so they survive reboot but stay out of backup-worthy home state.
-          # Sources: modules/common/impermanence.nix cache split; Bun uses ~/.cache/.bun.
+          # Persist generic CLI download/build caches in the cache tier so they
+          # survive reboot without being backup-worthy home state.
+          # Sources: modules/common/impermanence.nix cache split; upstream tldr cache path.
           impermanence.home.cache.directories = [
             ".cache/tealdeer"
-          ]
-          ++ self.lib.userPackages.cacheDirectories;
-
-          # Persist ZSH history
-          impermanence.home.cache.files = [
-            ".zsh_history"
           ];
 
           # Quickshell/DMS, Flatpak app discovery, IDEs, and systemd cgroup

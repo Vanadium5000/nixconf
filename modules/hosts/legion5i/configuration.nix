@@ -158,7 +158,7 @@
         "/var/lib/ntfy-sh"
         "/var/lib/qbittorrent-vpn"
       ];
-      impermanence.home.directories = [ "Torrents" ];
+      impermanence.home.cache.directories = [ "Torrents" ];
 
       # State version
       system.stateVersion = "25.11";

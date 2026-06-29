@@ -261,6 +261,10 @@ in
           };
           deps = [ "users" ];
         };
+
+        # Shell history is useful across reboots but high-churn operational data,
+        # so keep it in the cache tier instead of backup-worthy home state.
+        impermanence.home.cache.files = [ ".zsh_history" ];
       };
     };
 

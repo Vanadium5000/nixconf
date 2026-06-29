@@ -26,7 +26,7 @@ in
 {
   inherit environment pathEntries;
 
-  persistentDirectories = [
+  cacheDirectories = [
     ".bun"
     ".npm"
     ".npm-global"
@@ -34,9 +34,6 @@ in
     ".local/share/pnpm"
     ".yarn"
     ".config/yarn"
-  ];
-
-  cacheDirectories = [
     ".cache/.bun"
   ];
 
