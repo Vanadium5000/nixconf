@@ -25,6 +25,7 @@
         mkOption
         nameValuePair
         optionalAttrs
+        splitString
         types
         ;
 
@@ -57,13 +58,29 @@
         files: concatMapStringsSep " " (file: "-f ${lib.escapeShellArg (toString file)}") files;
       dockerCompose = "${pkgs.docker-compose}/bin/docker-compose";
       stackServiceName = name: "docker-compose-stack-${name}";
+      credentialName = credential: builtins.head (splitString ":" credential);
       mkStackService =
         name: stack:
         let
           serviceName = stackServiceName name;
           composeArgs = composeFileArgs stack.files;
+          liveCredentialsDir = "/run/nixconf-compose-live/${name}";
+          # Docker Compose secret files are bind-mounted by the daemon after this oneshot exits;
+          # copy systemd LoadCredential files to a user cache path so the bind source still exists.
+          # Source: compose.yaml `secrets.*.file` bind paths and failed daemon mount logs.
+          stageCredentials = concatMapStringsSep "\n" (
+            credential:
+            let
+              credName = credentialName credential;
+            in
+            ''
+              install -m 0600 "$CREDENTIALS_DIRECTORY/${credName}" ${lib.escapeShellArg "${liveCredentialsDir}/${credName}"}
+            ''
+          ) stack.credentials;
           preStart = pkgs.writeShellScript "${serviceName}-pre-start" ''
             set -euo pipefail
+            install -d -m 0700 ${lib.escapeShellArg liveCredentialsDir}
+            ${stageCredentials}
             ${stack.preStart}
           '';
           start = pkgs.writeShellScript "${serviceName}-start" ''
@@ -71,7 +88,7 @@
             export COMPOSE_PROJECT_NAME=${lib.escapeShellArg name}
             export COMPOSE_IGNORE_ORPHANS=false
             ${stack.environmentScript}
-            exec ${dockerCompose} ${composeArgs} up -d --remove-orphans
+            exec ${dockerCompose} ${composeArgs} up -d --remove-orphans --force-recreate
           '';
           stop = pkgs.writeShellScript "${serviceName}-stop" ''
             set -euo pipefail
@@ -234,13 +251,13 @@
       '';
 
       gluetunQbittorrentEnvironment = ''
-        export PIA_OPENVPN_USER_FILE="$CREDENTIALS_DIRECTORY/pia-openvpn-username"
-        export PIA_OPENVPN_PASSWORD_FILE="$CREDENTIALS_DIRECTORY/pia-openvpn-password"
+        export PIA_OPENVPN_USER_FILE=/run/nixconf-compose-live/gluetun-qbittorrent/pia-openvpn-username
+        export PIA_OPENVPN_PASSWORD_FILE=/run/nixconf-compose-live/gluetun-qbittorrent/pia-openvpn-password
         export QBITTORRENT_DOWNLOADS_DIR=${lib.escapeShellArg "${config.preferences.paths.homeDirectory}/Torrents"}
       '';
 
       portainerEnvironment = ''
-        export PORTAINER_ADMIN_PASSWORD_FILE="$CREDENTIALS_DIRECTORY/portainer-admin-password"
+        export PORTAINER_ADMIN_PASSWORD_FILE=/run/nixconf-compose-live/portainer/portainer-admin-password
       '';
     in
     {

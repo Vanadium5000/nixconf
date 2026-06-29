@@ -203,14 +203,14 @@ Graphical hosts import `modules/nixos/desktop/default.nix`, which extends the te
 
 ### Local magic DNS
 
-`modules/nixos/terminal/monitoring/homepage.nix` derives local Homepage links, bookmarks, `/etc/hosts` aliases, and port-80 reverse proxies from one `localServices` table. Only services enabled on the current host get a magic name. The original `localhost:<port>` listeners stay open for scripts and direct debugging.
+`modules/nixos/terminal/monitoring/homepage.nix` derives local Homepage links, bookmarks, `/etc/hosts` aliases, and port-80 reverse proxies from one `localServices` table. Only services enabled on the current host get a magic name. The original `localhost:<port>` listeners stay open for scripts and direct debugging. Magic-name proxies preserve Host/X-Forwarded headers, cookies, redirects, and WebSocket upgrades; they also strip upstream cross-origin isolation headers that break HTTP-only shortcut origins such as `qbittorrent/`.
 
 | Magic DNS | Target localhost port | Enabled where | Notes |
 | --- | ---: | --- | --- |
 | `dashboard/` | 8082 | all terminal/profile hosts with Homepage enabled | Homepage itself. |
 | `cockpit/` | 9090 | `main_vps`, `legion5i`, `macbook` | Cockpit system dashboard. |
 | `acp-chat/` | 8732 | terminal/profile hosts | Local ACP browser UI. |
-| `mitmproxy/` | 8083 | `main_vps`, `legion5i`, `macbook` | Mitmweb UI; local proxy injects the pass-backed web token, proxy listener remains separate. |
+| `mitmproxy/` | 8083 | `main_vps`, `legion5i`, `macbook` | Mitmweb UI; use the declarative `system/mitmproxy/web-password`, proxy listener remains separate. |
 | `vpn/` | 10802 | `main_vps`, `legion5i`, `macbook` | VPN proxy management UI. |
 | `cliproxyapi/` | 8317 | `main_vps` | Links to `/management.html`. |
 | `omniroute/` | 20128 | `main_vps` | OmniRoute gateway/dashboard. |

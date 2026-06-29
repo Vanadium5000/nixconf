@@ -98,8 +98,91 @@ _:
         # Source: https://github.com/mitmproxy/mitmproxy/issues/7787
         substituteInPlace mitmproxy-linux-ebpf/src/main.rs \
           --replace-fail 'let pid = ctx.pid();' 'let pid = ctx.tgid();'
+
       '';
     });
+
+    mitmproxy-rs = python-prev.mitmproxy-rs.overridePythonAttrs (old: {
+      postPatch = (old.postPatch or "") + ''
+
+        # NixOS keeps the setuid sudo wrapper outside package PATH at /run/wrappers,
+        # and mitmproxy.service's tight capability bounding set prevents sudo from
+        # re-reading sudoers even when the service already runs as UID 0. Skip sudo
+        # entirely for root services; only interactive user launches use sudo.
+        patch -p1 <<'PATCH'
+        diff --git a/src/packet_sources/linux.rs b/src/packet_sources/linux.rs
+        index 6c0d57c..dd9b4df 100644
+        --- a/src/packet_sources/linux.rs
+        +++ b/src/packet_sources/linux.rs
+        @@ -23,6 +23,17 @@ use tempfile::{tempdir, TempDir};
+         use tokio::net::UnixDatagram;
+         use tokio::process::Command;
+         use tokio::time::timeout;
+
+        +fn running_as_root() -> bool {
+        +    std::fs::read_to_string("/proc/self/status")
+        +        .ok()
+        +        .and_then(|status| {
+        +            status.lines().find(|line| line.starts_with("Uid:")).and_then(|line| {
+        +                line.split_whitespace().nth(2).and_then(|uid| uid.parse::<u32>().ok())
+        +            })
+        +        })
+        +        .is_some_and(|effective_uid| effective_uid == 0)
+        +}
+        +
+         async fn start_redirector(
+             executable: &Path,
+             listener_addr: &Path,
+        @@ -30,22 +41,28 @@ async fn start_redirector(
+         ) -> Result<PathBuf> {
+             debug!("Elevating privileges...");
+             // Try to elevate privileges using a dummy sudo invocation.
+        -    // The idea here is to block execution and give the user time to enter their password.
+        -    // For now, we naively assume that all systems 1) have sudo and 2) timestamp_timeout > 0.
+        -    let mut sudo = Command::new("sudo")
+        -        .arg("echo")
+        -        .arg("-n")
+        -        .spawn()
+        -        .context("Failed to run sudo.")?;
+        -    sudo.stdin.take();
+        -    if !sudo.wait().await.is_ok_and(|x| x.success()) {
+        -        bail!("Failed to elevate privileges");
+        +    // The idea here is to block execution and give the user time to enter their
+        +    // password. Root services already have the needed privileges, and invoking
+        +    // sudo from a systemd sandbox can fail while re-reading sudoers.
+        +    let run_as_root = running_as_root();
+        +    if !run_as_root {
+        +        let mut sudo = Command::new("/run/wrappers/bin/sudo")
+        +            .arg("echo")
+        +            .arg("-n")
+        +            .spawn()
+        +            .context("Failed to run sudo.")?;
+        +        sudo.stdin.take();
+        +        if !sudo.wait().await.is_ok_and(|x| x.success()) {
+        +            bail!("Failed to elevate privileges");
+        +        }
+             }
+
+             debug!("Starting mitmproxy-linux-redirector...");
+        -    let mut redirector_process = Command::new("sudo")
+        -        .arg("--non-interactive")
+        -        .arg("--preserve-env")
+        -        .arg(executable)
+        +    let mut redirector_command = if run_as_root {
+        +        Command::new(executable)
+        +    } else {
+        +        let mut command = Command::new("/run/wrappers/bin/sudo");
+        +        command.arg("--non-interactive").arg("--preserve-env").arg(executable);
+        +        command
+        +    };
+        +    let mut redirector_process = redirector_command
+             .arg(listener_addr)
+             .stdin(Stdio::null())
+             .stdout(Stdio::piped())
+        PATCH
+      '';
+    });
+
     tenacity = python-prev.tenacity.overridePythonAttrs (_old: {
       # Disable flaky tests (AssertionError: 4 not less than 1.1)
       # Fixes build failures when system is under load.

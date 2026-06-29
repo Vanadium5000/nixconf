@@ -270,6 +270,8 @@
           ".config/emaildefaults"
           ".config/emailidentities"
           ".config/kmail2rc"
+          # Persist browser data normally due to high data importance
+          ".config/BraveSoftware/Brave-Origin-Nightly"
         ];
 
         # Orca rewrites Electron profile/auth and workspace/session files during
@@ -277,7 +279,6 @@
         # logs, and browser caches to the cache tier.
         # Sources: local ~/.config/orca layout; Electron profile cache layout.
         impermanence.home.cache.directories = [
-          ".config/BraveSoftware/Brave-Origin-Nightly"
           ".config/limux"
           ".config/orca/Cache"
           ".config/orca/Code Cache"

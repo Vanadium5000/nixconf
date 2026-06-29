@@ -58,6 +58,8 @@
 #     ⚠ process name filtering is unreliable for most binaries.
 #     This module patches mitmproxy_rs to use TGID instead of per-thread PID,
 #     and loosens NixOS rpfilter so tun0 replies are not dropped before ACKs.
+#     The service runs as root outside transparent mode because mitmproxy's
+#     Local Redirect UI requires UID 0 before loading the eBPF redirector.
 #     ⚠ See: https://github.com/mitmproxy/mitmproxy/issues/7787
 #     ⚠ See: https://github.com/mitmproxy/mitmproxy_rs/pull/314
 #     ⚠ Prefer "explicit" mode for reliable per-app interception.
@@ -65,8 +67,8 @@
 # == Quick start ==
 #
 #   systemctl start mitmproxy              # start on-demand
-#   open http://mitmproxy/                 # local magic DNS injects the web token
-#   pass show system/mitmproxy/web-password # direct 127.0.0.1:8083 login token
+#   open http://mitmproxy/                 # same mitmweb login as 127.0.0.1:8083
+#   pass show system/mitmproxy/web-password # declarative mitmweb password
 #   HTTPS_PROXY=http://127.0.0.1:8080 curl https://api.example.com
 #   systemctl stop mitmproxy               # stop when done
 #
@@ -101,13 +103,14 @@
         hasInfix
         ;
       cfg = config.services.mitmproxy;
+      listenAt = "127.0.0.1:${toString cfg.proxyPort}";
 
       # Build the --mode flag(s) based on configuration
       modeFlags =
         if cfg.mode == "explicit" then
-          "--mode regular"
+          "--mode regular@${listenAt}"
         else if cfg.mode == "transparent" then
-          "--mode transparent"
+          "--mode transparent@${listenAt}"
         else if cfg.mode == "local" && cfg.interceptApps != [ ] then
           # Multiple --mode flags for per-app eBPF interception
           concatStringsSep " " (map (app: "--mode local:${app}") cfg.interceptApps)
@@ -199,6 +202,9 @@
         # Source: https://docs.mitmproxy.org/stable/concepts/options/#web_password
         web_password = mitmproxyWebPassword;
       };
+      runServiceAsRoot = cfg.mode != "transparent";
+      serviceUser = if runServiceAsRoot then "root" else "mitmproxy";
+      serviceGroup = if runServiceAsRoot then "root" else "mitmproxy";
 
       deployCAScript = pkgs.writeShellScript "mitmproxy-deploy-ca" ''
         # Ensure the data directory exists
@@ -210,8 +216,9 @@
         cp -f ${caCertFile} "${cfg.dataDir}/mitmproxy-ca-cert.pem"
         cp -f ${mitmproxyConfigFile} "${cfg.dataDir}/config.yaml"
 
-        # Ensure correct ownership and permissions
-        chown -R mitmproxy:mitmproxy "${cfg.dataDir}"
+        # Match the service identity: explicit/local run as root for mitmweb's local
+        # redirector UID check, while transparent mode keeps the mitmproxy UID for nft exclusion.
+        chown -R ${serviceUser}:${serviceGroup} "${cfg.dataDir}"
         chmod -R 600 "${cfg.dataDir}"/*
         chmod 700 "${cfg.dataDir}"
       '';
@@ -325,17 +332,14 @@
                 "--web-port ${toString cfg.webPort}"
                 "--set confdir=${cfg.dataDir}"
                 "--no-web-open-browser" # Don't try to open browser on headless server
-                # Listen host/port only applies to explicit and transparent modes
-                (
-                  if cfg.mode != "local" then
-                    "--listen-host 127.0.0.1 --listen-port ${toString cfg.proxyPort}"
-                  else
-                    ""
-                )
+                # Keep listen host/port attached to regular/transparent mode specs above.
+                # Global --listen-port also applies to UI-added local mode and causes
+                # "Cannot spawn multiple servers on the same address" when enabling
+                # Local Applications from mitmweb.
               ];
 
-              User = "mitmproxy";
-              Group = "mitmproxy";
+              User = serviceUser;
+              Group = serviceGroup;
               Restart = "on-failure";
               RestartSec = "5s";
 
@@ -348,9 +352,32 @@
             };
           }
 
-          # Explicit mode — most restrictive sandboxing
-          (mkIf (cfg.mode == "explicit") {
+          # Non-root explicit mode — most restrictive sandboxing.
+          (mkIf (cfg.mode == "explicit" && !runServiceAsRoot) {
             serviceConfig.NoNewPrivileges = true;
+          })
+
+          # mitmproxy's Linux local redirector checks for UID 0 before loading eBPF,
+          # so file capabilities/AmbientCapabilities alone still show "not running as root".
+          # Keep this on explicit/local modes so mitmweb's Local Redirect panel can start.
+          # Source: mitmproxy/proxy/mode_specs.py LocalMode runtime guard.
+          (mkIf runServiceAsRoot {
+            serviceConfig = {
+              NoNewPrivileges = false;
+              AmbientCapabilities = [
+                "CAP_BPF"
+                "CAP_SYS_ADMIN"
+                "CAP_NET_ADMIN"
+                "CAP_SYS_RESOURCE"
+              ];
+              CapabilityBoundingSet = [
+                "CAP_BPF"
+                "CAP_SYS_ADMIN"
+                "CAP_NET_ADMIN"
+                "CAP_SYS_RESOURCE"
+              ];
+              LimitMEMLOCK = "infinity";
+            };
           })
 
           # Transparent mode — needs network manipulation capabilities

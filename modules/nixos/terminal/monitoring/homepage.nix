@@ -26,8 +26,6 @@
         mkEnableOption
         mkOption
         mkIf
-        optionalAttrs
-        optionalString
         types
         ;
       cfg = config.services.homepage-monitor;
@@ -97,9 +95,6 @@
           label = "Mitmproxy";
           icon = "mdi-security";
           description = "On-demand HTTPS traffic analysis UI";
-          # mitmweb accepts Bearer tokens; inject the pass-backed password only on loopback magic DNS.
-          # Source: https://docs.mitmproxy.org/stable/concepts/options/#web_password
-          authBearer = self.secrets.MITMPROXY_WEB_PASSWORD or "nixos";
         };
         vpn = {
           enable = serviceEnabled [
@@ -181,7 +176,6 @@
         };
       };
       enabledLocalServices = filterAttrs (_name: service: service.enable) localServices;
-      authHeaderLocalServices = filterAttrs (_name: service: service ? authBearer) enabledLocalServices;
       localMagicDnsPorts = mapAttrs (_name: service: service.port) enabledLocalServices;
       mkLocalServiceCard = name: service: {
         "${service.label} — local" = {
@@ -480,8 +474,19 @@
             ];
             locations."/" = {
               proxyPass = "http://127.0.0.1:${toString service.port}";
-              extraConfig = optionalString (service ? authBearer) ''
-                proxy_set_header Authorization "Bearer ${service.authBearer}";
+              recommendedProxySettings = true;
+              proxyWebsockets = true;
+              extraConfig = ''
+                proxy_buffering off;
+                proxy_request_buffering off;
+                proxy_redirect http://127.0.0.1:${toString service.port}/ http://$host/;
+                proxy_redirect http://localhost:${toString service.port}/ http://$host/;
+                proxy_cookie_domain 127.0.0.1 $host;
+                proxy_cookie_domain localhost $host;
+                proxy_cookie_path / /;
+                proxy_hide_header Cross-Origin-Embedder-Policy;
+                proxy_hide_header Cross-Origin-Opener-Policy;
+                proxy_hide_header Cross-Origin-Resource-Policy;
               '';
             };
           }) enabledLocalServices;
@@ -490,16 +495,12 @@
         services.traefik.dynamicConfigOptions.http = mkIf traefikEnabled {
           routers = mapAttrs' (
             name: service:
-            nameValuePair (mkTraefikRouterName name) (
-              {
-                rule = "Host(`${name}`)";
-                service = mkTraefikServiceName name;
-                entryPoints = [ "web" ];
-              }
-              // optionalAttrs (service ? authBearer) {
-                middlewares = [ "${mkTraefikRouterName name}-auth" ];
-              }
-            )
+            nameValuePair (mkTraefikRouterName name) {
+              rule = "Host(`${name}`)";
+              service = mkTraefikServiceName name;
+              entryPoints = [ "web" ];
+              middlewares = [ "${mkTraefikRouterName name}-headers" ];
+            }
           ) enabledLocalServices;
           services = mapAttrs' (
             name: service:
@@ -510,11 +511,19 @@
             }
           ) enabledLocalServices;
           middlewares = mapAttrs' (
-            name: service:
-            nameValuePair "${mkTraefikRouterName name}-auth" {
-              headers.customRequestHeaders.Authorization = "Bearer ${service.authBearer}";
+            name: _service:
+            nameValuePair "${mkTraefikRouterName name}-headers" {
+              # Magic DNS is an HTTP-only shortcut; qBittorrent emits COOP/COEP headers
+              # that browsers ignore on non-trustworthy origins and can stall app startup.
+              # Empty Traefik response header values remove the upstream header.
+              # Source: https://doc.traefik.io/traefik/middlewares/http/headers/
+              headers.customResponseHeaders = {
+                Cross-Origin-Embedder-Policy = "";
+                Cross-Origin-Opener-Policy = "";
+                Cross-Origin-Resource-Policy = "";
+              };
             }
-          ) authHeaderLocalServices;
+          ) enabledLocalServices;
         };
       };
     };
