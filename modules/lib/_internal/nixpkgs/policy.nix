@@ -89,6 +89,17 @@ _:
   };
 
   pythonPackageOverrides = python-final: python-prev: {
+    mitmproxy-linux = python-prev.mitmproxy-linux.overridePythonAttrs (old: {
+      postPatch = (old.postPatch or "") + ''
+
+        # Fix Linux local/eBPF mode self-capture: ctx.pid() is a thread id, so
+        # mitmproxy's tokio UDP worker is not excluded and curl hangs on ACKs.
+        # Remove after mitmproxy_rs switches should_intercept() to ctx.tgid().
+        # Source: https://github.com/mitmproxy/mitmproxy/issues/7787
+        substituteInPlace mitmproxy-linux-ebpf/src/main.rs \
+          --replace-fail 'let pid = ctx.pid();' 'let pid = ctx.tgid();'
+      '';
+    });
     tenacity = python-prev.tenacity.overridePythonAttrs (_old: {
       # Disable flaky tests (AssertionError: 4 not less than 1.1)
       # Fixes build failures when system is under load.

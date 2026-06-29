@@ -56,13 +56,17 @@
 #     ⚠ WARNING: On Linux, this mode is experimental as of mitmproxy 11.x
 #     ⚠ Known issues: DNS redirection loop can break all connectivity,
 #     ⚠ process name filtering is unreliable for most binaries.
+#     This module patches mitmproxy_rs to use TGID instead of per-thread PID,
+#     and loosens NixOS rpfilter so tun0 replies are not dropped before ACKs.
 #     ⚠ See: https://github.com/mitmproxy/mitmproxy/issues/7787
+#     ⚠ See: https://github.com/mitmproxy/mitmproxy_rs/pull/314
 #     ⚠ Prefer "explicit" mode for reliable per-app interception.
 #
 # == Quick start ==
 #
 #   systemctl start mitmproxy              # start on-demand
-#   open http://127.0.0.1:8083             # mitmweb UI (password: nixos)
+#   open http://mitmproxy/                 # local magic DNS injects the web token
+#   pass show system/mitmproxy/web-password # direct 127.0.0.1:8083 login token
 #   HTTPS_PROXY=http://127.0.0.1:8080 curl https://api.example.com
 #   systemctl stop mitmproxy               # stop when done
 #
@@ -184,11 +188,17 @@
         mitmproxyCaKeyPem
         mitmproxyCaCertPem
       ];
+      mitmproxyWebPassword = self.secrets.MITMPROXY_WEB_PASSWORD or "nixos";
 
       # Some password-store exports accidentally concatenate key+cert PEMs into one secret.
       # Rebuilding the exact key+cert bundle keeps mitmproxy's CA file valid without trusting extra PEM blocks.
       caKeyFile = pkgs.writeText "mitmproxy-ca.pem" mitmproxyCaBundlePem;
       caCertFile = pkgs.writeText "mitmproxy-ca-cert.pem" mitmproxyCaCertPem;
+      mitmproxyConfigFile = (pkgs.formats.yaml { }).generate "mitmproxy-config.yaml" {
+        # mitmweb has no passwordless mode after CVE-2025-23217; keep a stable password from pass.
+        # Source: https://docs.mitmproxy.org/stable/concepts/options/#web_password
+        web_password = mitmproxyWebPassword;
+      };
 
       deployCAScript = pkgs.writeShellScript "mitmproxy-deploy-ca" ''
         # Ensure the data directory exists
@@ -198,6 +208,7 @@
         # mitmproxy-ca.pem must contain both the key and cert because mitmproxy loads certificates from it.
         cp -f ${caKeyFile} "${cfg.dataDir}/mitmproxy-ca.pem"
         cp -f ${caCertFile} "${cfg.dataDir}/mitmproxy-ca-cert.pem"
+        cp -f ${mitmproxyConfigFile} "${cfg.dataDir}/config.yaml"
 
         # Ensure correct ownership and permissions
         chown -R mitmproxy:mitmproxy "${cfg.dataDir}"
@@ -314,7 +325,6 @@
                 "--web-port ${toString cfg.webPort}"
                 "--set confdir=${cfg.dataDir}"
                 "--no-web-open-browser" # Don't try to open browser on headless server
-                "--set web_password=nixos" # Fixed password for the web UI
                 # Listen host/port only applies to explicit and transparent modes
                 (
                   if cfg.mode != "local" then
@@ -391,6 +401,12 @@
         security.pki.certificates = mkIf cfg.trustCA [
           mitmproxyCaCertPem
         ]; # Trust only the certificate PEM so a pasted private key can never land in the system trust store.
+
+        # mitmproxy local/eBPF mode receives replies on tun0 with original Internet source IPs;
+        # NixOS' strict rpfilter drops them before smoltcp can ACK, so local:curl hangs forever.
+        # Loose rpfilter still rejects unreachable spoofed sources while allowing this asymmetric TUN path.
+        # Source: live `nft list ruleset` mangle/nixos-fw-rpfilter counters and mitmproxy local-mode design.
+        networking.firewall.checkReversePath = mkIf cfg.enable "loose";
       };
     };
 }

@@ -222,6 +222,7 @@ declare -A SECRETS_MAP=(
  ["EXA_API_KEY"]="system/exa-api-key"
  ["MITMPROXY_CA_KEY"]="system/mitmproxy-ca-key"
  ["MITMPROXY_CA_CERT"]="system/mitmproxy-ca-cert"
+ ["MITMPROXY_WEB_PASSWORD"]="system/mitmproxy/web-password"
  ["OMNIROUTE_INITIAL_PASSWORD"]="system/omniroute/initial-password"
  ["VPN_PROXY_API_KEY"]="system/vpn-proxy-api-key"
  ["SERVICES_AUTH_PASSWORD"]="system/services-auth-password"
@@ -265,6 +266,7 @@ SECRET_NAMES=(
  EXA_API_KEY
  MITMPROXY_CA_KEY
  MITMPROXY_CA_CERT
+ MITMPROXY_WEB_PASSWORD
  OMNIROUTE_INITIAL_PASSWORD
  VPN_PROXY_API_KEY
  SERVICES_AUTH_PASSWORD

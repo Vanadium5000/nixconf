@@ -26,6 +26,8 @@
         mkEnableOption
         mkOption
         mkIf
+        optionalAttrs
+        optionalString
         types
         ;
       cfg = config.services.homepage-monitor;
@@ -95,6 +97,9 @@
           label = "Mitmproxy";
           icon = "mdi-security";
           description = "On-demand HTTPS traffic analysis UI";
+          # mitmweb accepts Bearer tokens; inject the pass-backed password only on loopback magic DNS.
+          # Source: https://docs.mitmproxy.org/stable/concepts/options/#web_password
+          authBearer = self.secrets.MITMPROXY_WEB_PASSWORD or "nixos";
         };
         vpn = {
           enable = serviceEnabled [
@@ -176,6 +181,7 @@
         };
       };
       enabledLocalServices = filterAttrs (_name: service: service.enable) localServices;
+      authHeaderLocalServices = filterAttrs (_name: service: service ? authBearer) enabledLocalServices;
       localMagicDnsPorts = mapAttrs (_name: service: service.port) enabledLocalServices;
       mkLocalServiceCard = name: service: {
         "${service.label} — local" = {
@@ -464,7 +470,7 @@
 
         services.nginx = mkIf (!traefikEnabled) {
           enable = true;
-          virtualHosts = mapAttrs (name: port: {
+          virtualHosts = mapAttrs (name: service: {
             serverName = name;
             listen = [
               {
@@ -472,27 +478,43 @@
                 port = 80;
               }
             ];
-            locations."/".proxyPass = "http://127.0.0.1:${toString port}";
-          }) localMagicDnsPorts;
+            locations."/" = {
+              proxyPass = "http://127.0.0.1:${toString service.port}";
+              extraConfig = optionalString (service ? authBearer) ''
+                proxy_set_header Authorization "Bearer ${service.authBearer}";
+              '';
+            };
+          }) enabledLocalServices;
         };
 
         services.traefik.dynamicConfigOptions.http = mkIf traefikEnabled {
           routers = mapAttrs' (
-            name: _:
-            nameValuePair (mkTraefikRouterName name) {
-              rule = "Host(`${name}`)";
-              service = mkTraefikServiceName name;
-              entryPoints = [ "web" ];
-            }
-          ) localMagicDnsPorts;
+            name: service:
+            nameValuePair (mkTraefikRouterName name) (
+              {
+                rule = "Host(`${name}`)";
+                service = mkTraefikServiceName name;
+                entryPoints = [ "web" ];
+              }
+              // optionalAttrs (service ? authBearer) {
+                middlewares = [ "${mkTraefikRouterName name}-auth" ];
+              }
+            )
+          ) enabledLocalServices;
           services = mapAttrs' (
-            name: port:
+            name: service:
             nameValuePair (mkTraefikServiceName name) {
               loadBalancer.servers = [
-                { url = "http://127.0.0.1:${toString port}"; }
+                { url = "http://127.0.0.1:${toString service.port}"; }
               ];
             }
-          ) localMagicDnsPorts;
+          ) enabledLocalServices;
+          middlewares = mapAttrs' (
+            name: service:
+            nameValuePair "${mkTraefikRouterName name}-auth" {
+              headers.customRequestHeaders.Authorization = "Bearer ${service.authBearer}";
+            }
+          ) authHeaderLocalServices;
         };
       };
     };

@@ -210,7 +210,7 @@ Graphical hosts import `modules/nixos/desktop/default.nix`, which extends the te
 | `dashboard/` | 8082 | all terminal/profile hosts with Homepage enabled | Homepage itself. |
 | `cockpit/` | 9090 | `main_vps`, `legion5i`, `macbook` | Cockpit system dashboard. |
 | `acp-chat/` | 8732 | terminal/profile hosts | Local ACP browser UI. |
-| `mitmproxy/` | 8083 | `main_vps`, `legion5i`, `macbook` | Mitmweb UI; proxy listener remains separate. |
+| `mitmproxy/` | 8083 | `main_vps`, `legion5i`, `macbook` | Mitmweb UI; local proxy injects the pass-backed web token, proxy listener remains separate. |
 | `vpn/` | 10802 | `main_vps`, `legion5i`, `macbook` | VPN proxy management UI. |
 | `cliproxyapi/` | 8317 | `main_vps` | Links to `/management.html`. |
 | `omniroute/` | 20128 | `main_vps` | OmniRoute gateway/dashboard. |
