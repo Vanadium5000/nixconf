@@ -70,7 +70,7 @@ flake.nix
 
 | Surface | Current owner | Purpose |
 | --- | --- | --- |
-| Inputs | `flake.nix` | `nixpkgs` on `nixos-26.05`, `nixpkgs-unstable`, hardware, DMS, disko, Flatpak, llm-agents, nix-dokploy |
+| Inputs | `flake.nix` | `nixpkgs` on `nixos-26.05`, `nixpkgs-unstable`, hardware, DMS, disko, Flatpak, nix-index-database, llm-agents, nix-dokploy |
 | Per-system outputs | `modules/flake-parts.nix` | Supported systems, `pkgs` construction, temporary overrides, `apps.rebuild` |
 | Module exports | `modules/exports.nix` | Grouped module sets and evaluated `hostModuleMatrix` |
 | Local packages | `modules/custom-packages.nix` | Auto-exposes `modules/_pkgs/*.nix` through `self.packages` |
@@ -200,6 +200,25 @@ Graphical hosts import `modules/nixos/desktop/default.nix`, which extends the te
 
 > [!IMPORTANT]
 > Baikal/DAV-style routes bypass shared auth where the service protocol requires it.
+
+### Local magic DNS
+
+`modules/nixos/terminal/monitoring/homepage.nix` derives local Homepage links, bookmarks, `/etc/hosts` aliases, and port-80 reverse proxies from one `localServices` table. Only services enabled on the current host get a magic name. The original `localhost:<port>` listeners stay open for scripts and direct debugging.
+
+| Magic DNS | Target localhost port | Enabled where | Notes |
+| --- | ---: | --- | --- |
+| `dashboard/` | 8082 | all terminal/profile hosts with Homepage enabled | Homepage itself. |
+| `cockpit/` | 9090 | `main_vps`, `legion5i`, `macbook` | Cockpit system dashboard. |
+| `acp-chat/` | 8732 | terminal/profile hosts | Local ACP browser UI. |
+| `mitmproxy/` | 8083 | `main_vps`, `legion5i`, `macbook` | Mitmweb UI; proxy listener remains separate. |
+| `vpn/` | 10802 | `main_vps`, `legion5i`, `macbook` | VPN proxy management UI. |
+| `cliproxyapi/` | 8317 | `main_vps` | Links to `/management.html`. |
+| `omniroute/` | 20128 | `main_vps` | OmniRoute gateway/dashboard. |
+| `cpa-usage/` | 8080 | `main_vps` | CLIProxyAPI usage dashboard. |
+| `dokploy/` | 3000 | `main_vps` | Dokploy UI; Dokploy Traefik still uses 127.0.0.1:81. |
+| `portainer/` | 9000 | hosts with the `portainer` compose stack | Docker/Compose management. |
+| `qbittorrent/` | 8088 | `legion5i`, `macbook` | Gluetun-bound qBittorrent WebUI. |
+| `mongo/` | 41275 | `main_vps` | Mongo Express admin UI. |
 
 `portainer` is enabled fleet-wide from `modules/docker/compose/portainer/compose.yaml` and seeds the initial admin password from `system/portainer-admin`. `gluetun-qbittorrent` is enabled on `macbook` and `legion5i` only; qBittorrent shares Gluetun's network namespace, binds its WebUI at `127.0.0.1:8088`, stores credentials in `personal/qbittorrent-webui`, persists config under `/var/lib/qbittorrent-vpn`, and downloads to cache-persisted `~/Torrents`.
 

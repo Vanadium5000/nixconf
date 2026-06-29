@@ -36,6 +36,7 @@ main_vps: modules/hosts/main_vps/
 │  ├─ OmniRoute gateway/dashboard: 127.0.0.1:20128 -> https://omniroute.<domain>
 │  └─ protected dashboards: dashboard/cockpit/mitmproxy/vpn/cpa-usage/portainer/mongo via services-auth; Baikal/DAV bypasses shared auth
 └─ service settings/packages
+   ├─ services.homepage-monitor: modules/nixos/terminal/monitoring/homepage.nix; local magic DNS names route enabled dashboard services from http://<name>/ to localhost ports while keeping direct localhost:<port> open
    ├─ services.omniroute: modules/nixos/terminal/omniroute.nix; modules/_pkgs/omniroute.nix
    ├─ services.bifrost: modules/nixos/terminal/bifrost.nix; upstream input github:maximhq/bifrost/transports/v1.5.15
    ├─ services.cliproxyapi: modules/nixos/terminal/cliproxyapi.nix; modules/_pkgs/cliproxyapi.nix
@@ -62,4 +63,5 @@ monitoring dashboards: modules/nixos/terminal/monitoring/
 - **New Host**: create `modules/hosts/<name>/default.nix`, define `flake.nixosConfigurations.<name>`, set `preferences.hostName`.
 - **New Package**: nixpkgs package → `environment.systemPackages`; custom package → `modules/_pkgs/<name>.nix` matching `pname`, exposed via `self.packages`.
 - **New Service Route**: add module/options, enable in `modules/hosts/main_vps/configuration.nix`, route in `modules/hosts/main_vps/my-website.nix`, then update Navigation / Live Topology above.
+- **New Homepage Local Link**: add one entry to `localServices` in `modules/nixos/terminal/monitoring/homepage.nix` with `enable`, `port`, `label`, `icon`, and optional `path`. The module derives Homepage cards/bookmarks, `/etc/hosts` loopback names, and Traefik/nginx port-80 proxies from that single record. Use the magic URL `http://<name>/` on the dashboard; keep the underlying localhost port unchanged. Update README's magic DNS table and Navigation / Live Topology when the service set changes.
 - **Add Secret**: add to `SECRETS_MAP` in `rebuild.sh`; `pass insert path/to/secret`; consume as `self.secrets.VAR_NAME`.

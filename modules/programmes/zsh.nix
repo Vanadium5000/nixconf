@@ -321,6 +321,11 @@ in
               source ${fallbackConfig}
             fi
 
+            # ZDOTDIR points at a store-owned .zshrc wrapper, so source NixOS'
+            # generated interactive hooks here instead of relying on ~/.zshrc.
+            # This keeps nix-index command-not-found suggestions active for zsh.
+            [[ -r /etc/zshrc ]] && source /etc/zshrc
+
 
             typeset -g NIXCONF_ZSH_LAST_HISTORY_LINE=""
             typeset -g NIXCONF_ZSH_LAST_HISTORY_ACCEPTED=0

@@ -22,7 +22,17 @@
           };
         }
       ];
+
+      # nix-index-database ships pinned nix-locate data plus shell command-not-found
+      # hooks; enable comma against its small DB so `, jq` can enter/run packages
+      # without a mutable nix-index cache. Source: nix-community/nix-index-database README.
       programs.nix-index-database.comma.enable = true;
+      programs.nix-index = {
+        enableBashIntegration = true;
+        enableZshIntegration = true;
+      };
+      programs.command-not-found.enable = false;
+      programs.zsh.enable = true;
 
       nix = {
         settings.experimental-features = [

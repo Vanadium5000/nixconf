@@ -18,8 +18,10 @@
     let
       inherit (lib)
         attrByPath
+        filterAttrs
         mapAttrs
         mapAttrs'
+        mapAttrsToList
         nameValuePair
         mkEnableOption
         mkOption
@@ -51,25 +53,147 @@
           host = if subdomain == null then publicBaseDomain else "${subdomain}.${publicBaseDomain}";
         in
         "https://${host}${path}";
-      mkLocalUrl = port: path: "http://localhost:${toString port}${path}";
       mkAnyUrl = port: path: "http://0.0.0.0:${toString port}${path}";
-      mkShortUrl =
-        name: port: path:
-        "http://${name}:${toString port}${path}";
-      shortHostnames = {
-        dashboard = ports.dashboard;
-        cockpit = ports.cockpit;
-        "acp-chat" = ports.acpChat;
-        mitmproxy = ports.mitmproxy;
-        vpn = ports.vpn;
-        cliproxyapi = ports.cliproxyapi;
-        omniroute = ports.omniroute;
-        "cpa-usage" = ports.cpaUsage;
-        dokploy = ports.dokploy;
-        portainer = ports.portainer;
-        qbittorrent = ports.qbittorrent;
-        mongo = ports.mongo;
+      mkMagicUrl = name: path: "http://${name}${if path == "" then "/" else path}";
+      serviceEnabled = path: attrByPath (path ++ [ "enable" ]) false config;
+      stackEnabled =
+        name: attrByPath [ "services" "docker-compose-stacks" "stacks" name "enable" ] false config;
+      localServices = {
+        dashboard = {
+          enable = cfg.enable;
+          port = ports.dashboard;
+          label = "Dashboard";
+          icon = "mdi-view-dashboard";
+          description = "Homepage on ${hostName} via local magic DNS";
+        };
+        cockpit = {
+          enable = serviceEnabled [
+            "services"
+            "cockpit-managed"
+          ];
+          port = ports.cockpit;
+          label = "Cockpit";
+          icon = "mdi-monitor-dashboard";
+          description = "Systemd services, journal logs, terminal, and host actions";
+        };
+        "acp-chat" = {
+          enable = serviceEnabled [
+            "services"
+            "acp-chat"
+          ];
+          port = ports.acpChat;
+          label = "ACP Chat";
+          icon = "mdi-chat-processing";
+          description = "Browser UI for local ACP agents";
+        };
+        mitmproxy = {
+          enable = serviceEnabled [
+            "services"
+            "mitmproxy"
+          ];
+          port = ports.mitmproxy;
+          label = "Mitmproxy";
+          icon = "mdi-security";
+          description = "On-demand HTTPS traffic analysis UI";
+        };
+        vpn = {
+          enable = serviceEnabled [
+            "services"
+            "vpn-proxy"
+          ];
+          port = ports.vpn;
+          label = "VPN Proxy";
+          icon = "mdi-vpn";
+          description = "SOCKS5/HTTP VPN proxy management";
+        };
+        cliproxyapi = {
+          enable = serviceEnabled [
+            "services"
+            "cliproxyapi"
+          ];
+          port = ports.cliproxyapi;
+          label = "CLIProxyAPI";
+          icon = "mdi-api";
+          path = "/management.html";
+          description = "OpenAI-compatible API wrapping AI CLIs";
+        };
+        omniroute = {
+          enable = serviceEnabled [
+            "services"
+            "omniroute"
+          ];
+          port = ports.omniroute;
+          label = "OmniRoute";
+          icon = "mdi-routes";
+          description = "OpenAI-compatible AI gateway";
+        };
+        "cpa-usage" = {
+          enable = serviceEnabled [
+            "services"
+            "cpa-usage-keeper"
+          ];
+          port = ports.cpaUsage;
+          label = "CPA Usage Keeper";
+          icon = "mdi-chart-line";
+          description = "Persistent CLIProxyAPI usage analytics";
+        };
+        dokploy = {
+          enable = serviceEnabled [
+            "services"
+            "dokploy"
+          ];
+          port = ports.dokploy;
+          label = "Dokploy";
+          icon = "mdi-docker";
+          description = "Self-hosted deployment control plane";
+        };
+        portainer = {
+          enable = stackEnabled "portainer";
+          port = ports.portainer;
+          label = "Portainer";
+          icon = "mdi-docker";
+          description = "Local Docker and Compose stack management";
+        };
+        qbittorrent = {
+          enable = stackEnabled "gluetun-qbittorrent";
+          port = ports.qbittorrent;
+          label = "qBittorrent";
+          icon = "mdi-download-network";
+          description = "Torrent WebUI exposed only through Gluetun's network namespace";
+        };
+        mongo = {
+          enable = attrByPath [
+            "virtualisation"
+            "oci-containers"
+            "containers"
+            "mongo-express"
+            "autoStart"
+          ] false config;
+          port = ports.mongo;
+          label = "MongoDB Admin";
+          icon = "mdi-database";
+          description = "Mongo Express database management";
+        };
       };
+      enabledLocalServices = filterAttrs (_name: service: service.enable) localServices;
+      localMagicDnsPorts = mapAttrs (_name: service: service.port) enabledLocalServices;
+      mkLocalServiceCard = name: service: {
+        "${service.label} — local" = {
+          icon = service.icon;
+          href = mkMagicUrl name (service.path or "");
+          description = service.description;
+        };
+      };
+      localServiceCards = mapAttrsToList mkLocalServiceCard enabledLocalServices;
+      mkLocalBookmark = name: service: {
+        "${name}/" = [
+          {
+            icon = service.icon;
+            href = mkMagicUrl name (service.path or "/");
+          }
+        ];
+      };
+      localBookmarks = mapAttrsToList mkLocalBookmark enabledLocalServices;
       mkTraefikServiceName = name: "local-${name}";
       mkTraefikRouterName = name: "local-${name}";
     in
@@ -179,62 +303,14 @@
             {
               "Local on this host" = [
                 {
-                  "Dashboard — local" = {
-                    icon = "mdi-view-dashboard";
-                    href = mkLocalUrl ports.dashboard "";
-                    description = "Homepage on ${hostName} via localhost";
-                  };
-                }
-                {
                   "Dashboard — any interface" = {
                     icon = "mdi-lan";
                     href = mkAnyUrl ports.dashboard "";
                     description = "Homepage bind address link for LAN/Tailscale checks";
                   };
                 }
-                {
-                  "Cockpit — local" = {
-                    icon = "mdi-monitor-dashboard";
-                    href = mkLocalUrl ports.cockpit "";
-                    description = "Systemd services, journal logs, terminal, and host actions";
-                  };
-                }
-                {
-                  "ACP Chat — local" = {
-                    icon = "mdi-chat-processing";
-                    href = mkLocalUrl ports.acpChat "";
-                    description = "Browser UI for local ACP agents";
-                  };
-                }
-                {
-                  "Mitmproxy — local" = {
-                    icon = "mdi-security";
-                    href = mkLocalUrl ports.mitmproxy "";
-                    description = "On-demand HTTPS traffic analysis UI";
-                  };
-                }
-                {
-                  "VPN Proxy — local" = {
-                    icon = "mdi-vpn";
-                    href = mkLocalUrl ports.vpn "";
-                    description = "SOCKS5/HTTP VPN proxy management";
-                  };
-                }
-                {
-                  "Portainer — local" = {
-                    icon = "mdi-docker";
-                    href = mkLocalUrl ports.portainer "";
-                    description = "Local Docker and Compose stack management";
-                  };
-                }
-                {
-                  "qBittorrent — VPN" = {
-                    icon = "mdi-download-network";
-                    href = mkLocalUrl ports.qbittorrent "";
-                    description = "Torrent WebUI exposed only through Gluetun's network namespace";
-                  };
-                }
-              ];
+              ]
+              ++ localServiceCards;
             }
             {
               "Public dashboards" = [
@@ -339,64 +415,7 @@
 
           bookmarks = [
             {
-              "Short local names" = [
-                {
-                  "dashboard/" = [
-                    {
-                      icon = "mdi-view-dashboard";
-                      href = mkShortUrl "dashboard" ports.dashboard "";
-                    }
-                  ];
-                }
-                {
-                  "cockpit/" = [
-                    {
-                      icon = "mdi-monitor-dashboard";
-                      href = mkShortUrl "cockpit" ports.cockpit "";
-                    }
-                  ];
-                }
-                {
-                  "acp-chat/" = [
-                    {
-                      icon = "mdi-chat-processing";
-                      href = mkShortUrl "acp-chat" ports.acpChat "";
-                    }
-                  ];
-                }
-                {
-                  "mitmproxy/" = [
-                    {
-                      icon = "mdi-security";
-                      href = mkShortUrl "mitmproxy" ports.mitmproxy "";
-                    }
-                  ];
-                }
-                {
-                  "vpn/" = [
-                    {
-                      icon = "mdi-vpn";
-                      href = mkShortUrl "vpn" ports.vpn "";
-                    }
-                  ];
-                }
-                {
-                  "portainer/" = [
-                    {
-                      icon = "mdi-docker";
-                      href = mkShortUrl "portainer" ports.portainer "";
-                    }
-                  ];
-                }
-                {
-                  "qbittorrent/" = [
-                    {
-                      icon = "mdi-download-network";
-                      href = mkShortUrl "qbittorrent" ports.qbittorrent "";
-                    }
-                  ];
-                }
-              ];
+              "Short local names" = localBookmarks;
             }
             {
               "Fleet" = [
@@ -439,9 +458,9 @@
 
         networking.firewall.allowedTCPPorts = mkIf cfg.openFirewall [ cfg.port ];
 
-        # Short dashboard names resolve locally on every host; browsers can open
-        # http://dashboard/, http://cockpit/, etc. without leaking these names to DNS.
-        networking.hosts."127.0.0.1" = builtins.attrNames shortHostnames;
+        # Homepage-local magic DNS stays host-scoped: enabled dashboard service names resolve
+        # to loopback and proxy from port 80 to their original localhost-bound ports.
+        networking.hosts."127.0.0.1" = builtins.attrNames localMagicDnsPorts;
 
         services.nginx = mkIf (!traefikEnabled) {
           enable = true;
@@ -454,7 +473,7 @@
               }
             ];
             locations."/".proxyPass = "http://127.0.0.1:${toString port}";
-          }) shortHostnames;
+          }) localMagicDnsPorts;
         };
 
         services.traefik.dynamicConfigOptions.http = mkIf traefikEnabled {
@@ -465,12 +484,15 @@
               service = mkTraefikServiceName name;
               entryPoints = [ "web" ];
             }
-          ) shortHostnames;
-          services = mapAttrs (_name: port: {
-            loadBalancer.servers = [
-              { url = "http://127.0.0.1:${toString port}"; }
-            ];
-          }) shortHostnames;
+          ) localMagicDnsPorts;
+          services = mapAttrs' (
+            name: port:
+            nameValuePair (mkTraefikServiceName name) {
+              loadBalancer.servers = [
+                { url = "http://127.0.0.1:${toString port}"; }
+              ];
+            }
+          ) localMagicDnsPorts;
         };
       };
     };
