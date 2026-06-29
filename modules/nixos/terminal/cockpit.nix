@@ -9,6 +9,8 @@
     }:
     let
       cfg = config.services.cockpit-managed;
+      listenStream =
+        if cfg.host == "0.0.0.0" then toString cfg.port else "${cfg.host}:${toString cfg.port}";
     in
     {
       options.services.cockpit-managed = {
@@ -60,6 +62,7 @@
           openFirewall = cfg.openFirewall;
           showBanner = false;
           allowed-origins = [ "*" ];
+          plugins = [ pkgs.cockpit-files ];
           settings.WebService = {
             AllowUnencrypted = true;
             LoginTo = false;
@@ -67,7 +70,14 @@
           };
         };
 
-        systemd.sockets.cockpit.listenStreams = lib.mkForce [ "${cfg.host}:${toString cfg.port}" ];
+        environment.systemPackages = [ pkgs.wireguard-tools ];
+
+        # Empty ListenStream first clears Cockpit's packaged socket before adding our bind;
+        # otherwise systemd keeps both entries and switch fails with EADDRINUSE on 9090.
+        systemd.sockets.cockpit.listenStreams = lib.mkForce [
+          ""
+          listenStream
+        ];
 
         users.users.${cfg.user} = {
           isNormalUser = true;
