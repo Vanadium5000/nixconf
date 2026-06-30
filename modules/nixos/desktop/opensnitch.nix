@@ -9,11 +9,15 @@
     }:
     let
       inherit (lib)
-        getExe
+        concatMapStringsSep
         escapeShellArg
+        getExe
+        mapAttrs
+        mapAttrsToList
         mkAfter
         mkBefore
         mkIf
+        mkOption
         ;
       cfg = config.services.opensnitch;
       json = pkgs.formats.json { };
@@ -24,6 +28,9 @@
       defaultConfig = "${dataDir}/default-config.json";
       systemFirewallConfig = "${dataDir}/system-fw.json";
       settingsSeed = json.generate "opensnitch-settings.json" cfg.settings;
+      mutableRuleFiles = mapAttrs (
+        name: rule: json.generate "opensnitch-rule-${name}.json" rule
+      ) cfg.mutableRules;
       opensnitchUi = pkgs.symlinkJoin {
         name = "opensnitch-ui-with-private-socket";
         paths = [ pkgs.opensnitch-ui ];
@@ -73,6 +80,34 @@
       '';
     in
     {
+      options.services.opensnitch.mutableRules = mkOption {
+        default = { };
+        type = lib.types.attrsOf (lib.types.submodule { freeformType = json.type; });
+        description = ''
+          Mutable OpenSnitch rule seeds. Each attribute is written as
+          `${dataDir}/rules/<name>.json` with the attribute value encoded as
+          JSON, but only when the file does not already exist so the UI can
+          keep editing persisted rule files in place.
+        '';
+        example = lib.literalExpression ''
+          {
+            allow-example = {
+              name = "allow-example";
+              action = "allow";
+              duration = "always";
+              enabled = true;
+              operator = {
+                type = "simple";
+                operand = "dest.host";
+                data = "example.com";
+                list = [ ];
+                sensitive = false;
+              };
+            };
+          }
+        '';
+      };
+
       config = mkIf cfg.enable {
         # OpenSnitch's eBPF monitor needs trace/kprobe support and NFQUEUE/nftables
         # queue modules; load them up-front so opensnitchd -check-requirements does
@@ -105,6 +140,80 @@
         services.opensnitch = {
           package = pkgs.opensnitch;
           configFile = defaultConfig;
+          mutableRules = {
+            allow-brave = {
+              created = "2026-06-30T02:47:21+01:00";
+              updated = "2026-06-30T02:47:21+01:00";
+              name = "allow-brave";
+              description = "Allow Brave";
+              action = "allow";
+              duration = "always";
+              operator = {
+                operand = "process.path";
+                data = "^/nix/store/[0-9a-z]{32}-brave-origin-[^/]+/opt/brave.com/brave-origin-nightly/brave$";
+                type = "regexp";
+                list = [ ];
+                sensitive = false;
+              };
+              enabled = true;
+              precedence = false;
+              nolog = false;
+            };
+            allow-dms-weather = {
+              created = "2026-06-30T02:44:41+01:00";
+              updated = "2026-06-30T02:44:41+01:00";
+              name = "allow-dms-weather";
+              description = "Allow DMS weather";
+              action = "allow";
+              duration = "always";
+              operator = {
+                operand = "dest.host";
+                data = "api.open-meteo.com";
+                type = "simple";
+                list = [ ];
+                sensitive = false;
+              };
+              enabled = true;
+              precedence = false;
+              nolog = false;
+            };
+            allow-ssh-out = {
+              created = "2026-06-30T02:44:49+01:00";
+              updated = "2026-06-30T02:44:49+01:00";
+              name = "allow-ssh-out";
+              description = "Allow SSH out";
+              action = "allow";
+              duration = "always";
+              operator = {
+                operand = "process.path";
+                data = "^/nix/store/[0-9a-z]{32}-openssh-[^/]+/bin/ssh$";
+                type = "regexp";
+                list = [ ];
+                sensitive = false;
+              };
+              enabled = true;
+              precedence = false;
+              nolog = false;
+            };
+            allow-tailscale = {
+              created = "2026-06-30T02:47:06+01:00";
+              updated = "2026-06-30T02:47:06+01:00";
+              name = "allow-tailscale";
+              description = "Allow Tailscale";
+              action = "allow";
+              duration = "always";
+              operator = {
+                operand = "process.path";
+                data = "^/nix/store/[^/]+-tailscale-[^/]+/bin/.tailscaled-wrapped$";
+                type = "regexp";
+                list = [ ];
+                sensitive = false;
+              };
+              enabled = true;
+              precedence = false;
+              nolog = false;
+            };
+          };
           settings = {
             Server = {
               Address = uiSocket;
@@ -144,7 +253,10 @@
           "C ${systemFirewallConfig} 0640 root root - ${cfg.package}/etc/opensnitchd/system-fw.json"
           "C ${dataDir}/rules/000-allow-localhost-ipv4.json 0640 root root - ${localhostIpv4Rule}"
           "C ${dataDir}/rules/000-allow-localhost-ipv6.json 0640 root root - ${localhostIpv6Rule}"
-        ];
+        ]
+        ++ (mapAttrsToList (
+          name: file: "C ${dataDir}/rules/${name}.json 0600 root root - ${file}"
+        ) mutableRuleFiles);
 
         systemd.services.opensnitchd = {
           after = mkAfter [ "systemd-tmpfiles-setup.service" ];
@@ -163,6 +275,14 @@
             if [ ! -e ${dataDir}/rules/000-allow-localhost-ipv6.json ]; then
               install -m 0640 ${localhostIpv6Rule} ${dataDir}/rules/000-allow-localhost-ipv6.json
             fi
+            ${concatMapStringsSep "\n" (
+              { name, file }:
+              ''
+                if [ ! -e ${dataDir}/rules/${name}.json ]; then
+                  install -m 0600 ${file} ${dataDir}/rules/${name}.json
+                fi
+              ''
+            ) (mapAttrsToList (name: file: { inherit name file; }) mutableRuleFiles)}
           '';
         };
 

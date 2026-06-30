@@ -52,7 +52,7 @@ graphical hosts: modules/hosts/{legion5i,macbook}/
 ├─ keep unrelated qs-* tools (qs-dmenu/passmenu/wallpaper) until explicitly migrated
 ├─ Hyprland: modules/nixos/desktop/hyprland/ plus modules/user/hyprland.nix
 ├─ local VPN proxy enabled for desktop routing/testing
-├─ OpenSnitch enabled with eBPF/nftables; daemon/UI config and rules persist mutably in /var/lib/opensnitch and ~/.config/opensnitch
+├─ OpenSnitch enabled with eBPF/nftables; daemon/UI config and mutableRules-seeded rules persist mutably in /var/lib/opensnitch and ~/.config/opensnitch
 └─ qBittorrent WebUI: Gluetun/PIA stack binds 127.0.0.1:8088; qBittorrent shares Gluetun network namespace, pins torrent traffic to tun0, and downloads to persisted ~/Torrents
 
 persistence helpers: modules/lib/_internal/persistence.nix; NixOS module modules/common/impermanence.nix; app state split across home persistence/cache for Orca, Limux, gh, OpenCode, OMP

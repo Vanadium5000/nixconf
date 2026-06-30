@@ -164,7 +164,7 @@ Graphical hosts import `modules/nixos/desktop/default.nix`, which extends the te
 | 📺 HDMI-CEC | `modules/nixos/desktop/system/hdmi-cec.nix` | Optional `preferences.hardware.hdmiCec.enable`; configures `/dev/cec*` adapters as playback devices so TV remote media keys reach Linux input. |
 | 🌍 Browser | `modules/nixos/desktop/firefox/firefox.nix` | LibreWolf/Firefox policy and user config. |
 | ✍️ Editor/IDE | `modules/programmes/fresh.nix`, `modules/nixos/desktop/vscodium/` | Fresh as terminal editor; VSCodium with declarative extensions/theme. |
-| 🧱 Firewall | `modules/nixos/desktop/opensnitch.nix` | OpenSnitch daemon/UI, eBPF process monitor, nftables backend, mutable persisted config/rules. |
+| 🧱 Firewall | `modules/nixos/desktop/opensnitch.nix` | OpenSnitch daemon/UI, eBPF process monitor, nftables backend, mutable persisted config/rules with `services.opensnitch.mutableRules` seed files. |
 | 🧰 Apps | `modules/nixos/desktop/flatpaks/`, `obs.nix`, `obsidian.nix`, `qt.nix`, `tuigreet.nix` | Desktop app set, Flatpak integration, display greeter, Qt theming. |
 
 ### ⌨️ Shell boundary
