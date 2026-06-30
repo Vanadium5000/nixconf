@@ -36,6 +36,7 @@
       authDomain = mkHostname "auth";
       openclawDomain = mkHostname "openclaw";
       dashboardDomain = mkHostname "dashboard";
+      docsDomain = mkHostname "docs";
       cockpitDomain = mkHostname "cockpit";
       vpnDomain = mkHostname "vpn";
       cliproxyapiDomain = mkHostname "cliproxyapi";
@@ -194,6 +195,10 @@
                 rule = "Host(`${dashboardDomain}`)";
                 service = "dashboard";
               };
+              docs = mkProtectedServiceRouter {
+                rule = "Host(`${docsDomain}`)";
+                service = "docs";
+              };
               cockpit = {
                 # Cockpit keeps normal PAM login; the public route adds shared edge auth while
                 # direct host access stays behind the firewall/Tailscale. Source: cockpit.conf(5) Origins.
@@ -265,6 +270,7 @@
             services = {
               services-auth-gateway = mkDirectService servicesAuthGatewayPort;
               dashboard = mkDirectService 8082;
+              docs = mkDirectService config.services.nixconf-docs.port;
               cockpit = mkDirectService config.services.cockpit-managed.port;
               vpn = mkDirectService 10802;
               cliproxyapi = mkDirectService 8317;

@@ -57,7 +57,7 @@ flake.nix
 | --- | --- | --- | --- | --- |
 | `legion5i` | Primary graphical laptop | `terminal`, `desktop`, `laptop` | `matrix` | Hyprland/DankMaterialShell, CUDA/Nvidia, OBS, Obsidian, HDMI-CEC TV remote media controls, OpenSnitch, local VPN proxy, ntfy, Unison |
 | `macbook` | T2 graphical laptop | `terminal`, `desktop`, `laptop` | `matrix` | Hyprland/DankMaterialShell, Apple T2 support, T2 firmware bundle, OpenSnitch, ntfy, local VPN proxy, Unison |
-| `main_vps` | Headless service host | `terminal`, `server` | `server` | Traefik edge, Dokploy, CLIProxyAPI, Bifrost, OmniRoute, CPA Usage Keeper, services-auth-gateway, ntfy, homepage, VPN proxy |
+| `main_vps` | Headless service host | `terminal`, `server` | `server` | Traefik edge, Dokploy, CLIProxyAPI, Bifrost, OmniRoute, CPA Usage Keeper, services-auth-gateway, ntfy, homepage, generated docs, VPN proxy |
 
 > [!TIP]
 > `modules/hosts/ionos_vps/` exists as a directory but is not exported as a current `nixosConfiguration`.
@@ -82,7 +82,7 @@ flake.nix
 | --- | --- |
 | `self.moduleSets.profiles` | `common`, `terminal`, `desktop` |
 | `self.moduleSets.features` | audio, bluetooth, HDMI-CEC, Firefox, DMS, Hyprland, OBS, Obsidian, Qt, Syncthing, TLP, tuigreet, VSCodium |
-| `self.moduleSets.services` | CLIProxyAPI, Bifrost, OmniRoute, CPA Usage Keeper, services-auth-gateway, monitoring, nix, OpenCode, tailscale, Unison, virtualisation, VPN proxy, cockpit |
+| `self.moduleSets.services` | CLIProxyAPI, Bifrost, OmniRoute, CPA Usage Keeper, services-auth-gateway, generated docs, monitoring, nix, OpenCode, tailscale, Unison, virtualisation, VPN proxy, cockpit |
 | `self.moduleSets.hosts` | `main_vps`, `legion5i`, `macbook` |
 | `hostModuleMatrix` | Evaluated profile/feature/service matrix consumed by `rebuild.sh matrix` |
 
@@ -136,6 +136,7 @@ services.cliproxyapi.enable = true;
 services.cpa-usage-keeper.enable = true;
 services.omniroute.enable = true;
 services.dokploy.enable = true;
+services.nixconf-docs.enable = true;
 services.homepage-monitor.enable = true;
 services.hypridle.enable = true;
 services.opensnitch.enable = true;
@@ -181,9 +182,10 @@ Graphical hosts import `modules/nixos/desktop/default.nix`, which extends the te
 
 | Path | Purpose |
 | --- | --- |
-| `modules/hosts/main_vps/configuration.nix` | Enables Dokploy, CLIProxyAPI, Bifrost, OmniRoute, CPA Usage Keeper, VPN proxy, ntfy, homepage, Unison. |
+| `modules/hosts/main_vps/configuration.nix` | Enables Dokploy, CLIProxyAPI, Bifrost, OmniRoute, CPA Usage Keeper, VPN proxy, ntfy, homepage, generated docs, Unison. |
 | `modules/hosts/main_vps/my-website.nix` | Traefik edge, wildcard ACME, protected dashboard routing, services-auth-gateway integration. |
 | `modules/hosts/main_vps/remote-unlock.nix` | Initrd network and SSH unlock on public port 22 before stage-2 sshd. |
+| `modules/nixos/terminal/docs.nix` | Builds `docs/` with Docusaurus during rebuild and serves the static site. |
 | `modules/nixos/terminal/services-auth-gateway.nix` | Shared auth gateway service module. |
 | `modules/nixos/terminal/bifrost.nix` | Imports upstream Bifrost flake module and patched upstream fixed-output hashes; host config seeds config.json at service start. |
 | `modules/nixos/terminal/docker-compose-stacks.nix` | Discovers `modules/docker/compose/<stack>/*.yaml` and creates per-stack systemd `docker compose up/down` units. |
@@ -195,6 +197,7 @@ Graphical hosts import `modules/nixos/desktop/default.nix`, which extends the te
 ├─ cliproxyapi.<domain>  -> CLIProxyAPI on 127.0.0.1:8317
 ├─ bifrost.<domain>      -> Bifrost on 127.0.0.1:20129; proxies to CLIProxyAPI
 ├─ omniroute.<domain>    -> OmniRoute on 127.0.0.1:20128
+├─ docs.<domain>         -> generated Docusaurus docs on 127.0.0.1:8090
 ├─ cpa-usage.<domain>   -> CPA Usage Keeper
 └─ dashboard/cockpit/vpn/portainer/mongo -> services-auth-gateway on 127.0.0.1:41276
 ```
@@ -209,6 +212,7 @@ Graphical hosts import `modules/nixos/desktop/default.nix`, which extends the te
 | Magic DNS | Target localhost port | Enabled where | Notes |
 | --- | ---: | --- | --- |
 | `dashboard/` | 8082 | all terminal/profile hosts with Homepage enabled | Homepage itself. |
+| `docs/` | 8090 | all terminal/profile hosts | Generated Docusaurus docs from `docs/`. |
 | `cockpit/` | 9090 | `main_vps`, `legion5i`, `macbook` | Cockpit system dashboard. |
 | `acp-chat/` | 8732 | terminal/profile hosts | Local ACP browser UI. |
 | `vpn/` | 10802 | `main_vps`, `legion5i`, `macbook` | VPN proxy management UI. |
@@ -306,7 +310,7 @@ wallpapers, waydroid-script, waydroid-total-spoof
 
 ## 🧰 Scripts and local development
 
-Root `package.json` is workspace/editor glue. The real TypeScript/Bun workspace lives in `modules/nixos/scripts/bunjs`.
+Root `package.json` is workspace/editor glue. Run installs from the repository root so Bun wires every local workspace, including `modules/nixos/scripts/bunjs` and the Docusaurus docs site in `docs/`.
 
 ```bash
 bun install
@@ -321,6 +325,8 @@ bun run typecheck:scripts
 | 🤖 MCP servers | markdown lint, QML lint, Quickshell docs, image generation helpers |
 
 Packaged outputs do not depend on checkout-local `node_modules`; local installs are for editor tooling and interactive development.
+
+The docs site keeps `docs/package-lock.json` committed because `modules/nixos/terminal/docs.nix` consumes that lockfile for reproducible Nix builds. `bun install` is still the preferred local development entry point for editor TypeScript diagnostics and Docusaurus commands.
 
 ---
 

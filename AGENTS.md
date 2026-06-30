@@ -9,7 +9,7 @@
 - **Comments**: one dense comment near the setting with why, units/edge case, and source link/path. Preserve rationale; avoid prose blocks.
 - **DRY**: use `self.lib` for reusable functions and `config.preferences` for shared values.
 - **Formatting**: from repo root run `nix run nixpkgs#nixfmt-tree -- .`; check-only with `nix run nixpkgs#nixfmt-tree -- --ci .`. Avoid file-by-file formatter drift.
-- **README freshness**: update `README.md` in the same edit when changing flake inputs/exports, host inventory, profile/service architecture, public routes/ports, persistence or secrets flow, package exposure/update policy, script workspaces, or rebuild commands. Keep it factual and generated-from-current-code in spirit: expressive headings/tables/admonitions are fine.
+- **README & DOCS freshness**: update `README.md` & `docs/` in the same edit when changing flake inputs/exports, host inventory, profile/service architecture, public routes/ports, persistence or secrets flow, package exposure/update policy, script workspaces, or rebuild commands. Keep docs factual and generated-from-current-code in spirit. Include detailed fenced code blocks for commands/config, concrete explanations, diagrams when they clarify flow, source links to upstream docs/issues, and relative links to owning repo paths.
 
 ## 🧊 Infrastructure Patterns
 
@@ -27,16 +27,17 @@ Update this section in the same edit whenever host layout, routes, ports, primar
 flake.nix -> import-tree [ ./modules ./secrets.nix ]; exports/options map: modules/exports.nix
 
 main_vps: modules/hosts/main_vps/
-├─ configuration.nix: imports terminal, cockpit, nix-dokploy, disko; enables Dokploy, CLIProxyAPI, Bifrost, OmniRoute, CPA Usage Keeper, VPN proxy, ntfy, homepage
+├─ configuration.nix: imports terminal, cockpit, nix-dokploy, disko; enables Dokploy, CLIProxyAPI, Bifrost, OmniRoute, CPA Usage Keeper, VPN proxy, ntfy, homepage, generated docs
 ├─ remote-unlock.nix: systemd initrd network + SSH unlock on public :22 before stage-2 sshd starts
 ├─ my-website.nix: public edge; Traefik :80/:443 + ACME wildcard; services-auth-gateway 127.0.0.1:41276
 │  ├─ Dokploy apps: apex/wildcard/openclaw -> dokploy-traefik 127.0.0.1:81
 │  ├─ primary AI gateway: CLIProxyAPI 127.0.0.1:8317 -> https://cliproxyapi.<domain>; used by CPA Usage Keeper
 │  ├─ Bifrost gateway/dashboard: 127.0.0.1:20129 -> https://bifrost.<domain>; proxies OpenAI-compatible requests to CLIProxyAPI
 │  ├─ OmniRoute gateway/dashboard: 127.0.0.1:20128 -> https://omniroute.<domain>
-│  └─ protected dashboards: dashboard/cockpit/vpn/cpa-usage/portainer/mongo via services-auth; Baikal/DAV bypasses shared auth
+│  └─ protected dashboards: dashboard/docs/cockpit/vpn/cpa-usage/portainer/mongo via services-auth; Baikal/DAV bypasses shared auth
 └─ service settings/packages
    ├─ services.homepage-monitor: modules/nixos/terminal/monitoring/homepage.nix; local magic DNS names route enabled dashboard services from http://<name>/ to localhost ports with proxy headers/WebSockets/cookie/redirect handling while keeping direct localhost:<port> open
+   ├─ services.nixconf-docs: modules/nixos/terminal/docs.nix; builds docs/ with Docusaurus on rebuild and serves 127.0.0.1:8090
    ├─ services.omniroute: modules/nixos/terminal/omniroute.nix; modules/_pkgs/omniroute.nix
    ├─ services.bifrost: modules/nixos/terminal/bifrost.nix; upstream input github:maximhq/bifrost/transports/v1.5.15
    ├─ services.cliproxyapi: modules/nixos/terminal/cliproxyapi.nix; modules/_pkgs/cliproxyapi.nix
@@ -65,4 +66,5 @@ monitoring dashboards: modules/nixos/terminal/monitoring/
 - **New Package**: nixpkgs package → `environment.systemPackages`; custom package → `modules/_pkgs/<name>.nix` matching `pname`, exposed via `self.packages`.
 - **New Service Route**: add module/options, enable in `modules/hosts/main_vps/configuration.nix`, route in `modules/hosts/main_vps/my-website.nix`, then update Navigation / Live Topology above.
 - **New Homepage Local Link**: add one entry to `localServices` in `modules/nixos/terminal/monitoring/homepage.nix` with `enable`, `port`, `label`, `icon`, and optional `path`. The module derives Homepage cards/bookmarks, `/etc/hosts` loopback names, and Traefik/nginx port-80 proxies from that single record. Use the magic URL `http://<name>/` on the dashboard; keep the underlying localhost port unchanged. Update README's magic DNS table and Navigation / Live Topology when the service set changes.
+- **Docs Update**: edit `docs/docs/**` for operator-facing changes. Prefer clear headings, tables, admonitions, Mermaid diagrams for topology/flow, and fenced blocks for Nix/shell/config examples. Every page that explains behavior should link the owning repo files with relative paths and cite external upstream references where behavior comes from.
 - **Add Secret**: add to `SECRETS_MAP` in `rebuild.sh`; `pass insert path/to/secret`; consume as `self.secrets.VAR_NAME`.

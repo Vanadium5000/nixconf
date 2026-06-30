@@ -3,9 +3,11 @@
   "private": true,
   "packageManager": "bun@1.3.1",
   "workspaces": [
+    "docs",
     "modules/nixos/scripts/bunjs"
   ],
   "scripts": {
+    "build:docs": "bun run --cwd docs build",
     "install:scripts": "bun install --cwd modules/nixos/scripts/bunjs",
     "build:vpn-proxy-web": "bun run --cwd modules/nixos/scripts/bunjs build:web-ui",
     "typecheck:scripts": "bunx tsc -p modules/nixos/scripts/bunjs/tsconfig.json --noEmit"

@@ -72,6 +72,7 @@
         self.nixosModules.btrfs-maintenance
         self.nixosModules.tailscale
         self.nixosModules.virtualisation
+        self.nixosModules.nixconf-docs
         self.nixosModules.docker-compose-stacks
         self.nixosModules.unison
 
@@ -141,6 +142,7 @@
           host = "0.0.0.0";
           openFirewall = false;
         };
+        services.nixconf-docs.enable = true;
 
         # Password-store folder
         services.git-sync.repositories = {

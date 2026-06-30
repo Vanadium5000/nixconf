@@ -35,6 +35,7 @@
       traefikEnabled = attrByPath [ "services" "traefik" "enable" ] false config;
       ports = {
         dashboard = cfg.port;
+        docs = portOf [ "services" "nixconf-docs" "port" ] 8090;
         cockpit = portOf [ "services" "cockpit-managed" "port" ] 9090;
         acpChat = portOf [ "services" "acp-chat" "port" ] 8732;
         vpn = portOf [ "services" "vpn-proxy" "webUiPort" ] 10802;
@@ -74,6 +75,16 @@
           label = "Cockpit";
           icon = "mdi-monitor-dashboard";
           description = "Systemd services, journal logs, terminal, and host actions";
+        };
+        docs = {
+          enable = serviceEnabled [
+            "services"
+            "nixconf-docs"
+          ];
+          port = ports.docs;
+          label = "Docs";
+          icon = "mdi-book-open-page-variant";
+          description = "Generated Nixconf fleet documentation";
         };
         "acp-chat" = {
           enable = serviceEnabled [
@@ -311,6 +322,13 @@
                   };
                 }
                 {
+                  "Docs" = {
+                    icon = "mdi-book-open-page-variant";
+                    href = mkPublicUrl "docs" "";
+                    description = "Generated Nixconf fleet documentation";
+                  };
+                }
+                {
                   "Cockpit" = {
                     icon = "mdi-monitor-dashboard";
                     href = mkPublicUrl "cockpit" "";
@@ -437,6 +455,22 @@
                     {
                       icon = "mdi-view-dashboard";
                       href = "http://macbook:${toString ports.dashboard}";
+                    }
+                  ];
+                }
+                {
+                  "Docs — Legion 5i" = [
+                    {
+                      icon = "mdi-book-open-page-variant";
+                      href = "http://legion5i:${toString ports.docs}";
+                    }
+                  ];
+                }
+                {
+                  "Docs — MacBook" = [
+                    {
+                      icon = "mdi-book-open-page-variant";
+                      href = "http://macbook:${toString ports.docs}";
                     }
                   ];
                 }

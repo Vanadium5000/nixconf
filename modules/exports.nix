@@ -102,6 +102,11 @@ let
         "docker-compose-stacks"
         "enable"
       ];
+      nixconf-docs = [
+        "services"
+        "nixconf-docs"
+        "enable"
+      ];
       homepage-monitor = [
         "services"
         "homepage-monitor"
@@ -190,6 +195,7 @@ in
         services-auth-gateway = self.nixosModules.services-auth-gateway;
         dev = self.nixosModules.dev;
         docker-compose-stacks = self.nixosModules.docker-compose-stacks;
+        nixconf-docs = self.nixosModules.nixconf-docs;
         homepage-monitor = self.nixosModules.homepage-monitor;
         netdata-monitor = self.nixosModules.netdata-monitor;
         opensnitch = self.nixosModules.opensnitch;

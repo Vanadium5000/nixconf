@@ -70,7 +70,7 @@ async function findFilesRecursive(
 
 async function lintMarkdownFile(filePath: string): Promise<LintResult> {
   try {
-    const command = `markdownlint --disable MD013 -- "${filePath}" 2>&1`;
+    const command = `markdownlint --disable MD013 MD033 -- "${filePath}" 2>&1`;
     const { stdout, stderr } = await execAsync(command);
     const output = stdout || stderr || "";
     return {
@@ -162,9 +162,9 @@ server.registerTool(
       let command: string;
 
       if (filePath) {
-        command = `markdownlint --disable MD013 -- "${filePath}" 2>&1`;
+        command = `markdownlint --disable MD013 MD033 -- "${filePath}" 2>&1`;
       } else {
-        command = `echo "${content?.replace(/"/g, '\\"')}" | markdownlint --disable MD013 --stdin 2>&1`;
+        command = `echo "${content?.replace(/"/g, '\\"')}" | markdownlint --disable MD013 MD033 --stdin 2>&1`;
       }
 
       try {
