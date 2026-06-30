@@ -112,9 +112,9 @@ let
         "hypridle"
         "enable"
       ];
-      mitmproxy = [
+      opensnitch = [
         "services"
-        "mitmproxy"
+        "opensnitch"
         "enable"
       ];
       netdata-monitor = [
@@ -191,8 +191,8 @@ in
         dev = self.nixosModules.dev;
         docker-compose-stacks = self.nixosModules.docker-compose-stacks;
         homepage-monitor = self.nixosModules.homepage-monitor;
-        mitmproxy = self.nixosModules.mitmproxy;
         netdata-monitor = self.nixosModules.netdata-monitor;
+        opensnitch = self.nixosModules.opensnitch;
         nix = self.nixosModules.nix;
         opencode = self.nixosModules.opencode;
         omp = self.nixosModules.omp;

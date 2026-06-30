@@ -37,7 +37,6 @@
       openclawDomain = mkHostname "openclaw";
       dashboardDomain = mkHostname "dashboard";
       cockpitDomain = mkHostname "cockpit";
-      mitmproxyDomain = mkHostname "mitmproxy";
       vpnDomain = mkHostname "vpn";
       cliproxyapiDomain = mkHostname "cliproxyapi";
       omnirouteDomain = mkHostname "omniroute";
@@ -204,10 +203,6 @@
                 middlewares = [ "services-auth" ];
                 tls = { };
               };
-              mitmproxy = mkProtectedServiceRouter {
-                rule = "Host(`${mitmproxyDomain}`)";
-                service = "mitmproxy";
-              };
               vpn = mkProtectedServiceRouter {
                 rule = "Host(`${vpnDomain}`)";
                 service = "vpn";
@@ -271,7 +266,6 @@
               services-auth-gateway = mkDirectService servicesAuthGatewayPort;
               dashboard = mkDirectService 8082;
               cockpit = mkDirectService config.services.cockpit-managed.port;
-              mitmproxy = mkDirectService 8083;
               vpn = mkDirectService 10802;
               cliproxyapi = mkDirectService 8317;
               omniroute = mkDirectService 20128;

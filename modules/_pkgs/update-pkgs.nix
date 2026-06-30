@@ -70,7 +70,7 @@ pkgs.writeShellApplication {
       acp-chat | omniroute | omp-desktop | openchamber-web | cpa-usage-keeper | services-auth-gateway | niri-screen-time | daisyui-mcp | lyricsctl | mattpocock-skills)
         printf '%s\n' light
         ;;
-      cliproxyapi | brave-origin | patchright | iloader | playwright-cli | cake-wallet-flatpak | orca | limux | seance | dogecoin | antigravity-manager | waydroid-script | waydroid-total-spoof | sideloader | snitch | quickshell-docs-markdown | stdio-to-ws)
+      cliproxyapi | brave-origin | patchright | iloader | playwright-cli | cake-wallet-flatpak | orca | limux | seance | dogecoin | antigravity-manager | waydroid-script | waydroid-total-spoof | sideloader | quickshell-docs-markdown | stdio-to-ws)
         printf '%s\n' medium
         ;;
       wallpapers | aptos-fonts)
@@ -94,7 +94,7 @@ pkgs.writeShellApplication {
       cliproxyapi | niri-screen-time)
         printf '%s\n' nix-update
         ;;
-      antigravity-manager | aptos-fonts | iloader | lyricsctl | pass-credential | patchright | playwright-cli | quickshell-docs-markdown | services-auth-gateway | sideloader | snitch | wallpapers)
+      antigravity-manager | aptos-fonts | iloader | lyricsctl | pass-credential | patchright | playwright-cli | quickshell-docs-markdown | services-auth-gateway | sideloader | wallpapers)
         printf '%s\n' manual
         ;;
       *) printf '%s\n' nix-update+fallback ;;
@@ -113,7 +113,6 @@ pkgs.writeShellApplication {
       quickshell-docs-markdown) printf '%s\n' "multi-source Rust with pinned deps" ;;
       services-auth-gateway) printf '%s\n' "local generated Python app" ;;
       sideloader) printf '%s\n' "iOS sideloader with signing deps" ;;
-      snitch) printf '%s\n' "custom build process" ;;
       wallpapers) printf '%s\n' "pinned image set with many fixed URLs" ;;
       *) return 1 ;;
       esac
@@ -378,7 +377,7 @@ pkgs.writeShellApplication {
     package_smoke_commands() {
       local pkg="$1" bin="$2"
       case "$pkg" in
-      acp-chat | cliproxyapi | cpa-usage-keeper | dogecoin | limux | lyricsctl | niri-screen-time | omniroute | openchamber-web | pass-credential | patchright | playwright-cli | seance | services-auth-gateway | sideloader | snitch | stdio-to-ws | waydroid-script | waydroid-total-spoof)
+      acp-chat | cliproxyapi | cpa-usage-keeper | dogecoin | limux | lyricsctl | niri-screen-time | omniroute | openchamber-web | pass-credential | patchright | playwright-cli | seance | services-auth-gateway | sideloader | stdio-to-ws | waydroid-script | waydroid-total-spoof)
         printf '%s\t%s\n' "$bin" "--help"
         ;;
       *)
@@ -1488,12 +1487,6 @@ pkgs.writeShellApplication {
         "sideloader")
           # Skip: iOS sideloader with signing deps (manual update required)
           echo " Skipping sideloader (manual update required - iOS sideloader with signing deps)"
-          SKIPPED+=("$pkg")
-          ;;
-
-        "snitch")
-          # Skip: TUI network inspector with custom build process (manual update required)
-          echo " Skipping snitch (manual update required - custom build process)"
           SKIPPED+=("$pkg")
           ;;
 

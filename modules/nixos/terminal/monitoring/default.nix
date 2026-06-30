@@ -9,7 +9,6 @@
       imports = [
         self.nixosModules.netdata-monitor
         self.nixosModules.homepage-monitor
-        self.nixosModules.mitmproxy
       ];
     };
 }

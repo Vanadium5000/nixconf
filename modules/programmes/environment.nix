@@ -82,16 +82,11 @@
             speedtest-go # Internet speed test using speedtest.net
             iperf3 # Connection benchmarking
 
-            # Network monitoring TUI tools
-            termshark # TUI packet analyzer (uses tshark backend)
             usbutils # Tools for working with USB devices, such as lsusb
             iw # Configuration utility for wireless devices
 
             # BTRFS
             btdu # Disk usage
-          ]
-          ++ [
-            self'.packages.snitch # TUI for inspecting network connections (netstat for humans)
           ]
           ++
             # Language runtimes/compilers
@@ -137,7 +132,7 @@
               hashcat # Advanced password recovery
               hcxtools # hcxpcapngtool, hcxdumptool
 
-              # Network / MITM
+              # Network attack simulation
               bettercap # Network attacks and monitoring
               responder # LLMNR/NBT-NS/mDNS poisoner
 

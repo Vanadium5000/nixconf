@@ -286,13 +286,6 @@
       # Fleet dashboard portal — accessible via Tailscale at http://main-vps:8082
       services.homepage-monitor.enable = true;
 
-      # HTTPS traffic analyzer — on-demand: systemctl start mitmproxy
-      services.mitmproxy.enable = true;
-      # Dokploy's localhost-bound Traefik already occupies 127.0.0.1:81 on this host.
-      # Move mitmproxy's explicit proxy listener so the on-demand analyzer can start reliably.
-      services.mitmproxy.proxyPort = 8084;
-      services.mitmproxy.trustCA = true;
-
       # ntfy keeps runtime databases below /var/lib; persist it explicitly
       # because this host wipes the root filesystem on boot. Bifrost's state is
       # owned by systemd StateDirectory and intentionally not bind-mounted here:

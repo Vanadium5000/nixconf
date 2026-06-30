@@ -153,22 +153,6 @@
           };
         };
 
-        # Network monitoring tools
-        # - snitch: TUI for inspecting network connections (netstat for humans)
-        # - mitmproxy: managed by services.mitmproxy module (monitoring/mitmproxy.nix)
-        # - termshark: TUI packet analyzer (in environment.nix, uses tshark)
-
-        # Grant network capture capabilities for packet sniffing tools
-        security.wrappers.dumpcap = {
-          source = "${pkgs.wireshark-cli}/bin/dumpcap";
-          capabilities = "cap_net_raw,cap_net_admin+eip";
-          owner = "root";
-          group = "wireshark";
-        };
-
-        # Keep wireshark group for capture permissions (used by termshark)
-        users.groups.wireshark = { };
-
         # Environment Variables
         environment.variables = {
           # PASSWORD_STORE_DIR for stuff like qs-passmenu

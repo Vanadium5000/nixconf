@@ -137,9 +137,9 @@
         }))
       ];
 
-      # HTTPS traffic analyzer — on-demand: systemctl start mitmproxy
-      services.mitmproxy.enable = true;
-      services.mitmproxy.trustCA = true;
+      # Interactive outbound firewall; config/rules stay mutable in /var/lib/opensnitch.
+      # Source: https://github.com/evilsocket/opensnitch/wiki/Configurations
+      services.opensnitch.enable = true;
       services.cockpit-managed = {
         enable = true;
         host = "0.0.0.0";

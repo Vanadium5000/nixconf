@@ -233,7 +233,6 @@
               "docker"
               "ydotool" # Wayland automation tool
               "pipewire"
-              "wireshark" # Network capture permissions (for termshark/dumpcap)
               "dialout" # For serial port access (e.g. ESP32)
               "input"
             ]

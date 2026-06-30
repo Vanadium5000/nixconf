@@ -121,9 +121,9 @@
           + ":${config.hardware.nvidia.package}/lib:$LD_LIBRARY_PATH"; # Extra for btop nvidia support
       };
 
-      # HTTPS traffic analyzer — on-demand: systemctl start mitmproxy
-      services.mitmproxy.enable = true;
-      services.mitmproxy.trustCA = true;
+      # Interactive outbound firewall; config/rules stay mutable in /var/lib/opensnitch.
+      # Source: https://github.com/evilsocket/opensnitch/wiki/Configurations
+      services.opensnitch.enable = true;
       services.cockpit-managed = {
         enable = true;
         host = "0.0.0.0";

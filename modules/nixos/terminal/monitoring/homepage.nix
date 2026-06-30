@@ -37,7 +37,6 @@
         dashboard = cfg.port;
         cockpit = portOf [ "services" "cockpit-managed" "port" ] 9090;
         acpChat = portOf [ "services" "acp-chat" "port" ] 8732;
-        mitmproxy = portOf [ "services" "mitmproxy" "webPort" ] 8083;
         vpn = portOf [ "services" "vpn-proxy" "webUiPort" ] 10802;
         cliproxyapi = portOf [ "services" "cliproxyapi" "port" ] 8317;
         omniroute = portOf [ "services" "omniroute" "port" ] 20128;
@@ -85,16 +84,6 @@
           label = "ACP Chat";
           icon = "mdi-chat-processing";
           description = "Browser UI for local ACP agents";
-        };
-        mitmproxy = {
-          enable = serviceEnabled [
-            "services"
-            "mitmproxy"
-          ];
-          port = ports.mitmproxy;
-          label = "Mitmproxy";
-          icon = "mdi-security";
-          description = "On-demand HTTPS traffic analysis UI";
         };
         vpn = {
           enable = serviceEnabled [

@@ -28,6 +28,7 @@
         self.nixosModules.hyprland-support
         self.nixosModules.dankmemershell
         self.nixosModules.tuigreet
+        self.nixosModules.opensnitch
 
         self.nixosModules.obs
         self.nixosModules.obsidian

@@ -27,14 +27,14 @@ Update this section in the same edit whenever host layout, routes, ports, primar
 flake.nix -> import-tree [ ./modules ./secrets.nix ]; exports/options map: modules/exports.nix
 
 main_vps: modules/hosts/main_vps/
-├─ configuration.nix: imports terminal, cockpit, nix-dokploy, disko; enables Dokploy, CLIProxyAPI, Bifrost, OmniRoute, CPA Usage Keeper, VPN proxy, ntfy, homepage, mitmproxy
+├─ configuration.nix: imports terminal, cockpit, nix-dokploy, disko; enables Dokploy, CLIProxyAPI, Bifrost, OmniRoute, CPA Usage Keeper, VPN proxy, ntfy, homepage
 ├─ remote-unlock.nix: systemd initrd network + SSH unlock on public :22 before stage-2 sshd starts
 ├─ my-website.nix: public edge; Traefik :80/:443 + ACME wildcard; services-auth-gateway 127.0.0.1:41276
 │  ├─ Dokploy apps: apex/wildcard/openclaw -> dokploy-traefik 127.0.0.1:81
 │  ├─ primary AI gateway: CLIProxyAPI 127.0.0.1:8317 -> https://cliproxyapi.<domain>; used by CPA Usage Keeper
 │  ├─ Bifrost gateway/dashboard: 127.0.0.1:20129 -> https://bifrost.<domain>; proxies OpenAI-compatible requests to CLIProxyAPI
 │  ├─ OmniRoute gateway/dashboard: 127.0.0.1:20128 -> https://omniroute.<domain>
-│  └─ protected dashboards: dashboard/cockpit/mitmproxy/vpn/cpa-usage/portainer/mongo via services-auth; Baikal/DAV bypasses shared auth
+│  └─ protected dashboards: dashboard/cockpit/vpn/cpa-usage/portainer/mongo via services-auth; Baikal/DAV bypasses shared auth
 └─ service settings/packages
    ├─ services.homepage-monitor: modules/nixos/terminal/monitoring/homepage.nix; local magic DNS names route enabled dashboard services from http://<name>/ to localhost ports with proxy headers/WebSockets/cookie/redirect handling while keeping direct localhost:<port> open
    ├─ services.omniroute: modules/nixos/terminal/omniroute.nix; modules/_pkgs/omniroute.nix
@@ -52,6 +52,7 @@ graphical hosts: modules/hosts/{legion5i,macbook}/
 ├─ keep unrelated qs-* tools (qs-dmenu/passmenu/wallpaper) until explicitly migrated
 ├─ Hyprland: modules/nixos/desktop/hyprland/ plus modules/user/hyprland.nix
 ├─ local VPN proxy enabled for desktop routing/testing
+├─ OpenSnitch enabled with eBPF/nftables; daemon/UI config and rules persist mutably in /var/lib/opensnitch and ~/.config/opensnitch
 └─ qBittorrent WebUI: Gluetun/PIA stack binds 127.0.0.1:8088; qBittorrent shares Gluetun network namespace, pins torrent traffic to tun0, and downloads to persisted ~/Torrents
 
 persistence helpers: modules/lib/_internal/persistence.nix; NixOS module modules/common/impermanence.nix; app state split across home persistence/cache for Orca, Limux, gh, OpenCode, OMP

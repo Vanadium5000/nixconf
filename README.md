@@ -55,9 +55,9 @@ flake.nix
 
 | Host | Role | Profile flags | User | Main responsibilities |
 | --- | --- | --- | --- | --- |
-| `legion5i` | Primary graphical laptop | `terminal`, `desktop`, `laptop` | `matrix` | Hyprland/DankMaterialShell, CUDA/Nvidia, OBS, Obsidian, HDMI-CEC TV remote media controls, local VPN proxy, ntfy, mitmproxy, Unison |
-| `macbook` | T2 graphical laptop | `terminal`, `desktop`, `laptop` | `matrix` | Hyprland/DankMaterialShell, Apple T2 support, T2 firmware bundle, ntfy, mitmproxy, local VPN proxy, Unison |
-| `main_vps` | Headless service host | `terminal`, `server` | `server` | Traefik edge, Dokploy, CLIProxyAPI, Bifrost, OmniRoute, CPA Usage Keeper, services-auth-gateway, ntfy, homepage, mitmproxy, VPN proxy |
+| `legion5i` | Primary graphical laptop | `terminal`, `desktop`, `laptop` | `matrix` | Hyprland/DankMaterialShell, CUDA/Nvidia, OBS, Obsidian, HDMI-CEC TV remote media controls, OpenSnitch, local VPN proxy, ntfy, Unison |
+| `macbook` | T2 graphical laptop | `terminal`, `desktop`, `laptop` | `matrix` | Hyprland/DankMaterialShell, Apple T2 support, T2 firmware bundle, OpenSnitch, ntfy, local VPN proxy, Unison |
+| `main_vps` | Headless service host | `terminal`, `server` | `server` | Traefik edge, Dokploy, CLIProxyAPI, Bifrost, OmniRoute, CPA Usage Keeper, services-auth-gateway, ntfy, homepage, VPN proxy |
 
 > [!TIP]
 > `modules/hosts/ionos_vps/` exists as a directory but is not exported as a current `nixosConfiguration`.
@@ -138,7 +138,7 @@ services.omniroute.enable = true;
 services.dokploy.enable = true;
 services.homepage-monitor.enable = true;
 services.hypridle.enable = true;
-services.mitmproxy.enable = true;
+services.opensnitch.enable = true;
 services.netdata-monitor.enable = true;
 services.unison-sync.enable = true;
 services.vpn-proxy.enable = true;
@@ -164,6 +164,7 @@ Graphical hosts import `modules/nixos/desktop/default.nix`, which extends the te
 | 📺 HDMI-CEC | `modules/nixos/desktop/system/hdmi-cec.nix` | Optional `preferences.hardware.hdmiCec.enable`; configures `/dev/cec*` adapters as playback devices so TV remote media keys reach Linux input. |
 | 🌍 Browser | `modules/nixos/desktop/firefox/firefox.nix` | LibreWolf/Firefox policy and user config. |
 | ✍️ Editor/IDE | `modules/programmes/fresh.nix`, `modules/nixos/desktop/vscodium/` | Fresh as terminal editor; VSCodium with declarative extensions/theme. |
+| 🧱 Firewall | `modules/nixos/desktop/opensnitch.nix` | OpenSnitch daemon/UI, eBPF process monitor, nftables backend, mutable persisted config/rules. |
 | 🧰 Apps | `modules/nixos/desktop/flatpaks/`, `obs.nix`, `obsidian.nix`, `qt.nix`, `tuigreet.nix` | Desktop app set, Flatpak integration, display greeter, Qt theming. |
 
 ### ⌨️ Shell boundary
@@ -180,13 +181,13 @@ Graphical hosts import `modules/nixos/desktop/default.nix`, which extends the te
 
 | Path | Purpose |
 | --- | --- |
-| `modules/hosts/main_vps/configuration.nix` | Enables Dokploy, CLIProxyAPI, Bifrost, OmniRoute, CPA Usage Keeper, VPN proxy, ntfy, homepage, mitmproxy, Unison. |
+| `modules/hosts/main_vps/configuration.nix` | Enables Dokploy, CLIProxyAPI, Bifrost, OmniRoute, CPA Usage Keeper, VPN proxy, ntfy, homepage, Unison. |
 | `modules/hosts/main_vps/my-website.nix` | Traefik edge, wildcard ACME, protected dashboard routing, services-auth-gateway integration. |
 | `modules/hosts/main_vps/remote-unlock.nix` | Initrd network and SSH unlock on public port 22 before stage-2 sshd. |
 | `modules/nixos/terminal/services-auth-gateway.nix` | Shared auth gateway service module. |
 | `modules/nixos/terminal/bifrost.nix` | Imports upstream Bifrost flake module and patched upstream fixed-output hashes; host config seeds config.json at service start. |
 | `modules/nixos/terminal/docker-compose-stacks.nix` | Discovers `modules/docker/compose/<stack>/*.yaml` and creates per-stack systemd `docker compose up/down` units. |
-| `modules/nixos/terminal/monitoring/` | Homepage, Netdata, mitmproxy modules. |
+| `modules/nixos/terminal/monitoring/` | Homepage and Netdata modules. |
 
 ```text
 :80/:443 Traefik + wildcard ACME
@@ -195,7 +196,7 @@ Graphical hosts import `modules/nixos/desktop/default.nix`, which extends the te
 ├─ bifrost.<domain>      -> Bifrost on 127.0.0.1:20129; proxies to CLIProxyAPI
 ├─ omniroute.<domain>    -> OmniRoute on 127.0.0.1:20128
 ├─ cpa-usage.<domain>   -> CPA Usage Keeper
-└─ dashboard/cockpit/mitmproxy/vpn/portainer/mongo -> services-auth-gateway on 127.0.0.1:41276
+└─ dashboard/cockpit/vpn/portainer/mongo -> services-auth-gateway on 127.0.0.1:41276
 ```
 
 > [!IMPORTANT]
@@ -210,7 +211,6 @@ Graphical hosts import `modules/nixos/desktop/default.nix`, which extends the te
 | `dashboard/` | 8082 | all terminal/profile hosts with Homepage enabled | Homepage itself. |
 | `cockpit/` | 9090 | `main_vps`, `legion5i`, `macbook` | Cockpit system dashboard. |
 | `acp-chat/` | 8732 | terminal/profile hosts | Local ACP browser UI. |
-| `mitmproxy/` | 8083 | `main_vps`, `legion5i`, `macbook` | Mitmweb UI; use the declarative `system/mitmproxy/web-password`, proxy listener remains separate. |
 | `vpn/` | 10802 | `main_vps`, `legion5i`, `macbook` | VPN proxy management UI. |
 | `cliproxyapi/` | 8317 | `main_vps` | Links to `/management.html`. |
 | `omniroute/` | 20128 | `main_vps` | OmniRoute gateway/dashboard. |
@@ -295,7 +295,7 @@ acp-chat, antigravity-manager, aptos-fonts, brave-origin, cake-wallet-flatpak,
 cliproxyapi, cpa-usage-keeper, daisyui-mcp, dogecoin, iloader, limux,
 mattpocock-skills, niri-screen-time, omniroute, omp-desktop, openchamber-web,
 orca, patchright, playwright-cli, quickshell-docs-markdown, seance,
-pass-credential, services-auth-gateway, sideloader, snitch, stdio-to-ws, update-pkgs,
+pass-credential, services-auth-gateway, sideloader, stdio-to-ws, update-pkgs,
 wallpapers, waydroid-script, waydroid-total-spoof
 ```
 
