@@ -261,6 +261,7 @@
         impermanence.home.directories = [
           ".config/akonadi"
           ".config/orca"
+          ".config/BraveSoftware/Brave-Origin-Nightly" # Persisted as non-cache due to importance of contents
           ".local/share/akonadi"
           ".local/share/contacts"
           ".local/share/emailidentities"
@@ -271,8 +272,6 @@
           ".config/emaildefaults"
           ".config/emailidentities"
           ".config/kmail2rc"
-          # Persist browser data normally due to high data importance
-          ".config/BraveSoftware/Brave-Origin-Nightly"
         ];
 
         # Orca rewrites Electron profile/auth and workspace/session files during
