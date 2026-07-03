@@ -118,10 +118,27 @@ buildNpmPackage (finalAttrs: {
         rm -rf "$out/lib/omniroute/app/node_modules/wreq-js"
         rm -rf "$out/lib/omniroute/app/node_modules/better-sqlite3"
 
-        # Upstream's CLI forces the spawned Next.js server to 0.0.0.0. Keep that
-        # default for CLI users, but give the NixOS service an explicit bind knob.
-        substituteInPlace "$out/lib/omniroute/bin/cli/commands/serve.mjs" \
-          --replace-fail 'HOSTNAME: "0.0.0.0",' 'HOSTNAME: process.env.OMNIROUTE_HOST || "0.0.0.0",'
+        # npm omniroute@3.8.42 published an empty serve.mjs while the matching
+        # GitHub tag has the real CLI command; repair from the tagged source and
+        # keep failing on unknown host-binding shapes so update-pkgs catches drift.
+        # Source: https://github.com/diegosouzapw/OmniRoute/blob/v3.8.42/bin/cli/commands/serve.mjs
+        serveCommand="$out/lib/omniroute/bin/cli/commands/serve.mjs"
+        if [ ! -s "$serveCommand" ]; then
+          cp ${docsSrc}/bin/cli/commands/serve.mjs "$serveCommand"
+          chmod +x "$serveCommand"
+        fi
+        if grep -q 'HOSTNAME: process.env.HOSTNAME || "0.0.0.0",' "$serveCommand"; then
+          substituteInPlace "$serveCommand" \
+            --replace-fail 'HOSTNAME: process.env.HOSTNAME || "0.0.0.0",' 'HOSTNAME: process.env.OMNIROUTE_HOST || process.env.HOSTNAME || "0.0.0.0",'
+        elif grep -q 'HOSTNAME: "0.0.0.0",' "$serveCommand"; then
+          substituteInPlace "$serveCommand" \
+            --replace-fail 'HOSTNAME: "0.0.0.0",' 'HOSTNAME: process.env.OMNIROUTE_HOST || "0.0.0.0",'
+        elif grep -q 'OMNIROUTE_HOST' "$serveCommand"; then
+          :
+        else
+          echo "Unsupported OmniRoute serve host binding in $serveCommand" >&2
+          exit 1
+        fi
 
         makeWrapper ${nodejs}/bin/node "$out/bin/omniroute" \
           --add-flags "$out/lib/omniroute/bin/omniroute.mjs" \

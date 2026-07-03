@@ -377,7 +377,13 @@ pkgs.writeShellApplication {
     package_smoke_commands() {
       local pkg="$1" bin="$2"
       case "$pkg" in
-      acp-chat | cliproxyapi | cpa-usage-keeper | dogecoin | limux | lyricsctl | niri-screen-time | omniroute | openchamber-web | pass-credential | patchright | playwright-cli | seance | services-auth-gateway | sideloader | stdio-to-ws | waydroid-script | waydroid-total-spoof)
+      omniroute)
+        # omniroute's npm artifact has shipped CLI command drift before (notably
+        # an empty bin/cli/commands/serve.mjs in 3.8.42). `--help` imports the
+        # command registry, which catches missing exports without starting the server.
+        printf '%s\t%s\n' "$bin" "--help"
+        ;;
+      acp-chat | cliproxyapi | cpa-usage-keeper | dogecoin | limux | lyricsctl | niri-screen-time | openchamber-web | pass-credential | patchright | playwright-cli | seance | services-auth-gateway | sideloader | stdio-to-ws | waydroid-script | waydroid-total-spoof)
         printf '%s\t%s\n' "$bin" "--help"
         ;;
       *)
@@ -934,6 +940,12 @@ pkgs.writeShellApplication {
         echo "    Could not prefetch npm/docs sources"
         return 1
       fi
+
+      # The package repairs an empty npm serve.mjs from the matching GitHub tag
+      # and patches the host binding during install. Keep the updater's success
+      # path tied to a real build so future artifact/tag drift cannot be reported
+      # as an update that is safe to deploy.
+      # Source: modules/_pkgs/omniroute.nix
 
       if [ "$current_version" != "$latest_version" ]; then
         echo "    Updating version: $current_version -> $latest_version"
