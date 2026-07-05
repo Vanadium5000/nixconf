@@ -80,6 +80,15 @@
                     ];
                     mountpoint = "/persist";
                   };
+                  # Declare /persist/system as a seperate subvolume for seperation of data/easier backups
+                  "/persist-system" = {
+                    mountpoint = "/persist/system";
+                    mountOptions = [
+                      "subvol=persist-system"
+                      "compress=zstd"
+                      "noatime"
+                    ];
+                  };
 
                   # Parent is not mounted so the mountpoint must be set
                   "/old_roots" = {
