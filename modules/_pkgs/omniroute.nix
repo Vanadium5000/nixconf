@@ -16,12 +16,12 @@
 }:
 
 let
-  version = "3.8.42";
+  version = "3.8.44";
   docsSrc = fetchFromGitHub {
     owner = "diegosouzapw";
     repo = "OmniRoute";
     rev = "v${version}";
-    hash = "sha256-D1qAjdNRMVecvOxpk/eE6mpwoa/ktvEFTxKgXJzMH8w=";
+    hash = "sha256-/cyDXqH2bmyTjR64qCGUsYaUFBnvX3x9UKcMZfP7j/A=";
   };
 in
 buildNpmPackage (finalAttrs: {
@@ -32,7 +32,7 @@ buildNpmPackage (finalAttrs: {
   # already contains the Next.js standalone app that upstream publishes.
   src = fetchurl {
     url = "https://registry.npmjs.org/omniroute/-/omniroute-${finalAttrs.version}.tgz";
-    hash = "sha256-EuKXkUMzUoTA2wm/RbqrlIIqw47a7+0Ki46d1rJxbNk=";
+    hash = "sha256-EehPVOjhY+UckJw+yexS5WBASGW2heyFIN15BuU7xEU=";
   };
 
   sourceRoot = "package";
@@ -59,7 +59,13 @@ buildNpmPackage (finalAttrs: {
   '';
 
   # Hash of the dependencies from package-lock.json
-  npmDepsHash = "sha256-g/pphT9GTGSBIPQ6VqchxN9f/J0dgVPR8TRN519wz+0=";
+  npmDepsHash = "sha256-NbNvdqf+C12xX//etp5OGai27V0nCUCG0mapOUaSY2E=";
+  # The upstream lockfile carries dev-only Bun packages whose install script
+  # expects npm's optional @oven/bun-* payloads; OmniRoute's npm tarball is
+  # already built, so keep dependency vendoring to runtime deps only.
+  # Source: https://github.com/diegosouzapw/OmniRoute/blob/v${version}/package-lock.json
+  npmInstallFlags = [ "--omit=dev" ];
+  npmPruneFlags = [ "--omit=dev" ];
   npmFlags = [ "--legacy-peer-deps" ];
   # onnxruntime-node downloads optional CUDA EP binaries when CPU binaries are
   # already bundled; the postinstall flag keeps npmDepsHash refreshes network-free.

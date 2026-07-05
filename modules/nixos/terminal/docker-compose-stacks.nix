@@ -16,6 +16,7 @@
         concatMapStringsSep
         filterAttrs
         hasSuffix
+        imap0
         listToAttrs
         mapAttrs
         mapAttrsToList
@@ -54,16 +55,29 @@
       enabledStacks = filterAttrs (
         name: stack: (cfg.stacks.${name}.enable or false) && stack.files != [ ]
       ) cfg.stacks;
-      composeFileArgs =
-        files: concatMapStringsSep " " (file: "-f ${lib.escapeShellArg (toString file)}") files;
+      indexedFiles = files: imap0 (index: file: { inherit index file; }) files;
+      bundledFileName = indexed: "${toString indexed.index}-${baseNameOf (toString indexed.file)}";
+      composeFileArgs = files: concatMapStringsSep " " (file: "-f ${lib.escapeShellArg file}") files;
       dockerCompose = "${pkgs.docker-compose}/bin/docker-compose";
       stackServiceName = name: "docker-compose-stack-${name}";
+      composeBundleFor =
+        name: files:
+        pkgs.runCommand "${stackServiceName name}-compose-files" { } ''
+          install -d -m 0755 "$out"
+          ${concatMapStringsSep "\n" (indexed: ''
+            install -m 0644 ${indexed.file} "$out/${bundledFileName indexed}"
+          '') (indexedFiles files)}
+        '';
       credentialName = credential: builtins.head (splitString ":" credential);
       mkStackService =
         name: stack:
         let
           serviceName = stackServiceName name;
-          composeArgs = composeFileArgs stack.files;
+          composeWorkDir = composeBundleFor name stack.files;
+          bundledFiles = map (indexed: "${composeWorkDir}/${bundledFileName indexed}") (
+            indexedFiles stack.files
+          );
+          composeArgs = composeFileArgs bundledFiles;
           liveCredentialsDir = "/run/nixconf-compose-live/${name}";
           # Docker Compose secret files are bind-mounted by the daemon after this oneshot exits;
           # copy systemd LoadCredential files to a user cache path so the bind source still exists.
@@ -106,7 +120,7 @@
           serviceConfig = {
             Type = "oneshot";
             RemainAfterExit = true;
-            WorkingDirectory = toString (composeRoot + "/${name}");
+            WorkingDirectory = composeWorkDir;
             ExecStartPre = preStart;
             ExecStart = start;
             ExecStop = stop;
