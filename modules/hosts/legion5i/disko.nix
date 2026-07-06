@@ -84,9 +84,7 @@
                   "/persist-system" = {
                     mountpoint = "/persist/system";
                     mountOptions = [
-                      "subvol=persist-system"
                       "compress=zstd"
-                      "noatime"
                     ];
                   };
 

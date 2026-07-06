@@ -62,10 +62,13 @@
           description = "Whether OmniRoute should mark dashboard auth cookies as HTTPS-only";
         };
 
-        initialPasswordFile = mkOption {
+        initialPassword = mkOption {
           type = types.nullOr types.str;
           default = null;
-          description = "Runtime file containing the initial dashboard password for first bootstrap";
+          description = ''
+            Initial dashboard password used when OmniRoute is first initialized. If
+            unset, a random password is generated on first start.
+          '';
         };
 
         requireApiKey = mkOption {
@@ -142,43 +145,36 @@
           };
 
           preStart = ''
-            set -euo pipefail
-            umask 077
+              set -euo pipefail
+              umask 077
 
-            # Generate once so sessions and encrypted provider records survive
-            # restarts while avoiding secret material in the Nix store.
-            if [ ! -f ${lib.escapeShellArg envFile} ]; then
-              ${
-                if cfg.initialPasswordFile != null then
-                  ''
-                    # Read the password from persistent runtime state instead of
-                    # interpolating self.secrets into the unit, which would copy it
-                    # into the Nix store. Source: systemd.exec(5) EnvironmentFile
-                    # loads KEY=VALUE files at service start: https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#EnvironmentFile=
-                    initial_password_file=${lib.escapeShellArg cfg.initialPasswordFile}
-                    if [ ! -r "$initial_password_file" ]; then
-                      echo "Configured OmniRoute initialPasswordFile is not readable: $initial_password_file" >&2
-                      exit 1
-                    fi
-                    IFS= read -r initial_password < "$initial_password_file" || true
-                    if [ -z "$initial_password" ]; then
-                      echo "Configured OmniRoute initialPasswordFile is empty: $initial_password_file" >&2
-                      exit 1
-                    fi
-                  ''
-                else
-                  ''
-                    initial_password=$(${pkgs.openssl}/bin/openssl rand -base64 24)
-                  ''
-              }
-              cat > ${lib.escapeShellArg envFile} <<EOF
+              # Generate bootstrap secrets only once so dashboard sessions, encrypted
+              # provider credentials, and API keys survive service restarts.
+              #
+              # OmniRoute persists these values in DATA_DIR, so they must not be regenerated
+              # after the first successful start.
+              if [ ! -f ${lib.escapeShellArg envFile} ]; then
+                ${
+                  if cfg.initialPassword != null then
+                    ''
+                      # Use the administrator-supplied bootstrap password.
+                      initial_password=${lib.escapeShellArg cfg.initialPassword}
+                    ''
+                  else
+                    ''
+                      # No bootstrap password was configured, so generate one.
+                      initial_password="$(${pkgs.openssl}/bin/openssl rand -base64 24)"
+                    ''
+                }
+
+                cat > ${lib.escapeShellArg envFile} <<EOF
             INITIAL_PASSWORD=$initial_password
             JWT_SECRET=$(${pkgs.openssl}/bin/openssl rand -base64 48)
             API_KEY_SECRET=$(${pkgs.openssl}/bin/openssl rand -hex 32)
             EOF
-            fi
 
-            chmod 600 ${lib.escapeShellArg envFile}
+                chmod 600 ${lib.escapeShellArg envFile}
+              fi
           '';
         };
 

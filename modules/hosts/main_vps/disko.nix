@@ -7,7 +7,7 @@
     disko.devices = {
       disk = {
         main = {
-          device = "/dev/vda";
+          device = "/dev/sda";
           type = "disk";
           content = {
             type = "gpt";
@@ -84,9 +84,7 @@
                   "/persist-system" = {
                     mountpoint = "/persist/system";
                     mountOptions = [
-                      "subvol=persist-system"
                       "compress=zstd"
-                      "noatime"
                     ];
                   };
 

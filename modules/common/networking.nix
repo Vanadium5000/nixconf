@@ -147,7 +147,7 @@
 
             cache = true;
             cache_size = 4096; # Number of cached entries
-            cache_min_ttl = 2400; # 40 minutes minimum
+            cache_min_ttl = 0; # 0 minutes minimum
             cache_max_ttl = 86400; # 24 hours maximum
             cache_neg_min_ttl = 60; # Cache negative responses (NXDOMAIN) for 1 min
             cache_neg_max_ttl = 600; # Max 10 minutes for negative cache
