@@ -70,6 +70,7 @@
         self.nixosModules.nix
         self.nixosModules.memory
         self.nixosModules.btrfs-maintenance
+        self.nixosModules.btrbk-persist-system
         self.nixosModules.tailscale
         self.nixosModules.virtualisation
         self.nixosModules.nixconf-docs
@@ -119,6 +120,7 @@
         # Source: local state layout observed at ~/.omp/agent/{config.yml,models.yml}.
         programs.omp.enable = lib.mkDefault true;
         programs.paseo.enable = lib.mkDefault true;
+        preferences.btrbkPersistSystem.enable = lib.mkDefault true;
 
         # GitHub CLI auth/config is durable terminal profile state; request and
         # extension caches are cache-tier. Source: gh XDG config/cache layout.

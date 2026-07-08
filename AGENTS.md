@@ -44,6 +44,7 @@ main_vps: modules/hosts/main_vps/
    ├─ services.cpa-usage-keeper: modules/nixos/terminal/cpa-usage-keeper.nix; modules/_pkgs/cpa-usage-keeper.nix
    ├─ services.services-auth-gateway: modules/nixos/terminal/services-auth-gateway.nix; modules/_pkgs/services-auth-gateway.nix
    ├─ services.vpn-proxy: modules/nixos/scripts/bunjs/proxy/service.nix; docs/scripts in modules/nixos/scripts/bunjs/proxy/
+   ├─ manual btrbk backups: modules/nixos/terminal/btrbk.nix; backs up /persist/system to /run/media/<user>/<drive>/BTRFS-BACKUPS/<host>-<persisted 8 hex>/ with no timer
    └─ docker compose stacks: modules/nixos/terminal/docker-compose-stacks.nix discovers modules/docker/compose/<stack>/*.yaml; portainer enabled fleet-wide; gluetun-qbittorrent enabled on desktop hosts only
 
 graphical hosts: modules/hosts/{legion5i,macbook}/
@@ -56,7 +57,7 @@ graphical hosts: modules/hosts/{legion5i,macbook}/
 ├─ OpenSnitch enabled with eBPF/nftables; daemon/UI config and mutableRules-seeded rules persist mutably in /var/lib/opensnitch and ~/.config/opensnitch
 └─ qBittorrent WebUI: Gluetun/PIA stack binds 127.0.0.1:8088; qBittorrent shares Gluetun network namespace, pins torrent traffic to tun0, and downloads to persisted ~/Torrents
 
-persistence helpers: modules/lib/_internal/persistence.nix; NixOS module modules/common/impermanence.nix; app state split across home persistence/cache for Orca, Limux, gh, OpenCode, OMP
+persistence helpers: modules/lib/_internal/persistence.nix; NixOS module modules/common/impermanence.nix; app state split across home persistence/cache for Orca, Limux, gh, OpenCode, OMP; btrbk host target suffix/transactions persist in /var/lib/btrbk
 monitoring dashboards: modules/nixos/terminal/monitoring/
 ```
 

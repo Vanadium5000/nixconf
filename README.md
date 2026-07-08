@@ -55,9 +55,9 @@ flake.nix
 
 | Host | Role | Profile flags | User | Main responsibilities |
 | --- | --- | --- | --- | --- |
-| `legion5i` | Primary graphical laptop | `terminal`, `desktop`, `laptop` | `matrix` | Hyprland/DankMaterialShell, CUDA/Nvidia, OBS, Obsidian, HDMI-CEC TV remote media controls, OpenSnitch, local VPN proxy, ntfy, Unison |
-| `macbook` | T2 graphical laptop | `terminal`, `desktop`, `laptop` | `matrix` | Hyprland/DankMaterialShell, Apple T2 support, T2 firmware bundle, OpenSnitch, ntfy, local VPN proxy, Unison |
-| `main_vps` | Headless service host | `terminal`, `server` | `server` | Traefik edge, Dokploy, CLIProxyAPI, Bifrost, OmniRoute, CPA Usage Keeper, services-auth-gateway, ntfy, homepage, generated docs, VPN proxy |
+| `legion5i` | Primary graphical laptop | `terminal`, `desktop`, `laptop` | `matrix` | Hyprland/DankMaterialShell, CUDA/Nvidia, OBS, Obsidian, HDMI-CEC TV remote media controls, OpenSnitch, local VPN proxy, ntfy, Unison, manual btrbk `/persist/system` backups |
+| `macbook` | T2 graphical laptop | `terminal`, `desktop`, `laptop` | `matrix` | Hyprland/DankMaterialShell, Apple T2 support, T2 firmware bundle, OpenSnitch, ntfy, local VPN proxy, Unison, manual btrbk `/persist/system` backups |
+| `main_vps` | Headless service host | `terminal`, `server` | `server` | Traefik edge, Dokploy, CLIProxyAPI, Bifrost, OmniRoute, CPA Usage Keeper, services-auth-gateway, ntfy, homepage, generated docs, VPN proxy, manual btrbk `/persist/system` backups |
 
 > [!TIP]
 > `modules/hosts/ionos_vps/` exists as a directory but is not exported as a current `nixosConfiguration`.
@@ -245,6 +245,32 @@ Rules:
 - Global user state is limited to broad directories and credentials; app paths live beside the programme/service module that uses them.
 - Heavy or reinstallable data is cache-tier: `~/Downloads`, `~/Torrents`, `~/.bun`, `~/.npm`, `~/.paseo`, Orca speech models/logs/browser caches, `/var/log`, and `/var/lib/systemd`.
 - Terminal/desktop apps split mutable XDG state explicitly: `gh` auth and Orca workspace/session state are persisted; OpenCode, Limux, GitHub CLI, and editor caches stay cache-tier. Orca keeps one persisted Electron profile directory to avoid per-file impermanence races with first-run profile writes.
+
+### Manual btrbk backups
+
+All terminal-profile hosts install `btrbk` and the `btrbk-persist-system` wrapper from `modules/nixos/terminal/btrbk.nix`. The config is generated at `/etc/btrbk/persist-system.conf` and is intentionally manual; no timer is enabled.
+
+```bash
+sudo btrbk-persist-system
+sudo btrbk-persist-system --yes  # non-interactive creation of the missing BTRFS-BACKUPS root after safety checks
+# Equivalent low-level command after creating the target directory:
+sudo btrbk -c /etc/btrbk/persist-system.conf run
+```
+
+| Setting | Default |
+| --- | --- |
+| Source subvolume | `/persist/system` |
+| Local snapshots | `/persist/.btrbk-snapshots` |
+| External drive label | `preferences.btrbkPersistSystem.externalDriveLabel = "EXTERNAL DATA DRIVE"` |
+| Target root | `/run/media/<user>/<drive label>/BTRFS-BACKUPS/<host>-<8 hex chars>/` |
+| Backup names | `backup.YYYYMMDDThhmmss±zzzz` (`timestamp_format long-iso`) |
+| Retention | keep every target backup for `60d`; keep only the latest local snapshot unless needed for an incremental chain |
+
+The 8-character target suffix is generated once during activation and persisted in `/var/lib/btrbk/persist-system-target-code`, so impermanent-root reboots keep using the same target path. The wrapper checks that `/persist/system` is a Btrfs subvolume, verifies the removable drive mountpoint is mounted as Btrfs, prompts before first creating `BTRFS-BACKUPS`, creates the per-host target directory, then runs btrbk. Override the drive label per host with:
+
+```nix
+preferences.btrbkPersistSystem.externalDriveLabel = "My Backup Disk";
+```
 
 ---
 

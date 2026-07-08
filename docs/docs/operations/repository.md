@@ -24,6 +24,32 @@ flake.nix
 
 When a change affects operator behavior, public routes, host services, or recovery steps, update `docs/` in the same patch.
 
+## Manual `/persist/system` backups
+
+`modules/nixos/terminal/btrbk.nix` installs nixpkgs `btrbk` plus a `btrbk-persist-system` wrapper on every terminal-profile host. It backs up the `/persist/system` Btrfs subvolume to a removable Btrfs target under:
+
+```text
+/run/media/<primary-user>/<external-drive-label>/BTRFS-BACKUPS/<host>-<persistent-8-hex-code>/
+```
+
+Defaults:
+
+- Drive label preference: `preferences.btrbkPersistSystem.externalDriveLabel = "EXTERNAL DATA DRIVE"`.
+- Generated config: `/etc/btrbk/persist-system.conf`.
+- Persistent host suffix: `/var/lib/btrbk/persist-system-target-code`.
+- Retention: `target_preserve_min 60d`, no automatic timer.
+
+Run manually only:
+
+```bash
+sudo btrbk-persist-system
+sudo btrbk-persist-system --yes  # non-interactive root creation after safety checks
+```
+
+The wrapper verifies `/persist/system` is a Btrfs subvolume, confirms the configured drive path is the actual Btrfs mount point, prompts before first creating `BTRFS-BACKUPS`, creates the per-host target directory, and then calls `btrbk -c /etc/btrbk/persist-system.conf run`.
+
+References: [btrbk README](https://digint.ch/btrbk/doc/readme.html), [btrbk.conf(5)](https://digint.ch/btrbk/doc/btrbk.conf.5.html), [btrbk(1)](https://digint.ch/btrbk/doc/btrbk.1.html).
+
 ## Docs development dependencies
 
 Run dependency installs from the repository root so Bun wires every local workspace, including this Docusaurus site and the Bun script workspace:
