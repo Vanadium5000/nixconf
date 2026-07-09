@@ -113,6 +113,7 @@
           kdePackages.kio-extras # Additional IO protocols (sftp, smb, thumbnails)
           kdePackages.kio-admin # Admin actions in Dolphin
           kdePackages.polkit-kde-agent-1 # Polkit authentication agent (Required)
+          udiskie # Non-DMS tray disk manager for USB/LUKS media.
 
           kitty # Terminal Emulator
 
@@ -204,6 +205,23 @@
           serviceConfig = {
             ExecStart = "${config.programs.kdeconnect.package}/bin/kdeconnect-indicator";
             Restart = "on-failure";
+          };
+        };
+
+        # DMS no longer owns USB management; udiskie provides the tray UI,
+        # udisks2 operations, LUKS unlock prompts, and notifications in the
+        # user session. Sources: coldfix/udiskie doc/udiskie.8.txt; local DMS
+        # USBManager logs showed repeated list failures through its plugin path.
+        systemd.user.services.udiskie = {
+          description = "UDisks2 removable media tray manager";
+          wantedBy = [ "graphical-session.target" ];
+          partOf = [ "graphical-session.target" ];
+          after = [ "graphical-session.target" ];
+
+          serviceConfig = {
+            ExecStart = "${pkgs.udiskie}/bin/udiskie --tray --appindicator --notify --no-automount --file-manager ${pkgs.xdg-utils}/bin/xdg-open";
+            Restart = "on-failure";
+            RestartSec = 5;
           };
         };
 

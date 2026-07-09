@@ -76,11 +76,12 @@
         copy_file ${voxtypeWidgetPluginQmlFile} "$plugins_dir/voxtypeWidget/VoxtypeWidget.qml"
         copy_file ${./dank-material-shell/lyrics-widget/plugin.json} "$plugins_dir/lyricsWidget/plugin.json"
         copy_file ${lyricsWidgetPluginQmlFile} "$plugins_dir/lyricsWidget/LyricsWidget.qml"
+        rm -rf "$plugins_dir/usbManager"
 
         plugin_settings=${lib.escapeShellArg "${homeDirectory}/.config/DankMaterialShell/plugin_settings.json"}
         mkdir -p "$(dirname "$plugin_settings")"
         if [ -s "$plugin_settings" ]; then
-          ${pkgs.jq}/bin/jq '.lyricsWidget = ((.lyricsWidget // {}) + { enabled: true })' \
+          ${pkgs.jq}/bin/jq 'del(.usbManager) | .lyricsWidget = ((.lyricsWidget // {}) + { enabled: true })' \
             "$plugin_settings" > "$plugin_settings.tmp"
         else
           ${pkgs.jq}/bin/jq -n '{ lyricsWidget: { enabled: true } }' > "$plugin_settings.tmp"
@@ -288,6 +289,12 @@
           enableClipboardPaste = true;
         };
 
+        # DMS embeds a Quickshell polkit agent that currently selects the first
+        # admin identity. Limit graphical hosts to the session user so pkexec
+        # validates the password DMS asks for instead of another wheel account.
+        # Sources: Quickshell AuthFlow selectedIdentity default; polkit addAdminRule docs.
+        security.polkit.adminIdentities = lib.mkForce [ "unix-user:${user}" ];
+
         # DMS stores editable shell settings and Hyprland fragments under ~/.config;
         # plugin runtime state is XDG state, so persist it without Shared/Data sync.
         # Sources:
@@ -329,9 +336,14 @@
               install_plugin_file "${lyricsWidgetPluginDir}" ${./dank-material-shell/lyrics-widget/plugin.json} plugin.json
               install_plugin_file "${lyricsWidgetPluginDir}" ${lyricsWidgetPluginQmlFile} LyricsWidget.qml
 
+              # USB Manager is intentionally not a DMS plugin anymore; udiskie
+              # owns the tray UI/service. Remove the old registry-installed copy
+              # from persisted DMS config so PluginService cannot load it.
+              rm -rf "${homeDirectory}/.config/DankMaterialShell/plugins/usbManager"
+
               PLUGIN_SETTINGS="${homeDirectory}/.config/DankMaterialShell/plugin_settings.json"
               if [ -s "$PLUGIN_SETTINGS" ]; then
-                ${pkgs.jq}/bin/jq '.lyricsWidget = ((.lyricsWidget // {}) + { enabled: true })' \
+                ${pkgs.jq}/bin/jq 'del(.usbManager) | .lyricsWidget = ((.lyricsWidget // {}) + { enabled: true })' \
                   "$PLUGIN_SETTINGS" > "$PLUGIN_SETTINGS.tmp"
               else
                 ${pkgs.jq}/bin/jq -n '{ lyricsWidget: { enabled: true } }' > "$PLUGIN_SETTINGS.tmp"

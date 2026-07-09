@@ -52,6 +52,7 @@ graphical hosts: modules/hosts/{legion5i,macbook}/
 ├─ active shell: DankMaterialShell via preferences.dankMaterialShell.enable; module modules/nixos/desktop/dank-material-shell.nix
 ├─ DMS replaces Waybar, Hyprlock, Hyprsunset, qs-launcher, qs-notifications; keep dgop on pkgs.unstable.dgop
 ├─ keep unrelated qs-* tools (qs-dmenu/passmenu/wallpaper) until explicitly migrated
+├─ removable media: udiskie user service from modules/nixos/desktop/default.nix; DMS USB Manager plugin is removed from persisted DMS plugins
 ├─ Hyprland: modules/nixos/desktop/hyprland/ plus modules/user/hyprland.nix
 ├─ local VPN proxy enabled for desktop routing/testing
 ├─ OpenSnitch enabled with eBPF/nftables; daemon/UI config and mutableRules-seeded rules persist mutably in /var/lib/opensnitch and ~/.config/opensnitch

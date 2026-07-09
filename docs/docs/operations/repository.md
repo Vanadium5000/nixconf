@@ -50,6 +50,18 @@ The wrapper verifies `/persist/system` is a Btrfs subvolume, confirms the config
 
 References: [btrbk README](https://digint.ch/btrbk/doc/readme.html), [btrbk.conf(5)](https://digint.ch/btrbk/doc/btrbk.conf.5.html), [btrbk(1)](https://digint.ch/btrbk/doc/btrbk.1.html).
 
+## Graphical removable media
+
+Graphical hosts use [`modules/nixos/desktop/default.nix`](../../../modules/nixos/desktop/default.nix) to start `udiskie` as a `graphical-session.target` user service:
+
+```text
+udiskie --tray --appindicator --notify --no-automount --file-manager xdg-open
+```
+
+`udiskie` owns removable-disk tray actions, udisks2 mount/unmount, LUKS unlock prompts, and notifications. DankMaterialShell no longer owns USB management; [`modules/nixos/desktop/dank-material-shell.nix`](../../../modules/nixos/desktop/dank-material-shell.nix) deletes the old `usbManager` plugin from persisted DMS config and removes its plugin settings on activation/restart.
+
+References: [udiskie manual](https://github.com/coldfix/udiskie/blob/v2.6.2/doc/udiskie.8.txt), [freedesktop polkit architecture](https://www.freedesktop.org/software/polkit/docs/latest/polkit.8.html).
+
 ## Docs development dependencies
 
 Run dependency installs from the repository root so Bun wires every local workspace, including this Docusaurus site and the Bun script workspace:
