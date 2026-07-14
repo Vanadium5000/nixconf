@@ -602,7 +602,7 @@
                       temp_json=$(mktemp)
 
                       local http_status
-                      if ! http_status=$($CURL -sS -L --connect-timeout 10 --max-time 60 --retry 2 --retry-delay 1 \
+                      if ! http_status=$($CURL -sS -L --connect-timeout 25 --max-time 90 --retry 2 --retry-delay 1 \
                         -w '%{http_code}' -o "$response_file" \
                         -H "Authorization: Bearer $api_key" \
                         -H "Accept: application/json" \

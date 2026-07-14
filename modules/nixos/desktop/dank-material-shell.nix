@@ -14,6 +14,16 @@
       user = config.preferences.user.username;
       homeDirectory = config.preferences.paths.homeDirectory;
       selfpkgs = self.packages.${pkgs.stdenv.hostPlatform.system};
+      opensnitchRule = name: description: operator: {
+        inherit name description operator;
+        created = "2026-07-09T00:00:00Z";
+        updated = "2026-07-09T00:00:00Z";
+        action = "allow";
+        duration = "always";
+        enabled = true;
+        precedence = false;
+        nolog = false;
+      };
       inherit (self) colors;
       idleInhibitPluginDir = ".config/DankMaterialShell/plugins/idleInhibit";
       toggleLidInhibitPluginDir = ".config/DankMaterialShell/plugins/toggleLidInhibit";
@@ -261,6 +271,34 @@
       };
 
       config = lib.mkIf cfg.enable {
+        services.opensnitch.mutableRules = lib.mkIf config.services.opensnitch.enable {
+          "060-allow-open-meteo-weather" =
+            opensnitchRule "060-allow-open-meteo-weather"
+              "Allow the DankMaterialShell weather provider. Host-only because the request originates inside shell/plugin runtimes."
+              {
+                type = "list";
+                operand = "list";
+                data = "";
+                sensitive = false;
+                list = [
+                  {
+                    type = "simple";
+                    operand = "dest.host";
+                    data = "api.open-meteo.com";
+                    sensitive = false;
+                    list = null;
+                  }
+                  {
+                    type = "simple";
+                    operand = "dest.port";
+                    data = "443";
+                    sensitive = false;
+                    list = null;
+                  }
+                ];
+              };
+        };
+
         assertions = [
           {
             assertion = config.systemd.user.services ? dms;

@@ -7,6 +7,37 @@
       lib,
       ...
     }:
+    let
+      opensnitchRule = name: description: operator: {
+        inherit name description operator;
+        created = "2026-07-09T00:00:00Z";
+        updated = "2026-07-09T00:00:00Z";
+        action = "allow";
+        duration = "always";
+        enabled = true;
+        precedence = true;
+        nolog = false;
+      };
+      simple = operand: data: {
+        type = "simple";
+        inherit operand data;
+        sensitive = false;
+        list = null;
+      };
+      regexp = operand: data: {
+        type = "regexp";
+        inherit operand data;
+        sensitive = false;
+        list = null;
+      };
+      list = operators: {
+        type = "list";
+        operand = "list";
+        data = "";
+        sensitive = false;
+        list = operators;
+      };
+    in
     {
       imports = [
         inputs.nix-index-database.nixosModules.nix-index
@@ -33,6 +64,17 @@
       };
       programs.command-not-found.enable = false;
       programs.zsh.enable = true;
+
+      services.opensnitch.mutableRules = lib.mkIf config.services.opensnitch.enable {
+        "040-allow-nix-known-fetch-hosts" =
+          opensnitchRule "040-allow-nix-known-fetch-hosts"
+            "Merge Nix/Lix GitHub and binary-cache fetch prompts into one package-reference rule."
+            (list [
+              (simple "process.path" "${pkgs.lix}/bin/nix")
+              (regexp "dest.host" "^(api\\.github\\.com|github\\.com|api\\.github\\.com\\.lan|github\\.com\\.lan|raw\\.githubusercontent\\.com|cache\\.nixos\\.org|cache\\.numtide\\.com|cache\\.nixos-cuda\\.org|nix-community\\.cachix\\.org|hyprland\\.cachix\\.org|cache\\.soopy\\.moe)$")
+              (regexp "dest.port" "^(80|443)$")
+            ]);
+      };
 
       nix = {
         settings.experimental-features = [
@@ -74,12 +116,13 @@
             "@wheel"
           ];
 
-          # Fan out around slow CDN connections; timeouts are seconds.
+          # Fan out around slow CDN connections; connect timeout is long enough
+          # to answer OpenSnitch prompts before Nix abandons HTTPS/Git sockets.
           # Source: https://nixos.org/manual/nix/stable/command-ref/conf-file#conf-http-connections
           http-connections = 256;
           max-substitution-jobs = 96;
-          connect-timeout = 5;
-          stalled-download-timeout = 30;
+          connect-timeout = 25;
+          stalled-download-timeout = 120;
         };
       };
       programs.nix-ld = {

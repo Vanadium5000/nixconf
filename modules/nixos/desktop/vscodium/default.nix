@@ -4,11 +4,35 @@
     {
       pkgs,
       config,
+      lib,
       ...
     }:
     let
       editorEdgePkgs = pkgs.unstable;
       user = config.preferences.user.username;
+      opensnitchRule = name: description: operator: {
+        inherit name description operator;
+        created = "2026-07-09T00:00:00Z";
+        updated = "2026-07-09T00:00:00Z";
+        action = "allow";
+        duration = "always";
+        enabled = true;
+        precedence = false;
+        nolog = false;
+      };
+      simple = operand: data: {
+        type = "simple";
+        inherit operand data;
+        sensitive = false;
+        list = null;
+      };
+      list = operators: {
+        type = "list";
+        operand = "list";
+        data = "";
+        sensitive = false;
+        list = operators;
+      };
 
       vscodeExtensions =
         with pkgs.vscode-extensions;
@@ -99,6 +123,17 @@
       );
     in
     {
+      services.opensnitch.mutableRules = lib.mkIf config.services.opensnitch.enable {
+        "050-allow-vscodium-raw-githubusercontent" =
+          opensnitchRule "050-allow-vscodium-raw-githubusercontent"
+            "Allow the configured VSCodium package to fetch raw GitHub content."
+            (list [
+              (simple "process.path" "${vscodiumWayland}/lib/vscode/codium")
+              (simple "dest.host" "raw.githubusercontent.com")
+              (simple "dest.port" "443")
+            ]);
+      };
+
       environment.systemPackages = with pkgs; [
         vscodiumWayland
         antigravityWayland

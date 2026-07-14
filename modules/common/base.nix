@@ -20,6 +20,7 @@
     in
     {
       imports = [
+        self.nixosModules.opensnitch
         self.nixosModules.user-hyprland-config
         self.nixosModules.fresh
         self.nixosModules.git
@@ -291,6 +292,42 @@
 
           # Disable the default SSH agent to avoid conflicts
           programs.ssh.startAgent = false;
+
+          services.opensnitch.mutableRules = lib.mkIf config.services.opensnitch.enable {
+            "030-allow-ssh-standard-ports" = {
+              created = "2026-07-09T00:00:00Z";
+              updated = "2026-07-09T00:00:00Z";
+              name = "030-allow-ssh-standard-ports";
+              description = "Allow the configured OpenSSH client package to ports 22 and 443 only; unusual ports still prompt for review.";
+              action = "allow";
+              duration = "always";
+              enabled = true;
+              precedence = false;
+              nolog = false;
+              operator = {
+                type = "list";
+                operand = "list";
+                data = "";
+                sensitive = false;
+                list = [
+                  {
+                    type = "simple";
+                    operand = "process.path";
+                    data = "${pkgs.openssh}/bin/ssh";
+                    sensitive = false;
+                    list = null;
+                  }
+                  {
+                    type = "regexp";
+                    operand = "dest.port";
+                    data = "^(22|443)$";
+                    sensitive = false;
+                    list = null;
+                  }
+                ];
+              };
+            };
+          };
 
           # Bootloader
           # Use the grub EFI boot loader.

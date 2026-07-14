@@ -16,7 +16,7 @@ writeShellApplication {
     playerctl
   ];
   text = ''
-    exec ${bun}/bin/bun run ${../nixos/scripts/bunjs/synced-lyrics.ts} "$@"
+    exec -a "$0" ${bun}/bin/bun run ${../nixos/scripts/bunjs/synced-lyrics.ts} "$@"
   '';
 
   meta = {

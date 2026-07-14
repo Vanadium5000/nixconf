@@ -49,6 +49,7 @@ let
       # profiles install it with the rest of this flake's system packages.
       # Source: github:numtide/llm-agents.nix packages.<system>.paseo-desktop.
       paseo = inputs.llm-agents.packages.${stablePkgs.stdenv.hostPlatform.system}.paseo-desktop;
+      grok = inputs.llm-agents.packages.${stablePkgs.stdenv.hostPlatform.system}.grok;
     };
 in
 {

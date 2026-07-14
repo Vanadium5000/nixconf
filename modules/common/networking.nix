@@ -1,8 +1,6 @@
 # Networking module with encrypted DNS via dnscrypt-proxy
 # ALL DNS is routed through dnscrypt-proxy (127.0.0.1) - DHCP/VPN DNS is ignored
-{
-  ...
-}:
+{ self, ... }:
 {
   flake.nixosModules.common =
     {
@@ -14,6 +12,41 @@
     }:
     let
       cfg = config.preferences;
+      opensnitchRule = name: description: operator: {
+        inherit name description operator;
+        created = "2026-07-09T00:00:00Z";
+        updated = "2026-07-09T00:00:00Z";
+        action = "allow";
+        duration = "always";
+        enabled = true;
+        precedence = true;
+        nolog = false;
+      };
+      simple = operand: data: {
+        type = "simple";
+        inherit operand data;
+        sensitive = false;
+        list = null;
+      };
+      regexp = operand: data: {
+        type = "regexp";
+        inherit operand data;
+        sensitive = false;
+        list = null;
+      };
+      network = operand: data: {
+        type = "network";
+        inherit operand data;
+        sensitive = false;
+        list = null;
+      };
+      list = operators: {
+        type = "list";
+        operand = "list";
+        data = "";
+        sensitive = false;
+        list = operators;
+      };
     in
     {
       config = lib.mkIf cfg.enable {
@@ -171,10 +204,43 @@
             ];
             ignore_system_dns = true;
 
-            # Connection settings - fail fast to trigger fallback
-            timeout = 3000; # 3s timeout (down from 5s)
+            # OpenSnitch review pauses can exceed dnscrypt-proxy's default
+            # 5s socket timeout; 25s keeps bootstrap/DoH attempts reviewable.
+            # Source: https://github.com/DNSCrypt/dnscrypt-proxy/wiki/Configuration
+            timeout = 25000; # milliseconds
             keepalive = 30; # Keepalive for HTTP/2 connections in seconds
           };
+        };
+
+        services.opensnitch.mutableRules = lib.mkIf config.services.opensnitch.enable {
+          "010-allow-dnscrypt-proxy-service-ports" =
+            opensnitchRule "010-allow-dnscrypt-proxy-service-ports"
+              "Allow dnscrypt-proxy bootstrap, DNSCrypt, DoH, and DoT service ports; regular clients must still use localhost."
+              (list [
+                (simple "process.path" "${pkgs.dnscrypt-proxy}/bin/dnscrypt-proxy")
+                (regexp "dest.port" "^(53|443|853)$")
+              ]);
+          "010-allow-networkmanager-lan" =
+            opensnitchRule "010-allow-networkmanager-lan"
+              "Allow NetworkManager to reach LAN services for DHCP/captive-portal/link management without allowing arbitrary internet destinations."
+              (list [
+                (simple "process.path" "${pkgs.networkmanager}/bin/NetworkManager")
+                (network "dest.network" "LAN")
+              ]);
+          "010-allow-systemd-resolved-dns" =
+            opensnitchRule "010-allow-systemd-resolved-dns"
+              "Allow systemd-resolved only for classic DNS port 53; normal configured traffic stays loopback to dnscrypt-proxy."
+              (list [
+                (simple "process.path" "${pkgs.systemd}/lib/systemd/systemd-resolved")
+                (simple "dest.port" "53")
+              ]);
+          "010-allow-systemd-timesyncd-ntp" =
+            opensnitchRule "010-allow-systemd-timesyncd-ntp"
+              "Allow systemd-timesyncd NTP only on port 123 instead of host-specific pool rules."
+              (list [
+                (simple "process.path" "${pkgs.systemd}/lib/systemd/systemd-timesyncd")
+                (simple "dest.port" "123")
+              ]);
         };
 
         # Ensure dnscrypt-proxy can write its state (server lists, cache)

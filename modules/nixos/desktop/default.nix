@@ -11,6 +11,30 @@
       cfg = lib.attrByPath [ "preferences" "profiles" "desktop" ] { enable = false; } config;
       # inherit (lib) getExe;
       selfpkgs = self.packages."${pkgs.stdenv.hostPlatform.system}";
+      braveOrigin = selfpkgs.brave-origin;
+      opensnitchRule = name: description: operator: {
+        inherit name description operator;
+        created = "2026-07-09T00:00:00Z";
+        updated = "2026-07-09T00:00:00Z";
+        action = "allow";
+        duration = "always";
+        enabled = true;
+        precedence = true;
+        nolog = false;
+      };
+      simple = operand: data: {
+        type = "simple";
+        inherit operand data;
+        sensitive = false;
+        list = null;
+      };
+      list = operators: {
+        type = "list";
+        operand = "list";
+        data = "";
+        sensitive = false;
+        list = operators;
+      };
     in
     {
       imports = [
@@ -28,7 +52,6 @@
         self.nixosModules.hyprland-support
         self.nixosModules.dankmemershell
         self.nixosModules.tuigreet
-        self.nixosModules.opensnitch
 
         self.nixosModules.obs
         self.nixosModules.obsidian
@@ -50,6 +73,39 @@
 
         # Enable Localsend, a utility to share data with local devices
         programs.localsend.enable = true;
+
+        services.opensnitch.mutableRules = lib.mkIf config.services.opensnitch.enable {
+          "030-allow-brave-origin-browser" =
+            opensnitchRule "030-allow-brave-origin-browser"
+              "Allow the packaged Brave Origin browser binary from the configured flake package."
+              {
+                type = "simple";
+                operand = "process.path";
+                data = "${braveOrigin}/opt/brave.com/brave-origin-nightly/brave";
+                sensitive = false;
+                list = null;
+              };
+          "060-allow-lyricsctl-providers" =
+            opensnitchRule "060-allow-lyricsctl-providers"
+              "Allow the packaged lyricsctl wrapper to query LRCLIB and lrc.cx only; do not allow Bun globally."
+              (list [
+                {
+                  type = "regexp";
+                  operand = "process.command";
+                  data = "^${selfpkgs.lyricsctl}/bin/lyricsctl .*synced-lyrics\\.ts.*";
+                  sensitive = false;
+                  list = null;
+                }
+                {
+                  type = "regexp";
+                  operand = "dest.host";
+                  data = "^(lrclib\\.net|api\\.lrc\\.cx)$";
+                  sensitive = false;
+                  list = null;
+                }
+                (simple "dest.port" "443")
+              ]);
+        };
 
         # KDE Connect handles phone/laptop pairing on graphical hosts; the NixOS
         # module also opens the documented TCP/UDP 1714-1764 LAN range.

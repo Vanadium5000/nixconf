@@ -93,9 +93,10 @@
     # Keep rebuilding from source when a third-party cache is flaky instead of
     # turning a transient DNS outage into a hard failure.
     fallback = true;
-    # DNS/CDN resolution can exceed 5s on flaky links; 15s avoids false cache misses without hanging indefinitely.
+    # OpenSnitch review pauses can exceed Nix's default 5s connect window; 25s
+    # keeps cache/Git HTTPS attempts alive long enough to answer the GUI prompt.
     # Source: https://nixos.org/manual/nix/stable/command-ref/conf-file#conf-connect-timeout
-    connect-timeout = 15;
+    connect-timeout = 25;
     stalled-download-timeout = 300;
     # Rebuild-time fan-out for slow CDN paths; persisted in modules/nixos/terminal/nix.nix.
     # Source: https://nixos.org/manual/nix/stable/command-ref/conf-file#conf-http-connections

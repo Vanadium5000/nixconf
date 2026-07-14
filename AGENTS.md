@@ -18,6 +18,7 @@
 - **Nix eval**: use `path:.#` rather than `.#` so untracked files are included.
 - **Binary caches**: only configure substituters/trusted keys in root `flake.nix` `nixConfig`; verify `.narinfo` hit/miss and one large NAR before changing priorities.
 - **Wayland clipboard**: pipe stdin with `wl-copy --type text/plain`.
+- **OpenSnitch rules**: durable desktop firewall policy belongs in `services.opensnitch.mutableRules` in `modules/nixos/desktop/opensnitch.nix`; UI-created `/var/lib/opensnitch/rules` entries are temporary evidence to migrate or discard, because Nix resets rule JSON on activation/service start. Keep workflow details in `docs/docs/operations/opensnitch.md`.
 
 ## 🧭 Navigation / Live Topology — update when changed
 
@@ -55,7 +56,7 @@ graphical hosts: modules/hosts/{legion5i,macbook}/
 ├─ removable media: udiskie user service from modules/nixos/desktop/default.nix; DMS USB Manager plugin is removed from persisted DMS plugins
 ├─ Hyprland: modules/nixos/desktop/hyprland/ plus modules/user/hyprland.nix
 ├─ local VPN proxy enabled for desktop routing/testing
-├─ OpenSnitch enabled with eBPF/nftables; daemon/UI config and mutableRules-seeded rules persist mutably in /var/lib/opensnitch and ~/.config/opensnitch
+├─ OpenSnitch enabled with eBPF/nftables; advanced typed mutableRules reset /var/lib/opensnitch/rules from Nix every activation/service start while UI config persists in ~/.config/opensnitch; authenticated bypass wrapper is opensnitch-bypass
 └─ qBittorrent WebUI: Gluetun/PIA stack binds 127.0.0.1:8088; qBittorrent shares Gluetun network namespace, pins torrent traffic to tun0, and downloads to persisted ~/Torrents
 
 persistence helpers: modules/lib/_internal/persistence.nix; NixOS module modules/common/impermanence.nix; app state split across home persistence/cache for Orca, Limux, gh, OpenCode, OMP; btrbk host target suffix/transactions persist in /var/lib/btrbk
