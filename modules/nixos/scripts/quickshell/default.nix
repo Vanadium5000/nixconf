@@ -638,7 +638,6 @@
                     connect_vpn() {
                       local vpn_name="$1"
                       local out
-                      local tun_if
                       notify-send "VPN" "Connecting to $vpn_name..."
                       if out=$(nmcli connection up "$vpn_name" 2>&1); then
                         # Drop any residual IPv6 blackhole from a previous plain openvpn run.
@@ -649,21 +648,19 @@
                             *) ip -6 route del $line 2>/dev/null || true ;;
                           esac
                         done
-                        # Re-assert DNS isolation after connect: NM openvpn can still apply
-                        # pushed DNS before ignore-auto-dns is honored on some profiles.
+                        # Re-assert DNS isolation via NM profile only. Do NOT call resolvectl
+                        # here: SetLinkDNS/Domains/DefaultRoute are polkit auth_admin and pop
+                        # "Authentication is required to set DNS servers" three times in the
+                        # user session. Root NM dispatcher force-ignore-auto-dns already clears
+                        # per-link DNS without prompts.
+                        # Source: org.freedesktop.resolve1.set-dns-servers policy.
                         nmcli connection modify "$vpn_name" \
                           ipv4.ignore-auto-dns yes \
                           ipv4.dns "" \
+                          ipv4.dns-priority 100 \
                           ipv6.ignore-auto-dns yes \
                           ipv6.dns "" \
                           2>/dev/null || true
-                        tun_if=$(nmcli -g GENERAL.IP-IFACE connection show --active "$vpn_name" 2>/dev/null || true)
-                        if [ -n "$tun_if" ]; then
-                          resolvectl dns "$tun_if" "" 2>/dev/null || true
-                          resolvectl domain "$tun_if" "" 2>/dev/null || true
-                          resolvectl default-route "$tun_if" no 2>/dev/null || true
-                        fi
-                        resolvectl flush-caches 2>/dev/null || true
                         notify-send "VPN" "Connected to $vpn_name"
                       else
                         notify-send -u critical "VPN Error" "Failed to connect to $vpn_name\n$out"
@@ -857,7 +854,6 @@
           pkgs.gawk
           pkgs.iproute2
           pkgs.python3
-          pkgs.systemd
           self'.packages.qs-dmenu
         ];
       };

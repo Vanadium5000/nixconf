@@ -67,7 +67,7 @@ Only process-agnostic baseline rules live in `modules/nixos/desktop/opensnitch.n
 | Rule | Purpose |
 | --- | --- |
 | `000-allow-localhost-ipv4`, `000-allow-localhost-ipv6` in `opensnitch.nix` | Priority loopback allows for local IPC, proxies, and desktop helpers. |
-| `001-reject-ld-preload-network` | Priority reject for outbound sockets from processes with path-like `LD_PRELOAD`. |
+| `001-reject-ld-preload-network` | Priority reject for outbound sockets from processes with path-like `LD_PRELOAD`. Breaks Flatpak apps if a user override sets `LD_PRELOAD` (e.g. missing `libdeltoid.so` on Sober → "Could not connect to server" for every HTTPS fetch). Remove with `flatpak override --user --unset-env=LD_PRELOAD org.vinegarhq.Sober` and drop the matching filesystem grant. |
 | `001-reject-temp-executables` | Priority reject for binaries executed from `/tmp`, `/var/tmp`, `/dev/shm`, `/memfd`, and similar writable locations. |
 | `010-allow-systemd-resolved-dns` in `modules/common/networking.nix` | Allows `${pkgs.systemd}/lib/systemd/systemd-resolved` only to destination port 53. |
 | `010-allow-dnscrypt-proxy-service-ports` in `modules/common/networking.nix` | Allows `${pkgs.dnscrypt-proxy}/bin/dnscrypt-proxy` bootstrap/DNSCrypt/DoH/DoT ports 53, 443, and 853. Service restarts with `RestartSec=5s` and no start-limit; static DoH stamps keep DNS up if the public list fetch is blocked at boot. |
