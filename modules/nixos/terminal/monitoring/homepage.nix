@@ -26,7 +26,9 @@
         mkEnableOption
         mkOption
         mkIf
+        optional
         types
+        unique
         ;
       cfg = config.services.homepage-monitor;
       publicBaseDomain = self.secrets.PUBLIC_BASE_DOMAIN;
@@ -96,7 +98,10 @@
           icon = "mdi-chat-processing";
           description = "Browser UI for local ACP agents";
         };
-        vpn = {
+        # Magic name must be >=4 chars: Elysia/Bun returns NOT_FOUND for short
+        # Host headers (e.g. "vpn"), so the UI login succeeds then all /api/* fail
+        # through nginx magic DNS. Source: observed Host length < 4 → NOT_FOUND.
+        "vpn-proxy" = {
           enable = serviceEnabled [
             "services"
             "vpn-proxy"
@@ -483,36 +488,70 @@
 
         # Homepage-local magic DNS stays host-scoped: enabled dashboard service names resolve
         # to loopback and proxy from port 80 to their original localhost-bound ports.
-        networking.hosts."127.0.0.1" = builtins.attrNames localMagicDnsPorts;
+        # Include short "vpn" alias for bookmarks; nginx Host rewrite makes API work.
+        networking.hosts."127.0.0.1" = unique (
+          (builtins.attrNames localMagicDnsPorts)
+          ++ optional (localMagicDnsPorts ? "vpn-proxy") "vpn"
+        );
 
         services.nginx = mkIf (!traefikEnabled) {
           enable = true;
-          virtualHosts = mapAttrs (name: service: {
-            serverName = name;
-            listen = [
-              {
-                addr = "127.0.0.1";
-                port = 80;
-              }
-            ];
-            locations."/" = {
-              proxyPass = "http://127.0.0.1:${toString service.port}";
-              recommendedProxySettings = true;
-              proxyWebsockets = true;
-              extraConfig = ''
-                proxy_buffering off;
-                proxy_request_buffering off;
-                proxy_redirect http://127.0.0.1:${toString service.port}/ http://$host/;
-                proxy_redirect http://localhost:${toString service.port}/ http://$host/;
-                proxy_cookie_domain 127.0.0.1 $host;
-                proxy_cookie_domain localhost $host;
-                proxy_cookie_path / /;
-                proxy_hide_header Cross-Origin-Embedder-Policy;
-                proxy_hide_header Cross-Origin-Opener-Policy;
-                proxy_hide_header Cross-Origin-Resource-Policy;
-              '';
+          # First alphabetical server_name becomes nginx's implicit default for unmatched Host
+          # headers on 127.0.0.1:80. Without a catch-all, random public domains that hit loopback
+          # (broken IPv6/Happy Eyeballs, bad hosts, browser HSTS edge cases) get served as ACP UI.
+          # Source: https://nginx.org/en/docs/http/server_names.html#miscellaneous_names
+          virtualHosts =
+            (mapAttrs (name: service: {
+              serverName = name;
+              # Keep legacy http://vpn/ working after rename to vpn-proxy.
+              serverAliases = optional (name == "vpn-proxy") "vpn";
+              listen = [
+                {
+                  addr = "127.0.0.1";
+                  port = 80;
+                }
+              ];
+              locations."/" = {
+                proxyPass = "http://127.0.0.1:${toString service.port}";
+                recommendedProxySettings = true;
+                proxyWebsockets = true;
+                extraConfig = ''
+                  # Prefer upstream Host (127.0.0.1:port). Short magic names like "vpn"
+                  # make Elysia return NOT_FOUND for /api/*; X-Forwarded-Host keeps the
+                  # browser-facing name for apps that care. Source: nginx $proxy_host.
+                  proxy_set_header Host $proxy_host;
+                  proxy_set_header X-Forwarded-Host $host;
+                  proxy_buffering off;
+                  proxy_request_buffering off;
+                  proxy_redirect http://127.0.0.1:${toString service.port}/ http://$host/;
+                  proxy_redirect http://localhost:${toString service.port}/ http://$host/;
+                  proxy_cookie_domain 127.0.0.1 $host;
+                  proxy_cookie_domain localhost $host;
+                  proxy_cookie_path / /;
+                  proxy_hide_header Cross-Origin-Embedder-Policy;
+                  proxy_hide_header Cross-Origin-Opener-Policy;
+                  proxy_hide_header Cross-Origin-Resource-Policy;
+                '';
+              };
+            }) enabledLocalServices)
+            // {
+              "_" = {
+                default = true;
+                serverName = "_";
+                listen = [
+                  {
+                    addr = "127.0.0.1";
+                    port = 80;
+                  }
+                ];
+                locations."/" = {
+                  extraConfig = ''
+                    default_type text/plain;
+                    return 404 "unknown local magic-dns host\n";
+                  '';
+                };
+              };
             };
-          }) enabledLocalServices;
         };
 
         services.traefik.dynamicConfigOptions.http = mkIf traefikEnabled {

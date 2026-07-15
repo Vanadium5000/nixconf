@@ -202,6 +202,10 @@
           deps = [
             "etc"
             "users"
+            # Persist /var/lib/btrbk before reading/writing the host target code so an
+            # impermanent root does not regenerate a throwaway ID and leave umask 077
+            # for later activation scripts (usrbinenv creates /usr as 0700 under that).
+            "createPersistentStorageDirs"
           ];
           text = ''
                         set -eu
@@ -215,9 +219,13 @@
 
                         ${pkgs.coreutils}/bin/install -d -m 0750 -o root -g root "$state_dir"
                         if [ ! -s "$code_path" ]; then
-                          umask 077
-                          ${pkgs.openssl}/bin/openssl rand -hex 4 > "$code_path.tmp"
-                          mv "$code_path.tmp" "$code_path"
+                          # Subshell keeps the activation umask at 0022; a leaked 077 made
+                          # later mkdir -p /usr/bin create root-only /usr and broke #!/usr/bin/env.
+                          (
+                            umask 077
+                            ${pkgs.openssl}/bin/openssl rand -hex 4 > "$code_path.tmp"
+                            mv "$code_path.tmp" "$code_path"
+                          )
                         fi
 
                         code="$(${pkgs.coreutils}/bin/cat "$code_path")"

@@ -70,7 +70,7 @@ Only process-agnostic baseline rules live in `modules/nixos/desktop/opensnitch.n
 | `001-reject-ld-preload-network` | Priority reject for outbound sockets from processes with path-like `LD_PRELOAD`. |
 | `001-reject-temp-executables` | Priority reject for binaries executed from `/tmp`, `/var/tmp`, `/dev/shm`, `/memfd`, and similar writable locations. |
 | `010-allow-systemd-resolved-dns` in `modules/common/networking.nix` | Allows `${pkgs.systemd}/lib/systemd/systemd-resolved` only to destination port 53. |
-| `010-allow-dnscrypt-proxy-service-ports` in `modules/common/networking.nix` | Allows `${pkgs.dnscrypt-proxy}/bin/dnscrypt-proxy` bootstrap/DNSCrypt/DoH/DoT ports 53, 443, and 853. |
+| `010-allow-dnscrypt-proxy-service-ports` in `modules/common/networking.nix` | Allows `${pkgs.dnscrypt-proxy}/bin/dnscrypt-proxy` bootstrap/DNSCrypt/DoH/DoT ports 53, 443, and 853. Service restarts with `RestartSec=5s` and no start-limit; static DoH stamps keep DNS up if the public list fetch is blocked at boot. |
 | `010-allow-networkmanager-lan` in `modules/common/networking.nix` | Allows `${pkgs.networkmanager}/bin/NetworkManager` only to `LAN` destinations. |
 | `010-allow-systemd-timesyncd-ntp` in `modules/common/networking.nix` | Allows `${pkgs.systemd}/lib/systemd/systemd-timesyncd` NTP on port 123. |
 | `020-allow-tailscaled` in `modules/nixos/terminal/tailscale.nix` | Allows the configured Tailscale daemon package; endpoints are dynamic. |

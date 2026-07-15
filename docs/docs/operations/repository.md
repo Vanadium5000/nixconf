@@ -38,6 +38,7 @@ Defaults:
 - Generated config: `/etc/btrbk/persist-system.conf`.
 - Persistent host suffix: `/var/lib/btrbk/persist-system-target-code`.
 - Retention: `target_preserve_min 60d`, no automatic timer.
+- Activation order: `createPersistentStorageDirs` before writing the host suffix, and the one-time random code generation runs under a subshell `umask 077` so activation does not leave root-only `/usr` (which breaks `#!/usr/bin/env` scripts like `./rebuild.sh` on impermanent roots).
 
 Run manually only:
 
