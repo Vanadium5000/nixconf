@@ -67,7 +67,7 @@
 
             # Prevent NetworkManager from pushing per-link DNS to systemd-resolved
             # This ensures ALL DNS goes through global (127.0.0.1 → dnscrypt-proxy)
-            dns = lib.mkForce "none";
+            # dns = lib.mkForce "none";
 
             wifi = {
               macAddress = "stable"; # Randomize MAC for Wi-Fi connections - "random" breaks networks
@@ -119,135 +119,135 @@
         # ============================================================================
         # systemd-resolved - Global DNS only (no per-link DNS)
         # ============================================================================
-        services.resolved = {
-          enable = true;
+        # services.resolved = {
+        #   enable = true;
 
-          settings.Resolve = {
-            # Fallback only if dnscrypt-proxy is completely down. Prefer DoH/DoT-capable
-            # public resolvers as last resort — never the hotel/ISP DHCP resolver.
-            FallbackDNS = [
-              "1.1.1.1"
-              "9.9.9.9"
-            ];
+        #   settings.Resolve = {
+        #     # Fallback only if dnscrypt-proxy is completely down. Prefer DoH/DoT-capable
+        #     # public resolvers as last resort — never the hotel/ISP DHCP resolver.
+        #     FallbackDNS = [
+        #       "1.1.1.1"
+        #       "9.9.9.9"
+        #     ];
 
-            # Route ALL queries through the global DNS servers (127.0.0.1:54 → dnscrypt-proxy).
-            # The "~." routing-only domain captures all queries.
-            Domains = [ "~." ];
+        #     # Route ALL queries through the global DNS servers (127.0.0.1:54 → dnscrypt-proxy).
+        #     # The "~." routing-only domain captures all queries.
+        #     Domains = [ "~." ];
 
-            # Disable local multicast/name protocols to prevent local-network DNS leaks.
-            LLMNR = "no";
-            MulticastDNS = "no";
+        #     # Disable local multicast/name protocols to prevent local-network DNS leaks.
+        #     LLMNR = "no";
+        #     MulticastDNS = "no";
 
-            # DNSSEC breaks captive portals and some misconfigured domains.
-            DNSSEC = "no";
+        #     # DNSSEC breaks captive portals and some misconfigured domains.
+        #     DNSSEC = "no";
 
-            # Stub UDP+TCP on 127.0.0.53:53. With DNSStubListener=no, resolved drops
-            # nameserver 127.0.0.1:54 from uplink resolv.conf (glibc has no :port form),
-            # so classic clients (host/curl/nix sandboxes) get an empty resolv and fail
-            # with "Could not resolve host". Stub mode always writes nameserver 127.0.0.53.
-            # Source: man systemd-resolved.service; live host github.com → connection refused on :53.
-            DNSStubListener = "yes";
-            ResolveUnicastSingleLabel = "no";
-          };
-        };
+        #     # Stub UDP+TCP on 127.0.0.53:53. With DNSStubListener=no, resolved drops
+        #     # nameserver 127.0.0.1:54 from uplink resolv.conf (glibc has no :port form),
+        #     # so classic clients (host/curl/nix sandboxes) get an empty resolv and fail
+        #     # with "Could not resolve host". Stub mode always writes nameserver 127.0.0.53.
+        #     # Source: man systemd-resolved.service; live host github.com → connection refused on :53.
+        #     DNSStubListener = "yes";
+        #     ResolveUnicastSingleLabel = "no";
+        #   };
+        # };
 
         # Force stub resolv.conf. Without this, NixOS may still point at uplink resolv
         # (empty when only :54 globals exist). Always list 127.0.0.53 for classic DNS.
         # Source: https://wiki.archlinux.org/title/Systemd-resolved#DNS
-        environment.etc."resolv.conf".source = lib.mkForce "/run/systemd/resolve/stub-resolv.conf";
+        # environment.etc."resolv.conf".source = lib.mkForce "/run/systemd/resolve/stub-resolv.conf";
 
         # ============================================================================
         # Encrypted DNS via dnscrypt-proxy
         # ============================================================================
-        services.dnscrypt-proxy = {
-          enable = true;
-          # Do not merge package example defaults (they re-enable IPv6 resolvers and
-          # UDP-first probe settings that break hotel/VPN paths). Own the full TOML.
-          # Source: nixpkgs services.dnscrypt-proxy.upstreamDefaults merge via jq add.
-          upstreamDefaults = false;
+        # services.dnscrypt-proxy = {
+        #   enable = true;
+        #   # Do not merge package example defaults (they re-enable IPv6 resolvers and
+        #   # UDP-first probe settings that break hotel/VPN paths). Own the full TOML.
+        #   # Source: nixpkgs services.dnscrypt-proxy.upstreamDefaults merge via jq add.
+        #   upstreamDefaults = false;
 
-          settings = {
-            # Listen on localhost:54 (resolved stub owns :53 for app-facing DNS).
-            listen_addresses = [
-              "127.0.0.1:54"
-              "[::1]:54"
-            ];
+        #   settings = {
+        #     # Listen on localhost:54 (resolved stub owns :53 for app-facing DNS).
+        #     listen_addresses = [
+        #       "127.0.0.1:54"
+        #       "[::1]:54"
+        #     ];
 
-            # Server selection criteria - privacy focused, no DNSSEC requirement
-            # (DNSSEC breaks captive portals and some sites)
-            require_dnssec = false;
-            require_nolog = true;
-            require_nofilter = true;
+        #     # Server selection criteria - privacy focused, no DNSSEC requirement
+        #     # (DNSSEC breaks captive portals and some sites)
+        #     require_dnssec = false;
+        #     require_nolog = true;
+        #     require_nofilter = true;
 
-            # Broken hotel/ISP IPv6 makes dnscrypt pick cloudflare-ipv6 then TIMEOUT;
-            # stick to IPv4 + DoH so DNS does not depend on working native IPv6.
-            # Source: live logs "Server with lowest latency: cloudflare-ipv6" + v6 unreachable.
-            ipv4_servers = true;
-            ipv6_servers = false;
-            doh_servers = true; # DNS-over-HTTPS (most firewall-friendly / hard to break)
-            # DNSCrypt stamps time out on this hotel/VPN path; DoH on :443 is enough.
-            # Source: live logs repeatedly "quad9-dnscrypt-ip4-nofilter-pri TIMEOUT".
-            dnscrypt_servers = false;
-            # TCP/DoH path survives flaky UDP filtering better than raw DNSCrypt UDP.
-            force_tcp = true;
+        #     # Broken hotel/ISP IPv6 makes dnscrypt pick cloudflare-ipv6 then TIMEOUT;
+        #     # stick to IPv4 + DoH so DNS does not depend on working native IPv6.
+        #     # Source: live logs "Server with lowest latency: cloudflare-ipv6" + v6 unreachable.
+        #     ipv4_servers = true;
+        #     ipv6_servers = false;
+        #     doh_servers = true; # DNS-over-HTTPS (most firewall-friendly / hard to break)
+        #     # DNSCrypt stamps time out on this hotel/VPN path; DoH on :443 is enough.
+        #     # Source: live logs repeatedly "quad9-dnscrypt-ip4-nofilter-pri TIMEOUT".
+        #     dnscrypt_servers = false;
+        #     # TCP/DoH path survives flaky UDP filtering better than raw DNSCrypt UDP.
+        #     force_tcp = true;
 
-            # Prefer IPv4 DoH stamps that survive OpenSnitch/hotel TLS inspection better
-            # than raw DNSCrypt UDP. Names must match static.* entries below when the
-            # public-resolvers list has not been downloaded yet (impermanent root).
-            server_names = [
-              "cloudflare"
-              "quad9-doh-ip4-port443-nofilter-pri"
-              "google"
-            ];
+        #     # Prefer IPv4 DoH stamps that survive OpenSnitch/hotel TLS inspection better
+        #     # than raw DNSCrypt UDP. Names must match static.* entries below when the
+        #     # public-resolvers list has not been downloaded yet (impermanent root).
+        #     server_names = [
+        #       "cloudflare"
+        #       "quad9-doh-ip4-port443-nofilter-pri"
+        #       "google"
+        #     ];
 
-            cache = true;
-            cache_size = 4096;
-            cache_min_ttl = 60; # Avoid hammering upstream on flaky links
-            cache_max_ttl = 86400;
-            cache_neg_min_ttl = 10; # Short negative cache so transient failures recover fast
-            cache_neg_max_ttl = 60;
+        #     cache = true;
+        #     cache_size = 4096;
+        #     cache_min_ttl = 60; # Avoid hammering upstream on flaky links
+        #     cache_max_ttl = 86400;
+        #     cache_neg_min_ttl = 10; # Short negative cache so transient failures recover fast
+        #     cache_neg_max_ttl = 60;
 
-            sources.public-resolvers = {
-              urls = [
-                "https://raw.githubusercontent.com/DNSCrypt/dnscrypt-resolvers/master/v3/public-resolvers.md"
-                "https://download.dnscrypt.info/resolvers-list/v3/public-resolvers.md"
-              ];
-              cache_file = "/var/lib/dnscrypt-proxy/public-resolvers.md";
-              minisign_key = "RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3";
-              refresh_delay = 72;
-            };
+        #     sources.public-resolvers = {
+        #       urls = [
+        #         "https://raw.githubusercontent.com/DNSCrypt/dnscrypt-resolvers/master/v3/public-resolvers.md"
+        #         "https://download.dnscrypt.info/resolvers-list/v3/public-resolvers.md"
+        #       ];
+        #       cache_file = "/var/lib/dnscrypt-proxy/public-resolvers.md";
+        #       minisign_key = "RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3";
+        #       refresh_delay = 72;
+        #     };
 
-            # Static stamps keep DNS up even when the public-resolvers download fails
-            # (TLS handshake failures at boot / start-limit-hit). Stamps taken from the
-            # live public-resolvers.md corpus on 2026-07-15.
-            # Source: https://github.com/DNSCrypt/dnscrypt-proxy/wiki/Configuration#static-servers
-            static = {
-              cloudflare.stamp = "sdns://AgcAAAAAAAAABzEuMC4wLjEAEmRucy5jbG91ZGZsYXJlLmNvbQovZG5zLXF1ZXJ5";
-              google.stamp = "sdns://AgUAAAAAAAAABzguOC44LjggsKKKE4EwvtIbNjGjagI2607EdKSVHowYZtyvD9iPrkkHOC44LjguOAovZG5zLXF1ZXJ5";
-              "quad9-doh-ip4-port443-nofilter-pri".stamp =
-                "sdns://AgcAAAAAAAAACDkuOS45LjEwILAZIHRLu3bJqwU-AeB7fgUORz0g95976kNfr-Q8nSQvE2RuczEwLnF1YWQ5Lm5ldDo0NDMKL2Rucy1xdWVyeQ";
-            };
+        #     # Static stamps keep DNS up even when the public-resolvers download fails
+        #     # (TLS handshake failures at boot / start-limit-hit). Stamps taken from the
+        #     # live public-resolvers.md corpus on 2026-07-15.
+        #     # Source: https://github.com/DNSCrypt/dnscrypt-proxy/wiki/Configuration#static-servers
+        #     static = {
+        #       cloudflare.stamp = "sdns://AgcAAAAAAAAABzEuMC4wLjEAEmRucy5jbG91ZGZsYXJlLmNvbQovZG5zLXF1ZXJ5";
+        #       google.stamp = "sdns://AgUAAAAAAAAABzguOC44LjggsKKKE4EwvtIbNjGjagI2607EdKSVHowYZtyvD9iPrkkHOC44LjguOAovZG5zLXF1ZXJ5";
+        #       "quad9-doh-ip4-port443-nofilter-pri".stamp =
+        #         "sdns://AgcAAAAAAAAACDkuOS45LjEwILAZIHRLu3bJqwU-AeB7fgUORz0g95976kNfr-Q8nSQvE2RuczEwLnF1YWQ5Lm5ldDo0NDMKL2Rucy1xdWVyeQ";
+        #     };
 
-            # Bootstrap only for downloading the resolver list — IPv4 literals, no system DNS.
-            bootstrap_resolvers = [
-              "1.1.1.1:53"
-              "9.9.9.9:53"
-              "8.8.8.8:53"
-            ];
-            ignore_system_dns = true;
-            # Probe HTTPS, not classic DNS: port 53 is often filtered and would stall
-            # netprobe for netprobe_timeout while DNS stays unusable.
-            netprobe_address = "1.1.1.1:443";
-            netprobe_timeout = 10;
-            block_ipv6 = true; # Apps get A-only answers → no Happy-Eyeballs stall on dead v6
+        #     # Bootstrap only for downloading the resolver list — IPv4 literals, no system DNS.
+        #     bootstrap_resolvers = [
+        #       "1.1.1.1:53"
+        #       "9.9.9.9:53"
+        #       "8.8.8.8:53"
+        #     ];
+        #     ignore_system_dns = true;
+        #     # Probe HTTPS, not classic DNS: port 53 is often filtered and would stall
+        #     # netprobe for netprobe_timeout while DNS stays unusable.
+        #     netprobe_address = "1.1.1.1:443";
+        #     netprobe_timeout = 10;
+        #     block_ipv6 = true; # Apps get A-only answers → no Happy-Eyeballs stall on dead v6
 
-            # OpenSnitch review pauses can exceed dnscrypt-proxy's default
-            # 5s socket timeout; 25s keeps bootstrap/DoH attempts reviewable.
-            # Source: https://github.com/DNSCrypt/dnscrypt-proxy/wiki/Configuration
-            timeout = 25000;
-            keepalive = 30;
-          };
-        };
+        #     # OpenSnitch review pauses can exceed dnscrypt-proxy's default
+        #     # 5s socket timeout; 25s keeps bootstrap/DoH attempts reviewable.
+        #     # Source: https://github.com/DNSCrypt/dnscrypt-proxy/wiki/Configuration
+        #     timeout = 25000;
+        #     keepalive = 30;
+        #   };
+        # };
 
         services.opensnitch.mutableRules = lib.mkIf config.services.opensnitch.enable {
           "010-allow-dnscrypt-proxy-service-ports" =
@@ -285,24 +285,24 @@
         # until a manual start (live journal: FATAL tls handshake → start-limit-hit).
         # Static stamps above mean a restart can serve DNS without re-fetching the list.
         # Source: systemd.unit(5) StartLimitIntervalSec=0; live legion5i journal 20:29.
-        systemd.services.dnscrypt-proxy = {
-          after = [
-            "network-online.target"
-            "nss-lookup.target"
-            "opensnitchd.service"
-          ];
-          wants = [
-            "network-online.target"
-            "nss-lookup.target"
-          ];
-          # Unlimited restarts; backoff is RestartSec, not a hard fail.
-          startLimitIntervalSec = 0;
-          serviceConfig = {
-            StateDirectory = "dnscrypt-proxy";
-            Restart = "always";
-            RestartSec = "5s";
-          };
-        };
+        # systemd.services.dnscrypt-proxy = {
+        #   after = [
+        #     "network-online.target"
+        #     "nss-lookup.target"
+        #     "opensnitchd.service"
+        #   ];
+        #   wants = [
+        #     "network-online.target"
+        #     "nss-lookup.target"
+        #   ];
+        #   # Unlimited restarts; backoff is RestartSec, not a hard fail.
+        #   startLimitIntervalSec = 0;
+        #   serviceConfig = {
+        #     StateDirectory = "dnscrypt-proxy";
+        #     Restart = "always";
+        #     RestartSec = "5s";
+        #   };
+        # };
 
         # Persist DynamicUser state so public-resolvers.md survives impermanent root.
         # Without this every boot re-downloads the list and can FATAL before start-limit.

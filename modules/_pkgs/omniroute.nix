@@ -16,12 +16,12 @@
 }:
 
 let
-  version = "3.8.44";
+  version = "3.8.48";
   docsSrc = fetchFromGitHub {
     owner = "diegosouzapw";
     repo = "OmniRoute";
     rev = "v${version}";
-    hash = "sha256-/cyDXqH2bmyTjR64qCGUsYaUFBnvX3x9UKcMZfP7j/A=";
+    hash = "sha256-lqw0M0mHqsMWWvz7X+3sO+FbaVmJ9bL9FBgB5HxsUBI=";
   };
 in
 buildNpmPackage (finalAttrs: {
@@ -32,7 +32,7 @@ buildNpmPackage (finalAttrs: {
   # already contains the Next.js standalone app that upstream publishes.
   src = fetchurl {
     url = "https://registry.npmjs.org/omniroute/-/omniroute-${finalAttrs.version}.tgz";
-    hash = "sha256-EehPVOjhY+UckJw+yexS5WBASGW2heyFIN15BuU7xEU=";
+    hash = "sha256-sJXyyGId+zdaSRDtYkMOhz7abuuRm1ZU1AeyHFk4MlU=";
   };
 
   sourceRoot = "package";
@@ -53,17 +53,50 @@ buildNpmPackage (finalAttrs: {
     zlib
   ];
 
-  # Copy the lockfile from the GitHub repo to allow buildNpmPackage to run npm ci
+  # Copy the GitHub lockfile, then drop pure-dev packages before fetchNpmDeps runs.
+  # prefetch-npm-deps downloads every resolved lock entry (all platform optional
+  # bindings for rolldown/etc.); that bulk CDN fetch is what fails update-pkgs on
+  # HTTP/2 framing errors, and those packages are unused because the npm tarball
+  # is prebuilt and installed with --omit=dev. Also strips package.json
+  # devDependencies so npm ci stays consistent with the pruned lock.
+  # Source: nixpkgs pkgs/build-support/node/prefetch-npm-deps
+  # Source: https://github.com/diegosouzapw/OmniRoute/blob/v${version}/package-lock.json
   postPatch = ''
-    cp ${docsSrc}/package-lock.json ./package-lock.json
+        cp ${docsSrc}/package-lock.json ./package-lock.json
+        chmod u+w package-lock.json package.json
+        # Heredoc body must stay unindented so Python does not see shell-level indent.
+        ${lib.getExe python3} - <<'PY'
+    import json
+    from pathlib import Path
+
+    lock_path = Path("package-lock.json")
+    lock = json.loads(lock_path.read_text())
+    packages = lock.get("packages", {})
+    removed = 0
+    for key in list(packages):
+        if key and packages[key].get("dev") is True:
+            del packages[key]
+            removed += 1
+    root = packages.get("")
+    if isinstance(root, dict):
+        root.pop("devDependencies", None)
+    lock.pop("devDependencies", None)
+    lock_path.write_text(json.dumps(lock, indent=2) + "\n")
+    print(f"pruned {removed} dev-only packages from package-lock.json")
+
+    pkg_path = Path("package.json")
+    pkg = json.loads(pkg_path.read_text())
+    if "devDependencies" in pkg:
+        del pkg["devDependencies"]
+        pkg_path.write_text(json.dumps(pkg, indent=2) + "\n")
+        print("removed package.json devDependencies")
+    PY
   '';
 
-  # Hash of the dependencies from package-lock.json
-  npmDepsHash = "sha256-NbNvdqf+C12xX//etp5OGai27V0nCUCG0mapOUaSY2E=";
-  # The upstream lockfile carries dev-only Bun packages whose install script
-  # expects npm's optional @oven/bun-* payloads; OmniRoute's npm tarball is
-  # already built, so keep dependency vendoring to runtime deps only.
-  # Source: https://github.com/diegosouzapw/OmniRoute/blob/v${version}/package-lock.json
+  # Hash of the pruned production dependency set from package-lock.json
+  npmDepsHash = "sha256-oPWwJAJv40Eerpd7pwWkv9QYp/NYJrGPyB7bT5PbPZA=";
+  # Upstream lock still carries install scripts that expect optional Bun payloads
+  # when dev deps are present; keep install/prune on runtime deps only.
   npmInstallFlags = [ "--omit=dev" ];
   npmPruneFlags = [ "--omit=dev" ];
   npmFlags = [ "--legacy-peer-deps" ];
@@ -127,20 +160,22 @@ buildNpmPackage (finalAttrs: {
         # npm omniroute@3.8.42 published an empty serve.mjs while the matching
         # GitHub tag has the real CLI command; repair from the tagged source and
         # keep failing on unknown host-binding shapes so update-pkgs catches drift.
-        # Source: https://github.com/diegosouzapw/OmniRoute/blob/v3.8.42/bin/cli/commands/serve.mjs
+        # 3.8.48+ prefers OMNIROUTE_SERVER_HOST (then non-auto HOSTNAME) over
+        # hard-coded 0.0.0.0; older shapes still get OMNIROUTE_HOST injected.
+        # Source: https://github.com/diegosouzapw/OmniRoute/blob/v${version}/bin/cli/commands/serve.mjs
         serveCommand="$out/lib/omniroute/bin/cli/commands/serve.mjs"
         if [ ! -s "$serveCommand" ]; then
           cp ${docsSrc}/bin/cli/commands/serve.mjs "$serveCommand"
           chmod +x "$serveCommand"
         fi
-        if grep -q 'HOSTNAME: process.env.HOSTNAME || "0.0.0.0",' "$serveCommand"; then
+        if grep -qE 'OMNIROUTE_SERVER_HOST|OMNIROUTE_HOST' "$serveCommand"; then
+          :
+        elif grep -q 'HOSTNAME: process.env.HOSTNAME || "0.0.0.0",' "$serveCommand"; then
           substituteInPlace "$serveCommand" \
             --replace-fail 'HOSTNAME: process.env.HOSTNAME || "0.0.0.0",' 'HOSTNAME: process.env.OMNIROUTE_HOST || process.env.HOSTNAME || "0.0.0.0",'
         elif grep -q 'HOSTNAME: "0.0.0.0",' "$serveCommand"; then
           substituteInPlace "$serveCommand" \
             --replace-fail 'HOSTNAME: "0.0.0.0",' 'HOSTNAME: process.env.OMNIROUTE_HOST || "0.0.0.0",'
-        elif grep -q 'OMNIROUTE_HOST' "$serveCommand"; then
-          :
         else
           echo "Unsupported OmniRoute serve host binding in $serveCommand" >&2
           exit 1

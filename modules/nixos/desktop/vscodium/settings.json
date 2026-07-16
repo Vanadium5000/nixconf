@@ -151,4 +151,8 @@
     "https://www.schemastore.org/": true,
   },
   "kilo-code.new.agentWorkStyle": "unset",
+  "grok.model": "grok-4.5",
+  "grok.defaultEffort": "high",
+  "grok.showThinking": true,
+  "grok.expandCommandOutputs": true,
 }

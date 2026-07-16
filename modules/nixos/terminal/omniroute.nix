@@ -125,6 +125,9 @@
               "DATA_DIR=${cfg.workDir}"
               "HOME=${cfg.workDir}"
               "NODE_ENV=production"
+              # 3.8.48+ reads OMNIROUTE_SERVER_HOST; keep OMNIROUTE_HOST for older patched builds.
+              # Source: https://github.com/diegosouzapw/OmniRoute/blob/v3.8.48/bin/cli/commands/serve.mjs
+              "OMNIROUTE_SERVER_HOST=${cfg.host}"
               "OMNIROUTE_HOST=${cfg.host}"
               "OMNIROUTE_MEMORY_MB=${toString cfg.memoryMb}"
               "PORT=${toString cfg.port}"

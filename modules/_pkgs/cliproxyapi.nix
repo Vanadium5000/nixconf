@@ -18,6 +18,13 @@ buildGo126Module rec {
 
   vendorHash = "sha256-vQU3hLDga5PMUwH4KSB3T5sZ1uPUgHQHeyQGJTKHIYs=";
 
+  # go mod download via proxy.golang.org can fail mid-FOD with HTTP/2
+  # INTERNAL_ERROR stream resets; force HTTP/1.1 only for the modules fetch.
+  # Source: https://github.com/golang/go/issues/51323
+  overrideModAttrs = _: {
+    env.GODEBUG = "http2client=0";
+  };
+
   postPatch = ''
     if grep -q 'github.com/router-for-me/CLIProxyAPI/v6' sdk/cliproxy/auth/request_auth_prepare_test.go; then
       substituteInPlace sdk/cliproxy/auth/request_auth_prepare_test.go \
