@@ -171,7 +171,10 @@
                           | ($model.context // $model.limit.context // null) as $context
                           | ($model.input // $model.limit.input // null) as $input
                           | ($model.output // $model.limit.output // null) as $output
-                          | ($model | del(.context, .input, .output, .limit, .id))
+                          # Preserve optional wire `id` when the catalog key is a short
+                          # alias of the gateway model path (OpenCode provider schema).
+                          # Source: https://opencode.ai/docs/providers/
+                          | ($model | del(.context, .input, .output, .limit))
                             + (if $context != null then
                                 { limit: ({ context: $context }
                                   + (if $input != null then { input: $input } else {} end)
@@ -660,16 +663,29 @@
                         def optional_value($name; $value):
                           if $value == null or $value == "" then {} else { ($name): $value } end;
 
-                        # Strip only known upstream transport prefixes. Real model families
-                        # such as anthropic/claude-* and google/gemini-* stay intact.
+                        # Strip known upstream transport prefixes. OmniRoute also exposes
+                        # openai-compatible-chat-<uuid>/vendor/model paths; collapse those
+                        # to catalog keys that match category state (e.g. gpt-5.4-mini).
+                        # Real family prefixes such as anthropic/claude-* and google/gemini-*
+                        # stay intact after the transport segment is removed.
                         def local_model_id:
                           (.id | tostring) as $id
                           | ($id | split("/")) as $parts
                           | ["codex", "cx", "kg", "kilo-gateway", "nvidia", "omniroute", "openrouter"] as $transport_prefixes
-                          | if ($parts | length) > 1 and (($transport_prefixes | index($parts[0])) != null) then
-                              $parts[1:] | join("/")
+                          | (
+                              if ($parts | length) > 1 and (
+                                ($transport_prefixes | index($parts[0])) != null
+                                or ($parts[0] | test("^openai-compatible-chat-[0-9a-f-]+$"))
+                              ) then
+                                $parts[1:]
+                              else
+                                $parts
+                              end
+                            ) as $rest
+                          | if ($rest | length) > 1 and $rest[0] == "openai" then
+                              $rest[1:] | join("/")
                             else
-                              $id
+                              $rest | join("/")
                             end;
 
                         def support_list:
@@ -755,7 +771,8 @@
                           + (support_list as $supported | if ($supported | length) > 0 then { supported_parameters: $supported } else {} end);
 
                         def to_opencode_entry:
-                          local_model_id as $key
+                          (.id | tostring) as $raw_id
+                          | local_model_id as $key
                           | normalized_limit as $limit
                           | normalized_modalities as $modalities
                           | reasoning_efforts as $efforts
@@ -766,6 +783,10 @@
                                 name: (.name // .display_name // .displayName // .id),
                                 metadata: model_metadata
                               }
+                              # Catalog key may be a short alias; keep the gateway path as
+                              # wire `id` so OpenCode/OMP still request the OmniRoute model.
+                              # Source: https://opencode.ai/docs/providers/
+                              + (if $key != $raw_id then { id: $raw_id } else {} end)
                               + (if ($limit | length) > 0 then { limit: $limit } else {} end)
                               + (if ($modalities | length) > 0 then { modalities: $modalities } else {} end)
                               + (if ($efforts | length) > 0 then { reasoning: true, reasoning_effort: $efforts } else {} end)
@@ -1524,36 +1545,26 @@
 
                     render_state_summary() {
                       local invalid_count
-                      local effective_models
-                      invalid_count=$(invalid_category_model_count)
-                      effective_models=$(get_effective_models_json)
-
                       local categories_summary
+                      invalid_count=$(invalid_category_model_count)
+
+                      # Single jq pass over stdin/slurpfile avoids per-row --argjson of the
+                      # full models catalog (E2BIG / "Argument list too long" on large caches).
                       categories_summary=$(
-                        while IFS=$'\t' read -r label category_id; do
-                          local model
-                          local effort
-                          local detail=""
-                          local color="82"
-                          local status="valid"
-
-                          model=$(get_group_model "$category_id")
-                          effort=$(get_group_reasoning_effort "$category_id")
-
-                          if [ "$(printf '%s\n' "$model" | $JQ -Rr --argjson models "$effective_models" '
-                            sub("^router/"; "") as $model_id
-                            | if startswith("router/") and ($models[$model_id] == null) then "bad" else "ok" end
-                          ')" = "bad" ]; then
-                            color="196"
-                            status="invalid"
-                          fi
-
-                          if [ -n "$effort" ]; then
-                            detail=" (effort: $effort)"
-                          fi
-
-                          $GUM style --foreground "$color" -- "- $label: $model$detail [$status]"
-                        done < <($JQ -r '.categories | to_entries[] | "\(.value.label)\t\(.key)"' "$OPENCODE_METADATA_FILE")
+                        get_effective_models_json | $JQ -r --slurpfile state "$STATE_FILE" --slurpfile meta "$OPENCODE_METADATA_FILE" '
+                          . as $models
+                          | $meta[0].categories
+                          | to_entries[]
+                          | .key as $category_id
+                          | .value.label as $label
+                          | ((($state[0].categories // {})[$category_id] // .value.defaultModel) | if type == "object" then . else {model: .} end) as $assignment
+                          | ($assignment.model // "") as $model
+                          | ($assignment.reasoningEffort // "") as $effort
+                          | ($model | sub("^router/"; "")) as $model_id
+                          | (if (($model | startswith("router/")) and ($models[$model_id] == null)) then "invalid" else "valid" end) as $status
+                          | (if $effort != "" and $effort != null then " (effort: \($effort))" else "" end) as $detail
+                          | "- \($label): \($model)\($detail) [\($status)]"
+                        '
                       )
 
                       $GUM style --foreground 39 "Router: $(router_provider_label) ($(get_router_base_url))"
@@ -1564,7 +1575,15 @@
                       fi
                       printf '%s\n%s' \
                         "$($GUM style --foreground 212 "$(get_menu_text categoryStatePrefix):")" \
-                        "$categories_summary"
+                        "$(
+                          while IFS= read -r line; do
+                            if [[ "$line" == *" [invalid]" ]]; then
+                              $GUM style --foreground 196 -- "$line"
+                            else
+                              $GUM style --foreground 82 -- "$line"
+                            fi
+                          done <<< "$categories_summary"
+                        )"
                     }
 
                     init_project() {

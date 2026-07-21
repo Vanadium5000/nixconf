@@ -1,4 +1,11 @@
 {
+  "gpt-5.4-mini": {
+    "limit": {
+      "context": 400000,
+      "output": 128000
+    },
+    "tool_call": true
+  },
   "gpt-5.5": {
     "limit": {
       "context": 400000,

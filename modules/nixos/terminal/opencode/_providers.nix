@@ -53,13 +53,14 @@ let
     # OpenCode model limits are a paired contract (`context` + optional output in
     # this repo's normalization); output-only API defaults are dropped so the
     # generated provider config never carries an invalid partial limit.
-    # Source: https://opencode.ai/docs/models/
+    # Preserve optional wire `id` when the catalog key is a short alias of the
+    # gateway model path. Source: https://opencode.ai/docs/models/ and
+    # https://opencode.ai/docs/providers/
     (builtins.removeAttrs model [
       "context"
       "input"
       "output"
       "limit"
-      "id"
     ])
     // (lib.optionalAttrs (limit != { }) { inherit limit; });
 
