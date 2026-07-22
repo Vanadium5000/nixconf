@@ -2,11 +2,11 @@
   "categories": {
     "artistry": "router/gpt-5.5-high",
     "deep": "router/gpt-5.5-high",
-    "quick": "router/gpt-5.4-mini",
+    "quick": "router/gpt-5.5-low",
     "ultrabrain": "router/gpt-5.5-xhigh",
     "unspecified-high": "router/gpt-5.5-xhigh",
-    "unspecified-low": "router/gpt-5.4-mini",
+    "unspecified-low": "router/gpt-5.5-low",
     "visual-engineering": "router/gpt-5.5-high",
-    "writing": "router/gpt-5.4-mini"
+    "writing": "router/gpt-5.5-low"
   }
 }

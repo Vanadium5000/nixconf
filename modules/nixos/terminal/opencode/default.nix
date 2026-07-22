@@ -164,13 +164,11 @@
                   first(
                     def normalize_model:
                       . as $model
-                      | ($model | del(.context, .output))
-                        + (if (($model.context // null) != null) or (($model.output // null) != null) then
-                            {
-                              limit: (($model.limit // {})
-                                + (if (($model.context // null) != null) then { context: $model.context } else {} end)
-                                + (if (($model.output // null) != null) then { output: $model.output } else {} end))
-                            }
+                      | ($model.context // $model.limit.context // null) as $context
+                      | ($model.output // $model.limit.output // null) as $output
+                      | ($model | del(.context, .output, .limit))
+                        + (if $context != null then
+                            { limit: { context: $context, output: ($output // 8192) } }
                           else
                             {}
                           end);

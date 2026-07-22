@@ -23,6 +23,31 @@ let
     rev = "v${version}";
     hash = "sha256-lqw0M0mHqsMWWvz7X+3sO+FbaVmJ9bL9FBgB5HxsUBI=";
   };
+  # npm lock optional package selectors for this hostPlatform.
+  # Source: https://docs.npmjs.com/cli/v10/configuring-npm/package-lock-json#packages
+  npmOs =
+    if stdenv.hostPlatform.isLinux then
+      "linux"
+    else if stdenv.hostPlatform.isDarwin then
+      "darwin"
+    else if stdenv.hostPlatform.isWindows then
+      "win32"
+    else
+      stdenv.hostPlatform.parsed.kernel.name;
+  npmCpu =
+    if stdenv.hostPlatform.isx86_64 then
+      "x64"
+    else if stdenv.hostPlatform.isAarch64 then
+      "arm64"
+    else if stdenv.hostPlatform.isx86_32 then
+      "ia32"
+    else if stdenv.hostPlatform.isAarch32 then
+      "arm"
+    else
+      stdenv.hostPlatform.parsed.cpu.name;
+  npmLibc = lib.optionalString stdenv.hostPlatform.isLinux (
+    if stdenv.hostPlatform.isMusl then "musl" else "glibc"
+  );
 in
 buildNpmPackage (finalAttrs: {
   pname = "omniroute";
@@ -53,14 +78,18 @@ buildNpmPackage (finalAttrs: {
     zlib
   ];
 
-  # Copy the GitHub lockfile, then drop pure-dev packages before fetchNpmDeps runs.
-  # prefetch-npm-deps downloads every resolved lock entry (all platform optional
-  # bindings for rolldown/etc.); that bulk CDN fetch is what fails update-pkgs on
-  # HTTP/2 framing errors, and those packages are unused because the npm tarball
-  # is prebuilt and installed with --omit=dev. Also strips package.json
-  # devDependencies so npm ci stays consistent with the pruned lock.
+  # Copy the GitHub lockfile, then drop pure-dev packages and foreign-platform
+  # optional bindings before fetchNpmDeps runs. prefetch-npm-deps downloads every
+  # resolved lock entry (win32/darwin SWC, esbuild, sharp, etc.); that bulk CDN
+  # fetch is what fails update-pkgs on HTTP/2 framing errors, and those packages
+  # are unused on this host because the npm tarball is prebuilt and installed
+  # with --omit=dev. Also strips package.json devDependencies and dangling
+  # optionalDependencies so npm ci stays consistent with the pruned lock.
+  # Host os/cpu/libc are baked into the prune script: fetchNpmDeps is a separate
+  # derivation and does not inherit package `env.*`.
   # Source: nixpkgs pkgs/build-support/node/prefetch-npm-deps
   # Source: https://github.com/diegosouzapw/OmniRoute/blob/v${version}/package-lock.json
+  # Source: https://docs.npmjs.com/cli/v10/configuring-npm/package-lock-json#packages
   postPatch = ''
         cp ${docsSrc}/package-lock.json ./package-lock.json
         chmod u+w package-lock.json package.json
@@ -69,20 +98,67 @@ buildNpmPackage (finalAttrs: {
     import json
     from pathlib import Path
 
+    host_os = ${builtins.toJSON npmOs}
+    host_cpu = ${builtins.toJSON npmCpu}
+    host_libc = ${builtins.toJSON npmLibc} or None
+
+    def host_matches(entry):
+        os_list = entry.get("os")
+        cpu_list = entry.get("cpu")
+        libc_list = entry.get("libc")
+        if os_list and host_os not in os_list:
+            return False
+        if cpu_list and host_cpu not in cpu_list:
+            return False
+        if libc_list and host_libc and host_libc not in libc_list:
+            return False
+        return True
+
     lock_path = Path("package-lock.json")
     lock = json.loads(lock_path.read_text())
     packages = lock.get("packages", {})
-    removed = 0
+    removed_dev = 0
+    removed_platform = 0
     for key in list(packages):
-        if key and packages[key].get("dev") is True:
+        if not key:
+            continue
+        entry = packages[key]
+        if entry.get("dev") is True:
             del packages[key]
-            removed += 1
+            removed_dev += 1
+            continue
+        if not host_matches(entry):
+            del packages[key]
+            removed_platform += 1
+
+    # Drop optionalDependencies that pointed at pruned platform packages so npm
+    # does not try to re-resolve them during the offline install phase.
+    for key, entry in packages.items():
+        optional = entry.get("optionalDependencies")
+        if not isinstance(optional, dict):
+            continue
+        for dep_name in list(optional):
+            # Match lock package keys for nested and top-level optional bindings.
+            candidates = (
+                f"node_modules/{dep_name}",
+                f"{key}/node_modules/{dep_name}" if key else f"node_modules/{dep_name}",
+            )
+            if not any(candidate in packages for candidate in candidates):
+                del optional[dep_name]
+        if not optional:
+            entry.pop("optionalDependencies", None)
+
     root = packages.get("")
     if isinstance(root, dict):
         root.pop("devDependencies", None)
     lock.pop("devDependencies", None)
     lock_path.write_text(json.dumps(lock, indent=2) + "\n")
-    print(f"pruned {removed} dev-only packages from package-lock.json")
+    print(
+        f"pruned {removed_dev} dev-only and {removed_platform} foreign-platform "
+        f"packages from package-lock.json (host {host_os}/{host_cpu}"
+        + (f"/{host_libc}" if host_libc else "")
+        + ")"
+    )
 
     pkg_path = Path("package.json")
     pkg = json.loads(pkg_path.read_text())
@@ -94,7 +170,7 @@ buildNpmPackage (finalAttrs: {
   '';
 
   # Hash of the pruned production dependency set from package-lock.json
-  npmDepsHash = "sha256-oPWwJAJv40Eerpd7pwWkv9QYp/NYJrGPyB7bT5PbPZA=";
+  npmDepsHash = "sha256-wH/OBHvmRdd3/ZiKXY+aKlRElH47VqAulb4CtHuCuUc=";
   # Upstream lock still carries install scripts that expect optional Bun payloads
   # when dev deps are present; keep install/prune on runtime deps only.
   npmInstallFlags = [ "--omit=dev" ];

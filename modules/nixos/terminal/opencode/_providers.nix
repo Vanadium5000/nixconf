@@ -7,9 +7,10 @@ let
   # upstream metadata local while the provider config uses the same model IDs.
   modelsFile = ./models.json;
   # Local patches are reserved for exact model facts the sync API omits or gets
-  # wrong. Keep token limits sourced from vendor model pages because OpenCode's
-  # provider schema needs paired context/output limits and OmniRoute may expose
-  # output-only defaults. Sources: https://opencode.ai/docs/models/ and
+  # wrong. Prefer vendor pages for real context/output pairs; OmniRoute often
+  # returns context-only rows and OpenCode rejects partial `limit` objects, so
+  # normalizeModel fills output with the upstream openai-compatible default
+  # until a patch lands. Sources: https://opencode.ai/docs/models/ and
   # https://github.com/diegosouzapw/OmniRoute/pull/578
   localPatchesFile = ./_model-local-patches.json;
   localPatches =
@@ -33,26 +34,33 @@ let
     dynamicData.providers.${routerProviderId}.models or dynamicData.providers.omniroute.models or { };
   filteredPatches = lib.filterAttrs (modelId: _: builtins.hasAttr modelId baseModels) localPatches;
 
+  # OpenCode custom-provider models validate `limit.context` + `limit.output`
+  # together. Upstream's openai-compatible placeholder uses output=8192 when the
+  # catalog omits max completion tokens; keep that same floor here so context-only
+  # OmniRoute rows stay schema-valid until a vendor patch lands.
+  # Source: opencode 1.17.11 bundled provider defaults (limit:{context:128000,output:8192})
+  # Source: https://opencode.ai/docs/models/
+  defaultOutputLimit = 8192;
+
   normalizeModel =
     _modelId: model:
     let
       hasContext = model ? context || (model ? limit && model.limit ? context);
       hasInput = model ? input || (model ? limit && model.limit ? input);
+      hasOutput = model ? output || (model ? limit && model.limit ? output);
+      # Drop output-only rows: context anchors compaction and OpenCode rejects a
+      # partial limit object. Pair missing output with the upstream default.
       limit = lib.optionalAttrs hasContext (
         {
           context = model.context or model.limit.context;
+          output =
+            if hasOutput then model.output or model.limit.output else defaultOutputLimit;
         }
         // (lib.optionalAttrs hasInput {
           input = model.input or model.limit.input;
         })
-        // (lib.optionalAttrs (model ? output || (model ? limit && model.limit ? output)) {
-          output = model.output or model.limit.output;
-        })
       );
     in
-    # OpenCode model limits are a paired contract (`context` + optional output in
-    # this repo's normalization); output-only API defaults are dropped so the
-    # generated provider config never carries an invalid partial limit.
     # Preserve optional wire `id` when the catalog key is a short alias of the
     # gateway model path. Source: https://opencode.ai/docs/models/ and
     # https://opencode.ai/docs/providers/

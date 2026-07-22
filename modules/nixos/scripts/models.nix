@@ -165,20 +165,22 @@
                     get_effective_models_json() {
                       ensure_repo_state_files
 
-                      $JQ -cS --arg provider_id "$ROUTER_PROVIDER_ID" --slurpfile patches "$PATCHES_FILE" '
+                      $JQ -cS --arg provider_id "$ROUTER_PROVIDER_ID" --slurpfile patches "$PATCHES_FILE" --argjson default_output 8192 '
+                        # OpenCode validates limit.context + limit.output as a pair for
+                        # custom providers. Upstream openai-compatible placeholder uses
+                        # 8192 when max completion tokens are unknown.
+                        # Source: opencode 1.17.11 bundled provider defaults
+                        # Source: https://opencode.ai/docs/providers/
                         def normalize_model:
                           . as $model
                           | ($model.context // $model.limit.context // null) as $context
                           | ($model.input // $model.limit.input // null) as $input
                           | ($model.output // $model.limit.output // null) as $output
-                          # Preserve optional wire `id` when the catalog key is a short
-                          # alias of the gateway model path (OpenCode provider schema).
-                          # Source: https://opencode.ai/docs/providers/
                           | ($model | del(.context, .input, .output, .limit))
                             + (if $context != null then
-                                { limit: ({ context: $context }
-                                  + (if $input != null then { input: $input } else {} end)
-                                  + (if $output != null then { output: $output } else {} end)) }
+                                { limit: ({ context: $context
+                                  , output: ($output // $default_output) }
+                                  + (if $input != null then { input: $input } else {} end)) }
                               else
                                 {}
                               end);
@@ -737,9 +739,12 @@
                             + (if ($output | length) > 0 then { output: $output } else {} end);
 
                         # OpenCode model metadata treats `limit.context` as the anchor for
-                        # compaction/model sizing. Source: https://opencode.ai/docs/models/
-                        # OmniRoute can expose output-only defaults from provider wrappers;
-                        # omit those instead of writing unusable partial `limit` objects.
+                        # compaction/model sizing and requires paired `limit.output` on custom
+                        # providers. OmniRoute often returns context-only rows; fill output
+                        # with the upstream openai-compatible default (8192) so the cache is
+                        # schema-valid, and prefer vendor patches for real ceilings.
+                        # Source: https://opencode.ai/docs/models/
+                        # Source: opencode 1.17.11 bundled provider defaults
                         def normalized_limit:
                           first_number([
                             .limit.context?, .limits.context?, .context?, .context_length?, .contextLength?,
@@ -752,7 +757,7 @@
                             .top_provider.max_completion_tokens?, .topProvider.maxCompletionTokens?
                           ]) as $output
                           | if $context != null then
-                              { context: $context } + (if $output != null then { output: $output } else {} end)
+                              { context: $context, output: ($output // 8192) }
                             else
                               {}
                             end;
