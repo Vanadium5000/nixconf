@@ -614,16 +614,12 @@
                             vpn.secrets "password=$auth_password" \
                             2>/dev/null || true
                         fi
-                        # Keep host DNS on dnscrypt via systemd-resolved. VPN-pushed DNS would
-                        # either leak or break resolution when tunnel DNS is unreachable from host.
-                        # Also disable IPv6 tunnel routes without GUA (Happy Eyeballs blackhole).
+                        # Prefer not to autostart imported VPNs. Leave DNS alone so
+                        # captive portals and tunnel DNS still work when needed; global
+                        # Cloudflare/DoT preference lives in networking.nix.
+                        # Disable IPv6 on the tunnel profile to avoid Happy-Eyeballs stalls.
                         nmcli connection modify "$vpn_name" \
-                          ipv4.ignore-auto-dns yes \
-                          ipv4.dns "" \
-                          ipv4.dns-priority 100 \
                           ipv6.method disabled \
-                          ipv6.ignore-auto-dns yes \
-                          ipv6.dns "" \
                           connection.autoconnect no \
                           connection.autoconnect-retries 0 \
                           2>/dev/null || true
@@ -640,7 +636,8 @@
                       local out
                       notify-send "VPN" "Connecting to $vpn_name..."
                       if out=$(nmcli connection up "$vpn_name" 2>&1); then
-                        # Drop any residual IPv6 blackhole from a previous plain openvpn run.
+                        # Drop residual IPv6 full-tunnel blackholes from plain openvpn runs.
+                        # Root NM dispatcher vpn-drop-broken-ipv6 also handles this.
                         ip -6 route del 2000::/3 dev tun0 2>/dev/null || true
                         ip -6 route show | grep -E 'dev tun' | while read -r line; do
                           case "$line" in
@@ -648,19 +645,6 @@
                             *) ip -6 route del $line 2>/dev/null || true ;;
                           esac
                         done
-                        # Re-assert DNS isolation via NM profile only. Do NOT call resolvectl
-                        # here: SetLinkDNS/Domains/DefaultRoute are polkit auth_admin and pop
-                        # "Authentication is required to set DNS servers" three times in the
-                        # user session. Root NM dispatcher force-ignore-auto-dns already clears
-                        # per-link DNS without prompts.
-                        # Source: org.freedesktop.resolve1.set-dns-servers policy.
-                        nmcli connection modify "$vpn_name" \
-                          ipv4.ignore-auto-dns yes \
-                          ipv4.dns "" \
-                          ipv4.dns-priority 100 \
-                          ipv6.ignore-auto-dns yes \
-                          ipv6.dns "" \
-                          2>/dev/null || true
                         notify-send "VPN" "Connected to $vpn_name"
                       else
                         notify-send -u critical "VPN Error" "Failed to connect to $vpn_name\n$out"

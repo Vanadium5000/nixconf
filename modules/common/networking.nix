@@ -1,5 +1,8 @@
-# Networking module with encrypted DNS via dnscrypt-proxy
-# ALL DNS is routed through dnscrypt-proxy (127.0.0.1) - DHCP/VPN DNS is ignored
+# Networking: prefer Cloudflare encrypted DNS, always fall back to plain/DHCP DNS.
+# Captive portals and flaky hotel paths must keep working if DoT or a service fails.
+# Fail-open: static public /etc/resolv.conf (not 127.0.0.53 stub). NSS uses resolved
+# first when healthy; if resolved dies, glibc dns uses these nameservers directly.
+# Source: man systemd-resolved.service; man nsswitch.conf; man resolved.conf
 { ... }:
 {
   flake.nixosModules.common =
@@ -47,354 +50,370 @@
         sensitive = false;
         list = operators;
       };
+
+      # Imperative DNS recovery without a rebuild. PATH: dns-emergency.
+      # Source: man systemd-resolved.service; man resolvectl; man nmcli
+      dnsEmergency = pkgs.writeShellApplication {
+        name = "dns-emergency";
+        runtimeInputs = with pkgs; [
+          coreutils
+          systemd
+          networkmanager
+          iproute2
+          gnugrep
+          gawk
+          gnused
+          curl
+        ];
+        text = ''
+          set -euo pipefail
+
+          usage() {
+            printf '%s\n' \
+              'dns-emergency — fix DNS without a NixOS rebuild' \
+              "" \
+              'Usage:' \
+              '  dns-emergency status' \
+              '  dns-emergency restart-resolved' \
+              '  dns-emergency plain' \
+              '  dns-emergency dhcp' \
+              '  dns-emergency disable-dot' \
+              '  dns-emergency restore' \
+              '  dns-emergency stop-resolved' \
+              '  dns-emergency flush' \
+              '  dns-emergency test [host]' \
+              "" \
+              'Commands:' \
+              '  status             Show resolv.conf, resolved, NM DNS, probes' \
+              '  restart-resolved   Restart systemd-resolved and flush caches' \
+              '  plain              Static public DNS in /etc/resolv.conf' \
+              '  dhcp               Write NM/DHCP nameservers into /etc/resolv.conf' \
+              '  disable-dot        Runtime DNSOverTLS=no (broken middleboxes)' \
+              '  restore            Restore flake default public resolv.conf + start resolved' \
+              '  stop-resolved      Stop resolved so NSS falls through to /etc/resolv.conf' \
+              '  flush              resolvectl flush-caches + reset-server-features' \
+              '  test [host]        getent + curl probes (default: example.com)' \
+              "" \
+              'plain/dhcp work even if systemd-resolved is dead.' \
+              'OpenSnitch may prompt on direct :53 after plain/dhcp — allow, or:' \
+              '  opensnitch-bypass -- dns-emergency test'
+          }
+
+          need_root() {
+            if [ "$(id -u)" -ne 0 ]; then
+              echo "error: needs root — sudo dns-emergency $*" >&2
+              exit 1
+            fi
+          }
+
+          # Always write a real file (never leave a dead 127.0.0.53 symlink).
+          write_resolv_lines() {
+            local tmp
+            tmp="$(mktemp)"
+            printf '%s\n' "$@" >"$tmp"
+            chmod 644 "$tmp"
+            mv -f "$tmp" /etc/resolv.conf
+            echo "wrote /etc/resolv.conf:"
+            cat /etc/resolv.conf
+          }
+
+          default_public_resolv() {
+            write_resolv_lines \
+              "# flake default / dns-emergency restore — public DNS, no local stub" \
+              "nameserver 1.1.1.1" \
+              "nameserver 1.0.0.1" \
+              "nameserver 9.9.9.9" \
+              "nameserver 8.8.8.8" \
+              "options edns0"
+          }
+
+          cmd_status() {
+            echo "== /etc/resolv.conf =="
+            ls -la /etc/resolv.conf 2>&1 || true
+            cat /etc/resolv.conf 2>&1 || true
+            echo
+            echo "== resolved unit =="
+            systemctl is-active systemd-resolved 2>&1 || true
+            systemctl is-failed systemd-resolved 2>&1 || true
+            resolvectl status 2>&1 | head -n 80 || true
+            echo
+            echo "== NetworkManager DNS =="
+            nmcli -t -f NAME,DEVICE,TYPE,STATE connection show --active 2>&1 || true
+            nmcli -g IP4.DNS,IP6.DNS dev show 2>&1 || true
+            echo
+            echo "== probes =="
+            getent hosts example.com 2>&1 || true
+            getent hosts one.one.one.one 2>&1 || true
+            curl -fsS -o /dev/null -w "curl 1.1.1.1/cdn-cgi/trace HTTP %{http_code}\n" \
+              --connect-timeout 5 --max-time 10 https://1.1.1.1/cdn-cgi/trace 2>&1 || true
+          }
+
+          cmd_restart_resolved() {
+            need_root restart-resolved
+            systemctl restart systemd-resolved
+            resolvectl flush-caches 2>/dev/null || true
+            resolvectl reset-server-features 2>/dev/null || true
+            systemctl --no-pager --full status systemd-resolved | head -n 40 || true
+          }
+
+          cmd_plain() {
+            need_root plain
+            default_public_resolv
+          }
+
+          cmd_dhcp() {
+            need_root dhcp
+            mapfile -t dns_list < <(
+              nmcli -g IP4.DNS dev show 2>/dev/null \
+                | tr '|' '\n' \
+                | sed 's/\\//g' \
+                | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' \
+                | awk '!seen[$0]++'
+            )
+            if [ "''${#dns_list[@]}" -eq 0 ]; then
+              echo "no NM IPv4 DNS found; using plain public resolvers" >&2
+              default_public_resolv
+              return
+            fi
+            lines=("# dns-emergency dhcp — from NetworkManager link DNS")
+            for ns in "''${dns_list[@]}"; do
+              lines+=("nameserver $ns")
+            done
+            lines+=("options edns0")
+            write_resolv_lines "''${lines[@]}"
+          }
+
+          cmd_disable_dot() {
+            need_root disable-dot
+            mkdir -p /run/systemd/resolved.conf.d
+            printf '%s\n' \
+              "# Temporary: dns-emergency disable-dot (reboot clears /run)" \
+              "[Resolve]" \
+              "DNSOverTLS=no" \
+              >/run/systemd/resolved.conf.d/99-dns-emergency-no-dot.conf
+            systemctl restart systemd-resolved
+            resolvectl flush-caches 2>/dev/null || true
+            echo "DNSOverTLS disabled via /run/systemd/resolved.conf.d/99-dns-emergency-no-dot.conf"
+            echo "Undo: sudo rm -f /run/systemd/resolved.conf.d/99-dns-emergency-no-dot.conf && sudo systemctl restart systemd-resolved"
+          }
+
+          cmd_restore() {
+            need_root restore
+            rm -f /run/systemd/resolved.conf.d/99-dns-emergency-no-dot.conf 2>/dev/null || true
+            default_public_resolv
+            systemctl start systemd-resolved 2>/dev/null || true
+            resolvectl flush-caches 2>/dev/null || true
+            echo "restored flake-default public /etc/resolv.conf and started systemd-resolved"
+          }
+
+          # NSS is `resolve [!UNAVAIL=return] … dns`. If resolved is *running* but
+          # broken, queries do not fall through. Stopping it makes the module UNAVAIL
+          # so glibc uses /etc/resolv.conf public DNS immediately.
+          # Source: man nsswitch.conf; man systemd-resolved.service
+          cmd_stop_resolved() {
+            need_root stop-resolved
+            default_public_resolv
+            systemctl stop systemd-resolved 2>/dev/null || true
+            echo "systemd-resolved stopped; NSS should use /etc/resolv.conf public DNS"
+            echo "Bring back: sudo dns-emergency restore"
+          }
+
+          cmd_flush() {
+            need_root flush
+            resolvectl flush-caches
+            resolvectl reset-server-features
+            resolvectl statistics 2>&1 | head -n 40 || true
+          }
+
+          cmd_test() {
+            host="''${1:-example.com}"
+            echo "getent hosts $host"
+            getent hosts "$host" || true
+            echo
+            echo "curl -I https://$host"
+            curl -fsSI --connect-timeout 5 --max-time 15 "https://$host" 2>&1 | head -n 15 || true
+            echo
+            echo "curl https://1.1.1.1/cdn-cgi/trace (IP literal)"
+            curl -fsS --connect-timeout 5 --max-time 10 https://1.1.1.1/cdn-cgi/trace 2>&1 || true
+          }
+
+          cmd="''${1:-}"
+          case "$cmd" in
+            ""|-h|--help|help) usage ;;
+            status) cmd_status ;;
+            restart-resolved) cmd_restart_resolved ;;
+            plain) cmd_plain ;;
+            dhcp) cmd_dhcp ;;
+            disable-dot) cmd_disable_dot ;;
+            restore) cmd_restore ;;
+            stop-resolved) cmd_stop_resolved ;;
+            flush) cmd_flush ;;
+            test) shift || true; cmd_test "''${1:-}" ;;
+            *)
+              echo "unknown command: $cmd" >&2
+              usage >&2
+              exit 2
+              ;;
+          esac
+        '';
+      };
+
     in
     {
       config = lib.mkIf cfg.enable {
         networking = {
           hostName = config.environment.variables.HOST;
 
-          # Global DNS for systemd-resolved only (not classic /etc/resolv.conf).
-          # Classic clients use the stub listener at 127.0.0.53:53 → resolved → :54.
-          # Source: man systemd-resolved.service, resolv.conf modes (stub vs uplink).
+          # Prefer Cloudflare; #name is DoT SNI when DNSOverTLS is on.
+          # DHCP/VPN link DNS still flows NM → resolved (captive portals).
+          # Source: man resolved.conf (DNS=, DNSOverTLS=)
           nameservers = [
-            "127.0.0.1:54"
-            "[::1]:54"
+            "1.1.1.1#cloudflare-dns.com"
+            "1.0.0.1#cloudflare-dns.com"
+            "9.9.9.9#dns.quad9.net"
           ];
 
-          # CLI/TUI for connecting to networks
           networkmanager = {
             enable = true;
-
-            # Prevent NetworkManager from pushing per-link DNS to systemd-resolved
-            # This ensures ALL DNS goes through global (127.0.0.1 → dnscrypt-proxy)
-            # dns = lib.mkForce "none";
+            # Feed link DNS into resolved (hotel captive portals need DHCP DNS).
+            dns = "systemd-resolved";
 
             wifi = {
-              macAddress = "stable"; # Randomize MAC for Wi-Fi connections - "random" breaks networks
-              scanRandMacAddress = true; # Also randomize during Wi-Fi scans for extra privacy
+              # "random" breaks some networks; stable is enough privacy for most Wi-Fi.
+              macAddress = "stable";
+              scanRandMacAddress = true;
             };
 
-            # Preserve the hardware MAC on ethernet because some VPS providers bind IPs to it.
+            # Some VPS providers bind the public IP to the hardware MAC.
             ethernet.macAddress = "preserve";
 
-            # Global defaults for all new + existing connections for better privacy
             settings = {
-              # Prevents broadcasting the machine hostname on typical networks.
-              # NetworkManager 1.52 rejects the old [connection] key; these are
-              # the documented global defaults consumed by DHCP connection profiles.
-              # The server host still needs DHCP hostname announcements for its provider lease.
-              # Source: https://networkmanager.dev/docs/api/latest/NetworkManager.conf.html#connection-section
+              # Avoid broadcasting hostname on typical LANs; main_vps still needs
+              # DHCP hostname for its provider lease.
+              # Source: https://networkmanager.dev/docs/api/latest/NetworkManager.conf.html
               ipv4.dhcp-send-hostname = config.preferences.hostName != "main_vps";
               ipv6.dhcp-send-hostname = config.preferences.hostName != "main_vps";
             };
 
             plugins = with pkgs; [
-              networkmanager-openvpn # This provides the org.freedesktop.NetworkManager.openvpn plugin
-              networkmanager-ssh # SSH VPN integration for NetworkManager
+              networkmanager-openvpn
+              networkmanager-ssh
             ];
           };
 
-          # Better security
           firewall.enable = true;
 
-          # Prefer IPv4 when the ISP/hotel path has broken or blackholed IPv6.
-          # Without this, dual-stack apps (Sober/Roblox, browsers, Electron) stall on
-          # Happy Eyeballs waiting for unreachable AAAA targets.
+          # Prefer IPv4 when ISP/hotel IPv6 is broken so dual-stack apps do not stall.
           # Source: https://man7.org/linux/man-pages/man5/gai.conf.5.html
           getaddrinfo.precedence = {
-            ":ffff:0:0/96" = 100; # IPv4-mapped / prefer IPv4
+            ":ffff:0:0/96" = 100;
             "::/0" = 40;
           };
 
-          # NTP servers - https://wiki.nixos.org/wiki/NTP
-          timeServers =
-            options.networking.timeServers.default
-            # https://developers.cloudflare.com/time-services/ntp/usage/
-            ++ [
-              "162.159.200.1"
-              "162.159.200.123"
-            ];
+          # Default NixOS NTP pool plus Cloudflare time anycast.
+          # Source: https://developers.cloudflare.com/time-services/ntp/usage/
+          timeServers = options.networking.timeServers.default ++ [
+            "162.159.200.1"
+            "162.159.200.123"
+          ];
         };
 
-        # ============================================================================
-        # systemd-resolved - Global DNS only (no per-link DNS)
-        # ============================================================================
-        # services.resolved = {
-        #   enable = true;
+        # Prefer DoT to Cloudflare; fall back to plain UDP/TCP DNS and link DNS.
+        # DNSSEC off: captive portals and many hotel middleboxes break with DNSSEC.
+        # Source: man systemd-resolved.service, man resolved.conf
+        services.resolved = {
+          enable = true;
+          settings.Resolve = {
+            DNSOverTLS = "opportunistic";
+            DNSSEC = "no";
+            LLMNR = "no";
+            MulticastDNS = "no";
+            ResolveUnicastSingleLabel = "no";
+            # Only used when configured + link DNS are all unknown/unreachable.
+            FallbackDNS = [
+              "1.1.1.1"
+              "1.0.0.1"
+              "9.9.9.9"
+              "8.8.8.8"
+            ];
+          };
+        };
 
-        #   settings.Resolve = {
-        #     # Fallback only if dnscrypt-proxy is completely down. Prefer DoH/DoT-capable
-        #     # public resolvers as last resort — never the hotel/ISP DHCP resolver.
-        #     FallbackDNS = [
-        #       "1.1.1.1"
-        #       "9.9.9.9"
-        #     ];
+        # Static public nameservers in /etc/resolv.conf (NOT the 127.0.0.53 stub).
+        # NSS order is `resolve [!UNAVAIL=return] … dns`: when resolved is up it still
+        # prefers DoT + DHCP/VPN link DNS (captive portals); when resolved is dead or
+        # UNAVAIL, glibc falls through to these public resolvers and internet keeps
+        # working. Stub mode would hard-fail every classic client if resolved dies.
+        # Captive portal stuck on public DNS? `sudo dns-emergency dhcp`.
+        # Source: man systemd-resolved.service; man nsswitch.conf
+        environment.etc."resolv.conf".text = lib.mkForce ''
+          # Managed by modules/common/networking.nix — public DNS fail-open.
+          # Prefer resolved (DoT/link DNS) via NSS when available; these are fallback.
+          nameserver 1.1.1.1
+          nameserver 1.0.0.1
+          nameserver 9.9.9.9
+          nameserver 8.8.8.8
+          options edns0
+        '';
 
-        #     # Route ALL queries through the global DNS servers (127.0.0.1:54 → dnscrypt-proxy).
-        #     # The "~." routing-only domain captures all queries.
-        #     Domains = [ "~." ];
-
-        #     # Disable local multicast/name protocols to prevent local-network DNS leaks.
-        #     LLMNR = "no";
-        #     MulticastDNS = "no";
-
-        #     # DNSSEC breaks captive portals and some misconfigured domains.
-        #     DNSSEC = "no";
-
-        #     # Stub UDP+TCP on 127.0.0.53:53. With DNSStubListener=no, resolved drops
-        #     # nameserver 127.0.0.1:54 from uplink resolv.conf (glibc has no :port form),
-        #     # so classic clients (host/curl/nix sandboxes) get an empty resolv and fail
-        #     # with "Could not resolve host". Stub mode always writes nameserver 127.0.0.53.
-        #     # Source: man systemd-resolved.service; live host github.com → connection refused on :53.
-        #     DNSStubListener = "yes";
-        #     ResolveUnicastSingleLabel = "no";
-        #   };
-        # };
-
-        # Force stub resolv.conf. Without this, NixOS may still point at uplink resolv
-        # (empty when only :54 globals exist). Always list 127.0.0.53 for classic DNS.
-        # Source: https://wiki.archlinux.org/title/Systemd-resolved#DNS
-        # environment.etc."resolv.conf".source = lib.mkForce "/run/systemd/resolve/stub-resolv.conf";
-
-        # ============================================================================
-        # Encrypted DNS via dnscrypt-proxy
-        # ============================================================================
-        # services.dnscrypt-proxy = {
-        #   enable = true;
-        #   # Do not merge package example defaults (they re-enable IPv6 resolvers and
-        #   # UDP-first probe settings that break hotel/VPN paths). Own the full TOML.
-        #   # Source: nixpkgs services.dnscrypt-proxy.upstreamDefaults merge via jq add.
-        #   upstreamDefaults = false;
-
-        #   settings = {
-        #     # Listen on localhost:54 (resolved stub owns :53 for app-facing DNS).
-        #     listen_addresses = [
-        #       "127.0.0.1:54"
-        #       "[::1]:54"
-        #     ];
-
-        #     # Server selection criteria - privacy focused, no DNSSEC requirement
-        #     # (DNSSEC breaks captive portals and some sites)
-        #     require_dnssec = false;
-        #     require_nolog = true;
-        #     require_nofilter = true;
-
-        #     # Broken hotel/ISP IPv6 makes dnscrypt pick cloudflare-ipv6 then TIMEOUT;
-        #     # stick to IPv4 + DoH so DNS does not depend on working native IPv6.
-        #     # Source: live logs "Server with lowest latency: cloudflare-ipv6" + v6 unreachable.
-        #     ipv4_servers = true;
-        #     ipv6_servers = false;
-        #     doh_servers = true; # DNS-over-HTTPS (most firewall-friendly / hard to break)
-        #     # DNSCrypt stamps time out on this hotel/VPN path; DoH on :443 is enough.
-        #     # Source: live logs repeatedly "quad9-dnscrypt-ip4-nofilter-pri TIMEOUT".
-        #     dnscrypt_servers = false;
-        #     # TCP/DoH path survives flaky UDP filtering better than raw DNSCrypt UDP.
-        #     force_tcp = true;
-
-        #     # Prefer IPv4 DoH stamps that survive OpenSnitch/hotel TLS inspection better
-        #     # than raw DNSCrypt UDP. Names must match static.* entries below when the
-        #     # public-resolvers list has not been downloaded yet (impermanent root).
-        #     server_names = [
-        #       "cloudflare"
-        #       "quad9-doh-ip4-port443-nofilter-pri"
-        #       "google"
-        #     ];
-
-        #     cache = true;
-        #     cache_size = 4096;
-        #     cache_min_ttl = 60; # Avoid hammering upstream on flaky links
-        #     cache_max_ttl = 86400;
-        #     cache_neg_min_ttl = 10; # Short negative cache so transient failures recover fast
-        #     cache_neg_max_ttl = 60;
-
-        #     sources.public-resolvers = {
-        #       urls = [
-        #         "https://raw.githubusercontent.com/DNSCrypt/dnscrypt-resolvers/master/v3/public-resolvers.md"
-        #         "https://download.dnscrypt.info/resolvers-list/v3/public-resolvers.md"
-        #       ];
-        #       cache_file = "/var/lib/dnscrypt-proxy/public-resolvers.md";
-        #       minisign_key = "RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3";
-        #       refresh_delay = 72;
-        #     };
-
-        #     # Static stamps keep DNS up even when the public-resolvers download fails
-        #     # (TLS handshake failures at boot / start-limit-hit). Stamps taken from the
-        #     # live public-resolvers.md corpus on 2026-07-15.
-        #     # Source: https://github.com/DNSCrypt/dnscrypt-proxy/wiki/Configuration#static-servers
-        #     static = {
-        #       cloudflare.stamp = "sdns://AgcAAAAAAAAABzEuMC4wLjEAEmRucy5jbG91ZGZsYXJlLmNvbQovZG5zLXF1ZXJ5";
-        #       google.stamp = "sdns://AgUAAAAAAAAABzguOC44LjggsKKKE4EwvtIbNjGjagI2607EdKSVHowYZtyvD9iPrkkHOC44LjguOAovZG5zLXF1ZXJ5";
-        #       "quad9-doh-ip4-port443-nofilter-pri".stamp =
-        #         "sdns://AgcAAAAAAAAACDkuOS45LjEwILAZIHRLu3bJqwU-AeB7fgUORz0g95976kNfr-Q8nSQvE2RuczEwLnF1YWQ5Lm5ldDo0NDMKL2Rucy1xdWVyeQ";
-        #     };
-
-        #     # Bootstrap only for downloading the resolver list — IPv4 literals, no system DNS.
-        #     bootstrap_resolvers = [
-        #       "1.1.1.1:53"
-        #       "9.9.9.9:53"
-        #       "8.8.8.8:53"
-        #     ];
-        #     ignore_system_dns = true;
-        #     # Probe HTTPS, not classic DNS: port 53 is often filtered and would stall
-        #     # netprobe for netprobe_timeout while DNS stays unusable.
-        #     netprobe_address = "1.1.1.1:443";
-        #     netprobe_timeout = 10;
-        #     block_ipv6 = true; # Apps get A-only answers → no Happy-Eyeballs stall on dead v6
-
-        #     # OpenSnitch review pauses can exceed dnscrypt-proxy's default
-        #     # 5s socket timeout; 25s keeps bootstrap/DoH attempts reviewable.
-        #     # Source: https://github.com/DNSCrypt/dnscrypt-proxy/wiki/Configuration
-        #     timeout = 25000;
-        #     keepalive = 30;
-        #   };
-        # };
+        # resolved is on the critical path for nss-resolve and NM DNS push; never sit
+        # in failed/start-limit after a transient OpenSnitch/boot race.
+        # Source: systemd.service(5) Restart=, StartLimitIntervalSec=
+        systemd.services.systemd-resolved = {
+          startLimitIntervalSec = 0;
+          serviceConfig = {
+            Restart = "always";
+            RestartSec = "2s";
+          };
+        };
 
         services.opensnitch.mutableRules = lib.mkIf config.services.opensnitch.enable {
-          "010-allow-dnscrypt-proxy-service-ports" =
-            opensnitchRule "010-allow-dnscrypt-proxy-service-ports"
-              "Allow dnscrypt-proxy bootstrap, DNSCrypt, DoH, and DoT service ports; regular clients must still use localhost."
-              (list [
-                (simple "process.path" "${pkgs.dnscrypt-proxy}/bin/dnscrypt-proxy")
-                (regexp "dest.port" "^(53|443|853)$")
-              ]);
           "010-allow-networkmanager-lan" =
             opensnitchRule "010-allow-networkmanager-lan"
-              "Allow NetworkManager to reach LAN services for DHCP/captive-portal/link management without allowing arbitrary internet destinations."
+              "Allow NetworkManager LAN access for DHCP/captive-portal/link management."
               (list [
                 (simple "process.path" "${pkgs.networkmanager}/bin/NetworkManager")
                 (network "dest.network" "LAN")
               ]);
           "010-allow-systemd-resolved-dns" =
             opensnitchRule "010-allow-systemd-resolved-dns"
-              "Allow systemd-resolved only for classic DNS port 53; normal configured traffic stays loopback to dnscrypt-proxy."
+              "Allow systemd-resolved plain DNS (53) and DoT (853); FallbackDNS keeps internet up if DoT fails."
               (list [
                 (simple "process.path" "${pkgs.systemd}/lib/systemd/systemd-resolved")
-                (simple "dest.port" "53")
+                (regexp "dest.port" "^(53|853)$")
               ]);
           "010-allow-systemd-timesyncd-ntp" =
-            opensnitchRule "010-allow-systemd-timesyncd-ntp"
-              "Allow systemd-timesyncd NTP only on port 123 instead of host-specific pool rules."
+            opensnitchRule "010-allow-systemd-timesyncd-ntp" "Allow systemd-timesyncd NTP on port 123."
               (list [
                 (simple "process.path" "${pkgs.systemd}/lib/systemd/systemd-timesyncd")
                 (simple "dest.port" "123")
               ]);
         };
 
-        # dnscrypt-proxy must survive early-boot TLS/OpenSnitch races: default
-        # RestartSec=100ms + StartLimitBurst=5/10s hit start-limit and stayed dead
-        # until a manual start (live journal: FATAL tls handshake → start-limit-hit).
-        # Static stamps above mean a restart can serve DNS without re-fetching the list.
-        # Source: systemd.unit(5) StartLimitIntervalSec=0; live legion5i journal 20:29.
-        # systemd.services.dnscrypt-proxy = {
-        #   after = [
-        #     "network-online.target"
-        #     "nss-lookup.target"
-        #     "opensnitchd.service"
-        #   ];
-        #   wants = [
-        #     "network-online.target"
-        #     "nss-lookup.target"
-        #   ];
-        #   # Unlimited restarts; backoff is RestartSec, not a hard fail.
-        #   startLimitIntervalSec = 0;
-        #   serviceConfig = {
-        #     StateDirectory = "dnscrypt-proxy";
-        #     Restart = "always";
-        #     RestartSec = "5s";
-        #   };
-        # };
-
-        # Persist DynamicUser state so public-resolvers.md survives impermanent root.
-        # Without this every boot re-downloads the list and can FATAL before start-limit.
-        # Source: systemd DynamicUser StateDirectory → /var/lib/private/<name>
-        impermanence.nixos.directories = [
-          "/var/lib/private/dnscrypt-proxy"
-        ];
-
-        # ============================================================================
-        # Force ALL connections to ignore DHCP-provided DNS
-        # ============================================================================
-        # NetworkManager's dns=none only affects /etc/resolv.conf management.
-        # The internal DHCP client STILL pushes per-link DNS to systemd-resolved
-        # via DBus. The ONLY reliable fix is setting ignore-auto-dns on each
-        # connection profile. This dispatcher does that on first activation.
+        # OpenVPN often pushes IPv6 full-tunnel routes without a GUA on tun, which
+        # blackholes dual-stack clients. Drop those routes only — never touch DNS.
+        # Source: https://community.openvpn.net/openvpn/ticket/1163
         networking.networkmanager.dispatcherScripts = [
           {
-            source = pkgs.writeShellScript "force-ignore-auto-dns" ''
-              INTERFACE="$1"
-              ACTION="$2"
-              CONNECTION_UUID="$3"
-
-              case "$ACTION" in
-                up|vpn-up|reapply|dhcp4-change|dhcp6-change)
-                  ;;
-                *)
-                  exit 0
-                  ;;
-              esac
-
-              [ -z "$CONNECTION_UUID" ] && exit 0
-
-              # Skip tailscale (manages its own DNS correctly with routing domains)
-              case "$INTERFACE" in
-                tailscale*)
-                  exit 0
-                  ;;
-              esac
-
-              # Always force: no DHCP/VPN-pushed DNS, empty static DNS lists, IPv6 off.
-              # Hotel/ISP (10.0.0.1) and PIA/AirVPN dhcp-option DNS must never become
-              # per-link resolvers; global path is always resolved → dnscrypt :54.
-              ${pkgs.networkmanager}/bin/nmcli connection modify "$CONNECTION_UUID" \
-                ipv4.ignore-auto-dns yes \
-                ipv6.ignore-auto-dns yes \
-                ipv4.dns "" \
-                ipv6.dns "" \
-                ipv6.method disabled \
-                ipv4.dns-priority 100 \
-                2>/dev/null || true
-
-              # Drop any resolved per-link DNS that snuck in before modify.
-              ${pkgs.systemd}/bin/resolvectl dns "$INTERFACE" "" 2>/dev/null || true
-              ${pkgs.systemd}/bin/resolvectl domain "$INTERFACE" "" 2>/dev/null || true
-              # Keep "~." only on the global config so VPN links cannot capture DNS.
-              ${pkgs.systemd}/bin/resolvectl default-route "$INTERFACE" no 2>/dev/null || true
-            '';
-            type = "basic";
-          }
-          {
-            # OpenVPN/PIA often push redirect-gateway ipv6 / route-ipv6 without assigning a GUA
-            # on tun. That installs 2000::/3 via tun with only fe80::, so dual-stack clients fail
-            # Happy Eyeballs and can land on local nginx magic-DNS (ACP UI). Strip those routes
-            # and refuse IPv6 on VPN tunnels unless a global address exists.
-            # Source: https://community.openvpn.net/openvpn/ticket/1163
             source = pkgs.writeShellScript "vpn-drop-broken-ipv6" ''
               INTERFACE="$1"
               ACTION="$2"
 
               case "$ACTION" in
-                up|vpn-up|reapply|dhcp4-change|dhcp6-change)
-                  ;;
-                *)
-                  exit 0
-                  ;;
+                up|vpn-up|reapply|dhcp4-change|dhcp6-change) ;;
+                *) exit 0 ;;
               esac
 
               case "$INTERFACE" in
-                tun*|tap*|wg*|proton*|nordlynx*)
-                  ;;
-                *)
-                  exit 0
-                  ;;
+                tun*|tap*|wg*|proton*|nordlynx*) ;;
+                *) exit 0 ;;
               esac
 
-              # Always drop the common IPv6 full-tunnel blackhole prefix.
               ${pkgs.iproute2}/bin/ip -6 route del 2000::/3 dev "$INTERFACE" 2>/dev/null || true
               ${pkgs.iproute2}/bin/ip -6 route del ::/1 dev "$INTERFACE" 2>/dev/null || true
               ${pkgs.iproute2}/bin/ip -6 route del 8000::/1 dev "$INTERFACE" 2>/dev/null || true
               ${pkgs.iproute2}/bin/ip -6 route del default dev "$INTERFACE" 2>/dev/null || true
 
-              # If the tunnel has no global IPv6 address, disable IPv6 on it entirely.
               if ! ${pkgs.iproute2}/bin/ip -6 -o addr show dev "$INTERFACE" scope global 2>/dev/null | ${pkgs.gnugrep}/bin/grep -q .; then
                 ${pkgs.procps}/bin/sysctl -w "net.ipv6.conf.$INTERFACE.disable_ipv6=1" >/dev/null 2>&1 || true
               fi
@@ -403,28 +422,11 @@
           }
         ];
 
-        # ============================================================================
-        # Manual DNS testing
-        # ============================================================================
-        #
-        # Check active resolvers + fallback state:
-        #   resolvectl status
-        #
-        # Query via dnscrypt-proxy explicitly (IPv4):
-        #   resolvectl query example.com @127.0.0.1
-        #
-        # Query via dnscrypt-proxy explicitly (IPv6):
-        #   resolvectl query example.com @::1
-        #
-        # Direct dnscrypt-proxy internal test:
-        #   dnscrypt-proxy -resolve example.com
-        #
-
         environment.variables.VPN_DIR = config.preferences.paths.vpnDirectory;
 
-        environment.systemPackages = with pkgs; [
-          dnscrypt-proxy
-          openvpn
+        environment.systemPackages = [
+          pkgs.openvpn
+          dnsEmergency
         ];
       };
     };

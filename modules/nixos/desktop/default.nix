@@ -11,7 +11,6 @@
       cfg = lib.attrByPath [ "preferences" "profiles" "desktop" ] { enable = false; } config;
       # inherit (lib) getExe;
       selfpkgs = self.packages."${pkgs.stdenv.hostPlatform.system}";
-      braveOrigin = selfpkgs.brave-origin;
       opensnitchRule = name: description: operator: {
         inherit name description operator;
         created = "2026-07-09T00:00:00Z";
@@ -75,13 +74,22 @@
         programs.localsend.enable = true;
 
         services.opensnitch.mutableRules = lib.mkIf config.services.opensnitch.enable {
-          "030-allow-brave-origin-browser" =
-            opensnitchRule "030-allow-brave-origin-browser"
-              "Allow the packaged Brave Origin browser binary from the configured flake package."
+          "030-allow-librewolf-browser" =
+            opensnitchRule "030-allow-librewolf-browser" "Allow the system LibreWolf browser binary."
               {
                 type = "simple";
                 operand = "process.path";
-                data = "${braveOrigin}/opt/brave.com/brave-origin-nightly/brave";
+                data = "${lib.getExe pkgs.librewolf}";
+                sensitive = false;
+                list = null;
+              };
+          "030-allow-brave-origin-browser" =
+            opensnitchRule "030-allow-brave-origin-browser"
+              "Allow the packaged Brave Origin browser binary when launched manually."
+              {
+                type = "simple";
+                operand = "process.path";
+                data = "${selfpkgs.brave-origin}/opt/brave.com/brave-origin-nightly/brave";
                 sensitive = false;
                 list = null;
               };
@@ -375,15 +383,14 @@
         xdg.terminal-exec.enable = true;
         xdg.mime.enable = true;
         xdg.mime.defaultApplications = {
-          # Use the visible Brave Origin desktop entry as the human-facing
-          # browser handler; package output also ships a NoDisplay-style app ID.
-          # Ref: modules/_pkgs/brave-origin/make-brave.nix package desktop files.
-          "text/html" = [ "brave-origin-nightly.desktop" ];
-          "application/xhtml+xml" = [ "brave-origin-nightly.desktop" ];
-          "x-scheme-handler/http" = [ "brave-origin-nightly.desktop" ];
-          "x-scheme-handler/https" = [ "brave-origin-nightly.desktop" ];
-          "x-scheme-handler/about" = [ "brave-origin-nightly.desktop" ];
-          "x-scheme-handler/unknown" = [ "brave-origin-nightly.desktop" ];
+          # LibreWolf is the default system browser; Brave Origin remains installed.
+          # Desktop id from pkgs.librewolf share/applications/librewolf.desktop.
+          "text/html" = [ "librewolf.desktop" ];
+          "application/xhtml+xml" = [ "librewolf.desktop" ];
+          "x-scheme-handler/http" = [ "librewolf.desktop" ];
+          "x-scheme-handler/https" = [ "librewolf.desktop" ];
+          "x-scheme-handler/about" = [ "librewolf.desktop" ];
+          "x-scheme-handler/unknown" = [ "librewolf.desktop" ];
         };
 
         # Dolphin requires applications.menu to discover apps.
@@ -392,6 +399,8 @@
           "${pkgs.kdePackages.plasma-workspace}/etc/xdg/menus/plasma-applications.menu";
 
         environment.sessionVariables = {
+          # Default CLI/xdg browser; matches xdg.mime handlers above.
+          BROWSER = "librewolf";
           # Tell KDE apps which menu to use
           XDG_MENU_PREFIX = "plasma-";
           # qmlls/qmllint only resolve Quickshell and Qt add-on modules from

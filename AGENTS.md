@@ -60,7 +60,7 @@ graphical hosts: modules/hosts/{legion5i,macbook}/
 └─ qBittorrent WebUI: Gluetun/PIA stack binds 127.0.0.1:8088; qBittorrent shares Gluetun network namespace, pins torrent traffic to tun0, and downloads to persisted ~/Torrents
 
 persistence helpers: modules/lib/_internal/persistence.nix; NixOS module modules/common/impermanence.nix; app state split across home persistence/cache for Orca, Limux, gh, OpenCode, OMP; btrbk host target suffix/transactions persist in /var/lib/btrbk
-DNS stack (all hosts via modules/common/networking.nix): apps → systemd-resolved stub 127.0.0.53:53 → dnscrypt-proxy 127.0.0.1:54 (DoH/DNSCrypt, static stamps + persisted /var/lib/private/dnscrypt-proxy); NM/qs-vpn ignore DHCP+VPN DNS so tunnels cannot replace global DNS
+DNS stack (all hosts via modules/common/networking.nix): NSS prefers systemd-resolved (Cloudflare DoT opportunistic + DHCP/VPN link DNS + FallbackDNS); /etc/resolv.conf is static public 1.1.1.1/1.0.0.1/9.9.9.9/8.8.8.8 fail-open (not 127.0.0.53 stub); emergency tool dns-emergency (plain/dhcp/stop-resolved/restore) — docs/docs/operations/dns.md
 monitoring dashboards: modules/nixos/terminal/monitoring/
 ```
 

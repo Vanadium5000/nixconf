@@ -164,7 +164,7 @@ Graphical hosts import `modules/nixos/desktop/default.nix`, which extends the te
 | 🔊 Audio | `modules/nixos/desktop/system/audio.nix` | PipeWire/WirePlumber, MPD, player control. |
 | 💾 Removable media | `modules/nixos/desktop/default.nix` | `udiskie` runs as a graphical-session user service with a tray icon, udisks2 actions, LUKS prompts, and notifications; DMS USB Manager is removed from persisted DMS plugins. |
 | 📺 HDMI-CEC | `modules/nixos/desktop/system/hdmi-cec.nix` | Optional `preferences.hardware.hdmiCec.enable`; configures `/dev/cec*` adapters as playback devices so TV remote media keys reach Linux input. |
-| 🌍 Browser | `modules/nixos/desktop/firefox/firefox.nix` | LibreWolf/Firefox policy and user config. |
+| 🌍 Browser | `modules/nixos/desktop/firefox/firefox.nix`, `modules/nixos/desktop/default.nix` | LibreWolf is the default system/xdg browser; Brave Origin stays installed as a manual fallback. |
 | ✍️ Editor/IDE | `modules/programmes/fresh.nix`, `modules/nixos/desktop/vscodium/` | Fresh as terminal editor; VSCodium with declarative extensions/theme. |
 | 🧱 Firewall | `modules/nixos/desktop/opensnitch.nix`, `docs/docs/operations/opensnitch.md` | OpenSnitch daemon/UI, eBPF process monitor, nftables backend, advanced typed `services.opensnitch.mutableRules`, curated declarative allow/reject rules, and an authenticated `opensnitch-bypass` wrapper. |
 | 🧰 Apps | `modules/nixos/desktop/flatpaks/`, `obs.nix`, `obsidian.nix`, `qt.nix`, `tuigreet.nix` | Desktop app set, Flatpak integration, display greeter, Qt theming. |

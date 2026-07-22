@@ -81,6 +81,10 @@ const config: Config = {
               label: 'Public routes',
               to: '/operations/public-routes',
             },
+            {
+              label: 'DNS recovery',
+              to: '/operations/dns',
+            },
           ],
         },
         {

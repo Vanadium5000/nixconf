@@ -21,7 +21,6 @@
       altSuperMod = "SUPER_ALT";
       shiftAltSuperMod = "SUPER_SHIFT_ALT";
       terminal = self.packages.${pkgs.stdenv.hostPlatform.system}.terminal;
-      braveOrigin = self.packages.${pkgs.stdenv.hostPlatform.system}.brave-origin;
       qsDmenu = self.packages.${pkgs.stdenv.hostPlatform.system}.qs-dmenu;
       systemSettings = config.preferences.system;
       user = config.preferences.user.username;
@@ -251,8 +250,8 @@
         # ── Apps ──
         apps = [
           (kb "${mod},RETURN" "exec, ${getExe terminal}" "Open terminal" "Apps")
-          (kb "${mod},B" "exec, ${getExe braveOrigin}" "Open Brave Origin browser" "Apps")
-          (kb "${shiftMod},B" "exec, librewolf" "Open LibreWolf browser" "Apps")
+          (kb "${mod},B" "exec, librewolf" "Open LibreWolf browser" "Apps")
+          (kb "${shiftMod},B" "exec, brave-origin" "Open Brave Origin browser" "Apps")
           (kb "${mod},G" "exec, xdg-open https://x.com/i/grok" "Open Grok AI" "Apps")
           (kb "${mod},L" "exec, dms ipc call lock lock" "Lock screen" "Apps")
         ];

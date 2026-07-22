@@ -69,12 +69,12 @@ Only process-agnostic baseline rules live in `modules/nixos/desktop/opensnitch.n
 | `000-allow-localhost-ipv4`, `000-allow-localhost-ipv6` in `opensnitch.nix` | Priority loopback allows for local IPC, proxies, and desktop helpers. |
 | `001-reject-ld-preload-network` | Priority reject for outbound sockets from processes with path-like `LD_PRELOAD`. Breaks Flatpak apps if a user override sets `LD_PRELOAD` (e.g. missing `libdeltoid.so` on Sober → "Could not connect to server" for every HTTPS fetch). Remove with `flatpak override --user --unset-env=LD_PRELOAD org.vinegarhq.Sober` and drop the matching filesystem grant. |
 | `001-reject-temp-executables` | Priority reject for binaries executed from `/tmp`, `/var/tmp`, `/dev/shm`, `/memfd`, and similar writable locations. |
-| `010-allow-systemd-resolved-dns` in `modules/common/networking.nix` | Allows `${pkgs.systemd}/lib/systemd/systemd-resolved` only to destination port 53. |
-| `010-allow-dnscrypt-proxy-service-ports` in `modules/common/networking.nix` | Allows `${pkgs.dnscrypt-proxy}/bin/dnscrypt-proxy` bootstrap/DNSCrypt/DoH/DoT ports 53, 443, and 853. Service restarts with `RestartSec=5s` and no start-limit; static DoH stamps keep DNS up if the public list fetch is blocked at boot. |
+| `010-allow-systemd-resolved-dns` in `modules/common/networking.nix` | Allows `${pkgs.systemd}/lib/systemd/systemd-resolved` to ports 53 and 853 (plain DNS + opportunistic DoT). FallbackDNS keeps resolution up if DoT fails. |
 | `010-allow-networkmanager-lan` in `modules/common/networking.nix` | Allows `${pkgs.networkmanager}/bin/NetworkManager` only to `LAN` destinations. |
 | `010-allow-systemd-timesyncd-ntp` in `modules/common/networking.nix` | Allows `${pkgs.systemd}/lib/systemd/systemd-timesyncd` NTP on port 123. |
 | `020-allow-tailscaled` in `modules/nixos/terminal/tailscale.nix` | Allows the configured Tailscale daemon package; endpoints are dynamic. |
-| `030-allow-brave-origin-browser` in `modules/nixos/desktop/default.nix` | Allows the flake's Brave Origin package binary. |
+| `030-allow-librewolf-browser` in `modules/nixos/desktop/default.nix` | Allows the system LibreWolf browser binary (default browser). |
+| `030-allow-brave-origin-browser` in `modules/nixos/desktop/default.nix` | Allows the flake's Brave Origin package binary when launched manually. |
 | `030-allow-ssh-standard-ports` in `modules/common/base.nix` | Allows `${pkgs.openssh}/bin/ssh` to ports 22 and 443 only. |
 | `040-allow-nix-known-fetch-hosts` in `modules/nixos/terminal/nix.nix` | Merges prior live Nix/Lix GitHub/cache HTTPS prompts into one exact-package rule. |
 | `050-allow-vscodium-raw-githubusercontent` in `modules/nixos/desktop/vscodium/default.nix` | Allows the configured VSCodium package to fetch raw GitHub content. |
@@ -82,7 +82,7 @@ Only process-agnostic baseline rules live in `modules/nixos/desktop/opensnitch.n
 | `060-allow-open-meteo-weather` in `modules/nixos/desktop/dank-material-shell.nix` | Allows the shell weather provider `api.open-meteo.com:443`. |
 | `000-allow-authenticated-root-bypass` | Allows authenticated root bypass wrapper processes. |
 
-Live rules inspected from `/var/lib/opensnitch/rules` were migrated when they were specific enough: Brave, Tailscale, SSH, NetworkManager LAN, systemd-resolved port 53, Nix/Lix GitHub/cache fetches, VSCodium raw GitHub, NTP, and DMS weather. Sloppy exact live store paths were replaced by declarative package references. The broad Orca deny rule was not migrated because it denied a whole Electron application by exact store path without destination or command context.
+Live rules inspected from `/var/lib/opensnitch/rules` were migrated when they were specific enough: LibreWolf, Brave, Tailscale, SSH, NetworkManager LAN, systemd-resolved DNS/DoT, Nix/Lix GitHub/cache fetches, VSCodium raw GitHub, NTP, and DMS weather. Sloppy exact live store paths were replaced by declarative package references. The broad Orca deny rule was not migrated because it denied a whole Electron application by exact store path without destination or command context.
 
 ## Prompt review timeouts
 
@@ -92,7 +92,6 @@ Several networking clients use longer connect windows so you can answer OpenSnit
 | --- | --- |
 | Root flake Nix config | `connect-timeout = 25` seconds. |
 | System Nix/Lix daemon | `connect-timeout = 25`, `stalled-download-timeout = 120`. |
-| dnscrypt-proxy | `timeout = 25000` milliseconds. |
 | `git-sync-debug` SSH probe | `ConnectTimeout=25`, command timeout 30 seconds. |
 | `models` API fetch | `curl --connect-timeout 25 --max-time 90`. |
 
@@ -133,4 +132,3 @@ services.opensnitch.nixconf.bypassWrapper.enable = false;
 - [OpenSnitch Rules examples](https://github.com/evilsocket/opensnitch/wiki/Rules-examples): priority rules, process-path regexes, interpreter caution, `process.env.*` examples, and temp executable rejects.
 - [OpenSnitch Configurations wiki](https://github.com/evilsocket/opensnitch/wiki/Configurations): daemon config file keys, rule path, checksum option, UI socket behavior, and GUI/default-action interaction.
 - [Nix connect-timeout reference](https://nixos.org/manual/nix/stable/command-ref/conf-file#conf-connect-timeout): timeout units and behavior.
-- [dnscrypt-proxy configuration wiki](https://github.com/DNSCrypt/dnscrypt-proxy/wiki/Configuration): `timeout` is configured in milliseconds.
