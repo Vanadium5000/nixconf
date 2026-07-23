@@ -37,7 +37,7 @@ main_vps: modules/hosts/main_vps/
 │  ├─ OmniRoute gateway/dashboard: 127.0.0.1:20128 -> https://omniroute.<domain>
 │  └─ protected dashboards: dashboard/docs/cockpit/vpn/cpa-usage/portainer/mongo via services-auth; Baikal/DAV bypasses shared auth
 └─ service settings/packages
-   ├─ services.homepage-monitor: modules/nixos/terminal/monitoring/homepage.nix; local magic DNS names route enabled dashboard services from http://<name>/ to localhost ports with proxy headers/WebSockets/cookie/redirect handling while keeping direct localhost:<port> open
+   ├─ services.homepage-monitor: modules/nixos/terminal/monitoring/homepage.nix; single serviceCatalog drives local/public cards (· :<port> badges), fleet bookmarks, Portainer/qBittorrent widgets, Nix Cyberpunk Electric Dark theme; magic DNS routes http://<name>/ → localhost ports with proxy headers/WebSockets/cookie/redirect handling
    ├─ services.nixconf-docs: modules/nixos/terminal/docs.nix; builds docs/ with Docusaurus on rebuild and serves 127.0.0.1:8090
    ├─ services.omniroute: modules/nixos/terminal/omniroute.nix; modules/_pkgs/omniroute.nix
    ├─ services.bifrost: modules/nixos/terminal/bifrost.nix; upstream input github:maximhq/bifrost/transports/v1.5.15

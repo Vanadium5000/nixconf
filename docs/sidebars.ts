@@ -8,7 +8,7 @@ type SidebarItem =
     type: 'category';
     label: string;
     collapsed?: boolean;
-    link?: { type: 'doc'; id: string } | { type: 'link'; label: string; href: string };
+    link?: { type: 'doc'; id: string };
     items: SidebarItem[];
   }
   | { type: 'link'; label: string; href: string };
@@ -117,9 +117,8 @@ function headingItems(nodes: HeadingNode[], route: string): SidebarItem[] {
     return {
       type: 'category' as const,
       label: node.title,
-      link,
       collapsed: true,
-      items: headingItems(node.children, route),
+      items: [{ ...link, label: 'Overview' }, ...headingItems(node.children, route)],
     };
   });
 }

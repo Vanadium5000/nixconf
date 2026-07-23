@@ -4,7 +4,7 @@ title: DNS and emergency recovery
 
 # DNS stack and emergency recovery
 
-Owner module: [`modules/common/networking.nix`](../../../modules/common/networking.nix).
+Owner module: [`modules/common/networking.nix`](https://github.com/matrix/nixconf/blob/main/modules/common/networking.nix).
 
 This host prefers encrypted DNS to Cloudflare, but **never requires it**. If DoT, systemd-resolved, OpenSnitch, or a hotel middlebox fails, plain DNS and DHCP still work. Imperative recovery does **not** need a rebuild.
 

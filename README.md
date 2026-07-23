@@ -208,7 +208,7 @@ Graphical hosts import `modules/nixos/desktop/default.nix`, which extends the te
 
 ### Local magic DNS
 
-`modules/nixos/terminal/monitoring/homepage.nix` derives local Homepage links, bookmarks, `/etc/hosts` aliases, and port-80 reverse proxies from one `localServices` table. Only services enabled on the current host get a magic name. The original `localhost:<port>` listeners stay open for scripts and direct debugging. Magic-name proxies preserve Host/X-Forwarded headers, cookies, redirects, and WebSocket upgrades; they also strip upstream cross-origin isolation headers that break HTTP-only shortcut origins such as `qbittorrent/`.
+`modules/nixos/terminal/monitoring/homepage.nix` derives local Homepage links, public edge cards, fleet bookmarks, `/etc/hosts` aliases, and port-80 reverse proxies from one `serviceCatalog` table. Card descriptions always include a `· :<port>` badge; the UI uses the Nix Cyberpunk Electric Dark theme. Only services enabled on the current host get a magic name. The original `localhost:<port>` listeners stay open for scripts and direct debugging. Magic-name proxies preserve Host/X-Forwarded headers, cookies, redirects, and WebSocket upgrades; they also strip upstream cross-origin isolation headers that break HTTP-only shortcut origins such as `qbittorrent/`.
 
 | Magic DNS | Target localhost port | Enabled where | Notes |
 | --- | ---: | --- | --- |

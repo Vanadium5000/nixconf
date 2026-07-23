@@ -233,6 +233,7 @@ declare -A SECRETS_MAP=(
  ["PIA_OPENVPN_PASSWORD"]="personal/private-internet-access"
  ["PORTAINER_ADMIN_USERNAME"]="system/portainer-admin"
  ["PORTAINER_ADMIN_PASSWORD"]="system/portainer-admin"
+  ["PORTAINER_API_KEY"]="system/portainer-api-key"
  ["QBITTORRENT_WEBUI_USERNAME"]="personal/qbittorrent-webui"
  ["QBITTORRENT_WEBUI_PASSWORD"]="personal/qbittorrent-webui"
 )
@@ -277,6 +278,7 @@ SECRET_NAMES=(
  PIA_OPENVPN_PASSWORD
  PORTAINER_ADMIN_USERNAME
  PORTAINER_ADMIN_PASSWORD
+ PORTAINER_API_KEY
  QBITTORRENT_WEBUI_USERNAME
  QBITTORRENT_WEBUI_PASSWORD
 )

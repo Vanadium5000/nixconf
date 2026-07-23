@@ -567,6 +567,14 @@ pkgs.writeShellApplication {
       nix-prefetch-url --unpack "$url" 2>/dev/null | tail -1 | xargs nix-hash --type sha256 --to-sri 2>/dev/null || echo ""
     }
 
+    prefetch_fetchpatch() {
+      local url="$1"
+      nix-build --no-out-link --expr "with import <nixpkgs> {}; fetchpatch { url = \"$url\"; hash = lib.fakeHash; }" 2>&1 \
+        | grep -oP 'got:\s+\Ksha256-[A-Za-z0-9+/=]+' \
+        | tail -1 \
+        || echo ""
+    }
+
     prefetch_npm_tarball() {
       local package="$1"
       local version="$2"
@@ -1211,7 +1219,7 @@ pkgs.writeShellApplication {
       # v0.1.19 carries the upstream fractional-scale GLArea fix until it
       # lands in a release. If the PR changes, update its fixed-output hash
       # and let the build refresh cargoHash against the patched source.
-      patch_hash=$(prefetch_url "https://github.com/am-will/limux/pull/83.patch")
+      patch_hash=$(prefetch_fetchpatch "https://github.com/am-will/limux/pull/83.patch")
       current_patch_hash=$(first_hash_after "$file" 'pull/83.patch' || true)
 
       if [ "$current_version" != "$latest_version" ]; then
