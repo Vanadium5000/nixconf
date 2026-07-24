@@ -1,12 +1,12 @@
 # ❄️ nixconf
 
-> **Declarative NixOS flake for my machines** — `flake-parts`, `import-tree`, thin host modules, custom packages, ephemeral-root support, Hyprland/DankMaterialShell desktops, and a public VPS service edge.
+> **Declarative NixOS flake for my machines** — `flake-parts`, `import-tree`, thin host modules, custom packages, ephemeral-root support, KDE/Hyprland desktops, and a public VPS service edge.
 
 <div align="center">
 
 | Channel | Shell | Hosts | Root model | Package surface |
 | --- | --- | ---: | --- | --- |
-| `nixos-26.05` + `nixos-unstable` | DankMaterialShell on graphical hosts | 3 active | Impermanent / persisted state | `modules/_pkgs/*.nix` → `self.packages` |
+| `nixos-26.05` + `nixos-unstable` | KDE on `legion5i`, DMS/Hyprland on `macbook` | 3 active | Impermanent / persisted state | `modules/_pkgs/*.nix` → `self.packages` |
 
 </div>
 
@@ -44,7 +44,7 @@ flake.nix
    ├─ modules/lib/                    self.lib helpers
    ├─ modules/common/                 base, networking, impermanence, keymap
    ├─ modules/nixos/terminal/         shared terminal/server profile and services
-   ├─ modules/nixos/desktop/          graphical profile and Hyprland/DMS stack
+   ├─ modules/nixos/desktop/          graphical profile and KDE/Hyprland stacks
    ├─ modules/nixos/scripts/          general, Quickshell, Bun/TypeScript scripts
    ├─ modules/programmes/             shell/editor/app configuration
    ├─ modules/user/                   user-level helpers such as Hyprland config
@@ -55,7 +55,7 @@ flake.nix
 
 | Host | Role | Profile flags | User | Main responsibilities |
 | --- | --- | --- | --- | --- |
-| `legion5i` | Primary graphical laptop | `terminal`, `desktop`, `laptop` | `matrix` | Hyprland/DankMaterialShell, CUDA/Nvidia, OBS, Obsidian, HDMI-CEC TV remote media controls, OpenSnitch, local VPN proxy, ntfy, Unison, manual btrbk `/persist/system` backups |
+| `legion5i` | Primary graphical laptop | `terminal`, `desktop`, `laptop` | `matrix` | KDE Plasma 6, CUDA/Nvidia, OBS, Obsidian, HDMI-CEC TV remote media controls, OpenSnitch, local VPN proxy, ntfy, Unison, manual btrbk `/persist/system` backups |
 | `macbook` | T2 graphical laptop | `terminal`, `desktop`, `laptop` | `matrix` | Hyprland/DankMaterialShell, Apple T2 support, T2 firmware bundle, OpenSnitch, ntfy, local VPN proxy, Unison, manual btrbk `/persist/system` backups |
 | `main_vps` | Headless service host | `terminal`, `server` | `server` | Traefik edge, Dokploy, CLIProxyAPI, Bifrost, OmniRoute, CPA Usage Keeper, services-auth-gateway, ntfy, homepage, generated docs, VPN proxy, manual btrbk `/persist/system` backups |
 
@@ -81,7 +81,7 @@ flake.nix
 | Export | Contents |
 | --- | --- |
 | `self.moduleSets.profiles` | `common`, `terminal`, `desktop` |
-| `self.moduleSets.features` | audio, bluetooth, HDMI-CEC, Firefox, DMS, Hyprland, OBS, Obsidian, Qt, Syncthing, TLP, tuigreet, VSCodium |
+| `self.moduleSets.features` | audio, bluetooth, HDMI-CEC, Firefox, DMS, Hyprland, KDE, OBS, Obsidian, Qt, Syncthing, TLP, tuigreet, VSCodium |
 | `self.moduleSets.services` | CLIProxyAPI, Bifrost, OmniRoute, CPA Usage Keeper, services-auth-gateway, generated docs, monitoring, nix, OpenCode, tailscale, Unison, virtualisation, VPN proxy, cockpit |
 | `self.moduleSets.hosts` | `main_vps`, `legion5i`, `macbook` |
 | `hostModuleMatrix` | Evaluated profile/feature/service matrix consumed by `rebuild.sh matrix` |
@@ -155,19 +155,32 @@ services.docker-compose-stacks.stacks.<stack>.enable = true;
 
 ## 🖥️ Desktop stack
 
-Graphical hosts import `modules/nixos/desktop/default.nix`, which extends the terminal profile.
+Graphical hosts import `modules/nixos/desktop/default.nix`, which extends the terminal profile. Hosts choose a session stack with `preferences.kde.enable`; KDE and Hyprland/DMS are mutually exclusive at module assertion time.
 
 | Area | Module path | Notes |
 | --- | --- | --- |
-| 🐚 Shell | `modules/nixos/desktop/dank-material-shell.nix` | DankMaterialShell is active. It replaces Waybar, Hyprlock, Hyprsunset, qs-launcher, qs-notifications, and old shell surfaces. |
-| 🪟 Compositor | `modules/nixos/desktop/hyprland/` + `modules/user/hyprland.nix` | Hyprland/UWSM config, bindings, idle hooks. DMS IPC handles shell actions. |
+| 🐚 KDE session | `modules/nixos/desktop/kde.nix` | Plasma 6 via Plasma Login Manager, KDE portal, KWallet, Qt pinentry/askpass, KDE polkit agent, mutable user Plasma config, persisted Plasma state/cache split. Active on `legion5i`. |
+| 🐚 Hyprland shell | `modules/nixos/desktop/dank-material-shell.nix`, `modules/nixos/desktop/hyprland/`, `modules/user/hyprland.nix` | DankMaterialShell/Hyprland remains the non-KDE stack. DMS replaces Waybar, Hyprlock, Hyprsunset, qs-launcher, qs-notifications, and old shell surfaces. Active on `macbook`. |
 | 🔊 Audio | `modules/nixos/desktop/system/audio.nix` | PipeWire/WirePlumber, MPD, player control. |
-| 💾 Removable media | `modules/nixos/desktop/default.nix` | `udiskie` runs as a graphical-session user service with a tray icon, udisks2 actions, LUKS prompts, and notifications; DMS USB Manager is removed from persisted DMS plugins. |
+| 💾 Removable media | `modules/nixos/desktop/default.nix`, `modules/nixos/desktop/kde.nix` | Hyprland/DMS uses `udiskie`; KDE uses Plasma/Solid/udisks2 integration and KDE polkit prompts. |
 | 📺 HDMI-CEC | `modules/nixos/desktop/system/hdmi-cec.nix` | Optional `preferences.hardware.hdmiCec.enable`; configures `/dev/cec*` adapters as playback devices so TV remote media keys reach Linux input. |
 | 🌍 Browser | `modules/nixos/desktop/firefox/firefox.nix`, `modules/nixos/desktop/default.nix` | LibreWolf is the default system/xdg browser; Brave Origin stays installed as a manual fallback. |
 | ✍️ Editor/IDE | `modules/programmes/fresh.nix`, `modules/nixos/desktop/vscodium/` | Fresh as terminal editor; VSCodium with declarative extensions/theme. |
 | 🧱 Firewall | `modules/nixos/desktop/opensnitch.nix`, `docs/docs/operations/opensnitch.md` | OpenSnitch daemon/UI, eBPF process monitor, nftables backend, advanced typed `services.opensnitch.mutableRules`, curated declarative allow/reject rules, and an authenticated `opensnitch-bypass` wrapper. |
-| 🧰 Apps | `modules/nixos/desktop/flatpaks/`, `obs.nix`, `obsidian.nix`, `qt.nix`, `tuigreet.nix` | Desktop app set, Flatpak integration, display greeter, Qt theming. |
+| 🧰 Apps | `modules/nixos/desktop/flatpaks/`, `obs.nix`, `obsidian.nix`, `qt.nix`, `tuigreet.nix` | Desktop app set, Flatpak integration, greeter/session integration, Qt theming. `qt.nix`/`tuigreet.nix` are Hyprland-only when KDE is enabled. |
+
+### 🧊 KDE impermanence boundary
+
+KDE is deliberately not managed with Plasma keybind/theme declarations. User choices made in System Settings persist through the impermanence module instead:
+
+| Tier | Paths | Why |
+| --- | --- | --- |
+| State | `.config/kdeglobals`, `.config/kglobalshortcutsrc`, `.config/kwinrc`, `.config/plasma-org.kde.plasma.desktop-appletsrc`, `.config/plasmashellrc`, `.local/share/kwalletd`, `.local/share/plasma`, `.local/share/user-places.xbel` | Plasma shell, KWin, shortcuts, KWallet, widgets, launchers, and places are user-owned mutable configuration. |
+| Cache | `.cache/plasma-svgelements`, `.cache/plasmashell`, `.cache/qmlcache`, `.cache/thumbnails`, `wallpaper` | Rebuildable rendering/index caches and local wallpaper selector cache. |
+
+Important utility commands are installed directly (`kitty`, `librewolf`, `brave-origin`, `qs-passmenu`, `qs-vpn`, `toggle-lyrics-overlay`, `voxtype`, audio helpers, etc.) so Plasma shortcuts can be assigned imperatively in KDE Settings without wrapper indirection. Screenshot/recording/zoom/window actions use KDE's built-in Spectacle/KWin tooling.
+
+References: [NixOS KDE wiki](https://wiki.nixos.org/wiki/KDE), [KDE UserBase configuration files](https://userbase.kde.org/KDE_System_Administration/Configuration_Files), [nixpkgs Plasma 6 module](https://github.com/NixOS/nixpkgs/blob/nixos-26.05/nixos/modules/services/desktop-managers/plasma6.nix).
 
 ### ⌨️ Shell boundary
 

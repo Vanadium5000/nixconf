@@ -178,6 +178,7 @@ in
         dankmemershell = self.nixosModules.dankmemershell;
         hyprland = self.nixosModules.hyprland;
         hyprland-support = self.nixosModules.hyprland-support;
+        kde = self.nixosModules.kde;
         obs = self.nixosModules.obs;
         obsidian = self.nixosModules.obsidian;
         qt = self.nixosModules.qt;

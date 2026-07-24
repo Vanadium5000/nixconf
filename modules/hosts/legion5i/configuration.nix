@@ -68,6 +68,8 @@
         };
         obs.enable = true;
         obsidian.enable = true;
+        kde.enable = true;
+        dankMaterialShell.enable = false;
       };
 
       # Plymouth
@@ -150,7 +152,6 @@
       services.vpn-proxy.enable = true;
       services.docker-compose-stacks.stacks.gluetun-qbittorrent.enable = true;
       services.unison-sync.enable = true;
-      services.hypridle.enable = true;
 
       # ntfy keeps its cache, auth DB, and attachments in /var/lib/ntfy-sh.
       # Use a normal persistent state path to avoid DynamicUser StateDirectory clashes.

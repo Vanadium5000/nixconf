@@ -34,6 +34,7 @@
         sensitive = false;
         list = operators;
       };
+      kdeEnabled = lib.attrByPath [ "preferences" "kde" "enable" ] false config;
     in
     {
       imports = [
@@ -49,6 +50,7 @@
         self.nixosModules.firefox
         self.nixosModules.hyprland
         self.nixosModules.hyprland-support
+        self.nixosModules.kde
         self.nixosModules.dankmemershell
         self.nixosModules.tuigreet
 
@@ -62,13 +64,15 @@
         # Start only desktop daemons not replaced by DankMaterialShell.
         preferences.autostart = [
           "niri-screen-time --daemon"
+        ]
+        ++ lib.optionals (!kdeEnabled) [
           # KDE daemon - hosts kded modules like SolidUiServer for LUKS password prompts
           "kded6"
         ];
 
         # DankMaterialShell replaces Waybar, the launcher, notifications,
         # lock screen, and night-light shell controls on graphical hosts.
-        preferences.dankMaterialShell.enable = true;
+        preferences.dankMaterialShell.enable = lib.mkDefault true;
 
         # Enable Localsend, a utility to share data with local devices
         programs.localsend.enable = true;
@@ -260,7 +264,7 @@
         # Start the non-Plasma indicator as a user service; Hyprland does not
         # process the package's XDG autostart desktop entry itself.
         # Ref: share/applications/org.kde.kdeconnect.nonplasma.desktop
-        systemd.user.services.kdeconnect-indicator = {
+        systemd.user.services.kdeconnect-indicator = lib.mkIf (!kdeEnabled) {
           description = "KDE Connect Indicator";
           wantedBy = [ "graphical-session.target" ];
           partOf = [ "graphical-session.target" ];
@@ -276,7 +280,7 @@
         # udisks2 operations, LUKS unlock prompts, and notifications in the
         # user session. Sources: coldfix/udiskie doc/udiskie.8.txt; local DMS
         # USBManager logs showed repeated list failures through its plugin path.
-        systemd.user.services.udiskie = {
+        systemd.user.services.udiskie = lib.mkIf (!kdeEnabled) {
           description = "UDisks2 removable media tray manager";
           wantedBy = [ "graphical-session.target" ];
           partOf = [ "graphical-session.target" ];
@@ -292,7 +296,7 @@
         # Outside a full Plasma session, start ksystemstats via user systemd so
         # Plasma System Monitor can claim org.kde.ksystemstats1 and be DBus
         # activated reliably. Ref: ksystemstats share/systemd/user service.
-        systemd.user.services.plasma-ksystemstats = {
+        systemd.user.services.plasma-ksystemstats = lib.mkIf (!kdeEnabled) {
           description = "Track hardware statistics";
           wantedBy = [ "graphical-session.target" ];
           partOf = [ "graphical-session.target" ];
@@ -304,7 +308,7 @@
           };
         };
 
-        security.wrappers = {
+        security.wrappers = lib.mkIf (!kdeEnabled) {
           # Nixpkgs patches ksystemstats to call this wrapper path for Intel
           # hardware counters. Ref: nixos/modules/services/desktop-managers/plasma6.nix.
           ksystemstats_intel_helper = {

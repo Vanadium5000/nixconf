@@ -17,7 +17,7 @@ flake.nix
 - `AGENTS.md`: mandatory AI agent operating instructions at the repository root.
 - `modules/hosts/`: active host definitions.
 - `modules/nixos/terminal/`: terminal/server profile modules.
-- `modules/nixos/desktop/`: graphical profile modules.
+- `modules/nixos/desktop/`: graphical profile modules, including KDE Plasma and Hyprland/DMS stacks.
 - `modules/nixos/terminal/monitoring/homepage.nix`: Homepage dashboard cards and bookmarks.
 
 ## Change rule
@@ -62,6 +62,12 @@ udiskie --tray --appindicator --notify --no-automount --file-manager xdg-open
 `udiskie` owns removable-disk tray actions, udisks2 mount/unmount, LUKS unlock prompts, and notifications. DankMaterialShell no longer owns USB management; `modules/nixos/desktop/dank-material-shell.nix` deletes the old `usbManager` plugin from persisted DMS config and removes its plugin settings on activation/restart.
 
 References: [udiskie manual](https://github.com/coldfix/udiskie/blob/v2.6.2/doc/udiskie.8.txt), [freedesktop polkit architecture](https://www.freedesktop.org/software/polkit/docs/latest/polkit.8.html).
+
+## KDE Plasma profile
+
+`modules/nixos/desktop/kde.nix` enables Plasma 6 for hosts that set `preferences.kde.enable = true`. It uses Plasma Login Manager, KDE portal, KWallet, `polkit-kde-agent-1`, `pinentry-qt`, and `ksshaskpass`. It does not lock down Plasma settings in Nix; user-edited KDE config files and KWallet state are persisted through impermanence, while QML/theme/thumbnail caches stay cache-tier.
+
+See [KDE Plasma desktop](./kde.md) for shortcut command names and the persistence boundary.
 
 ## Docs development dependencies
 

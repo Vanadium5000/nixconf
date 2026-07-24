@@ -25,6 +25,7 @@
       systemSettings = config.preferences.system;
       user = config.preferences.user.username;
       homeDirectory = config.preferences.paths.homeDirectory;
+      kdeEnabled = lib.attrByPath [ "preferences" "kde" "enable" ] false config;
 
       hyprDmsFragments = [
         "colors.conf"
@@ -773,299 +774,301 @@
         ];
     in
     {
-      # Persist user-edited display/workspace files as durable config, not cache,
-      # because DMS and nwg-displays both expect Hyprland to source them at login.
-      impermanence.home.files = [
-        ".config/hypr/monitors.conf"
-        ".config/hypr/workspaces.conf"
-      ];
+      config = lib.mkIf (!kdeEnabled) {
+        # Persist user-edited display/workspace files as durable config, not cache,
+        # because DMS and nwg-displays both expect Hyprland to source them at login.
+        impermanence.home.files = [
+          ".config/hypr/monitors.conf"
+          ".config/hypr/workspaces.conf"
+        ];
 
-      # Hyprland treats missing `source` targets as config errors, while
-      # impermanence persists these editable files only after they exist. Create
-      # missing placeholders without touching existing files: Hyprland watches
-      # sourced paths and can autoreload while activation is still rewriting
-      # configs, leaving defaults active until a later manual reload.
-      system.activationScripts.hyprland-source-placeholders = {
-        text = ''
-          HYPR_DIR="${homeDirectory}/.config/hypr"
-          HYPR_DMS_DIR="$HYPR_DIR/dms"
-          mkdir -p "$HYPR_DMS_DIR"
-          for source_file in "$HYPR_DIR/monitors.conf" "$HYPR_DIR/workspaces.conf" ${
-            lib.concatMapStringsSep " " (fragment: ''"$HYPR_DMS_DIR/${fragment}"'') hyprDmsFragments
-          }; do
-            if [ ! -e "$source_file" ]; then
-              install -D -m 0644 /dev/null "$source_file"
-            fi
-          done
-          chown -R ${user}:users "$HYPR_DIR"
-        '';
-        deps = [ "users" ];
-      };
+        # Hyprland treats missing `source` targets as config errors, while
+        # impermanence persists these editable files only after they exist. Create
+        # missing placeholders without touching existing files: Hyprland watches
+        # sourced paths and can autoreload while activation is still rewriting
+        # configs, leaving defaults active until a later manual reload.
+        system.activationScripts.hyprland-source-placeholders = {
+          text = ''
+            HYPR_DIR="${homeDirectory}/.config/hypr"
+            HYPR_DMS_DIR="$HYPR_DIR/dms"
+            mkdir -p "$HYPR_DMS_DIR"
+            for source_file in "$HYPR_DIR/monitors.conf" "$HYPR_DIR/workspaces.conf" ${
+              lib.concatMapStringsSep " " (fragment: ''"$HYPR_DMS_DIR/${fragment}"'') hyprDmsFragments
+            }; do
+              if [ ! -e "$source_file" ]; then
+                install -D -m 0644 /dev/null "$source_file"
+              fi
+            done
+            chown -R ${user}:users "$HYPR_DIR"
+          '';
+          deps = [ "users" ];
+        };
 
-      # Create the same placeholders during normal boot, before the user session
-      # reads Hyprland's generated config. Source entries are below in this file.
-      systemd.tmpfiles.rules = [
-        "d ${homeDirectory}/.config/hypr 0755 ${user} users -"
-        "f ${homeDirectory}/.config/hypr/monitors.conf 0644 ${user} users -"
-        "f ${homeDirectory}/.config/hypr/workspaces.conf 0644 ${user} users -"
-        "d ${homeDirectory}/.config/hypr/dms 0755 ${user} users -"
-      ]
-      ++ builtins.map (
-        fragment: "f ${homeDirectory}/.config/hypr/dms/${fragment} 0644 ${user} users -"
-      ) hyprDmsFragments;
+        # Create the same placeholders during normal boot, before the user session
+        # reads Hyprland's generated config. Source entries are below in this file.
+        systemd.tmpfiles.rules = [
+          "d ${homeDirectory}/.config/hypr 0755 ${user} users -"
+          "f ${homeDirectory}/.config/hypr/monitors.conf 0644 ${user} users -"
+          "f ${homeDirectory}/.config/hypr/workspaces.conf 0644 ${user} users -"
+          "d ${homeDirectory}/.config/hypr/dms 0755 ${user} users -"
+        ]
+        ++ builtins.map (
+          fragment: "f ${homeDirectory}/.config/hypr/dms/${fragment} 0644 ${user} users -"
+        ) hyprDmsFragments;
 
-      # Pesist the .current_wallpaper in wallpaper
-      impermanence.home.cache.directories = [
-        "wallpaper"
-      ];
+        # Pesist the .current_wallpaper in wallpaper
+        impermanence.home.cache.directories = [
+          "wallpaper"
+        ];
 
-      # Autostart cliphist - a clipboard manager programme
-      preferences.autostart = [
-        "${pkgs.wl-clipboard}/bin/wl-paste --type text --watch ${pkgs.cliphist}/bin/cliphist store" # Stores text with original MIME metadata.
-        "${pkgs.wl-clipboard}/bin/wl-paste --type image --watch ${pkgs.cliphist}/bin/cliphist store" # Stores images byte-for-byte for later image/png recopy.
-        "${pkgs.kdePackages.kactivitymanagerd}/libexec/kactivitymanagerd"
-      ];
+        # Autostart cliphist - a clipboard manager programme
+        preferences.autostart = [
+          "${pkgs.wl-clipboard}/bin/wl-paste --type text --watch ${pkgs.cliphist}/bin/cliphist store" # Stores text with original MIME metadata.
+          "${pkgs.wl-clipboard}/bin/wl-paste --type image --watch ${pkgs.cliphist}/bin/cliphist store" # Stores images byte-for-byte for later image/png recopy.
+          "${pkgs.kdePackages.kactivitymanagerd}/libexec/kactivitymanagerd"
+        ];
 
-      programs.hyprland = {
-        enable = true;
-        withUWSM = true;
-      };
+        programs.hyprland = {
+          enable = true;
+          withUWSM = true;
+        };
 
-      home.programs.hyprland.enable = true;
+        home.programs.hyprland.enable = true;
 
-      # Keybind descriptions generated from unified keybind definitions
-      home.programs.hyprland.keybindDescriptions = allKeybindDescriptions;
+        # Keybind descriptions generated from unified keybind definitions
+        home.programs.hyprland.keybindDescriptions = allKeybindDescriptions;
 
-      home.programs.hyprland.configType = "lua";
-      home.programs.hyprland.luaConfig = ''
-        -- Generated by nixconf. Hyprland 0.55+ uses Lua config; hyprlang is deprecated.
-        -- Source docs: https://wiki.hypr.land/Configuring/Start/
+        home.programs.hyprland.configType = "lua";
+        home.programs.hyprland.luaConfig = ''
+          -- Generated by nixconf. Hyprland 0.55+ uses Lua config; hyprlang is deprecated.
+          -- Source docs: https://wiki.hypr.land/Configuring/Start/
 
-        local function load_dms_outputs(path)
-          local file = io.open(path, "r")
-          if not file then
-            return false
-          end
-
-          local loaded = false
-          for line in file:lines() do
-            local output, mode, position, scale = line:match("^%s*monitor%s*=%s*([^,]*),%s*([^,]*),%s*([^,]*),%s*([^,%s]*)")
-            if output then
-              hl.monitor({
-                output = output:gsub("^%s+", ""):gsub("%s+$", ""),
-                mode = mode:gsub("^%s+", ""):gsub("%s+$", ""),
-                position = position:gsub("^%s+", ""):gsub("%s+$", ""),
-                scale = scale:gsub("^%s+", ""):gsub("%s+$", ""),
-              })
-              loaded = true
+          local function load_dms_outputs(path)
+            local file = io.open(path, "r")
+            if not file then
+              return false
             end
+
+            local loaded = false
+            for line in file:lines() do
+              local output, mode, position, scale = line:match("^%s*monitor%s*=%s*([^,]*),%s*([^,]*),%s*([^,]*),%s*([^,%s]*)")
+              if output then
+                hl.monitor({
+                  output = output:gsub("^%s+", ""):gsub("%s+$", ""),
+                  mode = mode:gsub("^%s+", ""):gsub("%s+$", ""),
+                  position = position:gsub("^%s+", ""):gsub("%s+$", ""),
+                  scale = scale:gsub("^%s+", ""):gsub("%s+$", ""),
+                })
+                loaded = true
+              end
+            end
+            file:close()
+            return loaded
           end
-          file:close()
-          return loaded
-        end
 
-        local zoom_factor = 1.0
+          local zoom_factor = 1.0
 
-        -- DMS still writes Hyprland monitor fragments in legacy syntax. Do not
-        -- source hyprlang from Lua; translate monitor lines or use the documented
-        -- fallback rule for random monitors.
-        -- Sources: Hyprland monitor Lua docs and DMS embedded outputs.conf path.
-        if not load_dms_outputs(${luaString "${homeDirectory}/.config/hypr/dms/outputs.conf"}) then
-          hl.monitor({ output = "", mode = "preferred", position = "auto", scale = "auto" })
-        end
+          -- DMS still writes Hyprland monitor fragments in legacy syntax. Do not
+          -- source hyprlang from Lua; translate monitor lines or use the documented
+          -- fallback rule for random monitors.
+          -- Sources: Hyprland monitor Lua docs and DMS embedded outputs.conf path.
+          if not load_dms_outputs(${luaString "${homeDirectory}/.config/hypr/dms/outputs.conf"}) then
+            hl.monitor({ output = "", mode = "preferred", position = "auto", scale = "auto" })
+          end
 
-        hl.config({
-          xwayland = {
-            force_zero_scaling = true,
-          },
-          general = {
-            resize_on_border = true,
-            extend_border_grab_area = 6,
-            hover_icon_on_border = true,
-            gaps_in = ${toString theme.gaps-in},
-            gaps_out = ${toString theme.gaps-out},
-            border_size = ${toString theme.border-size},
-            layout = "dwindle",
-            col = {
-              active_border = "rgb(${colorsNoHash.border-color})",
-              inactive_border = "rgb(${colorsNoHash.border-color-inactive})",
+          hl.config({
+            xwayland = {
+              force_zero_scaling = true,
             },
-          },
-          group = {
-            groupbar = {
+            general = {
+              resize_on_border = true,
+              extend_border_grab_area = 6,
+              hover_icon_on_border = true,
+              gaps_in = ${toString theme.gaps-in},
+              gaps_out = ${toString theme.gaps-out},
+              border_size = ${toString theme.border-size},
+              layout = "dwindle",
               col = {
-                active = "rgb(${colorsNoHash.border-color})",
-                inactive = "rgb(${colorsNoHash.border-color-inactive})",
+                active_border = "rgb(${colorsNoHash.border-color})",
+                inactive_border = "rgb(${colorsNoHash.border-color-inactive})",
               },
             },
-            col = {
-              border_active = "rgb(${colorsNoHash.border-color})",
-              border_inactive = "rgb(${colorsNoHash.border-color-inactive})",
+            group = {
+              groupbar = {
+                col = {
+                  active = "rgb(${colorsNoHash.border-color})",
+                  inactive = "rgb(${colorsNoHash.border-color-inactive})",
+                },
+              },
+              col = {
+                border_active = "rgb(${colorsNoHash.border-color})",
+                border_inactive = "rgb(${colorsNoHash.border-color-inactive})",
+              },
             },
-          },
-          dwindle = {
-            preserve_split = true,
-            smart_split = true,
-            smart_resizing = true,
-            use_active_for_splits = true,
-            permanent_direction_override = true,
-            precise_mouse_move = true,
-            special_scale_factor = 1.0,
-          },
-          master = {
-            new_status = "master",
-            allow_small_split = true,
-            mfact = 0.5,
-          },
-          misc = {
-            vrr = 1,
-            disable_hyprland_logo = true,
-            disable_splash_rendering = true,
-            force_default_wallpaper = 0,
-            disable_autoreload = false,
-            middle_click_paste = false,
-            focus_on_activate = true,
-            on_focus_under_fullscreen = 2,
-          },
-          debug = {
-            vfr = true,
-          },
-          input = {
-            kb_layout = "gb",
-            follow_mouse = 1,
-            sensitivity = 0.5,
-            repeat_delay = 300,
-            repeat_rate = 50,
-            numlock_by_default = true,
-            touchpad = {
-              natural_scroll = true,
-              clickfinger_behavior = true,
+            dwindle = {
+              preserve_split = true,
+              smart_split = true,
+              smart_resizing = true,
+              use_active_for_splits = true,
+              permanent_direction_override = true,
+              precise_mouse_move = true,
+              special_scale_factor = 1.0,
             },
-          },
-          decoration = {
-            rounding = ${toString theme.rounding},
-            active_opacity = 1.0,
-            inactive_opacity = ${toString theme.opacity},
-            dim_inactive = false,
-            dim_strength = 0.5,
-            dim_around = 0.5,
-            dim_special = 0.5,
-            shadow = {
+            master = {
+              new_status = "master",
+              allow_small_split = true,
+              mfact = 0.5,
+            },
+            misc = {
+              vrr = 1,
+              disable_hyprland_logo = true,
+              disable_splash_rendering = true,
+              force_default_wallpaper = 0,
+              disable_autoreload = false,
+              middle_click_paste = false,
+              focus_on_activate = true,
+              on_focus_under_fullscreen = 2,
+            },
+            debug = {
+              vfr = true,
+            },
+            input = {
+              kb_layout = "gb",
+              follow_mouse = 1,
+              sensitivity = 0.5,
+              repeat_delay = 300,
+              repeat_rate = 50,
+              numlock_by_default = true,
+              touchpad = {
+                natural_scroll = true,
+                clickfinger_behavior = true,
+              },
+            },
+            decoration = {
+              rounding = ${toString theme.rounding},
+              active_opacity = 1.0,
+              inactive_opacity = ${toString theme.opacity},
+              dim_inactive = false,
+              dim_strength = 0.5,
+              dim_around = 0.5,
+              dim_special = 0.5,
+              shadow = {
+                enabled = false,
+              },
+              blur = {
+                enabled = ${luaBool theme.blur},
+                size = 2,
+                passes = 3,
+                new_optimizations = true,
+                vibrancy = 0.1696,
+              },
+            },
+            animations = {
               enabled = false,
             },
-            blur = {
-              enabled = ${luaBool theme.blur},
-              size = 2,
-              passes = 3,
-              new_optimizations = true,
-              vibrancy = 0.1696,
-            },
-          },
-          animations = {
-            enabled = false,
-          },
-        })
+          })
 
-        hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })
+          hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })
 
-        hl.window_rule({ match = { tag = "modal" }, float = true })
-        hl.window_rule({ match = { tag = "modal" }, pin = true })
-        hl.window_rule({ match = { tag = "modal" }, center = true })
+          hl.window_rule({ match = { tag = "modal" }, float = true })
+          hl.window_rule({ match = { tag = "modal" }, pin = true })
+          hl.window_rule({ match = { tag = "modal" }, center = true })
 
-        -- Flameshot creates a transient full-screen helper; keep it unmanaged.
-        -- Source: https://wiki.hypr.land/FAQ/
-        hl.window_rule({ match = { class = "^(flameshot)$" }, no_anim = true })
-        hl.window_rule({ match = { class = "^(flameshot)$" }, float = true })
-        hl.window_rule({ match = { class = "^(flameshot)$" }, move = { 0, 0 } })
-        hl.window_rule({ match = { class = "^(flameshot)$" }, pin = true })
+          -- Flameshot creates a transient full-screen helper; keep it unmanaged.
+          -- Source: https://wiki.hypr.land/FAQ/
+          hl.window_rule({ match = { class = "^(flameshot)$" }, no_anim = true })
+          hl.window_rule({ match = { class = "^(flameshot)$" }, float = true })
+          hl.window_rule({ match = { class = "^(flameshot)$" }, move = { 0, 0 } })
+          hl.window_rule({ match = { class = "^(flameshot)$" }, pin = true })
 
-        hl.window_rule({ match = { class = "^(waydroid\\.InputMethod)$" }, float = true })
-        hl.window_rule({ match = { class = "^(waydroid\\.InputMethod)$" }, no_focus = true })
+          hl.window_rule({ match = { class = "^(waydroid\\.InputMethod)$" }, float = true })
+          hl.window_rule({ match = { class = "^(waydroid\\.InputMethod)$" }, no_focus = true })
 
-        -- Quickshell layer-shell windows provide DMS shell surfaces.
-        hl.layer_rule({ match = { namespace = "^quickshell$" }, blur = true })
-        hl.layer_rule({ match = { namespace = "^quickshell$" }, ignore_alpha = 0.01 })
+          -- Quickshell layer-shell windows provide DMS shell surfaces.
+          hl.layer_rule({ match = { namespace = "^quickshell$" }, blur = true })
+          hl.layer_rule({ match = { namespace = "^quickshell$" }, ignore_alpha = 0.01 })
 
-        ${lib.concatStringsSep "\n" (
-          map luaEnv [
-            "XDG_SESSION_TYPE,wayland"
-            "XDG_SESSION_DESKTOP,Hyprland"
-            "XDG_CURRENT_DESKTOP,Hyprland"
-            "MOZ_ENABLE_WAYLAND,1"
-            "ANKI_WAYLAND,1"
-            "NIXOS_OZONE_WL,1"
-            "ELECTRON_OZONE_PLATFORM_HINT,auto"
-            "DISABLE_QT5_COMPAT,0"
-            "GDK_BACKEND,wayland"
-            "GDK_SCALE,2"
-            "WLR_DRM_NO_ATOMIC,1"
-            "QT_AUTO_SCREEN_SCALE_FACTOR,1"
-            "QT_WAYLAND_DISABLE_WINDOWDECORATION,1"
-            "QT_QPA_PLATFORM,wayland"
-            "QT_QPA_PLATFORMTHEME,hyprqt6engine"
-            "QT_QUICK_CONTROLS_STYLE,org.kde.desktop"
-            "KDE_FULL_SESSION,true"
-            "KDE_SESSION_VERSION,6"
-            "WLR_BACKEND,vulkan"
-            "WLR_RENDERER,vulkan"
-            "WLR_NO_HARDWARE_CURSORS,1"
-            "CLUTTER_BACKEND,wayland"
-            "GSK_RENDERER,vulkan"
-            "XCURSOR_THEME,Adwaita"
-            "XCURSOR_SIZE,16"
-            "CHECKLIST_DIR,/home/${config.preferences.user.username}/Shared/Checklist"
-          ]
-        )}
+          ${lib.concatStringsSep "\n" (
+            map luaEnv [
+              "XDG_SESSION_TYPE,wayland"
+              "XDG_SESSION_DESKTOP,Hyprland"
+              "XDG_CURRENT_DESKTOP,Hyprland"
+              "MOZ_ENABLE_WAYLAND,1"
+              "ANKI_WAYLAND,1"
+              "NIXOS_OZONE_WL,1"
+              "ELECTRON_OZONE_PLATFORM_HINT,auto"
+              "DISABLE_QT5_COMPAT,0"
+              "GDK_BACKEND,wayland"
+              "GDK_SCALE,2"
+              "WLR_DRM_NO_ATOMIC,1"
+              "QT_AUTO_SCREEN_SCALE_FACTOR,1"
+              "QT_WAYLAND_DISABLE_WINDOWDECORATION,1"
+              "QT_QPA_PLATFORM,wayland"
+              "QT_QPA_PLATFORMTHEME,hyprqt6engine"
+              "QT_QUICK_CONTROLS_STYLE,org.kde.desktop"
+              "KDE_FULL_SESSION,true"
+              "KDE_SESSION_VERSION,6"
+              "WLR_BACKEND,vulkan"
+              "WLR_RENDERER,vulkan"
+              "WLR_NO_HARDWARE_CURSORS,1"
+              "CLUTTER_BACKEND,wayland"
+              "GSK_RENDERER,vulkan"
+              "XCURSOR_THEME,Adwaita"
+              "XCURSOR_SIZE,16"
+              "CHECKLIST_DIR,/home/${config.preferences.user.username}/Shared/Checklist"
+            ]
+          )}
 
-        ${luaBinds}
-      '';
+          ${luaBinds}
+        '';
 
-      environment.systemPackages = with pkgs; [
-        wl-clipboard
-        cliphist # Clipboard manager
-        xdg-utils # Helps cliphist/wl-clipboard infer image MIME types.
-        hyprScreenshot
-        hyprClipboard
-        disableAirplaneModeKey
-        closeActiveWindow
-        brightnessctl
-        dconf # user-prefs
-        adwaita-icon-theme # Provides the Adwaita cursor theme selected above
+        environment.systemPackages = with pkgs; [
+          wl-clipboard
+          cliphist # Clipboard manager
+          xdg-utils # Helps cliphist/wl-clipboard infer image MIME types.
+          hyprScreenshot
+          hyprClipboard
+          disableAirplaneModeKey
+          closeActiveWindow
+          brightnessctl
+          dconf # user-prefs
+          adwaita-icon-theme # Provides the Adwaita cursor theme selected above
 
-        hyprpolkitagent # Hyprland Polkit agent
-        pkgs.kdePackages.polkit-kde-agent-1 # KDE Polkit agent
+          hyprpolkitagent # Hyprland Polkit agent
+          pkgs.kdePackages.polkit-kde-agent-1 # KDE Polkit agent
 
-        mpc # music player controller
-        playerctl # audio player controller
+          mpc # music player controller
+          playerctl # audio player controller
 
-        quickshell # panels, widgets, etc
-        wlrctl # wayland tools, e.g. autoclicking
-        zbar # read qr codes
-        tesseract5 # read text
+          quickshell # panels, widgets, etc
+          wlrctl # wayland tools, e.g. autoclicking
+          zbar # read qr codes
+          tesseract5 # read text
 
-        hyprpicker # color picker
+          hyprpicker # color picker
 
-        nwg-displays # displays/outputs settings gui
+          nwg-displays # displays/outputs settings gui
 
-        # Utilities for eye & health protection not replaced by DMS.
-        safeeyes # Intervalled-reminders to look around/take a break
+          # Utilities for eye & health protection not replaced by DMS.
+          safeeyes # Intervalled-reminders to look around/take a break
 
-        # Recordings
-        grim
-        grimblast
-        slurp
-        wf-recorder
-        swappy
+          # Recordings
+          grim
+          grimblast
+          slurp
+          wf-recorder
+          swappy
 
-        networkmanagerapplet
+          networkmanagerapplet
 
-        # Keyring
-        pkgs.gnome-keyring
-        pkgs.libsecret # contains secret-tool + provides the org.freedesktop.secrets service
-        pkgs.seahorse # optional GUI to see/manage keyrings (very useful for debugging)
-      ];
+          # Keyring
+          pkgs.gnome-keyring
+          pkgs.libsecret # contains secret-tool + provides the org.freedesktop.secrets service
+          pkgs.seahorse # optional GUI to see/manage keyrings (very useful for debugging)
+        ];
 
-      # Enable Gnome Keyring
-      services.gnome.gnome-keyring.enable = true;
+        # Enable Gnome Keyring
+        services.gnome.gnome-keyring.enable = true;
+      };
     };
 }

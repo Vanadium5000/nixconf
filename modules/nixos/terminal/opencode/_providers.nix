@@ -53,8 +53,7 @@ let
       limit = lib.optionalAttrs hasContext (
         {
           context = model.context or model.limit.context;
-          output =
-            if hasOutput then model.output or model.limit.output else defaultOutputLimit;
+          output = if hasOutput then model.output or model.limit.output else defaultOutputLimit;
         }
         // (lib.optionalAttrs hasInput {
           input = model.input or model.limit.input;

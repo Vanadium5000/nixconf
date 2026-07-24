@@ -50,10 +50,11 @@ main_vps: modules/hosts/main_vps/
 
 graphical hosts: modules/hosts/{legion5i,macbook}/
 ├─ desktop profile: modules/nixos/desktop/default.nix; terminal profile: modules/nixos/terminal/default.nix
-├─ active shell: DankMaterialShell via preferences.dankMaterialShell.enable; module modules/nixos/desktop/dank-material-shell.nix
-├─ DMS replaces Waybar, Hyprlock, Hyprsunset, qs-launcher, qs-notifications; keep dgop on pkgs.unstable.dgop
-├─ keep unrelated qs-* tools (qs-dmenu/passmenu/wallpaper) until explicitly migrated
-├─ removable media: udiskie user service from modules/nixos/desktop/default.nix; DMS USB Manager plugin is removed from persisted DMS plugins
+├─ legion5i active shell: KDE Plasma 6 via preferences.kde.enable; module modules/nixos/desktop/kde.nix; Plasma Login Manager, KDE portal, KWallet, polkit-kde-agent-1, pinentry-qt/ksshaskpass; Plasma config stays imperative and persisted through impermanence
+├─ macbook active shell: DankMaterialShell via preferences.dankMaterialShell.enable; module modules/nixos/desktop/dank-material-shell.nix
+├─ DMS replaces Waybar, Hyprlock, Hyprsunset, qs-launcher, qs-notifications on non-KDE hosts; keep dgop on pkgs.unstable.dgop
+├─ keep unrelated qs-* tools (qs-dmenu/passmenu/wallpaper) on KDE and Hyprland hosts until explicitly migrated; KDE installs important commands directly for imperative Plasma shortcuts rather than wrapping them
+├─ removable media: KDE uses Plasma/Solid/udisks2 integration; Hyprland/DMS uses udiskie user service from modules/nixos/desktop/default.nix; DMS USB Manager plugin is removed from persisted DMS plugins
 ├─ Hyprland: modules/nixos/desktop/hyprland/ plus modules/user/hyprland.nix
 ├─ local VPN proxy enabled for desktop routing/testing
 ├─ OpenSnitch enabled with eBPF/nftables; advanced typed mutableRules reset /var/lib/opensnitch/rules from Nix every activation/service start while UI config persists in ~/.config/opensnitch; authenticated bypass wrapper is opensnitch-bypass

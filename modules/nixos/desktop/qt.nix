@@ -9,6 +9,7 @@
     }:
     let
       inherit (self) colorsRgbaValues theme;
+      kdeEnabled = lib.attrByPath [ "preferences" "kde" "enable" ] false config;
       hyprqt6enginePackage =
         inputs.hyprqt6engine.packages.${pkgs.stdenv.hostPlatform.system}.default.overrideAttrs
           (old: {
@@ -231,52 +232,54 @@
       kdeGlobals = kdeColorSchemeText;
     in
     {
-      qt.enable = true;
+      config = lib.mkIf (!kdeEnabled) {
+        qt.enable = true;
 
-      environment.sessionVariables = {
-        QT_QPA_PLATFORM = "wayland";
-        QT_QPA_PLATFORMTHEME = "hyprqt6engine";
+        environment.sessionVariables = {
+          QT_QPA_PLATFORM = "wayland";
+          QT_QPA_PLATFORMTHEME = "hyprqt6engine";
 
-        # Kirigami defaults to Qt Quick Controls' Fusion style outside Plasma;
-        # selecting KDE's desktop style lets it match the installed plugin.
-        # Source: https://invent.kde.org/frameworks/qqc2-desktop-style/-/blob/master/README.md
-        QT_QUICK_CONTROLS_STYLE = "org.kde.desktop";
+          # Kirigami defaults to Qt Quick Controls' Fusion style outside Plasma;
+          # selecting KDE's desktop style lets it match the installed plugin.
+          # Source: https://invent.kde.org/frameworks/qqc2-desktop-style/-/blob/master/README.md
+          QT_QUICK_CONTROLS_STYLE = "org.kde.desktop";
 
-        # Assumption: Oxygen is a KDE style, so these markers keep KDE code paths
-        # active outside Plasma rather than falling back to generic integration.
-        KDE_FULL_SESSION = "true";
-        KDE_SESSION_VERSION = "6";
-      };
-
-      # Add the package's Qt root as a profile-relative suffix so NixOS still
-      # appends its generated lib/qt-6/plugins entries. Sources:
-      # - /nix/store/fm3z9r7r90yh8l7ai6cn6gsrp6h27ira-source/nixos/modules/config/qt.nix:220
-      # - /home/matrix/.local/share/opencode/tool-output/tool_df57a1f13001uFteU5BjvMikVt
-      environment.profileRelativeSessionVariables.QT_PLUGIN_PATH = [ "/lib/qt-6" ];
-
-      environment.systemPackages = with pkgs; [
-        kdePackages.oxygen
-        kdePackages.oxygen-icons
-        hyprqt6enginePackage
-
-        # Freedesktop fallbacks keep Qt icon lookup working when Oxygen lacks an
-        # application/action name. Source: https://doc.qt.io/qt-6/qicon.html#fromTheme
-        hicolor-icon-theme
-        adwaita-icon-theme
-      ];
-
-      system.activationScripts.qt-user-files = {
-        text = self.lib.userFiles.mkActivationScript {
-          inherit user;
-          inherit pkgs;
-          homeDirectory = config.preferences.paths.homeDirectory;
-          files = {
-            ".config/hypr/hyprqt6engine.conf".text = hyprqt6engineConf;
-            ".config/kdeglobals".text = kdeGlobals;
-            ".local/share/color-schemes/${kdeColorSchemeId}.colors".source = hyprqt6engineColorScheme;
-          };
+          # Assumption: Oxygen is a KDE style, so these markers keep KDE code paths
+          # active outside Plasma rather than falling back to generic integration.
+          KDE_FULL_SESSION = "true";
+          KDE_SESSION_VERSION = "6";
         };
-        deps = [ "users" ];
+
+        # Add the package's Qt root as a profile-relative suffix so NixOS still
+        # appends its generated lib/qt-6/plugins entries. Sources:
+        # - /nix/store/fm3z9r7r90yh8l7ai6cn6gsrp6h27ira-source/nixos/modules/config/qt.nix:220
+        # - /home/matrix/.local/share/opencode/tool-output/tool_df57a1f13001uFteU5BjvMikVt
+        environment.profileRelativeSessionVariables.QT_PLUGIN_PATH = [ "/lib/qt-6" ];
+
+        environment.systemPackages = with pkgs; [
+          kdePackages.oxygen
+          kdePackages.oxygen-icons
+          hyprqt6enginePackage
+
+          # Freedesktop fallbacks keep Qt icon lookup working when Oxygen lacks an
+          # application/action name. Source: https://doc.qt.io/qt-6/qicon.html#fromTheme
+          hicolor-icon-theme
+          adwaita-icon-theme
+        ];
+
+        system.activationScripts.qt-user-files = {
+          text = self.lib.userFiles.mkActivationScript {
+            inherit user;
+            inherit pkgs;
+            homeDirectory = config.preferences.paths.homeDirectory;
+            files = {
+              ".config/hypr/hyprqt6engine.conf".text = hyprqt6engineConf;
+              ".config/kdeglobals".text = kdeGlobals;
+              ".local/share/color-schemes/${kdeColorSchemeId}.colors".source = hyprqt6engineColorScheme;
+            };
+          };
+          deps = [ "users" ];
+        };
       };
     };
 }

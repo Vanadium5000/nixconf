@@ -348,7 +348,10 @@
       ];
       localServiceCards = concatMap (
         name:
-        if enabledLocalServices ? ${name} then [ (mkLocalServiceCard name enabledLocalServices.${name}) ] else [ ]
+        if enabledLocalServices ? ${name} then
+          [ (mkLocalServiceCard name enabledLocalServices.${name}) ]
+        else
+          [ ]
       ) localServiceOrder;
 
       publicServiceCards = map (
