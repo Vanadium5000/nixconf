@@ -83,6 +83,16 @@
           pkgs.kdePackages.kwallet-pam
           pkgs.kdePackages.kio-admin
           pkgs.kdePackages.kio-extras
+          # Provides the KDE6 Oxygen LookAndFeel package under
+          # share/plasma/look-and-feel/org.kde.oxygen so System Settings can
+          # offer it as a global theme without forcing it as the active theme.
+          # Source: https://invent.kde.org/plasma/oxygen/-/raw/master/lookandfeel/CMakeLists.txt
+          pkgs.kdePackages.oxygen
+          # Adds the KDE6 Oxygen Dark global-theme metadata from upstream
+          # Plasma 6.7 because nixpkgs 26.05's Oxygen package exposes only the
+          # light org.kde.oxygen LookAndFeel. This is selectable only; no theme
+          # choice is written to user config.
+          selfpkgs.oxygen-kde6-dark-theme
           pkgs.kdePackages.partitionmanager
           pkgs.kdePackages.print-manager
           pkgs.kdePackages.spectacle

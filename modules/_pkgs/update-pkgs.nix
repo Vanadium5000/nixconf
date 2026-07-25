@@ -67,7 +67,7 @@ pkgs.writeShellApplication {
 
     package_set() {
       case "$1" in
-      acp-chat | omniroute | omp-desktop | openchamber-web | cpa-usage-keeper | services-auth-gateway | niri-screen-time | daisyui-mcp | lyricsctl | mattpocock-skills)
+      acp-chat | omniroute | omp-desktop | openchamber-web | cpa-usage-keeper | services-auth-gateway | niri-screen-time | daisyui-mcp | lyricsctl | mattpocock-skills | oxygen-kde6-dark-theme)
         printf '%s\n' light
         ;;
       cliproxyapi | brave-origin | patchright | iloader | playwright-cli | cake-wallet-flatpak | orca | limux | seance | dogecoin | antigravity-manager | waydroid-script | waydroid-total-spoof | sideloader | quickshell-docs-markdown | stdio-to-ws)
@@ -94,7 +94,7 @@ pkgs.writeShellApplication {
       cliproxyapi | niri-screen-time)
         printf '%s\n' nix-update
         ;;
-      antigravity-manager | aptos-fonts | iloader | lyricsctl | pass-credential | patchright | playwright-cli | quickshell-docs-markdown | services-auth-gateway | sideloader | wallpapers)
+      antigravity-manager | aptos-fonts | iloader | lyricsctl | oxygen-kde6-dark-theme | pass-credential | patchright | playwright-cli | quickshell-docs-markdown | services-auth-gateway | sideloader | wallpapers)
         printf '%s\n' manual
         ;;
       *) printf '%s\n' nix-update+fallback ;;
@@ -107,6 +107,7 @@ pkgs.writeShellApplication {
       aptos-fonts) printf '%s\n' "static font CDN URL" ;;
       iloader) printf '%s\n' "iOS AppImage with manual download" ;;
       lyricsctl) printf '%s\n' "repo-local Bun script packaged from this flake" ;;
+      oxygen-kde6-dark-theme) printf '%s\n' "KDE Plasma theme id patch must stay distinct from nixpkgs Oxygen" ;;
       pass-credential) printf '%s\n' "repo-local shell parser packaged from this flake" ;;
       patchright) printf '%s\n' "NPM CLI must stay in lockstep with patchright-core" ;;
       playwright-cli) printf '%s\n' "NPM package with browser bundles" ;;
