@@ -1150,9 +1150,8 @@ async function controlOverlay(
   options: CliOptions,
 ): Promise<void> {
   try {
-    // Let toggle-lyrics-overlay own visual defaults, matching the Hyprland
-    // Super+Alt+M binding. Only override the data command when the user chose a
-    // non-default player source in the DMS widget.
+    // Let toggle-lyrics-overlay own visual defaults. Only override the data
+    // command when the user chose a non-default player source.
     const env = { ...process.env };
     if (options.player !== DEFAULT_PLAYER) {
       env.OVERLAY_COMMAND = [

@@ -268,18 +268,6 @@
         ];
       };
 
-      packages.quickshell-docs-mcp = inputs.wrappers.lib.makeWrapper {
-        inherit pkgs;
-        package = pkgs.writeShellScriptBin "quickshell-docs-mcp" ''
-          export QUICKSHELL_DOCS_PATH="${self'.packages.quickshell-docs-markdown}"
-          exec ${jsPkgs.bun}/bin/bun ${bunScriptBundles}/share/bunjs/quickshell-docs-mcp.js "$@"
-        '';
-        runtimeInputs = [
-          jsPkgs.bun
-          pkgs.coreutils
-        ];
-      };
-
       packages.qmllint-mcp = inputs.wrappers.lib.makeWrapper {
         inherit pkgs;
         package = pkgs.writeShellScriptBin "qmllint-mcp" ''

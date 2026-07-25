@@ -32,56 +32,6 @@
         "${env}/${name}";
     in
     {
-      packages.toggle-crosshair = inputs.wrappers.lib.makeWrapper {
-        inherit pkgs;
-        package = pkgs.writeShellScriptBin "toggle-crosshair" ''
-          # Toggle QuickShell for crosshair.qml with slurp selection, using hyprctl dispatch exec to spawn
-
-          QML_FILE="${mkQml "crosshair.qml" ./crosshair.qml}"
-          QS_BIN="${pkgs.quickshell}/bin/qs"
-          export QML2_IMPORT_PATH="${pkgs.qt6.qt5compat}/lib/qt-6/qml''${QML2_IMPORT_PATH:+:$QML2_IMPORT_PATH}"
-
-          # Try to kill existing instance (toggling)
-          if ! "$QS_BIN" kill -p "$QML_FILE"; then
-              # No instance running → allow user to select a region
-              geometry=$(
-                  {
-                      # 1. All mapped windows on active workspace
-                      hyprctl clients -j | jq -r --argjson ws "$(hyprctl activeworkspace -j | jq '.id')" '
-                          .[]
-                          | select(.workspace.id == $ws and .mapped)
-                          | "\(.at[0]),\(.at[1]) \(.size[0])x\(.size[1])"
-                      '
-                      # 2. All layer surfaces on monitor with active workspace
-                      hyprctl layers -j | jq -r --arg mon "$(hyprctl activeworkspace -j | jq -r '.monitor')" '
-                          .[$mon] // {}
-                          | .levels // []
-                          | .[]
-                          | .[]
-                          | .[]
-                          | select(.namespace != "")
-                          | "\(.x),\(.y) \(.w)x\(.h)"
-                      '
-                  } | slurp -r
-              )
-
-              # Parse slurp output: "x,y wxh"
-              pos=''${geometry%% *}   # extract "x,y"
-              size=''${geometry#* }   # extract "wxh"
-
-              IFS=',' read -r x y <<< "$pos"
-              IFS='x' read -r w h <<< "$size"
-
-              # Compute center
-              center_x=$(( x + w / 2 ))
-              center_y=$(( y + h / 2 ))
-
-              # Launch QuickShell via hyprctl dispatch exec
-              # Uses QML_FILE, passing X and Y coordinates.
-              hyprctl dispatch "hl.dsp.exec_cmd('X=$center_x Y=$center_y \"$QS_BIN\" -p \"$QML_FILE\"')"
-          fi
-        '';
-      };
 
       packages.toggle-lyrics-overlay = inputs.wrappers.lib.makeWrapper {
         inherit pkgs;
@@ -837,39 +787,6 @@
           pkgs.iproute2
           pkgs.python3
           self'.packages.qs-dmenu
-        ];
-      };
-
-      packages.qs-keybinds = inputs.wrappers.lib.makeWrapper {
-        inherit pkgs;
-        package = pkgs.writeShellScriptBin "qs-keybinds" ''
-          # Quickshell Keybind Help (using qs-dmenu)
-          # Reads keybinds from ~/.config/hypr/keybinds.json and displays them
-
-          KEYBINDS_FILE="$HOME/.config/hypr/keybinds.json"
-
-          if [ ! -f "$KEYBINDS_FILE" ]; then
-            notify-send -u critical "Keybind Help" "Keybinds file not found at $KEYBINDS_FILE"
-            exit 1
-          fi
-
-          # Format keybinds for display: "KEY → Description"
-          # Using jq to parse JSON and format nicely
-          FORMATTED=$(jq -r '.[] | "\(.key)  ›  \(.description)"' "$KEYBINDS_FILE" | sort)
-
-          if [ -z "$FORMATTED" ]; then
-            notify-send "Keybind Help" "No keybinds configured"
-            exit 0
-          fi
-
-          # Display using qs-dmenu (read-only, just for viewing)
-          echo "$FORMATTED" | ${lib.getExe self'.packages.qs-dmenu} -p "Keybinds" -mesg "Press Enter to dismiss"
-        '';
-        runtimeInputs = [
-          self'.packages.qs-dmenu
-          pkgs.jq
-          pkgs.libnotify
-          pkgs.coreutils
         ];
       };
     };

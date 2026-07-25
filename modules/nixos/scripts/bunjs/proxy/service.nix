@@ -110,7 +110,7 @@
               pkgs.findutils
               pkgs.dante
               pkgs.sing-box
-              # Standard notification tool; DMS owns the notification daemon.
+              # Standard notification tool for proxy status changes.
               pkgs.libnotify
             ];
 

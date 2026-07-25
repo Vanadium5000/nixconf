@@ -5,13 +5,9 @@ let
   # files can stay normal callPackage derivations without ambient
   # `{ unstable, ... }` parameters.
   edgePackages = [
-    "acp-chat"
     "cliproxyapi"
-    # Limux's GTK Rust bindings require rustc >= 1.92; keep it on unstable
-    # until the stable channel's Rust toolchain catches up.
     "omniroute"
     "openchamber-web"
-    "limux"
   ];
 
   getPackages =
@@ -45,10 +41,6 @@ let
     in
     (builtins.foldl' (acc: filename: acc // (toPackage filename)) { } files)
     // {
-      # Re-export the locked llm-agents Paseo desktop package so terminal
-      # profiles install it with the rest of this flake's system packages.
-      # Source: github:numtide/llm-agents.nix packages.<system>.paseo-desktop.
-      paseo = inputs.llm-agents.packages.${stablePkgs.stdenv.hostPlatform.system}.paseo-desktop;
       grok = inputs.llm-agents.packages.${stablePkgs.stdenv.hostPlatform.system}.grok;
     };
 in

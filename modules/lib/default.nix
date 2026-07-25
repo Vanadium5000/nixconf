@@ -7,7 +7,6 @@
   #   { self, ... }:
   #   let
   #     persist = self.lib.persistence.mkPersistent { ... };
-  #     hyprConf = self.lib.generators.toHyprconf { attrs = { ... }; };
   #   in { ... }
 
   flake.lib = {
@@ -23,9 +22,6 @@
       inherit lib;
       root = ../..;
     };
-
-    # Generator functions for various config formats
-    generators = import ./_internal/generators.nix { inherit lib; };
 
     # Git config rendering shared by the user config and background git services.
     git = import ./_internal/git.nix { inherit lib; };

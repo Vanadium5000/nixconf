@@ -494,8 +494,9 @@ let
   };
 in
 {
-  packages =
-    (with pkgs; [
+  packages = (
+    with pkgs;
+    [
       bash-language-server
       basedpyright
       clang-tools
@@ -526,8 +527,8 @@ in
       typstyle
       yaml-language-server
       eslint_d
-    ])
-    ++ (with self.packages.${pkgs.stdenv.hostPlatform.system}; [ daisyui-mcp ]);
+    ]
+  );
 
   formatter = wrapCommands formatterNotifyWrapper "formatter" formatterDefinitions;
 

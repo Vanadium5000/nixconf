@@ -69,7 +69,6 @@
         obs.enable = true;
         obsidian.enable = true;
         kde.enable = true;
-        dankMaterialShell.enable = false;
       };
 
       # Plymouth

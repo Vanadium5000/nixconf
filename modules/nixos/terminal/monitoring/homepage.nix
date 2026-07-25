@@ -60,7 +60,6 @@
         dashboard = cfg.port;
         docs = portOf [ "services" "nixconf-docs" "port" ] 8090;
         cockpit = portOf [ "services" "cockpit-managed" "port" ] 9090;
-        acpChat = portOf [ "services" "acp-chat" "port" ] 8732;
         vpn = portOf [ "services" "vpn-proxy" "webUiPort" ] 10802;
         cliproxyapi = portOf [ "services" "cliproxyapi" "port" ] 8317;
         omniroute = portOf [ "services" "omniroute" "port" ] 20128;
@@ -137,17 +136,6 @@
           description = "SOCKS5/HTTP VPN proxy management";
           publicSubdomain = "vpn";
           publicDescription = "Public VPN proxy management route";
-        };
-        "acp-chat" = {
-          enable = serviceEnabled [
-            "services"
-            "acp-chat"
-          ];
-          port = ports.acpChat;
-          label = "ACP Chat";
-          icon = "mdi-chat-processing-${c.magenta}";
-          description = "Browser UI for local ACP agents";
-          public = false;
         };
         cliproxyapi = {
           enable = serviceEnabled [
@@ -339,7 +327,6 @@
         "portainer"
         "qbittorrent"
         "vpn-proxy"
-        "acp-chat"
         "cliproxyapi"
         "omniroute"
         "cpa-usage"

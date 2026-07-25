@@ -52,20 +52,6 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # HyprQt6Engine
-    # TODO: Switch to hyprqt6engine when it is added to nixpkgs
-    hyprqt6engine = {
-      url = "github:hyprwm/hyprqt6engine";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
-    # DankMaterialShell upstream NixOS module and package.
-    # Source: https://danklinux.com/docs/dankmaterialshell/nixos
-    dms = {
-      url = "github:AvengeMedia/DankMaterialShell/stable";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
     # LLM agent package set. OpenCode comes from this flake rather than a
     # local release override or the upstream opencode source flake.
     # Source: https://github.com/numtide/llm-agents.nix
@@ -110,7 +96,6 @@
       "https://cache.nixos.org?priority=40"
       "https://cache.nixos-cuda.org?priority=45"
       "https://nix-community.cachix.org?priority=50"
-      "https://hyprland.cachix.org?priority=51" # Hyprland
       "https://cache.soopy.moe?priority=53" # Apple T2
     ];
     extra-trusted-public-keys = [
@@ -118,7 +103,6 @@
       "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
       "cache.nixos-cuda.org:74DUi4Ye579gUqzH4ziL9IyiJBlDpMRn9MBN8oNan9M="
       "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
-      "hyprland.cachix.org-1:a7pgxzMz7+chwVL3/pzj6jIBMioiJM7ypFP8PwtkuGc=" # Hyprland
       "cache.soopy.moe-1:0RZVsQeR+GOh0VQI9rvnHz55nVXkFardDqfm4+afjPo=" # Apple T2
     ];
   };

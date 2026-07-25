@@ -20,21 +20,10 @@
           "cpa-usage-keeper"
         ];
         main_vps = [
-          "antigravity-manager"
-          "aptos-fonts"
-          "brave-origin" # GUI browser; terminal hosts install all flake packages.
-          "iloader"
           "powerpoint-mcp"
-          "niri-screen-time"
-          "orca"
-          "paseo"
-          "sideloader"
           "sora-watermark-cleaner"
           "waydroid-total-spoof"
-          "limux"
           "lyricsctl"
-          "seance"
-          "omp-desktop"
         ];
         legion5i = [
           "bifrost-http"
@@ -64,8 +53,6 @@
         # Opencode
         self.nixosModules.opencode
         self.nixosModules.omp
-        self.nixosModules.paseo
-
         self.nixosModules.dev
         self.nixosModules.nix
         self.nixosModules.memory
@@ -81,7 +68,6 @@
         self.nixosModules.vpn-proxy-service
 
         # Server services (disabled by default, enable per-host)
-        self.nixosModules.acp-chat
         self.nixosModules.bifrost
         self.nixosModules.cliproxyapi
         self.nixosModules.cpa-usage-keeper
@@ -119,7 +105,6 @@
         # enable the bootstrap with terminal hosts so impermanence preserves that tree.
         # Source: local state layout observed at ~/.omp/agent/{config.yml,models.yml}.
         programs.omp.enable = lib.mkDefault true;
-        programs.paseo.enable = lib.mkDefault true;
         preferences.btrbkPersistSystem.enable = lib.mkDefault true;
 
         # GitHub CLI auth/config is durable terminal profile state; request and
@@ -136,14 +121,6 @@
 
         preferences.zsh.aliases.gi = "git-identity setup";
         preferences.zsh.aliases.g = "git-identity setup";
-
-        services.acp-chat = {
-          # User requested all-host LAN bind without opening the NixOS firewall;
-          # ACP UI receives this through the service --host flag.
-          enable = true;
-          host = "0.0.0.0";
-          openFirewall = false;
-        };
         services.nixconf-docs.enable = true;
 
         # Password-store folder

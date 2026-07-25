@@ -51,16 +51,14 @@ main_vps: modules/hosts/main_vps/
 graphical hosts: modules/hosts/{legion5i,macbook}/
 ├─ desktop profile: modules/nixos/desktop/default.nix; terminal profile: modules/nixos/terminal/default.nix
 ├─ legion5i active shell: KDE Plasma 6 via preferences.kde.enable; module modules/nixos/desktop/kde.nix; Plasma Login Manager, KDE portal, KWallet, polkit-kde-agent-1, pinentry-qt/ksshaskpass; Plasma config stays imperative and persisted through impermanence
-├─ macbook active shell: DankMaterialShell via preferences.dankMaterialShell.enable; module modules/nixos/desktop/dank-material-shell.nix
-├─ DMS replaces Waybar, Hyprlock, Hyprsunset, qs-launcher, qs-notifications on non-KDE hosts; keep dgop on pkgs.unstable.dgop
-├─ keep unrelated qs-* tools (qs-dmenu/passmenu/wallpaper) on KDE and Hyprland hosts until explicitly migrated; KDE installs important commands directly for imperative Plasma shortcuts rather than wrapping them
-├─ removable media: KDE uses Plasma/Solid/udisks2 integration; Hyprland/DMS uses udiskie user service from modules/nixos/desktop/default.nix; DMS USB Manager plugin is removed from persisted DMS plugins
-├─ Hyprland: modules/nixos/desktop/hyprland/ plus modules/user/hyprland.nix
+├─ macbook active shell: KDE Plasma 6 via preferences.kde.enable; module modules/nixos/desktop/kde.nix; Plasma Login Manager, KDE portal, KWallet, polkit-kde-agent-1, pinentry-qt/ksshaskpass; Plasma config stays imperative and persisted through impermanence
+├─ keep unrelated qs-* tools (qs-dmenu/passmenu/VPN/checklist/lyrics) on KDE hosts; KDE installs important commands directly for imperative Plasma shortcuts rather than wrapping them
+├─ removable media: KDE uses Plasma/Solid/udisks2 integration
 ├─ local VPN proxy enabled for desktop routing/testing
 ├─ OpenSnitch enabled with eBPF/nftables; advanced typed mutableRules reset /var/lib/opensnitch/rules from Nix every activation/service start while UI config persists in ~/.config/opensnitch; authenticated bypass wrapper is opensnitch-bypass
 └─ qBittorrent WebUI: Gluetun/PIA stack binds 127.0.0.1:8088; qBittorrent shares Gluetun network namespace, pins torrent traffic to tun0, and downloads to persisted ~/Torrents
 
-persistence helpers: modules/lib/_internal/persistence.nix; NixOS module modules/common/impermanence.nix; app state split across home persistence/cache for Orca, Limux, gh, OpenCode, OMP; btrbk host target suffix/transactions persist in /var/lib/btrbk
+persistence helpers: modules/lib/_internal/persistence.nix; NixOS module modules/common/impermanence.nix; app state split across home persistence/cache for gh, OpenCode, OMP, Plasma, Firefox, VSCodium, and app data; btrbk host target suffix/transactions persist in /var/lib/btrbk
 DNS stack (all hosts via modules/common/networking.nix): NSS prefers systemd-resolved (Cloudflare DoT opportunistic + DHCP/VPN link DNS + FallbackDNS); /etc/resolv.conf is static public 1.1.1.1/1.0.0.1/9.9.9.9/8.8.8.8 fail-open (not 127.0.0.53 stub); emergency tool dns-emergency (plain/dhcp/stop-resolved/restore) — docs/docs/operations/dns.md
 monitoring dashboards: modules/nixos/terminal/monitoring/
 ```

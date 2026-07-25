@@ -66,7 +66,7 @@ let
       c = "printf '\\033[2J\\033[3J\\033[1;1H'";
       suspend = "systemctl suspend";
       reboot = "systemctl reboot";
-      logout = "hyprctl dispatch exit";
+      logout = "loginctl terminate-user $USER";
       poweroff = "systemctl poweroff";
       ports = "sudo ss -ltnup";
       unlock-device = "unlock-host";

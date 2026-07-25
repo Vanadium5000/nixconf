@@ -67,13 +67,13 @@ pkgs.writeShellApplication {
 
     package_set() {
       case "$1" in
-      acp-chat | omniroute | omp-desktop | openchamber-web | cpa-usage-keeper | services-auth-gateway | niri-screen-time | daisyui-mcp | lyricsctl | mattpocock-skills | oxygen-kde6-dark-theme)
+      omniroute | openchamber-web | cpa-usage-keeper | services-auth-gateway | lyricsctl)
         printf '%s\n' light
         ;;
-      cliproxyapi | brave-origin | patchright | iloader | playwright-cli | cake-wallet-flatpak | orca | limux | seance | dogecoin | antigravity-manager | waydroid-script | waydroid-total-spoof | sideloader | quickshell-docs-markdown | stdio-to-ws)
+      cliproxyapi | waydroid-script | waydroid-total-spoof)
         printf '%s\n' medium
         ;;
-      wallpapers | aptos-fonts)
+      wallpapers)
         printf '%s\n' heavy
         ;;
       *) printf '%s\n' unlisted ;;
@@ -82,19 +82,16 @@ pkgs.writeShellApplication {
 
     package_update_mode() {
       case "$1" in
-      acp-chat | cpa-usage-keeper | limux | omniroute | omp-desktop | openchamber-web | orca | seance)
+      cpa-usage-keeper | omniroute | openchamber-web)
         printf '%s\n' custom
         ;;
-      brave-origin)
-        printf '%s\n' updater-script
-        ;;
-      daisyui-mcp | mattpocock-skills | waydroid-script | waydroid-total-spoof)
+      waydroid-script | waydroid-total-spoof)
         printf '%s\n' nix-update-branch
         ;;
-      cliproxyapi | niri-screen-time)
+      cliproxyapi)
         printf '%s\n' nix-update
         ;;
-      antigravity-manager | aptos-fonts | iloader | lyricsctl | oxygen-kde6-dark-theme | pass-credential | patchright | playwright-cli | quickshell-docs-markdown | services-auth-gateway | sideloader | wallpapers)
+      lyricsctl | pass-credential | services-auth-gateway | wallpapers)
         printf '%s\n' manual
         ;;
       *) printf '%s\n' nix-update+fallback ;;
@@ -103,17 +100,9 @@ pkgs.writeShellApplication {
 
     manual_update_reason() {
       case "$1" in
-      antigravity-manager) printf '%s\n' "RPM-wrapped AppImage with versioned URL" ;;
-      aptos-fonts) printf '%s\n' "static font CDN URL" ;;
-      iloader) printf '%s\n' "iOS AppImage with manual download" ;;
       lyricsctl) printf '%s\n' "repo-local Bun script packaged from this flake" ;;
-      oxygen-kde6-dark-theme) printf '%s\n' "KDE Plasma theme id patch must stay distinct from nixpkgs Oxygen" ;;
       pass-credential) printf '%s\n' "repo-local shell parser packaged from this flake" ;;
-      patchright) printf '%s\n' "NPM CLI must stay in lockstep with patchright-core" ;;
-      playwright-cli) printf '%s\n' "NPM package with browser bundles" ;;
-      quickshell-docs-markdown) printf '%s\n' "multi-source Rust with pinned deps" ;;
       services-auth-gateway) printf '%s\n' "local generated Python app" ;;
-      sideloader) printf '%s\n' "iOS sideloader with signing deps" ;;
       wallpapers) printf '%s\n' "pinned image set with many fixed URLs" ;;
       *) return 1 ;;
       esac
@@ -122,11 +111,8 @@ pkgs.writeShellApplication {
     package_call_expr() {
       local pkg="$1"
       case "$pkg" in
-      acp-chat | cliproxyapi | omniroute | openchamber-web)
+      cliproxyapi | omniroute | openchamber-web)
         printf '%s\n' "unstable.callPackage ./$pkg.nix {}"
-        ;;
-      limux)
-        printf '%s\n' "unstable.callPackage ./limux.nix { pkgs = unstable; }"
         ;;
       *)
         printf '%s\n' "pkgs.callPackage ./$pkg.nix {}"
@@ -176,8 +162,8 @@ pkgs.writeShellApplication {
         "Examples:" \
         "  update-pkgs update omniroute" \
         "  update-pkgs update --set light" \
-        "  update-pkgs test limux" \
-        "  update-pkgs revert --yes omniroute limux"
+        "  update-pkgs test omniroute" \
+        "  update-pkgs revert --yes omniroute"
     }
 
     show_intro_once() {
@@ -384,7 +370,7 @@ pkgs.writeShellApplication {
         # command registry, which catches missing exports without starting the server.
         printf '%s\t%s\n' "$bin" "--help"
         ;;
-      acp-chat | cliproxyapi | cpa-usage-keeper | dogecoin | limux | lyricsctl | niri-screen-time | openchamber-web | pass-credential | patchright | playwright-cli | seance | services-auth-gateway | sideloader | stdio-to-ws | waydroid-script | waydroid-total-spoof)
+      cliproxyapi | cpa-usage-keeper | lyricsctl | openchamber-web | pass-credential | services-auth-gateway | waydroid-script | waydroid-total-spoof)
         printf '%s\t%s\n' "$bin" "--help"
         ;;
       *)
@@ -413,19 +399,6 @@ pkgs.writeShellApplication {
         return 1
       fi
       echo "  Build result: $result"
-
-      if [ "$pkg" = "orca" ]; then
-        # The flake main program intentionally launches the Electron GUI, so
-        # smoke the packaged CLI entrypoint that Orca itself installs in
-        # resources/bin. This still exercises the patched Electron-as-Node runtime.
-        if run_smoke_command "$result/opt/Orca/resources/bin/orca-ide" --help; then
-          TESTED+=("$pkg")
-          return 0
-        fi
-        echo "  Build passed, but Orca CLI smoke command failed."
-        FAILED+=("$pkg")
-        return 1
-      fi
 
       main_program=$(nix eval --raw --expr "let p = $(package_build_expr "$pkg"); in p.meta.mainProgram or \"\"" 2>/dev/null || true)
       if [ -n "$main_program" ] && [ -x "$result/bin/$main_program" ]; then
@@ -731,7 +704,7 @@ pkgs.writeShellApplication {
       fi
     }
 
-    # Update packages with dynamic version URLs (like antigravity-manager)
+    # Update packages with dynamic version URLs
     update_versioned_url_package() {
       local pkg="$1"
       local file
@@ -846,70 +819,6 @@ pkgs.writeShellApplication {
       esac
     }
 
-    update_orca_package() {
-      local pkg="orca"
-      local file
-      file=$(package_file "$pkg")
-      local current_version latest_tag latest_version asset_url asset_hash
-
-      current_version=$(grep -oP 'version = "\K[^"]+' "$file" | head -1 || true)
-      latest_tag=$(get_latest_release "stablyai" "orca")
-      latest_version="''${latest_tag#v}"
-      latest_version="''${latest_version#V}"
-
-      if [ -z "$current_version" ] || [ -z "$latest_version" ]; then
-        echo "    Could not determine Orca release version"
-        return 1
-      fi
-
-      echo "    Current version: $current_version"
-      echo "    Latest version: $latest_version"
-
-      if [ "$current_version" = "$latest_version" ]; then
-        echo "    Already up to date"
-        return 1
-      fi
-
-      asset_url="https://github.com/stablyai/orca/releases/download/v$latest_version/orca-ide_$latest_version"'_amd64.deb'
-      echo "    Prefetching Linux .deb: $asset_url"
-      asset_hash=$(prefetch_url "$asset_url")
-      if [ -z "$asset_hash" ]; then
-        echo "    Could not prefetch Orca Linux .deb"
-        return 1
-      fi
-
-      sed -i "s|version = \"$current_version\"|version = \"$latest_version\"|" "$file"
-      set_attr_hash "$file" hash "$asset_hash"
-      return 0
-    }
-
-    refresh_fake_hash_from_build() {
-      local file="$1"
-      local attr="$2"
-      shift 2
-      local fake="sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
-      local original_hash
-      original_hash=$(attr_hash "$file" "$attr")
-      if ! is_sri_sha256 "$original_hash"; then
-        echo "    Could not find complete $attr before refresh"
-        return 1
-      fi
-      local output=""
-      set_attr_hash "$file" "$attr" "$fake"
-      set +e
-      output=$("$@" 2>&1)
-      local status=$?
-      set -e
-      local got
-      got=$(printf '%s\n' "$output" | grep -oP '(got:|got)\s+\Ksha256-[A-Za-z0-9+/=]{44}' | tail -1 || true)
-      if ! is_sri_sha256 "$got"; then
-        set_attr_hash "$file" "$attr" "$original_hash"
-        printf '%s\n' "$output"
-        return "$status"
-      fi
-      set_attr_hash "$file" "$attr" "$got"
-      return 0
-    }
 
     update_omniroute_package() {
       local pkg="omniroute"
@@ -1072,201 +981,9 @@ pkgs.writeShellApplication {
       return 0
     }
 
-    update_omp_desktop_package() {
-      local pkg="omp-desktop"
-      local file
-      file=$(package_file "$pkg")
-      local current_version latest_tag latest_version src_hash
 
-      current_version=$(grep -oP 'version = "\K[^"]+' "$file" | head -1 || true)
-      latest_tag=$(get_latest_release "apoc" "omp-desktop")
-      latest_version="''${latest_tag#v}"
-      latest_version="''${latest_version#V}"
 
-      if [ -z "$current_version" ] || [ -z "$latest_version" ]; then
-        echo "    Could not determine OMP Desktop release version"
-        return 1
-      fi
 
-      echo "    Current version: $current_version"
-      echo "    Latest version: $latest_version"
-
-      if [ "$current_version" = "$latest_version" ]; then
-        echo "    Already up to date"
-        return 1
-      fi
-
-      src_hash=$(prefetch_github "apoc" "omp-desktop" "$latest_tag")
-      if [ -z "$src_hash" ]; then
-        echo "    Could not prefetch OMP Desktop source"
-        return 1
-      fi
-
-      sed -i "s|version = \"$current_version\"|version = \"$latest_version\"|" "$file"
-      set_first_hash_after "$file" 'repo = "omp-desktop"' "$src_hash"
-
-      echo "    Refreshing cargoHash..."
-      refresh_package_hash_from_build "$pkg" "$file" cargoHash
-      return 0
-    }
-
-    update_seance_package() {
-      local pkg="seance"
-      local file
-      file=$(package_file "$pkg")
-      local current_version current_revision latest_tag latest_version latest_commit latest_revision url src_hash unpacked_hash
-
-      current_version=$(grep -oP 'version = "\K[^"]+' "$file" | head -1 || true)
-      current_revision=$(grep -oP 'revision \? "\K[^"]+' "$file" | head -1 || true)
-      latest_tag=$(get_latest_release "no1msd" "seance")
-      latest_version="''${latest_tag#v}"
-      latest_version="''${latest_version#V}"
-      latest_commit=$(get_tag_commit "no1msd" "seance" "$latest_tag")
-      latest_revision="''${latest_commit:0:7}"
-
-      if [ -z "$current_version" ] || [ -z "$latest_version" ] || [ -z "$latest_revision" ]; then
-        echo "    Could not determine Seance release version or tag revision"
-        return 1
-      fi
-
-      echo "    Current version: $current_version-$current_revision"
-      echo "    Latest version: $latest_version-$latest_revision"
-
-      if [ "$current_version" = "$latest_version" ] && [ "$current_revision" = "$latest_revision" ]; then
-        echo "    Already up to date"
-        return 1
-      fi
-
-      url="https://github.com/no1msd/seance/releases/download/v$latest_version/seance-$latest_version-src.tar.gz"
-      src_hash=$(prefetch_url "$url")
-      unpacked_hash=$(prefetch_url_unpack "$url")
-
-      if [ -z "$src_hash" ] || [ -z "$unpacked_hash" ]; then
-        echo "    Could not prefetch Seance source tarball"
-        return 1
-      fi
-
-      sed -i "s|version = \"$current_version\"|version = \"$latest_version\"|" "$file"
-      sed -i "s|revision ? \"$current_revision\"|revision ? \"$latest_revision\"|" "$file"
-      set_attr_hash "$file" hash "$src_hash"
-      set_attr_hash "$file" unpackedHash "$unpacked_hash"
-
-      return 0
-    }
-
-    update_acp_chat_package() {
-      local pkg="acp-chat"
-      local file
-      file=$(package_file "$pkg")
-
-      echo "  Checking latest ACP UI release..."
-      local current_version latest_tag latest_version src_hash
-      current_version=$(extract_nix_value "$file" 'version = "\K[^"]+')
-      latest_tag=$(get_latest_release "formulahendry" "acp-ui")
-      latest_version="''${latest_tag#v}"
-
-      if [ -z "$current_version" ] || [ -z "$latest_tag" ] || [ -z "$latest_version" ]; then
-        echo "    Could not determine ACP UI version"
-        return 1
-      fi
-
-      if [ "$current_version" = "$latest_version" ]; then
-        echo "    Already up to date"
-        return 1
-      fi
-
-      src_hash=$(prefetch_github "formulahendry" "acp-ui" "$latest_tag")
-      if [ -z "$src_hash" ]; then
-        echo "    Could not prefetch ACP UI source"
-        return 1
-      fi
-
-      sed -i "s|version = \"$current_version\"|version = \"$latest_version\"|" "$file"
-      set_first_hash_after "$file" 'repo = "acp-ui"' "$src_hash"
-
-      echo "    Refreshing npmDepsHash..."
-      refresh_package_hash_from_build "$pkg" "$file" npmDepsHash
-      return 0
-    }
-
-    update_limux_package() {
-      local pkg="limux"
-      local file
-      file=$(package_file "$pkg")
-      local current_version latest_tag latest_version src_hash patch_hash current_src_hash current_patch_hash
-      local changed=false
-
-      current_version=$(grep -oP 'version = "\K[^"]+' "$file" | head -1 || true)
-      latest_tag=$(get_latest_release "am-will" "limux")
-      latest_version="''${latest_tag#v}"
-      latest_version="''${latest_version#V}"
-
-      if [ -z "$current_version" ] || [ -z "$latest_version" ]; then
-        echo "    Could not determine Limux release version"
-        return 1
-      fi
-
-      echo "    Current version: $current_version"
-      echo "    Latest version: $latest_version"
-
-      src_hash=$(prefetch_github_submodules "am-will" "limux" "v$latest_version")
-      if [ -z "$src_hash" ]; then
-        echo "    Could not prefetch Limux source with submodules"
-        return 1
-      fi
-
-      current_src_hash=$(first_hash_after "$file" 'repo = "limux"')
-
-      # v0.1.19 carries the upstream fractional-scale GLArea fix until it
-      # lands in a release. If the PR changes, update its fixed-output hash
-      # and let the build refresh cargoHash against the patched source.
-      patch_hash=$(prefetch_fetchpatch "https://github.com/am-will/limux/pull/83.patch")
-      current_patch_hash=$(first_hash_after "$file" 'pull/83.patch' || true)
-
-      if [ "$current_version" != "$latest_version" ]; then
-        echo "    Updating version: $current_version -> $latest_version"
-        sed -i "s|version = \"$current_version\"|version = \"$latest_version\"|" "$file"
-        changed=true
-      fi
-
-      if [ -n "$current_src_hash" ] && [ "$current_src_hash" != "$src_hash" ]; then
-        echo "    Updating source hash: $current_src_hash -> $src_hash"
-        set_first_hash_after "$file" 'repo = "limux"' "$src_hash"
-        changed=true
-      fi
-
-      if [ -n "$patch_hash" ] && [ -n "$current_patch_hash" ] && [ "$current_patch_hash" != "$patch_hash" ]; then
-        echo "    Updating fractional-scale patch hash: $current_patch_hash -> $patch_hash"
-        set_first_hash_after "$file" 'pull/83.patch' "$patch_hash"
-        changed=true
-      fi
-
-      if ! $changed; then
-        echo "    Already up to date"
-        return 1
-      fi
-
-      echo "    Refreshing cargoHash..."
-      refresh_package_hash_from_build "$pkg" "$file" cargoHash
-
-      return 0
-    }
-
-    write_packages_expression() {
-      local pkg
-      {
-        printf '%s\n' '{ pkgs ? import <nixpkgs> {}, unstable ? import <nixpkgs-unstable> {} }:'
-        printf '%s\n' '{'
-        for pkg in "''${PACKAGES[@]}"; do
-          if [ "$(package_update_mode "$pkg")" = manual ]; then
-            echo " # $pkg = $(package_call_expr "$pkg"); # skipped - $(manual_update_reason "$pkg")"
-          else
-            echo " $pkg = $(package_call_expr "$pkg");"
-          fi
-        done
-        printf '%s\n' '}'
-      } >packages.nix
-    }
 
     run_update_command() {
       select_update_packages "$@"
@@ -1311,34 +1028,11 @@ pkgs.writeShellApplication {
 
         # Per-package update strategies
         case "$pkg" in
-        "brave-origin")
-          # Custom updater selects the latest prerelease only when the expected
-          # brave-origin-nightly_<version>_amd64.deb asset exists, then rewrites
-          # platform hashes as one matrix. Source: modules/_pkgs/brave-origin/update.sh
-          # and upstream WitteShadovv/nixpkgs pkgs/by-name/br/brave-origin/update.sh.
-          set +e
-          if ./brave-origin/update.sh; then
-            UPDATED+=("$pkg")
-          else
-            FAILED+=("$pkg")
-          fi
-          set -e
-          ;;
 
-        "acp-chat")
-          # ACP UI builds from the upstream web lockfile; refresh source and npm cache together.
-          if update_acp_chat_package; then
-            UPDATED+=("$pkg")
-          else
-            SKIPPED+=("$pkg")
-          fi
-          ;;
 
-        "aptos-fonts")
-          # Skip: static font CDN URL (manual update required)
-          echo " Skipping aptos-fonts (manual update required - static font CDN)"
-          SKIPPED+=("$pkg")
-          ;;
+
+
+
 
         "wallpapers")
           # Skip: pinned curated URL list; each image is intentionally chosen.
@@ -1346,57 +1040,15 @@ pkgs.writeShellApplication {
           SKIPPED+=("$pkg")
           ;;
 
-        "antigravity-manager")
-          # Skip: RPM-wrapped AppImage with versioned URL pattern (manual update required)
-          echo " Skipping antigravity-manager (manual update required - RPM-wrapped AppImage)"
-          SKIPPED+=("$pkg")
-          ;;
 
-        "dogecoin")
-          # Has versioned URL from GitHub releases
-          if update_versioned_url_package "$pkg" "dogecoin" "dogecoin"; then
-            UPDATED+=("$pkg")
-          else
-            SKIPPED+=("$pkg")
-          fi
-          ;;
 
-        "cake-wallet-flatpak")
-          # Upstream publishes a versioned Flatpak bundle on GitHub releases.
-          if update_versioned_url_package "$pkg" "cake-tech" "cake_wallet"; then
-            UPDATED+=("$pkg")
-          else
-            SKIPPED+=("$pkg")
-          fi
-          ;;
 
-        "orca")
-          # Upstream publishes a versioned Linux .deb; refresh version and
-          # fixed-output hash together, then build the wrapped Electron app.
-          if update_orca_package; then
-            if build_package_quiet "$pkg"; then
-              UPDATED+=("$pkg")
-            else
-              FAILED+=("$pkg")
-            fi
-          else
-            SKIPPED+=("$pkg")
-          fi
-          ;;
 
-        "limux")
-          # Custom updater keeps source-with-submodules, carried upstream patch,
-          # and cargoHash in sync, then builds as a smoke test.
-          if update_limux_package; then
-            if build_package_quiet "$pkg"; then
-              UPDATED+=("$pkg")
-            else
-              FAILED+=("$pkg")
-            fi
-          else
-            SKIPPED+=("$pkg")
-          fi
-          ;;
+
+
+
+
+
 
         "openchamber-web")
           # OpenChamber builds from the upstream Bun workspace lock. Keep the
@@ -1408,24 +1060,9 @@ pkgs.writeShellApplication {
           fi
           ;;
 
-        "omp-desktop")
-          # OMP Desktop is a Tauri/Rust app; refresh source and cargo vendor hash together.
-          if update_omp_desktop_package; then
-            if build_package_quiet "$pkg"; then
-              UPDATED+=("$pkg")
-            else
-              FAILED+=("$pkg")
-            fi
-          else
-            SKIPPED+=("$pkg")
-          fi
-          ;;
 
-        "iloader")
-          # Skip: iOS AppImage with manual download (manual update required)
-          echo " Skipping iloader (manual update required - iOS AppImage with manual download)"
-          SKIPPED+=("$pkg")
-          ;;
+
+
 
         "lyricsctl")
           # Skip: repo-local Bun script is updated with the flake source tree.
@@ -1439,20 +1076,9 @@ pkgs.writeShellApplication {
           SKIPPED+=("$pkg")
           ;;
 
-        "playwright-cli")
-          # Skip: NPM-based package with browser bundle dependencies (manual update required)
-          echo " Skipping playwright-cli (manual update required - NPM with browser bundles)"
-          SKIPPED+=("$pkg")
-          ;;
 
-        "patchright")
-          # Skip: npm package whose CLI and patchright-core versions must stay in
-          # lockstep; npm releases can also lead GitHub driver releases, so version
-          # discovery needs manual validation before refreshing hashes.
-          # Source: modules/_pkgs/patchright.nix and https://registry.npmjs.org/patchright/latest.
-          echo " Skipping patchright (manual update required - NPM with coupled patchright-core dependency)"
-          SKIPPED+=("$pkg")
-          ;;
+
+
 
         "omniroute")
           # Custom updater keeps the npm CLI artifact and GitHub docs source in
@@ -1468,19 +1094,7 @@ pkgs.writeShellApplication {
           fi
           ;;
 
-        "seance")
-          # Custom updater refreshes version, tag revision, compressed source hash,
-          # and unpacked source hash, then builds the package as a smoke test.
-          if update_seance_package; then
-            if build_package_quiet "$pkg"; then
-              UPDATED+=("$pkg")
-            else
-              FAILED+=("$pkg")
-            fi
-          else
-            SKIPPED+=("$pkg")
-          fi
-          ;;
+
 
         "cpa-usage-keeper")
           # Custom updater refreshes GitHub source, npmDepsHash, and vendorHash as
@@ -1499,19 +1113,11 @@ pkgs.writeShellApplication {
           SKIPPED+=("$pkg")
           ;;
 
-        "quickshell-docs-markdown")
-          # Skip: multi-source Rust with pinned git deps (manual update required)
-          echo " Skipping quickshell-docs-markdown (manual update required - multi-source Rust)"
-          SKIPPED+=("$pkg")
-          ;;
 
-        "sideloader")
-          # Skip: iOS sideloader with signing deps (manual update required)
-          echo " Skipping sideloader (manual update required - iOS sideloader with signing deps)"
-          SKIPPED+=("$pkg")
-          ;;
 
-        "daisyui-mcp" | "mattpocock-skills" | "waydroid-script" | "waydroid-total-spoof")
+
+
+        "waydroid-script" | "waydroid-total-spoof")
           # Track branches - use nix-update with branch mode
           # These packages pin to latest commit on main/master branch
           set +e
@@ -1528,7 +1134,7 @@ pkgs.writeShellApplication {
           set -e
           ;;
 
-        "niri-screen-time" | "cliproxyapi")
+        "cliproxyapi")
           # Go packages with vendorHash work well with nix-update.
           set +e
           if run_nix_update "$pkg"; then

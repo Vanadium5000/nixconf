@@ -59,6 +59,7 @@
         hardware.tlp.enable = true;
         hardware.memory.enable = true;
         hardware.btrfsMaintenance.enable = true;
+        kde.enable = true;
         system = {
           backlightDevice = "acpi_video0";
           keyboardBacklightDevice = "apple::kbd_backlight";
@@ -113,11 +114,6 @@
       #   };
       # };
 
-      # Switch cmd with option, and fn with ctrl: for a more normal keyboard layout
-      # home-manager.users.${config.var.username} = {
-      #   wayland.windowManager.hyprland.settings.input.kb_options = "super:swapalt,function:swapctrl";
-      # };
-
       # Swap fn & ctrl, opt & cmd
       boot.extraModprobeConfig = ''
         options hid_apple fnmode=1 swap_fn_leftctrl=1 swap_opt_cmd=1
@@ -166,7 +162,6 @@
       services.vpn-proxy.enable = true;
       services.docker-compose-stacks.stacks.gluetun-qbittorrent.enable = true;
       services.unison-sync.enable = true;
-      services.hypridle.enable = true;
 
       # ntfy keeps its cache, auth DB, and attachments in /var/lib/ntfy-sh.
       # Use a normal persistent state path to avoid DynamicUser StateDirectory clashes.

@@ -21,7 +21,6 @@
     {
       imports = [
         self.nixosModules.opensnitch
-        self.nixosModules.user-hyprland-config
         self.nixosModules.fresh
         self.nixosModules.git
       ];
@@ -257,7 +256,7 @@
             ".cache/tealdeer"
           ];
 
-          # Quickshell/DMS, Flatpak app discovery, IDEs, and systemd cgroup
+          # Quickshell helpers, Flatpak app discovery, IDEs, and systemd cgroup
           # tracking all allocate inotify watches in a busy graphical session;
           # the kernel reports ENOSPC here as "No space left on device" even
           # when disks are fine. Size this above the observed boot exhaustion.

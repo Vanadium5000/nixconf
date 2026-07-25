@@ -46,17 +46,6 @@
       options.preferences.kde.enable = lib.mkEnableOption "KDE Plasma desktop stack";
 
       config = lib.mkIf cfg.enable {
-        assertions = [
-          {
-            assertion = !config.home.programs.hyprland.enable;
-            message = "preferences.kde.enable and home.programs.hyprland.enable are mutually exclusive.";
-          }
-          {
-            assertion = !config.preferences.dankMaterialShell.enable;
-            message = "preferences.kde.enable and preferences.dankMaterialShell.enable are mutually exclusive.";
-          }
-        ];
-
         services.desktopManager.plasma6.enable = true;
 
         # Prefer the new Plasma Login Manager when present in nixpkgs 26.05;
@@ -88,11 +77,6 @@
           # offer it as a global theme without forcing it as the active theme.
           # Source: https://invent.kde.org/plasma/oxygen/-/raw/master/lookandfeel/CMakeLists.txt
           pkgs.kdePackages.oxygen
-          # Adds the KDE6 Oxygen Dark global-theme metadata from upstream
-          # Plasma 6.7 because nixpkgs 26.05's Oxygen package exposes only the
-          # light org.kde.oxygen LookAndFeel. This is selectable only; no theme
-          # choice is written to user config.
-          selfpkgs.oxygen-kde6-dark-theme
           pkgs.kdePackages.partitionmanager
           pkgs.kdePackages.print-manager
           pkgs.kdePackages.spectacle
@@ -100,7 +84,6 @@
           pkgs.kdePackages.plasma-nm
           pkgs.kdePackages.plasma-pa
           selfpkgs.terminal
-          selfpkgs.brave-origin
           pkgs.librewolf
           pkgs.brightnessctl
           pkgs.mpc
@@ -110,17 +93,12 @@
           selfpkgs.qs-checklist
           selfpkgs.qs-dmenu
           selfpkgs.qs-emoji
-          selfpkgs.qs-keybinds
           selfpkgs.qs-music-local
           selfpkgs.qs-music-search
           selfpkgs.qs-nerd
           selfpkgs.qs-passmenu
-          selfpkgs.qs-tools
           selfpkgs.qs-vpn
-          selfpkgs.qs-wallpaper
           selfpkgs.toggle-lyrics-overlay
-          selfpkgs.toggle-pause-autoclickers
-          selfpkgs.stop-autoclickers
           selfpkgs.sound-toggle
           selfpkgs.sound-up
           selfpkgs.sound-down

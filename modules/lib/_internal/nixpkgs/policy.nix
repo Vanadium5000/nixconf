@@ -49,9 +49,6 @@ _:
     "libcufile"
     "libcusparse_lt"
 
-    # Antigravity Manager
-    "antigravity-manager"
-
     # Firmware
     "intel-ocl"
     "broadcom-bt-firmware"

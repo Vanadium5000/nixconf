@@ -71,7 +71,7 @@
             "Merge Nix/Lix GitHub and binary-cache fetch prompts into one package-reference rule."
             (list [
               (simple "process.path" "${pkgs.lix}/bin/nix")
-              (regexp "dest.host" "^(api\\.github\\.com|github\\.com|api\\.github\\.com\\.lan|github\\.com\\.lan|raw\\.githubusercontent\\.com|cache\\.nixos\\.org|cache\\.numtide\\.com|cache\\.nixos-cuda\\.org|nix-community\\.cachix\\.org|hyprland\\.cachix\\.org|cache\\.soopy\\.moe)$")
+              (regexp "dest.host" "^(api\\.github\\.com|github\\.com|api\\.github\\.com\\.lan|github\\.com\\.lan|raw\\.githubusercontent\\.com|cache\\.nixos\\.org|cache\\.numtide\\.com|cache\\.nixos-cuda\\.org|nix-community\\.cachix\\.org|cache\\.soopy\\.moe)$")
               (regexp "dest.port" "^(80|443)$")
             ]);
       };

@@ -74,15 +74,13 @@ Only process-agnostic baseline rules live in `modules/nixos/desktop/opensnitch.n
 | `010-allow-systemd-timesyncd-ntp` in `modules/common/networking.nix` | Allows `${pkgs.systemd}/lib/systemd/systemd-timesyncd` NTP on port 123. |
 | `020-allow-tailscaled` in `modules/nixos/terminal/tailscale.nix` | Allows the configured Tailscale daemon package; endpoints are dynamic. |
 | `030-allow-librewolf-browser` in `modules/nixos/desktop/default.nix` | Allows the system LibreWolf browser binary (default browser). |
-| `030-allow-brave-origin-browser` in `modules/nixos/desktop/default.nix` | Allows the flake's Brave Origin package binary when launched manually. |
 | `030-allow-ssh-standard-ports` in `modules/common/base.nix` | Allows `${pkgs.openssh}/bin/ssh` to ports 22 and 443 only. |
 | `040-allow-nix-known-fetch-hosts` in `modules/nixos/terminal/nix.nix` | Merges prior live Nix/Lix GitHub/cache HTTPS prompts into one exact-package rule. |
 | `050-allow-vscodium-raw-githubusercontent` in `modules/nixos/desktop/vscodium/default.nix` | Allows the configured VSCodium package to fetch raw GitHub content. |
 | `060-allow-lyricsctl-providers` in `modules/nixos/desktop/default.nix` | Allows the flake's `lyricsctl` wrapper to query `lrclib.net` and `api.lrc.cx` only. |
-| `060-allow-open-meteo-weather` in `modules/nixos/desktop/dank-material-shell.nix` | Allows the shell weather provider `api.open-meteo.com:443`. |
 | `000-allow-authenticated-root-bypass` | Allows authenticated root bypass wrapper processes. |
 
-Live rules inspected from `/var/lib/opensnitch/rules` were migrated when they were specific enough: LibreWolf, Brave, Tailscale, SSH, NetworkManager LAN, systemd-resolved DNS/DoT, Nix/Lix GitHub/cache fetches, VSCodium raw GitHub, NTP, and DMS weather. Sloppy exact live store paths were replaced by declarative package references. The broad Orca deny rule was not migrated because it denied a whole Electron application by exact store path without destination or command context.
+Live rules inspected from `/var/lib/opensnitch/rules` were migrated when they were specific enough: LibreWolf, Tailscale, SSH, NetworkManager LAN, systemd-resolved DNS/DoT, Nix/Lix GitHub/cache fetches, VSCodium raw GitHub, and NTP. Sloppy exact live store paths were replaced by declarative package references.
 
 ## Prompt review timeouts
 

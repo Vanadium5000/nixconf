@@ -112,11 +112,6 @@ let
         "homepage-monitor"
         "enable"
       ];
-      hypridle = [
-        "services"
-        "hypridle"
-        "enable"
-      ];
       opensnitch = [
         "services"
         "opensnitch"
@@ -175,16 +170,11 @@ in
         bluetooth = self.nixosModules.bluetooth;
         hdmi-cec = self.nixosModules.hdmi-cec;
         firefox = self.nixosModules.firefox;
-        dankmemershell = self.nixosModules.dankmemershell;
-        hyprland = self.nixosModules.hyprland;
-        hyprland-support = self.nixosModules.hyprland-support;
         kde = self.nixosModules.kde;
         obs = self.nixosModules.obs;
         obsidian = self.nixosModules.obsidian;
-        qt = self.nixosModules.qt;
         syncthing = self.nixosModules.syncthing;
         tlp = self.nixosModules.tlp;
-        tuigreet = self.nixosModules.tuigreet;
         vscodium = self.nixosModules.vscodium;
       };
 

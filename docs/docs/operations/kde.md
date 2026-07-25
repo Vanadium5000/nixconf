@@ -2,11 +2,10 @@
 title: KDE Plasma desktop
 ---
 
-`modules/nixos/desktop/kde.nix` adds a KDE Plasma 6 stack beside the existing Hyprland/DankMaterialShell stack. `legion5i` enables it with:
+`modules/nixos/desktop/kde.nix` adds the KDE Plasma 6 stack used by both graphical hosts. Enable it per host with:
 
 ```nix
 preferences.kde.enable = true;
-preferences.dankMaterialShell.enable = false;
 ```
 
 ## Runtime model
@@ -15,7 +14,6 @@ preferences.dankMaterialShell.enable = false;
 | --- | --- |
 | Session | `services.desktopManager.plasma6.enable = true` plus `services.displayManager.plasma-login-manager.enable = true`. |
 | Display manager safety | `services.displayManager.sddm.enable = lib.mkForce false`, so Plasma Login Manager and SDDM cannot both claim `display-manager.service`. |
-| Non-KDE stack isolation | Assertions reject KDE together with `home.programs.hyprland.enable` or `preferences.dankMaterialShell.enable`. Hyprland, hyprqt6engine, and tuigreet configs are gated off when KDE is active. |
 | Polkit | KDE uses `polkit-kde-agent-1`, keeps `security.polkit.enable = true`, and narrows admin identities to the primary user. |
 | GPG/SSH prompts | `pinentry-qt` is forced for GnuPG and `ksshaskpass` is forced for SSH askpass. |
 | Portals | KDE portal is the preferred portal backend; GTK remains installed as fallback where upstream Plasma module includes it. |
@@ -39,22 +37,17 @@ Assign these in **System Settings → Keyboard → Shortcuts → Custom Shortcut
 ```text
 kitty
 librewolf
-brave-origin
 xdg-open https://x.com/i/grok
 loginctl lock-session
 qs-emoji
 qs-nerd
 qs-passmenu
 qs-passmenu -a
-qs-wallpaper
 qs-music-search
 qs-music-local
 qs-checklist
-qs-tools
 qs-vpn
 toggle-lyrics-overlay
-toggle-pause-autoclickers
-stop-autoclickers
 voxtype record toggle
 voxtype record cancel
 sound-toggle
