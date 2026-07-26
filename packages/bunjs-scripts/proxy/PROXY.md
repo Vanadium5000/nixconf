@@ -1,0 +1,775 @@
+# VPN Proxy System
+
+A modular proxy system that routes traffic through OpenVPN configurations with
+network namespace isolation and zero IP leak guarantee. Also supports a "none"
+mode for direct connections that bypass device-level VPNs.
+
+## Architecture Overview
+
+```text
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              Client Applications                            │
+│                    (curl, browsers, any SOCKS5/HTTP client)                 │
+└─────────────────────────────┬───────────┬───────────┬───────────────────────┘
+                              │           │           │
+                              ▼           ▼           ▼
+                     ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
+│  SOCKS5 Proxy   │ │ HTTP Proxy      │ │ Web Mgmt UI     │
+                     │  localhost:10800│ │ localhost:10801 │ │ localhost:10802 │
+                    └────────┬────────┘ └────────┬────────┘ └────────┬────────┘
+                             │                   │                   │
+                             └──────────┬────────┴───────────────────┘
+                                        │
+                           ┌────────────┴────────────┐
+                           │    Username = VPN Slug  │
+                           │ "random"/empty/"none"   │
+                           │ Pattern (e.g. "GB")     │
+                           └────────────┬────────────┘
+                                        │
+           ┌────────────────────────────┼──────────────────┐
+           ▼                            ▼                  ▼
+┌─────────────────┐              ┌─────────────────┐  ┌─────────────────┐
+│  vpn-proxy-0    │              │  vpn-proxy-1    │  │  vpn-proxy-N    │
+│  ┌───────────┐  │              │  ┌───────────┐  │  │  ┌───────────┐  │
+│  │ OpenVPN   │  │              │  │ (no VPN)  │  │  │  │ OpenVPN   │  │
+│  │ + tun0    │  │              │  │  direct   │  │  │  │ + tun0    │  │
+│  └───────────┘  │              │  └───────────┘  │  │  └───────────┘  │
+│  ┌───────────┐  │              │  ┌───────────┐  │  │  ┌───────────┐  │
+│  │sockd      │  │              │  │sockd      │  │  │  │sockd      │  │
+│  │ :10900    │  │              │  │ :10901    │  │  │  │ :1090N    │  │
+│  └───────────┘  │              │  └───────────┘  │  │  └───────────┘  │
+│  ┌───────────┐  │              │                 │  │  ┌───────────┐  │
+│  │Kill-switch│  │              │  (no kill-sw)   │  │  │Kill-switch│  │
+│  │ (nftables)│  │              │                 │  │  │ (nftables)│  │
+│  └───────────┘  │              │                 │  │  └───────────┘  │
+└────────┬────────┘              └────────┬────────┘  └────────┬────────┘
+         │                                │                    │
+         └────────────────────────────────┴────────────────────┘
+                                          │
+                                          ▼
+                                     ┌─────────┐
+                                     │ Internet│
+                                     └─────────┘
+```
+
+## Protocols
+
+Both proxies share the same namespace pool and authentication mechanism. Use
+whichever protocol your application supports.
+
+### SOCKS5 Proxy (Port 10800)
+
+Implements RFC 1928 (SOCKS Protocol Version 5) and RFC 1929 (Username/Password
+Authentication).
+
+**Supported Features:**
+
+| Feature              | Status | Notes                        |
+| -------------------- | ------ | ---------------------------- |
+| CONNECT (0x01)       | ✅     | TCP connection tunneling     |
+| BIND (0x02)          | ✅     | Handled by namespace proxy   |
+| UDP ASSOCIATE (0x03) | ✅     | Handled by namespace proxy   |
+| IPv4 addresses       | ✅     | Full support                 |
+| Domain names         | ✅     | Resolved inside namespace    |
+| IPv6 addresses       | ❌     | Would need IPv6 in namespace |
+| No authentication    | ✅     | Uses random VPN              |
+| Username/Password    | ✅     | Username = VPN slug          |
+
+**Usage Examples:**
+
+```bash
+# Specific VPN (use slug from `vpn-resolver list` - no spaces needed)
+curl --proxy "socks5h://AirVPNATViennaAlderaminUDP80Entry3@127.0.0.1:10800" https://api.ipify.org
+
+# Random VPN (any of these work)
+curl --proxy "socks5h://random@127.0.0.1:10800" https://api.ipify.org
+curl --proxy "socks5h://127.0.0.1:10800" https://api.ipify.org
+
+# Direct connection (bypass device VPN, use real IP)
+curl --proxy "socks5h://none@127.0.0.1:10800" https://api.ipify.org
+
+# With separate --proxy-user flag
+curl --proxy "socks5h://127.0.0.1:10800" --proxy-user "AirVPNATViennaAlderaminUDP80Entry3:" https://api.ipify.org
+
+# Using -x shorthand
+curl -x "socks5h://AirVPNATViennaAlderaminUDP80Entry3@127.0.0.1:10800" https://api.ipify.org
+
+# Environment variable
+export ALL_PROXY="socks5h://127.0.0.1:10800"
+curl https://api.ipify.org
+```
+
+> **Note:** Use `socks5h://` (with `h`) to resolve DNS through the proxy. With
+> plain `socks5://`, DNS is resolved locally which may leak your real IP via
+> DNS queries.
+
+### HTTP Proxy (Port 10801)
+
+Implements RFC 7231 §4.3.6 (HTTP CONNECT method) for HTTPS tunneling and
+forwards plain HTTP requests. This is provided by sing-box for full protocol
+compatibility. SOCKS5 remains served by the vpn-proxy service for per-VPN
+selection and UDP relay.
+
+**Supported Features:**
+
+| Feature              | Status | Notes                       |
+| -------------------- | ------ | --------------------------- |
+| CONNECT method       | ✅     | HTTPS tunneling             |
+| Plain HTTP proxy     | ✅     | Forwarded through namespace |
+| Basic authentication | ✅     | Username = VPN slug         |
+| No authentication    | ✅     | Uses random VPN             |
+
+**Usage Examples:**
+
+```bash
+# Specific VPN via --proxy-user (use slug from `vpn-resolver list`)
+curl --proxy "http://127.0.0.1:10801" --proxy-user "AirVPNATViennaAlderaminUDP80Entry3:" https://api.ipify.org
+
+# Random VPN (no auth)
+curl --proxy "http://127.0.0.1:10801" https://api.ipify.org
+
+# Direct connection (bypass device VPN, use real IP)
+curl --proxy "http://127.0.0.1:10801" --proxy-user "none:" https://api.ipify.org
+
+# Username in proxy URL
+curl --proxy "http://AirVPNATViennaAlderaminUDP80Entry3@127.0.0.1:10801" https://api.ipify.org
+
+# Using -x shorthand
+curl -x "http://AirVPNATViennaAlderaminUDP80Entry3@127.0.0.1:10801" https://api.ipify.org
+
+# Environment variables (used by most CLI tools: curl, wget, pip, npm, etc.)
+export http_proxy="http://127.0.0.1:10801"
+export https_proxy="http://127.0.0.1:10801"
+curl https://api.ipify.org
+```
+
+> **Note:** HTTP CONNECT is required for HTTPS tunneling. Plain HTTP requests
+> are forwarded directly through the namespace.
+
+## Authentication
+
+Both proxies use authentication to select which VPN to route through:
+
+| Authentication              | VPN Selection                                   |
+| --------------------------- | ----------------------------------------------- |
+| No auth / empty username    | Random VPN (rotates every 5 min)                |
+| Username = "random"         | Random VPN (rotates every 5 min)                |
+| Username = "none"           | Direct connection (no VPN, bypasses device VPN) |
+| Username = VPN display name | Specific VPN                                    |
+| Pattern (e.g. "GB")         | Random VPN matching the pattern                 |
+| Invalid username            | Notification + fallback to random               |
+
+**VPN Slugs:**
+
+VPN slugs are derived from `.ovpn` filenames with spaces removed for easier usage:
+
+- `AirVPN_AT_Vienna.ovpn` → slug: `AirVPNATVienna`, display: `AirVPN AT Vienna`
+- `mullvad-us-nyc.ovpn` → slug: `mullvadusnyc`, display: `mullvad us nyc`
+
+Spaces in input are ignored, so `AirVPN AT Vienna` and `AirVPNATVienna` both work.
+
+### Pattern-Based VPN Matching
+
+The system supports matching VPNs by partial names or attributes like country codes and city names. This allows using simple usernames like `GB` to get a random UK VPN, or `Manchester` for a specific city.
+
+**How it works:**
+
+1. **Field Extraction**: Each VPN's display name is parsed using regex patterns to extract fields (default: country, city, server).
+2. **Matching**: When a username is provided, the system checks if it matches any extracted field of any available VPN.
+3. **Random Selection**: If multiple VPNs match a pattern (e.g., `GB` matching many servers), one is picked at random.
+
+**Default Patterns (AirVPN convention):**
+
+- **Country**: Matches 2-letter uppercase codes (e.g., `GB`, `AT`).
+- **City**: Matches words after the country code (e.g., `Manchester`, `Vienna`).
+- **Server**: Matches the specific server name (e.g., `Ceibo`, `Alderamin`).
+
+Matching is case-insensitive. You can customize patterns and exclude common tokens (like "UDP" or "Entry3") in the settings to prevent over-broad matches.
+
+Use `vpn-proxy tool match <pattern>` to test matching logic.
+
+Use `vpn-resolver list` to see all available VPN slugs.
+
+## Direct Connection Mode ("none")
+
+When the username is set to `"none"`, the proxy creates a network namespace
+with **no VPN and no kill-switch**. Traffic goes directly through the host's
+real internet connection via NAT masquerading.
+
+**Why?** A network namespace has its own routing table, completely independent
+of the host. If the host has an active VPN (e.g., via NetworkManager OpenVPN),
+the "none" namespace bypasses it — traffic exits through the host's physical
+interface, not through the VPN tunnel.
+
+**Use cases:**
+
+- Accessing services that block VPN IP addresses
+- Checking your real IP while a device VPN is active
+- Running specific requests without VPN overhead
+
+**How it works:**
+
+1. A new namespace is created with a veth pair and NAT (same as VPN namespaces)
+2. No OpenVPN is started — no tunnel, no kill-switch
+3. sockd starts after the tunnel is up for VPN namespaces (direct namespaces start immediately)
+4. Traffic routes: app → proxy → namespace → host NAT → real internet
+
+**The namespace is idle-cleaned** like VPN namespaces (default 5 minutes).
+
+```bash
+# SOCKS5
+curl --proxy "socks5h://none@127.0.0.1:10800" https://api.ipify.org
+
+# HTTP
+curl --proxy "http://127.0.0.1:10801" --proxy-user "none:" https://api.ipify.org
+```
+
+## Dynamic Idle Timeouts
+
+The system uses a tiered idle timeout mechanism that automatically adjusts how long a namespace stays active based on the total number of active proxies. This ensures aggressive resource reclamation when the system is under load.
+
+| Active Proxies | Idle Timeout | Rationale                     |
+| -------------- | ------------ | ----------------------------- |
+| 0-3            | 5 minutes    | Standard usage, low pressure  |
+| >3             | 3 minutes    | Free resources faster         |
+| >4             | 2 minutes    | Moderate resource pressure    |
+| >6             | 1 minute     | High resource pressure        |
+| >8             | 30 seconds   | Near system capacity          |
+| 9-10           | 20 seconds   | Aggressive cleanup to survive |
+
+These tiers are configurable via `vpn-proxy tool settings set idleTimeoutTiers`. The cleanup daemon evaluates these tiers every 60 seconds.
+
+## Proxy Health Testing
+
+To ensure reliability, the system includes a built-in health tester that verifies connectivity through each VPN.
+
+- **Automated Testing**: Runs every 24 hours (configurable).
+- **Manual Testing**: Test a single proxy or mass-test all via CLI or Web UI.
+- **Random Selection Filtering**: VPNs that failed their last test are excluded from random selection.
+- **Persistence**: Results are stored in `/var/lib/vpn-proxy/test-results.json` and survive reboots.
+
+Use `vpn-proxy tool test all` to trigger a full test run.
+
+## Web Management UI
+
+A real-time dashboard for managing the proxy system, accessible at **port 10802** by default.
+
+- **Architecture**: ElysiaJS backend with a React (shadcn/ui) SPA frontend.
+- **Dashboard**: Real-time view of active namespaces, transfer speeds, and idle times.
+- **VPN Management**: Table of all VPNs with flags, locations, and latest test results.
+- **Tools**: Trigger mass tests, rotate random VPNs, and update settings.
+- **Security**: Authenticated via API key (`VPN_PROXY_API_KEY` environment variable).
+- **API Documentation**: Interactive Swagger UI at `/api/docs`.
+
+## Settings System
+
+Persistent configuration is stored in `/var/lib/vpn-proxy/settings.json`. Unlike the ephemeral state in `/dev/shm`, these settings survive reboots.
+
+**Configurable options include:**
+
+- Dynamic timeout tiers
+- Pattern matching regex and exclusions
+- Automated testing intervals
+- Web UI port
+
+**CLI Commands:**
+
+- `vpn-proxy tool settings show`: View current configuration.
+- `vpn-proxy tool settings set <key> <value>`: Update a setting (uses dot notation).
+- `vpn-proxy tool settings reset`: Restore default values.
+
+## Data Transfer Tracking
+
+The system tracks cumulative data transfer for each active namespace:
+
+- **Bytes In / Out**: Total traffic passed through the namespace.
+- **Connections**: Total number of TCP connections handled.
+- **Persistence**: Stats are visible in `vpn-proxy status` and the Web UI.
+
+## Exporting Proxy Lists
+
+Generate comma-separated lists of proxies for use in other applications:
+
+- **Usernames**: `vpn-proxy tool export usernames`
+- **SOCKS5 URLs**: `vpn-proxy tool export socks5`
+- **HTTP URLs**: `vpn-proxy tool export http`
+
+Add the `--working` flag to only include proxies that passed their most recent health test.
+
+## Network Namespace Architecture
+
+Each VPN runs in an isolated Linux network namespace with its own:
+
+- Network stack (separate routing table, interfaces)
+- DNS configuration (`/etc/netns/<name>/resolv.conf`)
+- Firewall rules (nftables kill-switch)
+
+### Addressing Scheme
+
+```text
+Namespace: vpn-proxy-{index}
+Host veth: veth-h-{index}  →  10.200.{subnet}.1/24 (subnet = index % 254 + 1)
+NS veth:   veth-n-{index}  →  10.200.{subnet}.2/24
+SOCKS port inside NS:         10900 + {index % 50000}
+```
+
+### Kill-Switch Implementation
+
+The nftables kill-switch ensures zero IP leaks:
+
+```text
+table inet vpn_killswitch {
+    chain output {
+        type filter hook output priority 0; policy drop;
+
+        # Allow loopback
+        oifname "lo" accept
+
+        # Allow VPN tunnel only
+        oifname "tun*" accept
+
+        # Allow VPN handshake (before tun0 exists)
+        ip daddr <vpn_server_ip> udp dport <vpn_port> accept
+        ip daddr <vpn_server_ip> tcp dport <vpn_port> accept
+
+        # Allow responses back to host veth
+        oifname "veth-n-*" accept
+
+        # Allow ICMP for diagnostics
+        ip protocol icmp accept
+
+        # Everything else: DROP (implicit)
+    }
+}
+```
+
+**Security Guarantee:** If the VPN tunnel drops, all traffic is blocked. There
+is no fallback to the host's real IP address.
+
+### DNS Isolation
+
+Each namespace has its own `/etc/netns/<name>/resolv.conf`:
+
+```text
+nameserver 1.1.1.1
+nameserver 1.0.0.1
+```
+
+This prevents DNS queries from leaking through the host's resolver.
+
+## State Management
+
+All runtime state is stored in tmpfs at `/dev/shm/vpn-proxy-0/`:
+
+| File                      | Purpose                                |
+| ------------------------- | -------------------------------------- |
+| `state.json`              | Namespace tracking, random VPN state   |
+| `resolver-cache.json`     | VPN config cache with mtime validation |
+| `openvpn-vpn-proxy-N.pid` | OpenVPN daemon PID                     |
+| `openvpn-vpn-proxy-N.log` | OpenVPN logs                           |
+| `dante-vpn-proxy-N.pid`   | sockd PID                              |
+
+### Persistent State
+
+Configuration and test history are stored at `/var/lib/vpn-proxy/` (persisted via NixOS impermanence):
+
+| File                | Purpose                                             |
+| ------------------- | --------------------------------------------------- |
+| `settings.json`     | Persistent configuration (timeouts, patterns, etc.) |
+| `test-results.json` | Health test history and latency data                |
+
+**State is ephemeral:** Reboots clear `/dev/shm`, and the proxy cleans up stale
+state on startup anyway.
+
+## CLI Commands
+
+### vpn-proxy (SOCKS5)
+
+```bash
+vpn-proxy serve         # Start SOCKS5 server (default)
+vpn-proxy status        # Show active VPNs and idle times
+vpn-proxy stop-all      # Destroy all namespaces
+vpn-proxy rotate-random # Force random VPN rotation
+vpn-proxy tool          # Launch interactive TUI for management
+vpn-proxy --help        # Show help
+```
+
+### vpn-proxy tool (Management & Debugging)
+
+New subcommands for managing advanced features:
+
+- **Settings**: `vpn-proxy tool settings show|set|reset|timeout`
+- **Testing**: `vpn-proxy tool test single|all|results|failed|due`
+- **Export**: `vpn-proxy tool export usernames|socks5|http [--working]`
+- **Pattern**: `vpn-proxy tool match <pattern>` (test matching logic)
+- **Status**: `vpn-proxy tool status-json` (raw state for scripts)
+- **Pinning**: `vpn-proxy tool pin <slug-or-display>` / `vpn-proxy tool unpin <slug-or-display>`
+- **Exec**: `vpn-proxy tool exec <slug-or-display> -- <command...>`
+
+### vpn-proxy-singbox (HTTP)
+
+```bash
+vpn-proxy-singbox        # sing-box proxy (HTTP)
+```
+
+## Pinned Namespaces
+
+Pinned namespaces are kept open across idle cleanup cycles. This is useful
+when binding an app to a specific interface (e.g., qBittorrent).
+
+```bash
+vpn-proxy tool pin <slug>
+vpn-proxy tool unpin <slug>
+```
+
+To run an app inside the VPN namespace (recommended for qBittorrent):
+
+```bash
+vpn-proxy tool exec <slug-or-display> -- <command...>
+```
+
+> **Note:** Binding directly to `veth-h-<idx>` on the host is now routed into the
+> namespace, but the safest option remains `vpn-proxy tool exec`.
+
+## OpenAPI
+
+The Web UI exposes OpenAPI docs at `/api/docs` and the JSON spec at
+`/api/docs/json`.
+
+### vpn-resolver
+
+```bash
+vpn-resolver list              # List all VPNs (human readable)
+vpn-resolver list-json         # List all VPNs (JSON)
+vpn-resolver resolve <slug>    # Resolve slug to VPN config
+vpn-resolver random            # Get a random VPN config
+vpn-resolver server-ip <path>  # Get server IP from .ovpn file
+```
+
+### vpn-proxy-netns (Low-level)
+
+```bash
+vpn-proxy-netns create <name> <index> <vpn_ip> [port]
+vpn-proxy-netns create-direct <name> <index>
+vpn-proxy-netns destroy <name>
+vpn-proxy-netns list
+vpn-proxy-netns check <name>
+vpn-proxy-netns cleanup-all
+```
+
+## Configuration
+
+### Environment Variables
+
+| Variable                     | Default         | Description                                   |
+| ---------------------------- | --------------- | --------------------------------------------- |
+| `VPN_DIR`                    | `~/Shared/VPNs` | Directory containing `.ovpn` files            |
+| `VPN_PROXY_PORT`             | `10800`         | SOCKS5 proxy port                             |
+| `VPN_HTTP_PROXY_PORT`        | `10801`         | HTTP proxy port                               |
+| `VPN_PROXY_BIND_ADDRESS`     | `0.0.0.0`       | Bind address (`127.0.0.1` for localhost only) |
+| `VPN_PROXY_IDLE_TIMEOUT`     | `300`           | Seconds before idle namespace cleanup         |
+| `VPN_PROXY_RANDOM_ROTATION`  | `300`           | Seconds between random VPN rotation           |
+| `VPN_PROXY_WEB_PORT`         | `10802`         | Port for the Web UI and API server            |
+| `VPN_PROXY_API_KEY`          | (pass)          | Authentication key for the Web UI             |
+| `VPN_PROXY_NOTIFY_ROTATION`  | `0`             | Show notification on rotation (0/1)           |
+| `VPN_PROXY_CLEANUP_INTERVAL` | `60`            | Cleanup daemon check interval                 |
+| `VPN_PROXY_NETNS_SCRIPT`     | (auto)          | Path to netns.sh script                       |
+
+### NixOS Service Options
+
+```nix
+services.vpn-proxy = {
+  enable = true;              # Enable the proxy services
+  port = 10800;               # SOCKS5 port
+  httpPort = 10801;           # HTTP port
+  webUiPort = 10802;          # Web UI port
+  bindAddress = "0.0.0.0";    # Default; use "127.0.0.1" for localhost only
+  vpnDir = "/path/to/vpns";   # .ovpn file directory
+  idleTimeout = 300;          # Namespace idle timeout
+  randomRotation = 300;       # Random VPN rotation interval
+};
+
+# Open firewall ports for LAN access
+networking.firewall.allowedTCPPorts = [ 10800 10801 ];
+```
+
+Configure LAN clients to use `<your-server-ip>:10800` (SOCKS5) or
+`<your-server-ip>:10801` (HTTP).
+
+## Systemd Services
+
+When enabled via NixOS, three services are created:
+
+| Service                     | Description               |
+| --------------------------- | ------------------------- |
+| `vpn-proxy.service`         | SOCKS5 proxy server       |
+| `vpn-proxy-singbox.service` | HTTP proxy (sing-box)     |
+| `vpn-proxy-web.service`     | Web Management UI and API |
+| `vpn-proxy-cleanup.service` | Idle cleanup daemon       |
+
+```bash
+# Check status
+systemctl status vpn-proxy http-proxy vpn-proxy-cleanup
+
+# View logs
+journalctl -u vpn-proxy -f
+journalctl -u http-proxy -f
+
+# Restart after config changes
+systemctl restart vpn-proxy http-proxy
+```
+
+## Integration Examples
+
+### Browser Configuration
+
+**Firefox (SOCKS5):**
+
+1. Settings → Network Settings → Manual proxy configuration
+2. SOCKS Host: `127.0.0.1`, Port: `10800`, SOCKS v5
+3. Check "Proxy DNS when using SOCKS v5"
+
+**Firefox (HTTP):**
+
+1. Settings → Network Settings → Manual proxy configuration
+2. HTTP Proxy: `127.0.0.1`, Port: `10801`
+3. Also use this proxy for HTTPS: ✓
+
+**Chromium (SOCKS5):**
+
+```bash
+chromium --proxy-server="socks5://127.0.0.1:10800"
+```
+
+**Chromium (HTTP):**
+
+```bash
+chromium --proxy-server="http://127.0.0.1:10801"
+```
+
+### Application-Specific Proxy
+
+```bash
+# git (SOCKS5)
+git config --global http.proxy "socks5h://127.0.0.1:10800"
+
+# git (HTTP)
+git config --global http.proxy "http://127.0.0.1:10801"
+
+# npm (HTTP only)
+npm config set proxy "http://127.0.0.1:10801"
+npm config set https-proxy "http://127.0.0.1:10801"
+
+# pip (HTTP)
+pip install --proxy "http://127.0.0.1:10801" package-name
+
+# wget (HTTP)
+wget -e use_proxy=yes -e http_proxy=http://127.0.0.1:10801 https://example.com
+```
+
+### Proxy Environment Variables
+
+```bash
+# HTTP proxy (works with most CLI tools: curl, wget, pip, npm, etc.)
+export http_proxy="http://127.0.0.1:10801"
+export https_proxy="http://127.0.0.1:10801"
+
+# SOCKS5 proxy (works with curl, git, and SOCKS-aware tools)
+export ALL_PROXY="socks5h://127.0.0.1:10800"
+
+# With specific VPN (URL-encoded spaces - use FULL name from `vpn-resolver list`)
+export ALL_PROXY="socks5h://AirVPN%20AT%20Vienna%20Alderamin%20UDP%2080%20Entry3@127.0.0.1:10800"
+export https_proxy="http://AirVPN%20AT%20Vienna%20Alderamin%20UDP%2080%20Entry3:@127.0.0.1:10801"
+```
+
+### SSH via Proxy
+
+```bash
+# SOCKS5 (requires netcat-openbsd)
+ssh -o ProxyCommand="nc -X 5 -x 127.0.0.1:10800 %h %p" user@host
+
+# HTTP CONNECT (requires corkscrew or connect-proxy)
+ssh -o ProxyCommand="corkscrew 127.0.0.1 10801 %h %p" user@host
+```
+
+### qs-vpn Integration
+
+The `qs-vpn` script supports copying proxy URLs to clipboard:
+
+- **Enter**: Connect via NetworkManager (existing behavior)
+- **k**: Copy SOCKS5 proxy URL to clipboard
+
+```text
+socks5://AirVPN%20AT%20Vienna%20Alderamin%20UDP%2080%20Entry3@127.0.0.1:10800
+```
+
+The VPN activates automatically when the proxy link is first used.
+
+## Programmatic Usage
+
+### Bun / TypeScript
+
+Bun's `fetch` doesn't reliably parse URL-encoded credentials from proxy URLs.
+Use the object format with an explicit `Proxy-Authorization` header:
+
+```typescript
+// ❌ UNRELIABLE - Bun may fail to parse URL-encoded username
+await fetch("https://api.ipify.org", {
+  proxy:
+    "http://AirVPN%20AT%20Vienna%20Alderamin%20UDP%2080%20Entry3:@127.0.0.1:10801",
+});
+
+// ✅ CORRECT - Use object format with explicit header
+const vpnName = "AirVPN AT Vienna Alderamin UDP 80 Entry3";
+await fetch("https://api.ipify.org", {
+  proxy: {
+    url: "http://127.0.0.1:10801",
+    headers: {
+      "Proxy-Authorization": `Basic ${Buffer.from(`${vpnName}:`).toString(
+        "base64",
+      )}`,
+    },
+  },
+});
+
+// ✅ Random VPN - no auth needed
+await fetch("https://api.ipify.org", {
+  proxy: "http://127.0.0.1:10801",
+});
+```
+
+### Node.js
+
+Use the `https-proxy-agent` or `socks-proxy-agent` packages:
+
+```typescript
+import { HttpsProxyAgent } from "https-proxy-agent";
+
+const vpnName = "AirVPN AT Vienna Alderamin UDP 80 Entry3";
+const agent = new HttpsProxyAgent(
+  `http://${encodeURIComponent(vpnName)}:@127.0.0.1:10801`,
+);
+
+const response = await fetch("https://api.ipify.org", { agent });
+```
+
+### Python (requests)
+
+```python
+import requests
+
+# Random VPN
+response = requests.get(
+    "https://api.ipify.org",
+    proxies={"https": "http://127.0.0.1:10801"}
+)
+
+# Specific VPN
+vpn_name = "AirVPN AT Vienna Alderamin UDP 80 Entry3"
+response = requests.get(
+    "https://api.ipify.org",
+    proxies={"https": f"http://{vpn_name}:@127.0.0.1:10801"}
+)
+```
+
+## Notifications
+
+The proxy system sends desktop notifications for important events:
+
+| Event                 | Notification                                      |
+| --------------------- | ------------------------------------------------- |
+| Invalid VPN slug      | "VPN not found: \<slug\>" with fallback to random |
+| VPN connection failed | Error details with namespace info                 |
+| Random VPN rotation   | New VPN name (if `VPN_PROXY_NOTIFY_ROTATION=1`)   |
+
+**Implementation:** Notifications use `notify-send` against the user's D-Bus
+session when a graphical session is available. Headless/service contexts fall
+back to debug logging so proxy behavior never depends on the desktop shell.
+
+## Troubleshooting
+
+### Common Issues
+
+#### Namespace creation failed
+
+- Check sudo permissions: `sudo -v`
+- Verify directories exist: `ls -la /run/netns /etc/netns`
+- Check for stale namespaces: `vpn-proxy-netns cleanup-all`
+
+#### VPN tunnel failed to establish
+
+- Check OpenVPN logs: `cat /dev/shm/vpn-proxy-*/openvpn-*.log`
+- Verify `.ovpn` file is valid: `sudo openvpn --config /path/to/vpn.ovpn`
+- Check VPN server is reachable: `ping <vpn_server_ip>`
+
+#### Connection refused on proxy port
+
+- Verify service is running: `systemctl status vpn-proxy`
+- Check port is listening: `ss -tlnp | grep 10800`
+- Try restarting: `systemctl restart vpn-proxy`
+
+#### DNS leaks
+
+- Ensure "Proxy DNS" is enabled in browser
+- Use `socks5h://` (not `socks5://`) for DNS-over-proxy
+- Check namespace DNS: `cat /etc/netns/vpn-proxy-0/resolv.conf`
+
+### Debug Commands
+
+```bash
+# List active namespaces
+sudo ip netns list | grep vpn-proxy
+
+# Check namespace connectivity
+sudo ip netns exec vpn-proxy-0 curl https://api.ipify.org
+
+# View namespace interfaces
+sudo ip netns exec vpn-proxy-0 ip addr
+
+# Check kill-switch rules
+sudo ip netns exec vpn-proxy-0 nft list ruleset
+
+# View state
+cat /dev/shm/vpn-proxy-$(id -u)/state.json | jq .
+```
+
+## File Structure
+
+```text
+packages/bunjs-scripts/proxy/
+├── PROXY.md           # This documentation
+├── shared.ts          # Common utilities (state, logging, namespace mgmt)
+├── settings.ts        # Persistent settings management
+├── vpn-resolver.ts    # VPN config parsing and pattern matching
+├── proxy-tester.ts    # Connectivity health testing
+├── socks5-proxy.ts    # SOCKS5 proxy server
+├── http-proxy.ts      # Legacy HTTP proxy (replaced by sing-box)
+├── singbox-config.ts  # sing-box config generator
+├── web-server.ts      # ElysiaJS API and Web UI server
+├── cli-tools.ts       # CLI management subcommands
+├── cleanup.ts         # Idle cleanup daemon
+├── netns.sh           # Network namespace setup script
+└── service.nix        # NixOS systemd service definitions
+```
+
+## Security Considerations
+
+1. **Kill-switch is mandatory**: All VPN traffic is blocked if VPN drops
+2. **DNS isolation**: Each namespace has its own resolvers
+3. **No credential storage**: VPN configs are read-only from disk
+4. **tmpfs state**: Sensitive data never persists to disk
+5. **Namespace isolation**: VPNs cannot interfere with each other
+6. **localhost-only**: Proxies only listen on `127.0.0.1` by default
+7. **Web UI Auth**: Access to the management dashboard requires an API key
+8. **"none" mode has no kill-switch**: Direct namespaces intentionally skip
+   the kill-switch since there is no VPN to protect
+
+## Performance Notes
+
+- **Namespace creation**: ~3-5 seconds (OpenVPN handshake)
+- **Direct namespace**: ~0.5 seconds (no VPN handshake needed)
+- **First request**: May be slow while namespace is created
+- **Subsequent requests**: Fast (reuses existing namespace)
+- **Idle cleanup**: 5 minutes default (configurable)
+- **Random rotation**: 5 minutes default (configurable)
+- **Memory per namespace**: ~10-20MB (OpenVPN + sockd)

@@ -1,6 +1,6 @@
 ---
 name: custom-package
-description: Package custom software for this NixOS flake under modules/_pkgs, wire update-pkgs support, validate builds/runtime, and decide terminal host exclusions.
+description: Package custom software for this NixOS flake under packages/ or external-packages/, wire update-pkgs support, validate builds/runtime, and decide terminal host exclusions.
 allowed-tools: Read, Find, Search, Bash, Edit, Write
 ---
 
@@ -10,13 +10,14 @@ Use this skill when adding or maintaining a custom package in this flake.
 
 ## Non-negotiables
 
-- Package lives in `modules/_pkgs/<pname>.nix`. Helper assets may live in `modules/_pkgs/<pname>/`; only the top-level `.nix` is exported.
+- In-repo software lives in `packages/<pname>/package.nix`; packaged upstream projects live in `external-packages/<pname>/package.nix`. Package-owned modules/assets live beside that package. Use `programmes/<name>/` for wrappers/configuration around upstream tools instead of creating a package.
 - Do not run `./rebuild.sh`, `nixos-rebuild`, or other system rebuild commands.
 - Evaluate with `path:.#...`, not `.#...`, so untracked package files are included.
 - Link upstream and packaging sources in package comments when the detail is non-obvious, and in the final response. Prefer `# Source:` or `# Ref:` near the setting it justifies.
 - Do not ship a package until it builds and its main executable runs `--help`, `-h`, `--version`, or another safe smoke command.
-- Add/update `modules/_pkgs/update-pkgs.nix` support before finishing: update strategy, test command, and any package-set membership if relevant.
-- Inspect `modules/nixos/terminal/default.nix` and decide whether the package belongs in `hostPackageExclusions` for low-resource/headless/incompatible hosts. GUI, heavy, platform-specific, unfree, Android/iOS, browser, and daemon packages often need exclusions.
+- Add/update `external-packages/update-pkgs/workflow.nix` support before finishing external package changes: update strategy, test command, and any package-set membership if relevant.
+- If an external package has no safe automatic updater, mark it `manual` with a reason in `workflow.nix`; uncovered package directories warn in `checks.update-pkgs-workflow-coverage` and when `update-pkgs` runs.
+- Inspect `modules/terminal/default.nix`, desktop modules, and host modules before installing a new package. Packages are opt-in through the narrowest profile/feature/host that needs them; do not add aggregate package sets to `common`.
 
 ## Workflow
 
@@ -30,20 +31,21 @@ Use this skill when adding or maintaining a custom package in this flake.
    - npm/Node: `buildNpmPackage` with a checked-in or upstream `package-lock.json` and `npmDepsHash`.
    - Bun: prefer nixpkgs Bun hooks/build helpers when available; otherwise use a fixed-output dependency/build derivation with `bun install --frozen-lockfile --offline` semantics. Do not allow network during build.
    - Binary/AppImage/RPM/deb: use fixed-output fetchers, `autoPatchelfHook`/wrappers as needed, and set `sourceProvenance`.
-3. Write `modules/_pkgs/<pname>.nix`:
+3. Write `packages/<pname>/package.nix` or `external-packages/<pname>/package.nix`:
    - Keep arguments explicit and sorted enough to scan.
    - Include `meta.description`, `homepage`, `license`, `mainProgram`, `platforms`, and `sourceProvenance` for binaries.
    - Explain patches, vendoring choices, network disabling, and runtime wrappers with linked sources.
 4. Wire exports:
-   - Top-level files are auto-exported by `modules/custom-packages.nix`.
+   - Package directories with `package.nix` are auto-exported by `packages/_exports/default.nix`.
    - If the package needs unstable toolchains/dependencies, add it to `edgePackages` with a source-linked rationale.
 5. Wire updates:
-   - Add the package to the appropriate set in `modules/_pkgs/update-pkgs.nix` or document why it is manual.
+   - Add the package to the appropriate set in `external-packages/update-pkgs/workflow.nix` or document why it is manual.
+   - Treat a missing workflow entry as a bug unless the package is intentionally out of scope and has a `manualReasons` entry.
    - Add custom update logic when version, source hash, dependency hash, and generated assets must move together.
    - Ensure `update-pkgs test <pname>` builds the flake package and runs a safe smoke command.
-6. Host exclusions:
-   - Read `modules/nixos/terminal/default.nix`.
-   - Add package names to hosts where it should not be installed by the terminal profile: headless VPS, unsupported architecture, GUI/browser-only, mobile tooling, very heavy assets, or host-conflicting daemons.
+6. Profile placement:
+   - Read `modules/terminal/default.nix` and the relevant desktop/host module.
+   - Install the package only in the narrowest profile, feature, service, or host that needs it. GUI, heavy, platform-specific, unfree, Android/iOS, browser, and daemon packages should not enter broad common profiles.
 7. Validation:
    - `nix build path:.#<pname>`
    - `result/bin/<mainProgram> --help` or the nearest safe equivalent.

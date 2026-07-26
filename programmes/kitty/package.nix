@@ -1,0 +1,66 @@
+{ inputs, self, ... }:
+let
+  inherit (self) colors theme;
+in
+{
+  perSystem =
+    {
+      pkgs,
+      self',
+      ...
+    }:
+    {
+      packages.terminal = self'.packages.kitty;
+
+      # Options: https://sw.kovidgoyal.net/kitty/conf/
+      packages.kitty = inputs.wrappers.wrappers.kitty.wrap {
+        inherit pkgs;
+        font = {
+          name = theme.font;
+          size = theme.font-size;
+        };
+        settings = {
+          enable_audio_bell = false;
+          # kitty 0.43+ expects reload debounce seconds; negative disables the
+          # watcher so generated Nix-store configs do not consume inotify watches.
+          # Source: https://sw.kovidgoyal.net/kitty/conf/#opt-kitty.auto_reload_config
+          auto_reload_config = -1;
+
+          cursor_text_color = "background";
+
+          allow_remote_control = "yes";
+          shell_integration = "enabled";
+
+          confirm_os_window_close = 0;
+
+          cursor_trail = 3;
+
+          background = colors.base00;
+          foreground = colors.base07;
+          background_opacity = theme.opacity;
+
+          cursor = colors.base07;
+
+          selection_foreground = colors.base02;
+          selection_background = colors.base01;
+
+          color0 = colors.base00;
+          color8 = colors.base02;
+          color1 = colors.base08;
+          color9 = colors.base08;
+          color2 = colors.base0B;
+          color10 = colors.base0B;
+          color3 = colors.base0A;
+          color11 = colors.base0A;
+          color4 = colors.base0D;
+          color12 = colors.base0D;
+          color5 = colors.base0E;
+          color13 = colors.base0E;
+          color6 = colors.base0C;
+          color14 = colors.base0C;
+          color7 = colors.base03;
+          color15 = colors.base03;
+        };
+      };
+    };
+}

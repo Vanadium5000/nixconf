@@ -233,7 +233,7 @@ declare -A SECRETS_MAP=(
  ["PIA_OPENVPN_PASSWORD"]="personal/private-internet-access"
  ["PORTAINER_ADMIN_USERNAME"]="system/portainer-admin"
  ["PORTAINER_ADMIN_PASSWORD"]="system/portainer-admin"
-  ["PORTAINER_API_KEY"]="system/portainer-api-key"
+ ["PORTAINER_API_KEY"]="system/portainer-api-key"
  ["QBITTORRENT_WEBUI_USERNAME"]="personal/qbittorrent-webui"
  ["QBITTORRENT_WEBUI_PASSWORD"]="personal/qbittorrent-webui"
 )
@@ -283,7 +283,7 @@ SECRET_NAMES=(
  QBITTORRENT_WEBUI_PASSWORD
 )
 
-PASS_CREDENTIAL_PARSER="${PASS_CREDENTIAL_PARSER:-${FLAKE_DIR}/modules/_pkgs/pass-credential/pass-credential}"
+PASS_CREDENTIAL_PARSER="${PASS_CREDENTIAL_PARSER:-${FLAKE_DIR}/packages/pass-credential/pass-credential}"
 
 nix_escape_double_quoted() {
  local value="$1"

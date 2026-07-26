@@ -17,8 +17,12 @@
     # Hardware configs/drivers
     nixos-hardware.url = "github:NixOS/nixos-hardware/master";
 
-    # Utility for wrapping applications and executables
-    wrappers.url = "github:Lassulus/wrappers/39b27c1bbf6cfc38afb570f98664540639fc52f8";
+    # Module-system wrapper derivations for portable configured programmes.
+    # Source: https://birdeehub.github.io/nix-wrapper-modules/md/intro.html
+    wrappers = {
+      url = "github:BirdeeHub/nix-wrapper-modules";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
 
     # Framework for modular Nix flake structure and composition
     flake-parts.url = "github:hercules-ci/flake-parts";
@@ -84,7 +88,7 @@
     # Source: https://nixos.org/manual/nix/stable/command-ref/conf-file#conf-connect-timeout
     connect-timeout = 25;
     stalled-download-timeout = 300;
-    # Rebuild-time fan-out for slow CDN paths; persisted in modules/nixos/terminal/nix.nix.
+    # Rebuild-time fan-out for slow CDN paths; persisted in modules/terminal/nix.nix.
     # Source: https://nixos.org/manual/nix/stable/command-ref/conf-file#conf-http-connections
     http-connections = 256;
     max-substitution-jobs = 96;
@@ -118,7 +122,19 @@
       }
       (
         inputs.import-tree [
+          ./lib/default.nix
+          ./packages/_exports
+          ./packages/bunjs-docs/module.nix
+          ./packages/bunjs-scripts/module.nix
+          ./packages/bunjs-scripts/package.nix
+          ./packages/services-auth-gateway/module.nix
+          ./packages/qs-menus/package.nix
+          ./external-packages/cliproxyapi/module.nix
+          ./external-packages/cpa-usage-keeper/module.nix
+          ./external-packages/omniroute/module.nix
+          ./programmes
           ./modules
+          ./hosts
           ./secrets.nix
         ]
       );

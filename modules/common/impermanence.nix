@@ -51,6 +51,9 @@
 
       cfg = config.impermanence;
       username = config.preferences.user.username;
+      homeDirectory = config.preferences.paths.homeDirectory;
+      checkoutDirectory = "${homeDirectory}/nixconf";
+      persistentCheckoutDirectory = "/persist/system${checkoutDirectory}";
     in
     {
       imports = [
@@ -137,7 +140,6 @@
                   "Media"
                   "Documents"
                   "Shared"
-                  "nixconf"
 
                   # Credential storage
                   {
@@ -184,6 +186,7 @@
                 [
                   "Downloads"
                   "Passlists"
+                  ".local/share/Trash"
                 ]
                 ++ cfg.home.cache.directories
               );
@@ -200,6 +203,32 @@
         systemd.tmpfiles.rules = [
           "d /var/lib/private 0700 root root -"
         ];
+
+        system.activationScripts.nixconf-checkout-symlink = {
+          deps = [ "users" ];
+          text = ''
+            persistent=${lib.escapeShellArg persistentCheckoutDirectory}
+            checkout=${lib.escapeShellArg checkoutDirectory}
+
+            ${pkgs.coreutils}/bin/install -d -m 0755 -o ${username} -g users "$persistent"
+            ${pkgs.coreutils}/bin/install -d -m 0755 -o ${username} -g users "$(${pkgs.coreutils}/bin/dirname "$checkout")"
+
+            if [ -L "$checkout" ]; then
+              current="$(${pkgs.coreutils}/bin/readlink "$checkout")"
+              if [ "$current" != "$persistent" ]; then
+                ${pkgs.coreutils}/bin/rm -f "$checkout"
+                ${pkgs.coreutils}/bin/ln -s "$persistent" "$checkout"
+              fi
+            elif [ ! -e "$checkout" ]; then
+              ${pkgs.coreutils}/bin/ln -s "$persistent" "$checkout"
+            elif ${pkgs.coreutils}/bin/rmdir "$checkout" 2>/dev/null; then
+              ${pkgs.coreutils}/bin/ln -s "$persistent" "$checkout"
+            else
+              echo "nixconf-checkout-symlink: keeping non-empty $checkout; move it to $persistent before deleting files from editors" >&2
+            fi
+            ${pkgs.coreutils}/bin/chown -h ${username}:users "$checkout" 2>/dev/null || true
+          '';
+        };
 
         # systemd stage-1 does not support postResumeCommands; run the Btrfs
         # root rotation before systemd-fstab-generator mounts /sysroot. Keep

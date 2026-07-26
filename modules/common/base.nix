@@ -136,6 +136,7 @@
             };
           };
           memory.enable = mkEnableOption "zram and systemd-oomd memory-pressure tuning";
+          cuda.enable = mkEnableOption "CUDA-capable package set and GPU runtime support";
           btrfsMaintenance = {
             enable = mkEnableOption "low-risk Btrfs and SSD maintenance timers";
             dedupe = {
@@ -222,8 +223,6 @@
             home = cfg.paths.homeDirectory;
             createHome = true;
 
-            packages = self.legacyPackages.${pkgs.stdenv.hostPlatform.system}.environmentPackages;
-
             extraGroups = [
               "wheel"
               "networkmanager"
@@ -237,7 +236,6 @@
               "input"
             ]
             ++ cfg.user.extraGroups;
-            shell = self.packages.${pkgs.stdenv.hostPlatform.system}.environment;
             uid = 1000; # Set explicitly
 
             hashedPassword = secrets.PASSWORD_HASH;
@@ -245,9 +243,6 @@
 
           # Helpful for things like SystemD Emergency Mode
           users.users.root.hashedPassword = secrets.PASSWORD_HASH;
-
-          # Add the default shell to environment
-          environment.shells = [ self.packages.${pkgs.stdenv.hostPlatform.system}.environment ];
 
           # Persist generic CLI download/build caches in the cache tier so they
           # survive reboot without being backup-worthy home state.
