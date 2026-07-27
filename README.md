@@ -62,16 +62,16 @@ flake.nix
 
 `flake.nix` stays small and delegates structure to imported modules.
 
-| Surface            | Current owner                                                      | Purpose                                                                                                                                                           |
-| ------------------ | ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Inputs             | `flake.nix`                                                        | `nixpkgs` on `nixos-26.05`, `nixpkgs-unstable`, `nix-wrapper-modules`, hardware, disko, Flatpak, nix-index-database, llm-agents, nix-dokploy                      |
-| Per-system outputs | `modules/flake/parts.nix`                                          | Supported systems, `pkgs` construction, temporary overrides, `apps.rebuild`                                                                                       |
-| Module exports     | `modules/flake/exports.nix`                                        | Grouped module sets and evaluated `hostModuleMatrix`                                                                                                              |
-| Local packages     | `packages/_exports/default.nix`, package-owned `package.nix` files | Auto-exposes single-derivation package directories and imports multi-output package modules; command wrappers are exported individually from their owning package |
+| Surface            | Current owner                                                      | Purpose                                                                                                                                                                         |
+| ------------------ | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Inputs             | `flake.nix`                                                        | `nixpkgs` on `nixos-26.05`, `nixpkgs-unstable`, `nix-wrapper-modules`, hardware, disko, Flatpak, nix-index-database, llm-agents, nix-dokploy                                    |
+| Per-system outputs | `modules/flake/parts.nix`                                          | Supported systems, `pkgs` construction, temporary overrides, `apps.rebuild`                                                                                                     |
+| Module exports     | `modules/flake/exports.nix`                                        | Grouped module sets and evaluated `hostModuleMatrix`                                                                                                                            |
+| Local packages     | `packages/_exports/default.nix`, package-owned `package.nix` files | Auto-exposes single-derivation package directories and imports multi-output package modules; command wrappers are exported individually from their owning package               |
 | Package updates    | `external-packages/update-pkgs/workflow.nix`                       | Declarative package sets, updater modes, safe smoke arguments, custom-updater bindings, and manual reasons; missing coverage warns during the check and when `update-pkgs` runs |
-| Programme wrappers | `programmes/<name>/`                                               | Portable configured upstream tools built with the `BirdeeHub/nix-wrapper-modules` input                                                                           |
-| Repository audits  | `packages/repo-audits/package.nix`                                 | Opt-in `persist-audit` and `nix-unused-audit` commands; `repository-architecture` and update-workflow coverage checks protect the directory and updater contracts |
-| Shared library     | `lib/`                                                             | Flat `*.nix` persistence, generators, config-file helpers, git rendering, nixpkgs policy, user package paths                                                      |
+| Programme wrappers | `programmes/<name>/`                                               | Portable configured upstream tools built with the `BirdeeHub/nix-wrapper-modules` input                                                                                         |
+| Repository audits  | `packages/repo-audits/package.nix`                                 | Opt-in `persist-audit` and `nix-unused-audit` commands; `repository-architecture` and update-workflow coverage checks protect the directory and updater contracts               |
+| Shared library     | `lib/`                                                             | Flat `*.nix` persistence, generators, config-file helpers, git rendering, nixpkgs policy, user package paths                                                                    |
 
 Architecture rule: root architecture directories contain owner subdirectories only; do not add first-level implementation files there. `lib/` is the exception and stays flat `*.nix` helpers. Every `packages/<name>/` and `external-packages/<name>/` directory contains `package.nix`; every `programmes/<name>/` directory contains `module.nix` or `package.nix`. Package scripts depend on the narrowest relevant exported command rather than an aggregate bundle. `docs/` first-level entries are section directories containing `.md`/`.mdx`; JS/TS Docusaurus app code belongs in `packages/bunjs-docs/`, not under `docs/`.
 
@@ -338,10 +338,10 @@ openchamber-web
 
 ### 📚 Exported package directories
 
-| Root                 | Directories                                                                                                                               | Notes                                                                                                                                                                      |
-| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `packages/`          | `bunjs-*`, `lyricsctl`, `pass-credential`, `qs-menus`, `repo-audits`, `services-auth-gateway`                                              | In-repo software. Each Bun command/service owns its source, manifest, lockfile, and Nix derivation; only cohesive command families such as `bunjs-vpn-proxy` group files.   |
-| `external-packages/` | `cliproxyapi`, `cpa-usage-keeper`, `omniroute`, `openchamber-web`, `update-pkgs`, `wallpapers`, `waydroid-script`, `waydroid-total-spoof` | Packaged upstream projects plus the repo-local `update-pkgs` workflow. `cpa-usage-keeper` also exposes `cpa-usage-keeper-web` for update hash refreshes.                   |
+| Root                 | Directories                                                                                                                               | Notes                                                                                                                                                                     |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/`          | `bunjs-*`, `lyricsctl`, `pass-credential`, `qs-menus`, `repo-audits`, `services-auth-gateway`                                             | In-repo software. Each Bun command/service owns its source, manifest, lockfile, and Nix derivation; only cohesive command families such as `bunjs-vpn-proxy` group files. |
+| `external-packages/` | `cliproxyapi`, `cpa-usage-keeper`, `omniroute`, `openchamber-web`, `update-pkgs`, `wallpapers`, `waydroid-script`, `waydroid-total-spoof` | Packaged upstream projects plus the repo-local `update-pkgs` workflow. `cpa-usage-keeper` also exposes `cpa-usage-keeper-web` for update hash refreshes.                  |
 
 > [!TIP]
 > When adding packages, use the repo's custom-package workflow: derivation under `packages/<name>/package.nix` for in-repo software or `external-packages/<name>/package.nix` for external sources, update support where the upstream release model permits it, `nix build --no-link path:.#<name>`, then host exclusions only where the package should not exist. External packages without an automatic update shape must be listed as `manual` in `external-packages/update-pkgs/workflow.nix`; otherwise `checks.update-pkgs-workflow-coverage` and `update-pkgs` warn.
@@ -350,10 +350,10 @@ openchamber-web
 
 ## 🧰 Scripts and local development
 
-Root `package.json` is command glue only. It delegates installs into each package directory so no shared root `node_modules` or root `bun.lock` is created.
+Root `package.json` defines Bun workspaces for every custom package. Install once at the repository root for local TypeScript diagnostics, Prettier, MarkdownLint, and package development; the generated root `bun.lock` pins all declared dependencies.
 
 ```bash
-bun run install:all
+bun install --frozen-lockfile
 bun run build:vpn-proxy-web
 bun run test:vpn-proxy
 ```
@@ -366,7 +366,7 @@ bun run test:vpn-proxy
 
 Packaged outputs do not depend on checkout-local `node_modules`; per-package local installs are for editor tooling and interactive development only.
 
-The docs app keeps `packages/bunjs-docs/package-lock.json` committed because `packages/bunjs-docs/module.nix` consumes that lockfile for reproducible Nix builds while reading content from root `docs/`. Use `bun run install:docs` for editor TypeScript diagnostics and local Docusaurus commands.
+The docs app keeps `packages/bunjs-docs/package-lock.json` committed because `packages/bunjs-docs/module.nix` consumes that lockfile for reproducible Nix builds while reading content from root `docs/`. Root Bun workspace installation supplies editor TypeScript diagnostics and local Docusaurus commands.
 
 ---
 
@@ -403,11 +403,45 @@ client
 ### ✅ Validation examples
 
 ```bash
+# All repository checks, with five independent lanes running in parallel.
+bun install --frozen-lockfile
+./rebuild.sh --no-notify lint
+
+# Validation runs the same linting lanes alongside `nix flake check` by default.
 HOST=legion5i ./rebuild.sh --debug --skip-secrets validate
 HOST=main_vps ./rebuild.sh --debug matrix
+
+# Use only when lint is intentionally out of scope for this evaluation.
+HOST=legion5i ./rebuild.sh --debug --skip-secrets --skip-lint validate
 ```
 
-### 🧑‍💻 User-operated mutation examples
+### 🔎 Repository lint
+
+`./rebuild.sh lint` keeps every diagnostic lane independently visible and waits for all of them before returning. Bootstrap the pinned root Prettier and MarkdownLint CLI dependencies with `bun install --frozen-lockfile` once per checkout. It checks tracked files only, so ignored build directories and local editor state cannot change the result:
+
+| Lane           | Scope                                                                                      | Failure contract                                                                            |
+| -------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| OpenCode LSP   | Tracked `.nix`, `.sh`, `.bash`, and `.zsh`; eight bounded workers preserve per-file output | Server errors and LSP error diagnostics fail; warnings remain visible                       |
+| Nix formatting | Repository tree through `nixfmt-tree -- --ci .`                                            | Any Nix formatting drift fails                                                              |
+| TypeScript     | Every tracked `.ts` through temporary, non-emitting `tsc` project configs                  | Any compiler diagnostic fails; `.tsx` is intentionally outside the requested `.ts` contract |
+| Prettier       | Tracked formatter-managed JSON, CSS, TypeScript, and TSX sources                           | Formatting drift fails; the Prettier cache makes repeated checks faster                     |
+| Markdown       | Tracked `README.md` and `docs/` Markdown under [`.markdownlint.json`](.markdownlint.json)  | Any enabled Markdown rule violation fails                                                   |
+
+The TypeScript lane uses the pinned `nixpkgs#typescript` compiler and temporary, non-emitting project configs to type-check every tracked `.ts` file. Root Bun workspaces install each package's declared dependencies once; root `@types/bun` and `@types/node` provide the shared Bun/Node runtime declarations. The checkout and source files remain untouched. `validate` runs this command in parallel with `nix flake check`; pass `--skip-lint` only when the caller explicitly needs flake evaluation without repository linting.
+
+### 🤖 Model catalog state
+
+[`packages/models/`](packages/models/) is the sole checkout-owned model catalog and selection state. `models sync` updates `packages/models/models.json`; model-group and preset commands update its sibling JSON state files. `models sync-config` derives the mutable OpenCode, OMO Slim, and OMP runtime configuration from that package-owned state without fetching models. The obsolete `modules/nixos/terminal/opencode/` location is rejected by the command to prevent a second writable catalog.
+
+```bash
+# Refresh the reviewed catalog from the selected gateway.
+models sync
+
+# Regenerate local application configurations from packages/models/.
+models sync-config
+```
+
+### 🧑💻 User-operated mutation examples
 
 ```bash
 HOST=macbook ./rebuild.sh secrets

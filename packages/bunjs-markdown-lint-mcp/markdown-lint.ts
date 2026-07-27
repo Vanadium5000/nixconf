@@ -31,7 +31,7 @@ async function findFilesRecursive(
   dir: string,
   extension: string,
   maxDepth: number = 50,
-  currentDepth: number = 0
+  currentDepth: number = 0,
 ): Promise<string[]> {
   if (currentDepth > maxDepth) return [];
 
@@ -53,7 +53,7 @@ async function findFilesRecursive(
           fullPath,
           extension,
           maxDepth,
-          currentDepth + 1
+          currentDepth + 1,
         );
         files.push(...subFiles);
       } else if (entry.isFile() && entry.name.endsWith(extension)) {
@@ -91,7 +91,7 @@ async function lintMarkdownFile(filePath: string): Promise<LintResult> {
 
 function formatDirectoryReport(
   baseDir: string,
-  summary: DirectoryLintSummary
+  summary: DirectoryLintSummary,
 ): string {
   const lines: string[] = [];
 
@@ -199,7 +199,7 @@ server.registerTool(
         isError: true,
       };
     }
-  }
+  },
 );
 
 server.registerTool(
@@ -235,7 +235,7 @@ server.registerTool(
       const mdFiles = await findFilesRecursive(
         directoryPath,
         ".md",
-        maxDepth ?? 50
+        maxDepth ?? 50,
       );
 
       if (mdFiles.length === 0) {
@@ -288,7 +288,7 @@ server.registerTool(
         isError: true,
       };
     }
-  }
+  },
 );
 
 const transport = new StdioServerTransport();

@@ -13,13 +13,8 @@
             "upstream_id": "aug/claude-haiku-4.5"
           },
           "modalities": {
-            "input": [
-              "image",
-              "text"
-            ],
-            "output": [
-              "text"
-            ]
+            "input": ["image", "text"],
+            "output": ["text"]
           },
           "name": "Claude Haiku 4.5",
           "tool_call": true
@@ -35,13 +30,8 @@
             "upstream_id": "aug/claude-opus-4.6"
           },
           "modalities": {
-            "input": [
-              "image",
-              "text"
-            ],
-            "output": [
-              "text"
-            ]
+            "input": ["image", "text"],
+            "output": ["text"]
           },
           "name": "Claude Opus 4.6",
           "tool_call": true
@@ -57,13 +47,8 @@
             "upstream_id": "aug/claude-sonnet-4.6"
           },
           "modalities": {
-            "input": [
-              "image",
-              "text"
-            ],
-            "output": [
-              "text"
-            ]
+            "input": ["image", "text"],
+            "output": ["text"]
           },
           "name": "Claude Sonnet 4.6",
           "tool_call": true
@@ -79,13 +64,8 @@
             "upstream_id": "aug/claude-sonnet-4.6-thinking"
           },
           "modalities": {
-            "input": [
-              "image",
-              "text"
-            ],
-            "output": [
-              "text"
-            ]
+            "input": ["image", "text"],
+            "output": ["text"]
           },
           "name": "Claude Sonnet 4.6 Thinking",
           "tool_call": true
@@ -101,13 +81,8 @@
             "upstream_id": "aug/gemini-3.0-flash"
           },
           "modalities": {
-            "input": [
-              "image",
-              "text"
-            ],
-            "output": [
-              "text"
-            ]
+            "input": ["image", "text"],
+            "output": ["text"]
           },
           "name": "Gemini 3 Flash",
           "tool_call": true
@@ -123,13 +98,8 @@
             "upstream_id": "aug/gemini-3.1-pro"
           },
           "modalities": {
-            "input": [
-              "image",
-              "text"
-            ],
-            "output": [
-              "text"
-            ]
+            "input": ["image", "text"],
+            "output": ["text"]
           },
           "name": "Gemini 3.1 Pro",
           "tool_call": true
@@ -145,13 +115,8 @@
             "upstream_id": "aug/gpt-5.4-high"
           },
           "modalities": {
-            "input": [
-              "image",
-              "text"
-            ],
-            "output": [
-              "text"
-            ]
+            "input": ["image", "text"],
+            "output": ["text"]
           },
           "name": "GPT-5.4 High",
           "tool_call": true
@@ -167,13 +132,8 @@
             "upstream_id": "aug/gpt-5.4-medium"
           },
           "modalities": {
-            "input": [
-              "image",
-              "text"
-            ],
-            "output": [
-              "text"
-            ]
+            "input": ["image", "text"],
+            "output": ["text"]
           },
           "name": "GPT-5.4 Medium",
           "tool_call": true
@@ -189,13 +149,8 @@
             "upstream_id": "aug/gpt-5.5-high"
           },
           "modalities": {
-            "input": [
-              "image",
-              "text"
-            ],
-            "output": [
-              "text"
-            ]
+            "input": ["image", "text"],
+            "output": ["text"]
           },
           "name": "GPT-5.5 High",
           "tool_call": true
@@ -211,13 +166,8 @@
             "upstream_id": "aug/gpt-5.5-medium"
           },
           "modalities": {
-            "input": [
-              "image",
-              "text"
-            ],
-            "output": [
-              "text"
-            ]
+            "input": ["image", "text"],
+            "output": ["text"]
           },
           "name": "GPT-5.5 Medium",
           "tool_call": true
@@ -233,13 +183,8 @@
             "upstream_id": "aug/kimi-k2.6"
           },
           "modalities": {
-            "input": [
-              "image",
-              "text"
-            ],
-            "output": [
-              "text"
-            ]
+            "input": ["image", "text"],
+            "output": ["text"]
           },
           "name": "Kimi K2.6",
           "tool_call": true
@@ -754,13 +699,8 @@
             "upstream_id": "ddgw/claude-3-5-haiku-20241022"
           },
           "modalities": {
-            "input": [
-              "image",
-              "text"
-            ],
-            "output": [
-              "text"
-            ]
+            "input": ["image", "text"],
+            "output": ["text"]
           },
           "name": "Claude 3.5 Haiku",
           "tool_call": true
@@ -776,13 +716,8 @@
             "upstream_id": "ddgw/gpt-4o-mini"
           },
           "modalities": {
-            "input": [
-              "image",
-              "text"
-            ],
-            "output": [
-              "text"
-            ]
+            "input": ["image", "text"],
+            "output": ["text"]
           },
           "name": "GPT-4o Mini",
           "tool_call": true
@@ -872,9 +807,7 @@
             "output": 8192
           },
           "metadata": {
-            "alternate_upstream_ids": [
-              "cx/gpt-5.3-codex-spark"
-            ],
+            "alternate_upstream_ids": ["cx/gpt-5.3-codex-spark"],
             "object": "model",
             "owned_by": "codex",
             "upstream_id": "codex/gpt-5.3-codex-spark"
@@ -889,21 +822,14 @@
             "output": 128000
           },
           "metadata": {
-            "alternate_upstream_ids": [
-              "cx/gpt-5.5"
-            ],
+            "alternate_upstream_ids": ["cx/gpt-5.5"],
             "object": "model",
             "owned_by": "codex",
             "upstream_id": "codex/gpt-5.5"
           },
           "modalities": {
-            "input": [
-              "image",
-              "text"
-            ],
-            "output": [
-              "text"
-            ]
+            "input": ["image", "text"],
+            "output": ["text"]
           },
           "name": "codex/GPT 5.5",
           "tool_call": true
@@ -915,21 +841,14 @@
             "output": 128000
           },
           "metadata": {
-            "alternate_upstream_ids": [
-              "cx/gpt-5.5-high"
-            ],
+            "alternate_upstream_ids": ["cx/gpt-5.5-high"],
             "object": "model",
             "owned_by": "codex",
             "upstream_id": "codex/gpt-5.5-high"
           },
           "modalities": {
-            "input": [
-              "image",
-              "text"
-            ],
-            "output": [
-              "text"
-            ]
+            "input": ["image", "text"],
+            "output": ["text"]
           },
           "name": "codex/GPT 5.5 (High)",
           "tool_call": true
@@ -941,21 +860,14 @@
             "output": 128000
           },
           "metadata": {
-            "alternate_upstream_ids": [
-              "cx/gpt-5.5-low"
-            ],
+            "alternate_upstream_ids": ["cx/gpt-5.5-low"],
             "object": "model",
             "owned_by": "codex",
             "upstream_id": "codex/gpt-5.5-low"
           },
           "modalities": {
-            "input": [
-              "image",
-              "text"
-            ],
-            "output": [
-              "text"
-            ]
+            "input": ["image", "text"],
+            "output": ["text"]
           },
           "name": "codex/GPT 5.5 (Low)",
           "tool_call": true
@@ -967,21 +879,14 @@
             "output": 128000
           },
           "metadata": {
-            "alternate_upstream_ids": [
-              "cx/gpt-5.5-medium"
-            ],
+            "alternate_upstream_ids": ["cx/gpt-5.5-medium"],
             "object": "model",
             "owned_by": "codex",
             "upstream_id": "codex/gpt-5.5-medium"
           },
           "modalities": {
-            "input": [
-              "image",
-              "text"
-            ],
-            "output": [
-              "text"
-            ]
+            "input": ["image", "text"],
+            "output": ["text"]
           },
           "name": "codex/GPT 5.5 (Medium)",
           "tool_call": true
@@ -993,21 +898,14 @@
             "output": 128000
           },
           "metadata": {
-            "alternate_upstream_ids": [
-              "cx/gpt-5.5-xhigh"
-            ],
+            "alternate_upstream_ids": ["cx/gpt-5.5-xhigh"],
             "object": "model",
             "owned_by": "codex",
             "upstream_id": "codex/gpt-5.5-xhigh"
           },
           "modalities": {
-            "input": [
-              "image",
-              "text"
-            ],
-            "output": [
-              "text"
-            ]
+            "input": ["image", "text"],
+            "output": ["text"]
           },
           "name": "codex/GPT 5.5 (xHigh)",
           "tool_call": true
@@ -1024,12 +922,8 @@
             "upstream_id": "codex/gpt-5.6-luna"
           },
           "modalities": {
-            "input": [
-              "text"
-            ],
-            "output": [
-              "image"
-            ]
+            "input": ["text"],
+            "output": ["image"]
           },
           "name": "GPT 5.6 Luna",
           "tool_call": true
@@ -1041,21 +935,14 @@
             "output": 128000
           },
           "metadata": {
-            "alternate_upstream_ids": [
-              "cx/gpt-5.6-luna-high"
-            ],
+            "alternate_upstream_ids": ["cx/gpt-5.6-luna-high"],
             "object": "model",
             "owned_by": "codex",
             "upstream_id": "codex/gpt-5.6-luna-high"
           },
           "modalities": {
-            "input": [
-              "image",
-              "text"
-            ],
-            "output": [
-              "text"
-            ]
+            "input": ["image", "text"],
+            "output": ["text"]
           },
           "name": "codex/GPT 5.6 Luna (High)",
           "tool_call": true
@@ -1067,21 +954,14 @@
             "output": 128000
           },
           "metadata": {
-            "alternate_upstream_ids": [
-              "cx/gpt-5.6-luna-low"
-            ],
+            "alternate_upstream_ids": ["cx/gpt-5.6-luna-low"],
             "object": "model",
             "owned_by": "codex",
             "upstream_id": "codex/gpt-5.6-luna-low"
           },
           "modalities": {
-            "input": [
-              "image",
-              "text"
-            ],
-            "output": [
-              "text"
-            ]
+            "input": ["image", "text"],
+            "output": ["text"]
           },
           "name": "codex/GPT 5.6 Luna (Low)",
           "tool_call": true
@@ -1093,21 +973,14 @@
             "output": 128000
           },
           "metadata": {
-            "alternate_upstream_ids": [
-              "cx/gpt-5.6-luna-max"
-            ],
+            "alternate_upstream_ids": ["cx/gpt-5.6-luna-max"],
             "object": "model",
             "owned_by": "codex",
             "upstream_id": "codex/gpt-5.6-luna-max"
           },
           "modalities": {
-            "input": [
-              "image",
-              "text"
-            ],
-            "output": [
-              "text"
-            ]
+            "input": ["image", "text"],
+            "output": ["text"]
           },
           "name": "codex/GPT 5.6 Luna (Max)",
           "tool_call": true
@@ -1119,21 +992,14 @@
             "output": 128000
           },
           "metadata": {
-            "alternate_upstream_ids": [
-              "cx/gpt-5.6-luna-medium"
-            ],
+            "alternate_upstream_ids": ["cx/gpt-5.6-luna-medium"],
             "object": "model",
             "owned_by": "codex",
             "upstream_id": "codex/gpt-5.6-luna-medium"
           },
           "modalities": {
-            "input": [
-              "image",
-              "text"
-            ],
-            "output": [
-              "text"
-            ]
+            "input": ["image", "text"],
+            "output": ["text"]
           },
           "name": "codex/GPT 5.6 Luna (Medium)",
           "tool_call": true
@@ -1145,21 +1011,14 @@
             "output": 128000
           },
           "metadata": {
-            "alternate_upstream_ids": [
-              "cx/gpt-5.6-luna-xhigh"
-            ],
+            "alternate_upstream_ids": ["cx/gpt-5.6-luna-xhigh"],
             "object": "model",
             "owned_by": "codex",
             "upstream_id": "codex/gpt-5.6-luna-xhigh"
           },
           "modalities": {
-            "input": [
-              "image",
-              "text"
-            ],
-            "output": [
-              "text"
-            ]
+            "input": ["image", "text"],
+            "output": ["text"]
           },
           "name": "codex/GPT 5.6 Luna (xHigh)",
           "tool_call": true
@@ -1176,12 +1035,8 @@
             "upstream_id": "codex/gpt-5.6-sol"
           },
           "modalities": {
-            "input": [
-              "text"
-            ],
-            "output": [
-              "image"
-            ]
+            "input": ["text"],
+            "output": ["image"]
           },
           "name": "GPT 5.6 Sol",
           "tool_call": true
@@ -1193,21 +1048,14 @@
             "output": 128000
           },
           "metadata": {
-            "alternate_upstream_ids": [
-              "cx/gpt-5.6-sol-high"
-            ],
+            "alternate_upstream_ids": ["cx/gpt-5.6-sol-high"],
             "object": "model",
             "owned_by": "codex",
             "upstream_id": "codex/gpt-5.6-sol-high"
           },
           "modalities": {
-            "input": [
-              "image",
-              "text"
-            ],
-            "output": [
-              "text"
-            ]
+            "input": ["image", "text"],
+            "output": ["text"]
           },
           "name": "codex/GPT 5.6 Sol (High)",
           "tool_call": true
@@ -1219,21 +1067,14 @@
             "output": 128000
           },
           "metadata": {
-            "alternate_upstream_ids": [
-              "cx/gpt-5.6-sol-low"
-            ],
+            "alternate_upstream_ids": ["cx/gpt-5.6-sol-low"],
             "object": "model",
             "owned_by": "codex",
             "upstream_id": "codex/gpt-5.6-sol-low"
           },
           "modalities": {
-            "input": [
-              "image",
-              "text"
-            ],
-            "output": [
-              "text"
-            ]
+            "input": ["image", "text"],
+            "output": ["text"]
           },
           "name": "codex/GPT 5.6 Sol (Low)",
           "tool_call": true
@@ -1245,21 +1086,14 @@
             "output": 128000
           },
           "metadata": {
-            "alternate_upstream_ids": [
-              "cx/gpt-5.6-sol-max"
-            ],
+            "alternate_upstream_ids": ["cx/gpt-5.6-sol-max"],
             "object": "model",
             "owned_by": "codex",
             "upstream_id": "codex/gpt-5.6-sol-max"
           },
           "modalities": {
-            "input": [
-              "image",
-              "text"
-            ],
-            "output": [
-              "text"
-            ]
+            "input": ["image", "text"],
+            "output": ["text"]
           },
           "name": "codex/GPT 5.6 Sol (Max)",
           "tool_call": true
@@ -1271,21 +1105,14 @@
             "output": 128000
           },
           "metadata": {
-            "alternate_upstream_ids": [
-              "cx/gpt-5.6-sol-medium"
-            ],
+            "alternate_upstream_ids": ["cx/gpt-5.6-sol-medium"],
             "object": "model",
             "owned_by": "codex",
             "upstream_id": "codex/gpt-5.6-sol-medium"
           },
           "modalities": {
-            "input": [
-              "image",
-              "text"
-            ],
-            "output": [
-              "text"
-            ]
+            "input": ["image", "text"],
+            "output": ["text"]
           },
           "name": "codex/GPT 5.6 Sol (Medium)",
           "tool_call": true
@@ -1297,21 +1124,14 @@
             "output": 128000
           },
           "metadata": {
-            "alternate_upstream_ids": [
-              "cx/gpt-5.6-sol-ultra"
-            ],
+            "alternate_upstream_ids": ["cx/gpt-5.6-sol-ultra"],
             "object": "model",
             "owned_by": "codex",
             "upstream_id": "codex/gpt-5.6-sol-ultra"
           },
           "modalities": {
-            "input": [
-              "image",
-              "text"
-            ],
-            "output": [
-              "text"
-            ]
+            "input": ["image", "text"],
+            "output": ["text"]
           },
           "name": "codex/GPT 5.6 Sol (Ultra)",
           "tool_call": true
@@ -1323,21 +1143,14 @@
             "output": 128000
           },
           "metadata": {
-            "alternate_upstream_ids": [
-              "cx/gpt-5.6-sol-xhigh"
-            ],
+            "alternate_upstream_ids": ["cx/gpt-5.6-sol-xhigh"],
             "object": "model",
             "owned_by": "codex",
             "upstream_id": "codex/gpt-5.6-sol-xhigh"
           },
           "modalities": {
-            "input": [
-              "image",
-              "text"
-            ],
-            "output": [
-              "text"
-            ]
+            "input": ["image", "text"],
+            "output": ["text"]
           },
           "name": "codex/GPT 5.6 Sol (xHigh)",
           "tool_call": true
@@ -1354,12 +1167,8 @@
             "upstream_id": "codex/gpt-5.6-terra"
           },
           "modalities": {
-            "input": [
-              "text"
-            ],
-            "output": [
-              "image"
-            ]
+            "input": ["text"],
+            "output": ["image"]
           },
           "name": "GPT 5.6 Terra",
           "tool_call": true
@@ -1371,21 +1180,14 @@
             "output": 128000
           },
           "metadata": {
-            "alternate_upstream_ids": [
-              "cx/gpt-5.6-terra-high"
-            ],
+            "alternate_upstream_ids": ["cx/gpt-5.6-terra-high"],
             "object": "model",
             "owned_by": "codex",
             "upstream_id": "codex/gpt-5.6-terra-high"
           },
           "modalities": {
-            "input": [
-              "image",
-              "text"
-            ],
-            "output": [
-              "text"
-            ]
+            "input": ["image", "text"],
+            "output": ["text"]
           },
           "name": "codex/GPT 5.6 Terra (High)",
           "tool_call": true
@@ -1397,21 +1199,14 @@
             "output": 128000
           },
           "metadata": {
-            "alternate_upstream_ids": [
-              "cx/gpt-5.6-terra-low"
-            ],
+            "alternate_upstream_ids": ["cx/gpt-5.6-terra-low"],
             "object": "model",
             "owned_by": "codex",
             "upstream_id": "codex/gpt-5.6-terra-low"
           },
           "modalities": {
-            "input": [
-              "image",
-              "text"
-            ],
-            "output": [
-              "text"
-            ]
+            "input": ["image", "text"],
+            "output": ["text"]
           },
           "name": "codex/GPT 5.6 Terra (Low)",
           "tool_call": true
@@ -1423,21 +1218,14 @@
             "output": 128000
           },
           "metadata": {
-            "alternate_upstream_ids": [
-              "cx/gpt-5.6-terra-max"
-            ],
+            "alternate_upstream_ids": ["cx/gpt-5.6-terra-max"],
             "object": "model",
             "owned_by": "codex",
             "upstream_id": "codex/gpt-5.6-terra-max"
           },
           "modalities": {
-            "input": [
-              "image",
-              "text"
-            ],
-            "output": [
-              "text"
-            ]
+            "input": ["image", "text"],
+            "output": ["text"]
           },
           "name": "codex/GPT 5.6 Terra (Max)",
           "tool_call": true
@@ -1449,21 +1237,14 @@
             "output": 128000
           },
           "metadata": {
-            "alternate_upstream_ids": [
-              "cx/gpt-5.6-terra-medium"
-            ],
+            "alternate_upstream_ids": ["cx/gpt-5.6-terra-medium"],
             "object": "model",
             "owned_by": "codex",
             "upstream_id": "codex/gpt-5.6-terra-medium"
           },
           "modalities": {
-            "input": [
-              "image",
-              "text"
-            ],
-            "output": [
-              "text"
-            ]
+            "input": ["image", "text"],
+            "output": ["text"]
           },
           "name": "codex/GPT 5.6 Terra (Medium)",
           "tool_call": true
@@ -1475,21 +1256,14 @@
             "output": 128000
           },
           "metadata": {
-            "alternate_upstream_ids": [
-              "cx/gpt-5.6-terra-ultra"
-            ],
+            "alternate_upstream_ids": ["cx/gpt-5.6-terra-ultra"],
             "object": "model",
             "owned_by": "codex",
             "upstream_id": "codex/gpt-5.6-terra-ultra"
           },
           "modalities": {
-            "input": [
-              "image",
-              "text"
-            ],
-            "output": [
-              "text"
-            ]
+            "input": ["image", "text"],
+            "output": ["text"]
           },
           "name": "codex/GPT 5.6 Terra (Ultra)",
           "tool_call": true
@@ -1501,21 +1275,14 @@
             "output": 128000
           },
           "metadata": {
-            "alternate_upstream_ids": [
-              "cx/gpt-5.6-terra-xhigh"
-            ],
+            "alternate_upstream_ids": ["cx/gpt-5.6-terra-xhigh"],
             "object": "model",
             "owned_by": "codex",
             "upstream_id": "codex/gpt-5.6-terra-xhigh"
           },
           "modalities": {
-            "input": [
-              "image",
-              "text"
-            ],
-            "output": [
-              "text"
-            ]
+            "input": ["image", "text"],
+            "output": ["text"]
           },
           "name": "codex/GPT 5.6 Terra (xHigh)",
           "tool_call": true
@@ -1570,13 +1337,8 @@
             "upstream_id": "no-think/aug/claude-haiku-4.5"
           },
           "modalities": {
-            "input": [
-              "image",
-              "text"
-            ],
-            "output": [
-              "text"
-            ]
+            "input": ["image", "text"],
+            "output": ["text"]
           },
           "name": "no-think/aug/claude-haiku-4.5",
           "tool_call": true
@@ -1592,13 +1354,8 @@
             "upstream_id": "no-think/aug/claude-opus-4.6"
           },
           "modalities": {
-            "input": [
-              "image",
-              "text"
-            ],
-            "output": [
-              "text"
-            ]
+            "input": ["image", "text"],
+            "output": ["text"]
           },
           "name": "no-think/aug/claude-opus-4.6",
           "tool_call": true
@@ -1614,13 +1371,8 @@
             "upstream_id": "no-think/aug/claude-sonnet-4.6"
           },
           "modalities": {
-            "input": [
-              "image",
-              "text"
-            ],
-            "output": [
-              "text"
-            ]
+            "input": ["image", "text"],
+            "output": ["text"]
           },
           "name": "no-think/aug/claude-sonnet-4.6",
           "tool_call": true
@@ -1688,13 +1440,8 @@
             "upstream_id": "oc/minimax-m3-free"
           },
           "modalities": {
-            "input": [
-              "image",
-              "text"
-            ],
-            "output": [
-              "text"
-            ]
+            "input": ["image", "text"],
+            "output": ["text"]
           },
           "name": "minimax-m3-free",
           "tool_call": true
@@ -1723,13 +1470,8 @@
             "upstream_id": "oc/qwen3.6-plus-free"
           },
           "modalities": {
-            "input": [
-              "image",
-              "text"
-            ],
-            "output": [
-              "text"
-            ]
+            "input": ["image", "text"],
+            "output": ["text"]
           },
           "name": "Qwen3.6 Plus Free",
           "tool_call": true

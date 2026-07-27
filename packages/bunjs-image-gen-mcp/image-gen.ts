@@ -19,7 +19,7 @@ server.registerTool(
       outputPath: z
         .string()
         .describe(
-          "The absolute path where the image should be saved (e.g., /home/matrix/Downloads/image.png)."
+          "The absolute path where the image should be saved (e.g., /home/matrix/Downloads/image.png).",
         ),
       model: z
         .string()
@@ -31,9 +31,7 @@ server.registerTool(
       const apiKey =
         process.env.ROUTER_API_KEY || process.env.OMNIROUTE_OPENCODE_API_KEY;
       if (!apiKey) {
-        throw new Error(
-          "ROUTER_API_KEY environment variable is not set."
-        );
+        throw new Error("ROUTER_API_KEY environment variable is not set.");
       }
 
       const routerApiBaseUrl =
@@ -45,28 +43,25 @@ server.registerTool(
       const targetModel = model || process.env.IMAGE_MODEL;
       if (!targetModel) {
         throw new Error(
-          "No image model specified and IMAGE_MODEL env var is not set."
+          "No image model specified and IMAGE_MODEL env var is not set.",
         );
       }
 
       // We use the same proxy OpenCode uses
-      const response = await fetch(
-        `${routerApiBaseUrl}/images/generations`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${apiKey}`,
-          },
-          body: JSON.stringify({
-            prompt,
-            model: targetModel.split("/").pop(), // Extract model ID from provider/model format
-            n: 1,
-            size: "1024x1024",
-            response_format: "b64_json",
-          }),
-        }
-      );
+      const response = await fetch(`${routerApiBaseUrl}/images/generations`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          prompt,
+          model: targetModel.split("/").pop(), // Extract model ID from provider/model format
+          n: 1,
+          size: "1024x1024",
+          response_format: "b64_json",
+        }),
+      });
 
       if (!response.ok) {
         const error = await response.text();
@@ -98,7 +93,7 @@ server.registerTool(
         isError: true,
       };
     }
-  }
+  },
 );
 
 const transport = new StdioServerTransport();

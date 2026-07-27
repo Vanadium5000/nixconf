@@ -997,7 +997,7 @@ const app = new Elysia()
     async ({ params: { format }, query }) => {
       const onlyWorking = query.working === "true";
       const slugs = query.slugs
-        ? new Set(query.slugs.split(",").map((s) => s.trim()))
+        ? new Set(query.slugs.split(",").map((slug: string) => slug.trim()))
         : null;
       const vpns = await listVpns();
       const failedSlugs = onlyWorking ? await getFailedSlugs() : new Set();

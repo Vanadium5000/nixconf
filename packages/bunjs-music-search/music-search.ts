@@ -80,7 +80,7 @@ async function validateThumbnail(path: string): Promise<boolean> {
 // Helper to safely parse yt-dlp JSON to MediaItem
 function parseMediaItem(
   data: any,
-  isPlaylistContext: boolean = false
+  isPlaylistContext: boolean = false,
 ): MediaItem | null {
   if (!data || !data.id || !data.title) return null;
 
@@ -137,8 +137,9 @@ async function resolveInput(input: string): Promise<MediaItem[]> {
 
     // Strict deduplication by content
     // We treat "Title | Uploader" as a unique key.
-    const contentKey = `${item.title.replace("(Playlist) ", "")}|${item.uploader
-      }`;
+    const contentKey = `${item.title.replace("(Playlist) ", "")}|${
+      item.uploader
+    }`;
     if (seenKeys.has(contentKey)) return;
 
     results.push(item);
@@ -155,7 +156,7 @@ async function resolveInput(input: string): Promise<MediaItem[]> {
       await notify(
         isPlaylist
           ? "Fetching playlist metadata..."
-          : "Fetching video metadata..."
+          : "Fetching video metadata...",
       );
 
       const output =
@@ -187,7 +188,7 @@ async function resolveInput(input: string): Promise<MediaItem[]> {
 
       // 2. Search for playlists
       const playlistUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(
-        input
+        input,
       )}&sp=EgIQAw%253D%253D`;
       const playlistFetch =
         $`yt-dlp --flat-playlist --dump-json --playlist-items 1-5 ${playlistUrl}`.text();
@@ -209,7 +210,7 @@ async function resolveInput(input: string): Promise<MediaItem[]> {
           const data = JSON.parse(line);
           const item = parseMediaItem(data);
           if (item) addItem(item);
-        } catch (e) { }
+        } catch (e) {}
       }
     }
   } catch (e) {
@@ -303,23 +304,16 @@ async function showMenu(items: MediaItem[]): Promise<MediaItem | null> {
   try {
     const menuCmd = process.env.QS_MENU || "qs-dmenu";
 
-    const proc = Bun.spawn(
-      [
-        menuCmd,
-        "-p",
-        "Select Track",
-      ],
-      {
-        stdin: "pipe",
-        stdout: "pipe",
-        env: {
-          ...process.env,
-          DMENU_VIEW: "grid",
-          DMENU_GRID_COLS: "3",
-          DMENU_ICON_SIZE: "256",
-        },
-      }
-    );
+    const proc = Bun.spawn([menuCmd, "-p", "Select Track"], {
+      stdin: "pipe",
+      stdout: "pipe",
+      env: {
+        ...process.env,
+        DMENU_VIEW: "grid",
+        DMENU_GRID_COLS: "3",
+        DMENU_ICON_SIZE: "256",
+      },
+    });
     if (proc.stdin) {
       proc.stdin.write(inputString);
       proc.stdin.flush();
@@ -333,8 +327,14 @@ async function showMenu(items: MediaItem[]): Promise<MediaItem | null> {
     // Re-construct the display string for each item to match
     for (const [idx, item] of itemMap.entries()) {
       // We need to reconstruct the exact string we sent
-      const escapedTitle = item.title.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-      const escapedUploader = item.uploader.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      const escapedTitle = item.title
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+      const escapedUploader = item.uploader
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
       const display = `<b>${escapedTitle}</b> <span size="small" alpha="70%">${escapedUploader} (${item.duration_string})</span>`;
       let line = display;
       if (item.localThumbnail) {
@@ -343,14 +343,16 @@ async function showMenu(items: MediaItem[]): Promise<MediaItem | null> {
 
       // Match against full line (with icon) or just display text (without icon)
       // This handles cases where dmenu/grep might strip the null-byte icon suffix
-      if (line.trim() === indexStr.trim() || display.trim() === indexStr.trim()) {
+      if (
+        line.trim() === indexStr.trim() ||
+        display.trim() === indexStr.trim()
+      ) {
         return item;
       }
     }
 
     console.warn("Failed to match selection to any item. Selection:", indexStr);
     return null;
-
   } catch (e) {
     return null;
   }
@@ -372,7 +374,10 @@ function formatMenuLine(item: MediaItem): string {
   return line;
 }
 
-function matchMenuLine(selection: string, items: MediaItem[]): MediaItem | null {
+function matchMenuLine(
+  selection: string,
+  items: MediaItem[],
+): MediaItem | null {
   const trimmed = selection.trim();
   if (!trimmed) return null;
   for (const item of items) {
@@ -454,7 +459,7 @@ async function downloadAndPlay(items: MediaItem[]) {
 
     if (dlProc.exitCode !== 0) {
       console.error(
-        `${progressPrefix}Failed to download: ${item.title} (Exit Code: ${dlProc.exitCode})`
+        `${progressPrefix}Failed to download: ${item.title} (Exit Code: ${dlProc.exitCode})`,
       );
       // Try to read stderr if available to show reason
       const stderr = dlProc.stderr.toString().trim();
@@ -488,7 +493,7 @@ async function downloadAndPlay(items: MediaItem[]) {
 
   if (failCount > 0) {
     await notify(
-      `Batch finished. ${successCount} succeeded, ${failCount} failed.`
+      `Batch finished. ${successCount} succeeded, ${failCount} failed.`,
     );
   } else if (items.length > 1) {
     // Only notify "All downloads completed" for batch, single item is obvious (it plays)
@@ -545,7 +550,7 @@ async function addToMpd(fullPath: string, playNow: boolean = false) {
 
       // Play the last song (the one we just added)
       const playlist = (await $`mpc playlist`.text()).trim();
-      const count = playlist ? playlist.split('\n').length : 0;
+      const count = playlist ? playlist.split("\n").length : 0;
 
       if (count > 0) {
         await $`mpc play ${count}`.nothrow();
@@ -557,7 +562,7 @@ async function addToMpd(fullPath: string, playNow: boolean = false) {
     const addRes = await $`mpc add "${relPath}"`.nothrow();
     if (addRes.exitCode !== 0) {
       console.warn(
-        `Failed to add ${relPath} to MPD (exit ${addRes.exitCode}). Retrying update...`
+        `Failed to add ${relPath} to MPD (exit ${addRes.exitCode}). Retrying update...`,
       );
       await $`mpc update --wait`.nothrow();
       await $`mpc add "${relPath}"`.nothrow();
@@ -568,7 +573,11 @@ async function addToMpd(fullPath: string, playNow: boolean = false) {
 // --- Main ---
 
 async function main() {
-  if (Bun.argv.slice(2).some((argument) => argument === "--help" || argument === "-h")) {
+  if (
+    Bun.argv
+      .slice(2)
+      .some((argument) => argument === "--help" || argument === "-h")
+  ) {
     console.log(`Usage: qs-music-search [query]
 
 Search YouTube or accept a URL, select media with qs-dmenu, then queue it in MPD.`);
@@ -582,9 +591,7 @@ Search YouTube or accept a URL, select media with qs-dmenu, then queue it in MPD
   if (!query) {
     try {
       // Simple input box
-      query = (
-        await $`echo -n | qs-dmenu -p "Search YouTube"`.text()
-      ).trim();
+      query = (await $`echo -n | qs-dmenu -p "Search YouTube"`.text()).trim();
     } catch {
       return;
     }
@@ -604,7 +611,12 @@ Search YouTube or accept a URL, select media with qs-dmenu, then queue it in MPD
   if (isDirectUrl) {
     await fetchThumbnails(items);
     const selectedItem = items.length === 1 ? await showMenu(items) : null;
-    const selected = items.length > 1 ? await showMultiSelectMenu(items) : (selectedItem ? [selectedItem] : []);
+    const selected =
+      items.length > 1
+        ? await showMultiSelectMenu(items)
+        : selectedItem
+          ? [selectedItem]
+          : [];
     if (selected.length > 0) {
       await downloadAndPlay(selected);
     }

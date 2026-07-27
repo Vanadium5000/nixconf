@@ -28,7 +28,7 @@ async function getMarkdownFiles(dir: string): Promise<string[]> {
       } else {
         return res;
       }
-    })
+    }),
   );
   return Array.prototype.concat(...files).filter((f) => f.endsWith(".md"));
 }
@@ -54,19 +54,26 @@ server.registerTool(
       };
     } catch (error: any) {
       return {
-        content: [{ type: "text", text: `Error listing files: ${error.message}` }],
+        content: [
+          { type: "text", text: `Error listing files: ${error.message}` },
+        ],
         isError: true,
       };
     }
-  }
+  },
 );
 
 server.registerTool(
   "read_doc",
   {
-    description: "Read the content of a specific Quickshell documentation file.",
+    description:
+      "Read the content of a specific Quickshell documentation file.",
     inputSchema: {
-      path: z.string().describe("The relative path of the file to read (e.g., 'docs/configuration/intro.md')."),
+      path: z
+        .string()
+        .describe(
+          "The relative path of the file to read (e.g., 'docs/configuration/intro.md').",
+        ),
     },
   },
   async ({ path }) => {
@@ -88,11 +95,13 @@ server.registerTool(
       };
     } catch (error: any) {
       return {
-        content: [{ type: "text", text: `Error reading file: ${error.message}` }],
+        content: [
+          { type: "text", text: `Error reading file: ${error.message}` },
+        ],
         isError: true,
       };
     }
-  }
+  },
 );
 
 server.registerTool(
@@ -131,11 +140,13 @@ server.registerTool(
       };
     } catch (error: any) {
       return {
-        content: [{ type: "text", text: `Error searching docs: ${error.message}` }],
+        content: [
+          { type: "text", text: `Error searching docs: ${error.message}` },
+        ],
         isError: true,
       };
     }
-  }
+  },
 );
 
 const transport = new StdioServerTransport();

@@ -2,13 +2,19 @@
   "name": "nixconf",
   "private": true,
   "packageManager": "bun@1.3.1",
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
-    "install:docs": "bun install --cwd packages/bunjs-docs",
+    "lint": "./rebuild.sh --no-notify lint",
     "build:docs": "bun run --cwd packages/bunjs-docs build",
-    "install:vpn-proxy": "bun install --cwd packages/bunjs-vpn-proxy",
-    "install:lyrics": "bun install --cwd packages/lyricsctl",
-    "install:all": "bun run install:docs && bun run install:vpn-proxy && bun run install:lyrics",
     "build:vpn-proxy-web": "bun run --cwd packages/bunjs-vpn-proxy build:web-ui",
     "test:vpn-proxy": "bun run --cwd packages/bunjs-vpn-proxy test"
+  },
+  "devDependencies": {
+    "@types/bun": "1.3.11",
+    "@types/node": "25.0.3",
+    "markdownlint-cli2": "0.21.0",
+    "prettier": "3.8.2"
   }
 }

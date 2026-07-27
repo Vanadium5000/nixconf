@@ -256,9 +256,10 @@ Mode:              ${modeText}
 Time Remaining:    ${formatTime(state.timeLeft)}
 Status:            ${state.isRunning ? "Running ▶" : "Paused ⏸"}
 Sessions Complete: ${state.sessionsCompleted}
-Next Long Break:   ${config.sessionsBeforeLongBreak -
+Next Long Break:   ${
+      config.sessionsBeforeLongBreak -
       (state.sessionsCompleted % config.sessionsBeforeLongBreak)
-      } sessions away
+    } sessions away
 
 Configuration:
   Work Time:       ${config.workTime / 60} minutes
@@ -334,10 +335,11 @@ const percentage = 1 - state.timeLeft / maxTime;
 console.log(
   JSON.stringify({
     text: `${icon} ${formatTime(state.timeLeft)}`,
-    tooltip: `Mode: ${state.mode
-      }\nStatus: ${statusText}\nTime Left: ${formatTime(
-        state.timeLeft,
-      )}\nSessions: ${state.sessionsCompleted}`,
+    tooltip: `Mode: ${
+      state.mode
+    }\nStatus: ${statusText}\nTime Left: ${formatTime(
+      state.timeLeft,
+    )}\nSessions: ${state.sessionsCompleted}`,
     class: state.mode,
     percentage: percentage,
   }),

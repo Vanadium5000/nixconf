@@ -33,7 +33,7 @@ function parseDesktopFile(content: string): DesktopEntry | null {
 
   for (const line of lines) {
     const trimmed = line.trim();
-    
+
     if (trimmed.startsWith("[")) {
       currentSection = trimmed;
       if (trimmed.startsWith("[Desktop Action ")) {
@@ -49,11 +49,18 @@ function parseDesktopFile(content: string): DesktopEntry | null {
 
     if (currentSection === "[Desktop Entry]") {
       entry[key.trim()] = value.trim();
-    } else if (currentSection.startsWith("[Desktop Action ") && currentActionId) {
+    } else if (
+      currentSection.startsWith("[Desktop Action ") &&
+      currentActionId
+    ) {
       const action = actions.get(currentActionId);
       if (action) {
         if (key.trim() === "Name") action.name = value.trim();
-        if (key.trim() === "Exec") action.exec = value.trim().replace(/%[fFuUikcdDnNvm]/g, "").trim();
+        if (key.trim() === "Exec")
+          action.exec = value
+            .trim()
+            .replace(/%[fFuUikcdDnNvm]/g, "")
+            .trim();
       }
     }
   }
@@ -63,7 +70,7 @@ function parseDesktopFile(content: string): DesktopEntry | null {
   if (!entry["Name"] || !entry["Exec"]) return null;
 
   const execCmd = entry["Exec"].replace(/%[fFuUikcdDnNvm]/g, "").trim();
-  
+
   const actionList: DesktopAction[] = [];
   const actionIds = entry["Actions"]?.split(";").filter(Boolean) || [];
   for (const id of actionIds) {
@@ -88,8 +95,8 @@ async function loadApps(): Promise<DesktopEntry[]> {
   for (const dir of SEARCH_PATHS) {
     try {
       const files = await readdir(dir);
-      const desktopFiles = files.filter(f => f.endsWith(".desktop"));
-      
+      const desktopFiles = files.filter((f) => f.endsWith(".desktop"));
+
       const entries = await Promise.all(
         desktopFiles.map(async (file) => {
           try {
@@ -98,7 +105,7 @@ async function loadApps(): Promise<DesktopEntry[]> {
           } catch {
             return null;
           }
-        })
+        }),
       );
 
       for (const entry of entries) {
@@ -112,11 +119,13 @@ async function loadApps(): Promise<DesktopEntry[]> {
     }
   }
 
-  return apps.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+  return apps.sort((a, b) =>
+    a.name.toLowerCase().localeCompare(b.name.toLowerCase()),
+  );
 }
 
 const apps = await loadApps();
-const output = apps.map(app => {
+const output = apps.map((app) => {
   const actionsJson = JSON.stringify(app.actions);
   return `${app.name}\t${app.exec}\t${app.icon}\t${actionsJson}`;
 });

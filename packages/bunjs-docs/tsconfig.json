@@ -1,7 +1,7 @@
 {
-  "extends": "@docusaurus/tsconfig",
+  "extends": "./node_modules/@docusaurus/tsconfig/tsconfig.json",
   "compilerOptions": {
     "baseUrl": ".",
-    "ignoreDeprecations": "6.0"
+    "ignoreDeprecations": "5.0"
   }
 }

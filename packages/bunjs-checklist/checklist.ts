@@ -56,7 +56,7 @@ async function selectOption(
   menuCommand: string[],
   options: string[],
   prompt: string,
-  preselected = 0
+  preselected = 0,
 ): Promise<string> {
   if (options.length === 0) return "";
   try {
@@ -115,7 +115,7 @@ async function main() {
 
   // Load daily tasks
   const dailyTasks: string[] = JSON.parse(
-    fs.readFileSync(dailyTasksPath, "utf-8")
+    fs.readFileSync(dailyTasksPath, "utf-8"),
   );
 
   // Get today's date
@@ -176,7 +176,7 @@ async function main() {
       menuCommand,
       options,
       "Checklist",
-      taskIndex || 0
+      taskIndex || 0,
     );
     console.log(`Selected: ${selected}`);
 

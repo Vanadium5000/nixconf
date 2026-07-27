@@ -57,6 +57,43 @@ nix build --no-link path:.#checks.x86_64-linux.repository-architecture
 nix build --no-link path:.#checks.x86_64-linux.update-pkgs-workflow-coverage
 ```
 
+## Repository lint
+
+[`rebuild.sh`](../../rebuild.sh) exposes a read-only `lint` action. It runs five independent lanes concurrently and emits every lane's full output before returning; a failure in one lane does not suppress the remaining diagnostics.
+
+```bash
+# Run the full repository check without requiring HOST or password-store access.
+bun install --frozen-lockfile
+./rebuild.sh --no-notify lint
+
+# `validate` starts the same lint action alongside `nix flake check` by default.
+HOST=legion5i ./rebuild.sh --debug --skip-secrets validate
+
+# Evaluate only when lint is intentionally not part of this validation.
+HOST=legion5i ./rebuild.sh --debug --skip-secrets --skip-lint validate
+```
+
+Bootstrap the pinned root Prettier and MarkdownLint CLI dependencies once per checkout with `bun install --frozen-lockfile`. The command then discovers tracked paths with `git ls-files`, so ignored dependency/build trees do not affect results. Its lanes are:
+
+| Lane       | Files/tool                                                                                        | Contract                                                                        |
+| ---------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| LSP        | OpenCode diagnostics for `.nix`, `.sh`, `.bash`, and `.zsh`; eight bounded workers                | LSP/server errors and error diagnostics fail; warnings remain visible           |
+| Nix format | `nixfmt-tree -- --ci .`                                                                           | Formatting must already match nixfmt                                            |
+| TypeScript | Every tracked `.ts` through temporary, non-emitting `tsc` project configs                         | Compiler diagnostics fail; `.tsx` is deliberately not part of the `.ts` request |
+| Prettier   | Tracked formatter-managed JSON, CSS, TypeScript, and TSX sources                                  | Formatting must already match Prettier; `--cache` accelerates repeated runs     |
+| Markdown   | Tracked `README.md` and `docs/` Markdown through [`.markdownlint.json`](../../.markdownlint.json) | Enabled MarkdownLint rules must pass                                            |
+
+The TypeScript compiler comes from `nixpkgs#typescript`; temporary project configs type-check every tracked `.ts` file without emitting output. Root Bun workspaces install each package's declared dependencies once, and root `@types/bun` and `@types/node` provide the shared Bun/Node runtime declarations. The checkout and source files remain untouched. Prettier stores only its ignored cache state to accelerate repeated runs.
+
+## Model catalog state
+
+[`packages/models/`](../../packages/models/) is the only checkout-owned location for `models.json`, model-group state, presets, provider choice, and local patches. `models sync` writes the catalog there; `models sync-config` derives the mutable OpenCode, OMO Slim, and OMP runtime files from the same state without fetching models. The command rejects the obsolete `modules/nixos/terminal/opencode/` state path, preventing divergent catalogs.
+
+```bash
+models sync          # Fetch and normalize the selected gateway catalog.
+models sync-config   # Regenerate application configuration from local state.
+```
+
 Deleted checkout files should not create repo-local `.Trash-*` directories. `modules/common/impermanence.nix` enables trash support on persisted bind mounts and persists `~/.local/share/Trash` in `/persist/cache`, so VSCodium/Dolphin/GIO deletes route through the global XDG trash. `.Trash-*` is ignored only as a safety net, not as the intended state path.
 
 ## Change rule
@@ -104,13 +141,13 @@ See [KDE Plasma desktop](./kde.md) for shortcut command names and the persistenc
 
 ## Docs development dependencies
 
-Run dependency installs from the repository root only through package-scoped helper commands. The root manifest is glue; dependencies and lockfiles stay inside the package that uses them:
+Run a single Bun workspace install from the repository root. The root lockfile pins dependencies declared by every custom package and provides the local dependencies for repository lint and editor diagnostics:
 
 ```bash
-bun run install:all
+bun install --frozen-lockfile
 ```
 
-Use `bun run install:docs`, `bun run install:vpn-proxy`, or `bun run install:lyrics` when working on one package. Other Bun packages are self-contained: run Bun from that package directory if their manifest declares development dependencies. Keep `packages/bunjs-docs/package-lock.json` committed: the NixOS docs module at `packages/bunjs-docs/module.nix` uses it for reproducible `pkgs.buildNpmPackage` builds during rebuilds.
+Keep `packages/bunjs-docs/package-lock.json` committed: the NixOS docs module at `packages/bunjs-docs/module.nix` uses it for reproducible `pkgs.buildNpmPackage` builds during rebuilds. Packaged outputs still use Nix-managed dependency builds rather than checkout-local `node_modules`.
 
 ```nix
 # Typical module shape in this repository.

@@ -1,105 +1,105 @@
-import type { Config } from '@docusaurus/types';
-import type { Options, ThemeConfig } from '@docusaurus/preset-classic';
-import { themes as prismThemes } from 'prism-react-renderer';
+import type { Config } from "@docusaurus/types";
+import type { Options, ThemeConfig } from "@docusaurus/preset-classic";
+import { themes as prismThemes } from "prism-react-renderer";
 
-const docsRoot = process.env.NIXCONF_DOCS_ROOT ?? '../../docs';
+const docsRoot = process.env.NIXCONF_DOCS_ROOT ?? "../../docs";
 
 const config: Config = {
-  title: 'Nixconf Docs',
-  tagline: 'Operational notes for this NixOS fleet',
-  favicon: 'img/favicon.svg',
+  title: "Nixconf Docs",
+  tagline: "Operational notes for this NixOS fleet",
+  favicon: "img/favicon.svg",
 
-  url: 'https://docs.local',
-  baseUrl: '/',
+  url: "https://docs.local",
+  baseUrl: "/",
 
-  organizationName: 'matrix',
-  projectName: 'nixconf',
+  organizationName: "matrix",
+  projectName: "nixconf",
 
-  onBrokenLinks: 'throw',
+  onBrokenLinks: "throw",
 
   i18n: {
-    defaultLocale: 'en',
-    locales: ['en'],
+    defaultLocale: "en",
+    locales: ["en"],
   },
 
   markdown: {
     mermaid: true,
     hooks: {
-      onBrokenMarkdownLinks: 'warn',
+      onBrokenMarkdownLinks: "warn",
     },
   },
-  themes: ['@docusaurus/theme-mermaid'],
+  themes: ["@docusaurus/theme-mermaid"],
 
   presets: [
     [
-      'classic',
+      "classic",
       {
         docs: {
           path: docsRoot,
-          routeBasePath: '/',
-          sidebarPath: './sidebars.ts',
-          editUrl: 'https://github.com/matrix/nixconf/tree/main/docs/',
+          routeBasePath: "/",
+          sidebarPath: "./sidebars.ts",
+          editUrl: "https://github.com/matrix/nixconf/tree/main/docs/",
         },
         blog: false,
         theme: {
-          customCss: './src/css/custom.css',
+          customCss: "./src/css/custom.css",
         },
       } satisfies Options,
     ],
   ],
 
   themeConfig: {
-    image: 'img/social-card.svg',
+    image: "img/social-card.svg",
     navbar: {
-      title: 'Nixconf Docs',
+      title: "Nixconf Docs",
       logo: {
-        alt: 'Nixconf Docs',
-        src: 'img/logo.svg',
+        alt: "Nixconf Docs",
+        src: "img/logo.svg",
       },
       items: [
         {
-          type: 'docSidebar',
-          sidebarId: 'mainSidebar',
-          position: 'left',
-          label: 'Docs',
+          type: "docSidebar",
+          sidebarId: "mainSidebar",
+          position: "left",
+          label: "Docs",
         },
         {
-          href: 'https://github.com/facebook/docusaurus',
-          label: 'Docusaurus',
-          position: 'right',
+          href: "https://github.com/facebook/docusaurus",
+          label: "Docusaurus",
+          position: "right",
         },
       ],
     },
     footer: {
-      style: 'dark',
+      style: "dark",
       links: [
         {
-          title: 'Local references',
+          title: "Local references",
           items: [
             {
-              label: 'Repository guide',
-              to: '/operations/repository',
+              label: "Repository guide",
+              to: "/operations/repository",
             },
             {
-              label: 'Public routes',
-              to: '/operations/public-routes',
+              label: "Public routes",
+              to: "/operations/public-routes",
             },
             {
-              label: 'DNS recovery',
-              to: '/operations/dns',
+              label: "DNS recovery",
+              to: "/operations/dns",
             },
           ],
         },
         {
-          title: 'Upstream references',
+          title: "Upstream references",
           items: [
             {
-              label: 'Docusaurus docs',
-              href: 'https://docusaurus.io/docs',
+              label: "Docusaurus docs",
+              href: "https://docusaurus.io/docs",
             },
             {
-              label: 'NixOS manual',
-              href: 'https://nixos.org/manual/nixos/stable/',
+              label: "NixOS manual",
+              href: "https://nixos.org/manual/nixos/stable/",
             },
           ],
         },

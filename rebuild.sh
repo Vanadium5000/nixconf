@@ -49,6 +49,7 @@ DEBUG=false
 TRACE=false
 SKIP_SECRETS=false
 SKIP_MATRIX=false
+SKIP_LINT=false
 CLEANUP_QUIET=false
 REMAINING_ARGS=()
 SCRIPT_START_MS=0
@@ -495,11 +496,356 @@ backup_system() {
  fi
 }
 
+# Run one OpenCode LSP request without interleaving its output with other workers.
+lint_lsp_worker() {
+ local file="$1"
+ local result_file="$2"
+ local absolute_file output command_status=0 worker_status=0
+
+ absolute_file="$(realpath -e "$file")"
+ if output="$(opencode debug lsp diagnostics "$file" 2>&1)"; then
+  :
+ else
+  command_status=$?
+ fi
+
+ {
+  printf '[lsp] %s\n' "$file"
+  if ((command_status != 0)); then
+   printf '[FAIL] opencode exited with status %d\n%s\n' "$command_status" "$output"
+   worker_status=1
+  elif jq -e --arg file "$absolute_file" '
+   type == "object"
+   and has($file)
+   and (.[$file] | type == "array")
+  and ([.[$file][] | select((.severity // 1) == 1)] | length == 0)
+  ' <<<"$output" >/dev/null 2>&1; then
+   printf '[PASS] no error diagnostics\n'
+  else
+   printf '[FAIL] missing, malformed, or error diagnostics\n%s\n' "$output"
+   worker_status=1
+  fi
+ } >"$result_file"
+
+ return "$worker_status"
+}
+
+lint_lsp_diagnostics() {
+ local result_dir file result_file pid status=0 count=0
+ local -a pids=()
+
+ if ! command_exists opencode || ! command_exists jq; then
+  error "LSP diagnostics require opencode and jq"
+  return 1
+ fi
+
+ result_dir="$(mktemp -d)"
+ log "Checking OpenCode LSP diagnostics for tracked Nix and shell sources (up to 8 workers)"
+
+ while IFS= read -r -d '' file; do
+  count=$((count + 1))
+  printf -v result_file '%s/%06d.log' "$result_dir" "$count"
+  lint_lsp_worker "$file" "$result_file" &
+  pids+=("$!")
+
+  if ((${#pids[@]} >= 8)); then
+   pid="${pids[0]}"
+   pids=("${pids[@]:1}")
+   if wait "$pid"; then
+    :
+   else
+    status=1
+   fi
+  fi
+ done < <(
+  git ls-files -z -- \
+   '*.nix' '*.sh' '*.bash' '*.zsh'
+ )
+
+ for pid in "${pids[@]}"; do
+  if wait "$pid"; then
+   :
+  else
+   status=1
+  fi
+ done
+
+ if ((count == 0)); then
+  warn "No tracked files are covered by the configured OpenCode LSP lane"
+ else
+  for result_file in "$result_dir"/*.log; do
+   cat "$result_file"
+  done
+ fi
+ rm -rf "$result_dir"
+
+ if ((status != 0)); then
+  error "OpenCode LSP diagnostics failed"
+  return 1
+ fi
+ success "OpenCode LSP diagnostics passed for ${count} files"
+}
+
+lint_nixfmt() {
+ if ! command_exists nix; then
+  error "Nix formatting checks require nix"
+  return 1
+ fi
+
+ log "Checking Nix formatting with nixfmt-tree"
+ run_cmd nix run nixpkgs#nixfmt-tree -- --ci .
+}
+
+lint_typescript() {
+ local workspace runner config package file status=0
+ local -a package_dirs=() source_files=() loose_files=() all_source_files=() checks=()
+
+ if ! command_exists bun || ! command_exists git || ! command_exists jq || ! command_exists nix; then
+  error "TypeScript diagnostics require bun, git, jq, and nix"
+  return 1
+ fi
+ if [ ! -d "${FLAKE_DIR}/node_modules/@types/bun" ] || [ ! -d "${FLAKE_DIR}/node_modules/@types/node" ]; then
+  error "TypeScript diagnostics require installed workspace dependencies: bun install --frozen-lockfile"
+  return 1
+ fi
+
+ mapfile -d '' -t package_dirs < <(
+  git ls-files -z -- 'packages/*/package.json' |
+   while IFS= read -r -d '' file; do
+    printf '%s\0' "$(dirname "$file")"
+   done |
+   sort -zu
+ )
+ mapfile -d '' -t all_source_files < <(git ls-files -z -- '*.ts')
+ log "Checking ${#all_source_files[@]} tracked TypeScript entrypoints from ${#package_dirs[@]} package manifests"
+ workspace="$(mktemp -d)"
+
+ for package in "${package_dirs[@]}"; do
+  mapfile -d '' -t source_files < <(
+   git ls-files -z -- "${package}/**" |
+    while IFS= read -r -d '' file; do
+     case "$file" in
+     *.ts) printf '%s\0' "$file" ;;
+     esac
+    done
+  )
+  ((${#source_files[@]} > 0)) || continue
+  config="${workspace}/${package##*/}.json"
+  source_files=("${source_files[@]/#${package}/${FLAKE_DIR}/${package}/}")
+  if [ -f "${FLAKE_DIR}/${package}/tsconfig.json" ]; then
+   jq -n \
+    --arg extends "${FLAKE_DIR}/${package}/tsconfig.json" \
+    --arg root_types "${FLAKE_DIR}/node_modules/@types" \
+    --args '
+    {
+      extends: $extends,
+      compilerOptions: {
+        typeRoots: [$root_types],
+        types: ["bun", "node"]
+      },
+      files: $ARGS.positional
+    }
+   ' "${source_files[@]}" >"$config"
+  else
+   jq -n \
+    --arg root_types "${FLAKE_DIR}/node_modules/@types" \
+    --args '
+    {
+     compilerOptions: {
+      allowImportingTsExtensions: true,
+      lib: ["ESNext", "DOM"],
+      module: "Preserve",
+      moduleDetection: "force",
+      moduleResolution: "Bundler",
+      noEmit: true,
+      skipLibCheck: true,
+      target: "ESNext",
+      typeRoots: [$root_types],
+      types: ["bun", "node"]
+     },
+     files: $ARGS.positional
+    }
+   ' "${source_files[@]}" >"$config"
+  fi
+  checks+=("${package#packages/} (${#source_files[@]} files)" "$config")
+ done
+
+ for file in "${all_source_files[@]}"; do
+  for package in "${package_dirs[@]}"; do
+   case "$file" in
+   "${package}"/*) continue 2 ;;
+   esac
+  done
+  loose_files+=("${FLAKE_DIR}/${file}")
+ done
+
+ if ((${#loose_files[@]} > 0)); then
+  config="${workspace}/repository-typescript.json"
+  jq -n \
+   --arg root_types "${FLAKE_DIR}/node_modules/@types" \
+   --args '
+   {
+    compilerOptions: {
+     allowImportingTsExtensions: true,
+     lib: ["ESNext", "DOM"],
+     module: "Preserve",
+     moduleDetection: "force",
+     moduleResolution: "Bundler",
+     noEmit: true,
+     skipLibCheck: true,
+     target: "ESNext",
+     typeRoots: [$root_types],
+     types: ["bun", "node"]
+    },
+    files: $ARGS.positional
+   }
+  ' "${loose_files[@]}" >"$config"
+  checks+=("repository sources (${#loose_files[@]} files)" "$config")
+ fi
+
+ runner="${workspace}/run-typescript-checks"
+ cat >"$runner" <<'EOF'
+#!/usr/bin/env bash
+set -u
+
+status=0
+while (($# > 0)); do
+ label="$1"
+ config="$2"
+ shift 2
+ printf '\n[typescript] %s\n' "$label"
+ if tsc --noEmit --pretty false --project "$config"; then
+  printf '[PASS] TypeScript diagnostics clear\n'
+ else
+  status=1
+ fi
+done
+exit "$status"
+EOF
+ chmod +x "$runner"
+
+ if ((${#checks[@]} == 0)); then
+  rm -rf "$workspace"
+  success "No tracked TypeScript files to check"
+  return 0
+ fi
+
+ if ! nix shell nixpkgs#typescript --command "$runner" "${checks[@]}"; then
+  status=1
+ fi
+ rm -rf "$workspace"
+
+ if ((status != 0)); then
+  error "TypeScript diagnostics failed"
+  return 1
+ fi
+ success "TypeScript diagnostics passed"
+}
+
+lint_prettier() {
+ local -a files=()
+ local prettier_bin="${FLAKE_DIR}/node_modules/.bin/prettier"
+
+ if [ ! -x "$prettier_bin" ]; then
+  error "Prettier format checks require root dependencies: bun install --frozen-lockfile"
+  return 1
+ fi
+
+ mapfile -d '' -t files < <(
+  git ls-files -z -- \
+   '*.css' '*.cts' '*.html' '*.json' '*.json5' '*.jsonc' '*.js' '*.jsx' '*.mdx' '*.mjs' '*.mts' '*.ts' '*.tsx' '*.yaml' '*.yml'
+ )
+ if ((${#files[@]} == 0)); then
+  success "No tracked Prettier-supported files to check"
+  return 0
+ fi
+ log "Checking Prettier formatting for ${#files[@]} tracked files"
+ "$prettier_bin" --check --ignore-unknown --cache -- "${files[@]}"
+}
+
+lint_markdown() {
+ local -a files=()
+ local markdownlint_bin="${FLAKE_DIR}/node_modules/.bin/markdownlint-cli2"
+
+ if [ ! -x "$markdownlint_bin" ]; then
+  error "Markdown checks require root dependencies: bun install --frozen-lockfile"
+  return 1
+ fi
+
+ mapfile -d '' -t files < <(git ls-files -z -- README.md 'docs/**/*.md' 'docs/**/*.mdx' 'docs/**/*.markdown')
+ if ((${#files[@]} == 0)); then
+  success "No tracked Markdown files to check"
+  return 0
+ fi
+
+ log "Checking Markdown lint rules for ${#files[@]} tracked repository documentation files"
+ "$markdownlint_bin" --config "${FLAKE_DIR}/.markdownlint.json" -- "${files[@]}"
+}
+
+lint_workspace() {
+ local result_dir lane pid status=0
+ local -a lanes=(lint_lsp_diagnostics lint_nixfmt lint_typescript lint_prettier lint_markdown)
+ local -a pids=()
+
+ section "Linting repository"
+ log "Running OpenCode LSP, nixfmt, TypeScript, Prettier, and Markdown checks in parallel"
+ result_dir="$(mktemp -d)"
+
+ for lane in "${lanes[@]}"; do
+  "$lane" >"${result_dir}/${lane}.log" 2>&1 &
+  pids+=("$!")
+ done
+
+ for pid in "${pids[@]}"; do
+  if wait "$pid"; then
+   :
+  else
+   status=1
+  fi
+ done
+
+ for lane in "${lanes[@]}"; do
+  printf '\n%s\n' "=== ${lane} ==="
+  cat "${result_dir}/${lane}.log"
+ done
+ rm -rf "$result_dir"
+
+ if ((status != 0)); then
+  error "Repository lint failed"
+  return 1
+ fi
+ success "Repository lint passed"
+}
+
 # Validate flake (optional)
 validate_flake() {
+ local lint_log="" lint_pid="" status=0
+
  section "Validating flake"
+ if [ "$SKIP_LINT" = true ]; then
+  warn "Skipping repository lint because --skip-lint was set"
+ else
+  lint_log="$(mktemp)"
+  lint_workspace >"$lint_log" 2>&1 &
+  lint_pid="$!"
+ fi
+
  log "Validating flake configuration..."
  if ! run_cmd nix flake check "${FLAKE_REF}" "${NIX_ARGS[@]}"; then
+  status=1
+ fi
+
+ if [ -n "$lint_pid" ]; then
+  if wait "$lint_pid"; then
+   :
+  else
+   status=1
+  fi
+  cat "$lint_log"
+  rm -f "$lint_log"
+ fi
+
+ if ((status != 0)); then
   error "Flake validation failed"
   return 1
  fi
@@ -694,7 +1040,7 @@ should_load_secrets() {
 action_requires_host() {
  local action="$1"
  case "$action" in
- matrix | secrets)
+ lint | matrix | secrets)
   return 1
   ;;
  *)
@@ -706,7 +1052,7 @@ action_requires_host() {
 action_exists() {
  local action="$1"
  case "$action" in
- switch | build | dry-run | rollback | generations | validate | matrix | secrets | deploy | install)
+ switch | build | dry-run | rollback | generations | lint | validate | matrix | secrets | deploy | install)
   return 0
   ;;
  *)
@@ -790,7 +1136,8 @@ Actions:
   switch       Write secrets.nix, build, and activate the selected host.
   build        Write secrets.nix and build without activating.
   dry-run      Ask nixos-rebuild to print the activation delta without changing state.
-  validate     Evaluate host matrix and run nix flake check.
+  lint         Run parallel LSP, Nix, TypeScript, Prettier, and Markdown checks.
+  validate     Evaluate host matrix, run nix flake check, and lint in parallel.
   matrix       Evaluate and render hostModuleMatrix only; skips secrets by default.
   secrets      Fetch all pass entries in parallel and atomically rewrite secrets.nix only.
   deploy       Switch a remote machine through nixos-rebuild --target-host TARGET.
@@ -801,13 +1148,14 @@ Actions:
 Options:
   --log-file       Also write color-stripped output to ${SCRIPT_DIR}/rebuild.log.
   --git-backup     Show dirty git state and create a backup commit before mutating actions.
-  --validate       Run nix flake check before build/switch/deploy/install/dry-run.
+  --validate       Run nix flake check and lint before build/switch/deploy/install/dry-run.
   --backup         Build the current host before switch.
   --no-notify      Disable notify-send desktop notifications.
   --debug          Print queued secret names, matrix eval errors, and command context.
   --trace          Enable shell xtrace after option parsing for command debugging.
   --skip-secrets   Do not call pass or rewrite secrets.nix; useful for pure eval/debug loops.
   --skip-matrix    Do not evaluate/render hostModuleMatrix.
+  --skip-lint      Do not run lint as part of validate or --validate.
   --help           Show this help message.
 
 Always-on diagnostics:
@@ -817,6 +1165,8 @@ Always-on diagnostics:
 Examples:
   HOST=legion5i $0 build
   HOST=legion5i $0 --debug --skip-secrets validate
+  $0 lint
+  HOST=legion5i $0 --skip-lint validate
   HOST=legion5i $0 --debug matrix
   HOST=legion5i $0 secrets
   HOST=legion5i ARGS="--fallback --accept-flake-config" $0 dry-run
@@ -861,6 +1211,10 @@ EOF
    ;;
   --skip-matrix)
    SKIP_MATRIX=true
+   shift
+   ;;
+  --skip-lint)
+   SKIP_LINT=true
    shift
    ;;
   --)
@@ -956,7 +1310,7 @@ main() {
 
  if ! action_exists "$action"; then
   error "Unknown action: ${action}"
-  echo "Usage: HOST=<host> $0 [OPTIONS] {switch|build|dry-run|rollback|generations|validate|matrix|secrets|deploy|install}"
+  echo "Usage: HOST=<host> $0 [OPTIONS] {switch|build|dry-run|rollback|generations|lint|validate|matrix|secrets|deploy|install}"
   echo "Use --help for more information"
   exit 1
  fi
@@ -997,7 +1351,7 @@ main() {
   log "Additional nix args: ${ARGS}"
  fi
  debug_log "NIX_SSHOPTS=${NIX_SSHOPTS}"
- debug_log "skip_secrets=${SKIP_SECRETS} skip_matrix=${SKIP_MATRIX} validate=${VALIDATE} backup=${BACKUP} git_backup=${GIT_BACKUP}"
+ debug_log "skip_secrets=${SKIP_SECRETS} skip_matrix=${SKIP_MATRIX} skip_lint=${SKIP_LINT} validate=${VALIDATE} backup=${BACKUP} git_backup=${GIT_BACKUP}"
 
  cd "${FLAKE_DIR}"
 
@@ -1046,6 +1400,9 @@ main() {
  "generations")
   show_generations
   ;;
+ "lint")
+  lint_workspace
+  ;;
  "validate")
   validate_flake
   ;;
@@ -1073,7 +1430,7 @@ main() {
   ;;
  *)
   error "Unknown action: ${action}"
-  echo "Usage: HOST=<host> $0 [OPTIONS] {switch|build|dry-run|rollback|generations|validate|matrix|secrets|deploy|install}"
+  echo "Usage: HOST=<host> $0 [OPTIONS] {switch|build|dry-run|rollback|generations|lint|validate|matrix|secrets|deploy|install}"
   echo "Use --help for more information"
   exit 1
   ;;

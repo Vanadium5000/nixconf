@@ -91,7 +91,7 @@ async function getMenuCommand(): Promise<string[]> {
     return ["wofi", "--show", "dmenu"];
   } else {
     throw new Error(
-      "Neither qs-dmenu, rofi nor wofi found. Cannot display TUI."
+      "Neither qs-dmenu, rofi nor wofi found. Cannot display TUI.",
     );
   }
 }
@@ -100,7 +100,7 @@ async function selectOption(
   menuCommand: string[],
   options: string[],
   prompt: string,
-  message?: string
+  message?: string,
 ): Promise<string> {
   if (options.length === 0) return "";
   try {
@@ -117,7 +117,9 @@ async function selectOption(
     // Actual error - log it for debugging
     logError(`Menu command failed: ${error?.message || error}`);
     if (!process.env.WAYLAND_DISPLAY && !process.env.DISPLAY) {
-      logError("No display environment detected. Ensure WAYLAND_DISPLAY or DISPLAY is set.");
+      logError(
+        "No display environment detected. Ensure WAYLAND_DISPLAY or DISPLAY is set.",
+      );
       logError("If using pkexec/sudo, pass display vars: sudo -E btrfs-backup");
     }
     return "";
@@ -127,7 +129,7 @@ async function selectOption(
 async function confirmAction(
   menuCommand: string[],
   prompt: string,
-  message?: string
+  message?: string,
 ): Promise<boolean> {
   const options = ["Yes, proceed", "No, cancel"];
   const selected = await selectOption(menuCommand, options, prompt, message);
@@ -158,10 +160,10 @@ function getHostname(): string {
     logError("HOST environment variable is not set!");
     logError("");
     logError(
-      "The HOST variable should be set to your NixOS configuration name."
+      "The HOST variable should be set to your NixOS configuration name.",
     );
     logError(
-      "This is typically set in your NixOS configuration or shell profile."
+      "This is typically set in your NixOS configuration or shell profile.",
     );
     logError("");
     logError("To fix this:");
@@ -261,7 +263,7 @@ async function getRootBtrfsUuid(): Promise<string | null> {
 // Mount Management
 // ============================================================================
 async function ensureMounted(
-  partition: BtrfsPartition
+  partition: BtrfsPartition,
 ): Promise<{ mountPoint: string; wasAlreadyMounted: boolean }> {
   if (partition.mountpoint) {
     return { mountPoint: partition.mountpoint, wasAlreadyMounted: true };
@@ -284,7 +286,7 @@ async function ensureMounted(
 
 async function unmountIfNeeded(
   mountPoint: string,
-  wasAlreadyMounted: boolean
+  wasAlreadyMounted: boolean,
 ): Promise<void> {
   if (wasAlreadyMounted) {
     logInfo(`Leaving ${mountPoint} mounted (was already mounted)`);
@@ -307,7 +309,7 @@ async function unmountIfNeeded(
 async function checkAndInitializeBackupDir(
   menuCommand: string[],
   partition: BtrfsPartition,
-  mountPoint: string
+  mountPoint: string,
 ): Promise<boolean> {
   const backupsPath = path.join(mountPoint, CONFIG.REMOTE_BACKUPS_DIR);
 
@@ -325,8 +327,9 @@ UUID: ${partition.uuid}
 Size: ${partition.size}
 Filesystem: ${partition.fstype}
 
-This partition will be initialized with a /${CONFIG.REMOTE_BACKUPS_DIR
-    } directory.
+This partition will be initialized with a /${
+    CONFIG.REMOTE_BACKUPS_DIR
+  } directory.
 A ${CONFIG.SAFETY_COUNTDOWN_SECONDS}-second safety countdown will begin.`;
 
   logWarn("Backup directory not found on target partition!");
@@ -338,7 +341,7 @@ A ${CONFIG.SAFETY_COUNTDOWN_SECONDS}-second safety countdown will begin.`;
   const confirmed = await confirmAction(
     menuCommand,
     "Initialize backup directory?",
-    warningMessage
+    warningMessage,
   );
 
   if (!confirmed) {
@@ -369,7 +372,7 @@ A ${CONFIG.SAFETY_COUNTDOWN_SECONDS}-second safety countdown will begin.`;
 // ============================================================================
 async function createLocalSnapshot(
   deviceKey: string,
-  dateStr: string
+  dateStr: string,
 ): Promise<string> {
   const snapshotDir = CONFIG.SNAPSHOT_TMP_DIR;
   const snapshotName = `backup-${dateStr}`;
@@ -431,7 +434,7 @@ async function createLocalSnapshot(
 }
 
 async function findPreviousBackup(
-  deviceBackupDir: string
+  deviceBackupDir: string,
 ): Promise<string | null> {
   if (!fs.existsSync(deviceBackupDir)) {
     return null;
@@ -474,7 +477,7 @@ async function findPreviousLocalSnapshot(): Promise<string | null> {
 async function performBackup(
   snapshotPath: string,
   deviceBackupDir: string,
-  dateStr: string
+  dateStr: string,
 ): Promise<void> {
   const targetPath = path.join(deviceBackupDir, dateStr);
 
@@ -603,7 +606,7 @@ async function main() {
   if (partitions.length === 0) {
     await notify("No external BTRFS partitions found!", "btrfs-backup");
     logError(
-      "No external BTRFS partitions found. Please connect a BTRFS-formatted drive."
+      "No external BTRFS partitions found. Please connect a BTRFS-formatted drive.",
     );
     process.exit(1);
   }
@@ -619,7 +622,7 @@ async function main() {
     menuCommand,
     partitionOptions,
     "Select backup target",
-    infoMessage
+    infoMessage,
   );
 
   if (!selected || selected === "❌ Cancel") {
@@ -637,15 +640,16 @@ async function main() {
   }
 
   logInfo(
-    `Selected partition: ${targetPartition.path} (${targetPartition.label || targetPartition.name
-    })`
+    `Selected partition: ${targetPartition.path} (${
+      targetPartition.label || targetPartition.name
+    })`,
   );
 
   if (dryRun) {
     console.log("\n[DRY RUN] Would perform backup:");
     console.log(`  Source: ${CONFIG.LOCAL_PERSIST_PATH}`);
     console.log(
-      `  Target: ${targetPartition.path}/${CONFIG.REMOTE_BACKUPS_DIR}/${deviceKey}/${dateStr}`
+      `  Target: ${targetPartition.path}/${CONFIG.REMOTE_BACKUPS_DIR}/${deviceKey}/${dateStr}`,
     );
     console.log("  (No changes made)");
     process.exit(0);
@@ -653,16 +657,15 @@ async function main() {
 
   try {
     // Mount partition if needed
-    const { mountPoint, wasAlreadyMounted } = await ensureMounted(
-      targetPartition
-    );
+    const { mountPoint, wasAlreadyMounted } =
+      await ensureMounted(targetPartition);
     logInfo(`Mount point: ${mountPoint}`);
 
     // Check and initialize backup directory
     const initialized = await checkAndInitializeBackupDir(
       menuCommand,
       targetPartition,
-      mountPoint
+      mountPoint,
     );
     if (!initialized) {
       await unmountIfNeeded(mountPoint, wasAlreadyMounted);
@@ -676,7 +679,7 @@ async function main() {
     const deviceBackupDir = path.join(
       mountPoint,
       CONFIG.REMOTE_BACKUPS_DIR,
-      deviceKey
+      deviceKey,
     );
     await performBackup(snapshotPath, deviceBackupDir, dateStr);
 
@@ -689,7 +692,7 @@ async function main() {
     // Success notification
     await notify(
       `Backup completed successfully!\n${deviceKey}/${dateStr}`,
-      "btrfs-backup"
+      "btrfs-backup",
     );
     console.log("\n✅ Backup completed successfully!\n");
   } catch (error) {

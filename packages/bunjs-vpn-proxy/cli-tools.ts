@@ -506,9 +506,9 @@ async function runTui() {
       const vpns = await listVpns();
       console.log(
         "\n" +
-        vpns
-          .map((v) => `socks5h://${v.slug}@127.0.0.1:${CONFIG.SOCKS5_PORT}`)
-          .join("\n"),
+          vpns
+            .map((v) => `socks5h://${v.slug}@127.0.0.1:${CONFIG.SOCKS5_PORT}`)
+            .join("\n"),
       );
       break;
     }
@@ -516,9 +516,9 @@ async function runTui() {
       const vpns = await listVpns();
       console.log(
         "\n" +
-        vpns
-          .map((v) => `http://${v.slug}:@127.0.0.1:${CONFIG.HTTP_PORT}`)
-          .join("\n"),
+          vpns
+            .map((v) => `http://${v.slug}:@127.0.0.1:${CONFIG.HTTP_PORT}`)
+            .join("\n"),
       );
       break;
     }
