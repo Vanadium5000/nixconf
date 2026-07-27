@@ -205,6 +205,9 @@
           description = "Docker and Compose stack management";
           publicSubdomain = "portainer";
           publicDescription = "Docker management UI (shared auth)";
+          # Portainer rejects the loopback authority used by generic magic-DNS
+          # proxies; retain the browser-facing host while preserving its port.
+          proxyUpstreamHost = "$host";
           # env is the Portainer endpoint id from #!/endpoints/<id>.
           # Source: https://gethomepage.dev/widgets/services/portainer/
           widget = {
@@ -829,21 +832,21 @@
                 recommendedProxySettings = true;
                 proxyWebsockets = true;
                 extraConfig = ''
-                  # Prefer upstream Host (127.0.0.1:port). Short magic names like "vpn"
-                  # make Elysia return NOT_FOUND for /api/*; X-Forwarded-Host keeps the
-                  # browser-facing name for apps that care. Source: nginx $proxy_host.
-                  proxy_set_header Host $proxy_host;
-                  proxy_set_header X-Forwarded-Host $host;
-                  proxy_buffering off;
-                  proxy_request_buffering off;
-                  proxy_redirect http://127.0.0.1:${toString service.port}/ http://$host/;
-                  proxy_redirect http://localhost:${toString service.port}/ http://$host/;
-                  proxy_cookie_domain 127.0.0.1 $host;
-                  proxy_cookie_domain localhost $host;
-                  proxy_cookie_path / /;
-                  proxy_hide_header Cross-Origin-Embedder-Policy;
-                  proxy_hide_header Cross-Origin-Opener-Policy;
-                  proxy_hide_header Cross-Origin-Resource-Policy;
+                  # Most apps expect their upstream loopback authority. Services may
+                  # override it when they validate Host; X-Forwarded-Host remains the
+                  # browser-facing magic DNS name. Source: nginx $proxy_host.
+                  proxy_set_header Host ${service.proxyUpstreamHost or "$proxy_host"};
+                    proxy_set_header X-Forwarded-Host $host;
+                    proxy_buffering off;
+                    proxy_request_buffering off;
+                    proxy_redirect http://127.0.0.1:${toString service.port}/ http://$host/;
+                    proxy_redirect http://localhost:${toString service.port}/ http://$host/;
+                    proxy_cookie_domain 127.0.0.1 $host;
+                    proxy_cookie_domain localhost $host;
+                    proxy_cookie_path / /;
+                    proxy_hide_header Cross-Origin-Embedder-Policy;
+                    proxy_hide_header Cross-Origin-Opener-Policy;
+                    proxy_hide_header Cross-Origin-Resource-Policy;
                 '';
               };
             }) enabledLocalServices)

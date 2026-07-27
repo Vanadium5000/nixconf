@@ -35,6 +35,9 @@ services:
     image: lscr.io/linuxserver/qbittorrent:latest
     container_name: qbittorrent-vpn
     network_mode: service:gluetun
+    depends_on:
+      gluetun:
+        condition: service_healthy
     environment:
       PUID: "1000"
       PGID: "1000"
@@ -44,6 +47,12 @@ services:
     volumes:
       - /var/lib/qbittorrent-vpn/config:/config
       - ${QBITTORRENT_DOWNLOADS_DIR:?qBittorrent downloads directory is missing}:/downloads
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--spider", "http://127.0.0.1:8080/"]
+      interval: 15s
+      timeout: 5s
+      retries: 4
+      start_period: 30s
     restart: unless-stopped
 
   qbittorrent-port-sync:
@@ -51,8 +60,10 @@ services:
     container_name: qbittorrent-port-sync
     network_mode: service:gluetun
     depends_on:
-      - gluetun
-      - qbittorrent
+      gluetun:
+        condition: service_healthy
+      qbittorrent:
+        condition: service_healthy
     command:
       - /bin/sh
       - -c

@@ -159,12 +159,15 @@
         Proxy\OnlyForTorrents=false
 
         [Preferences]
+        # qBittorrent must bind its peer listener to Gluetun's tunnel while its WebUI
+        # stays reachable through the loopback-published Docker port. The app may
+        # otherwise retain a transient `lo` peer binding after the tunnel reconnects.
         Connection\Interface=tun0
         Connection\InterfaceName=tun0
         Connection\PortRangeMin=0
         Connection\UPnP=false
         General\Locale=en
-        WebUI\Address=*
+        WebUI\Address=0.0.0.0
         WebUI\AlternativeUIEnabled=false
         WebUI\AuthSubnetWhitelist=127.0.0.1/32
         WebUI\AuthSubnetWhitelistEnabled=true
@@ -210,7 +213,7 @@
             "Preferences/Connection\\Interface": "tun0",
             "Preferences/Connection\\InterfaceName": "tun0",
             "Preferences/Connection\\UPnP": "false",
-            "Preferences/WebUI\\Address": "*",
+            "Preferences/WebUI\\Address": "0.0.0.0",
             "Preferences/WebUI\\AuthSubnetWhitelist": "127.0.0.1/32",
             "Preferences/WebUI\\AuthSubnetWhitelistEnabled": "true",
             "Preferences/WebUI\\CSRFProtection": "true",
