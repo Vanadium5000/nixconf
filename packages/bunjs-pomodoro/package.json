@@ -1,0 +1,10 @@
+{
+  "name": "bunjs-pomodoro",
+  "private": true,
+  "scripts": {
+    "check": "bun --syntax pomodoro.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "1.3.11"
+  }
+}

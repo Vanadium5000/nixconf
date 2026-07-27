@@ -62,17 +62,33 @@ flake.nix
 
 `flake.nix` stays small and delegates structure to imported modules.
 
-| Surface            | Current owner                                                      | Purpose                                                                                                                                                                      |
-| ------------------ | ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Inputs             | `flake.nix`                                                        | `nixpkgs` on `nixos-26.05`, `nixpkgs-unstable`, `nix-wrapper-modules`, hardware, disko, Flatpak, nix-index-database, llm-agents, nix-dokploy                                 |
-| Per-system outputs | `modules/flake/parts.nix`                                          | Supported systems, `pkgs` construction, temporary overrides, `apps.rebuild`                                                                                                  |
-| Module exports     | `modules/flake/exports.nix`                                        | Grouped module sets and evaluated `hostModuleMatrix`                                                                                                                         |
-| Local packages     | `packages/_exports/default.nix`, package-owned `package.nix` files | Auto-exposes single-derivation package directories and imports multi-output package modules such as `packages/bunjs-scripts/package.nix` and `packages/qs-menus/package.nix` |
-| Package updates    | `external-packages/update-pkgs/workflow.nix`                       | Update workflow coverage for packages with supported upstream release shapes; missing coverage warns during the check and when `update-pkgs` runs                            |
-| Programme wrappers | `programmes/<name>/`                                               | Portable configured upstream tools built with the `BirdeeHub/nix-wrapper-modules` input                                                                                      |
-| Shared library     | `lib/`                                                             | Flat `*.nix` persistence, generators, config-file helpers, git rendering, nixpkgs policy, user package paths                                                                 |
+| Surface            | Current owner                                                      | Purpose                                                                                                                                                           |
+| ------------------ | ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Inputs             | `flake.nix`                                                        | `nixpkgs` on `nixos-26.05`, `nixpkgs-unstable`, `nix-wrapper-modules`, hardware, disko, Flatpak, nix-index-database, llm-agents, nix-dokploy                      |
+| Per-system outputs | `modules/flake/parts.nix`                                          | Supported systems, `pkgs` construction, temporary overrides, `apps.rebuild`                                                                                       |
+| Module exports     | `modules/flake/exports.nix`                                        | Grouped module sets and evaluated `hostModuleMatrix`                                                                                                              |
+| Local packages     | `packages/_exports/default.nix`, package-owned `package.nix` files | Auto-exposes single-derivation package directories and imports multi-output package modules; command wrappers are exported individually from their owning package |
+| Package updates    | `external-packages/update-pkgs/workflow.nix`                       | Declarative package sets, updater modes, safe smoke arguments, custom-updater bindings, and manual reasons; missing coverage warns during the check and when `update-pkgs` runs |
+| Programme wrappers | `programmes/<name>/`                                               | Portable configured upstream tools built with the `BirdeeHub/nix-wrapper-modules` input                                                                           |
+| Repository audits  | `packages/repo-audits/package.nix`                                 | Opt-in `persist-audit` and `nix-unused-audit` commands; `repository-architecture` and update-workflow coverage checks protect the directory and updater contracts |
+| Shared library     | `lib/`                                                             | Flat `*.nix` persistence, generators, config-file helpers, git rendering, nixpkgs policy, user package paths                                                      |
 
-Architecture rule: root architecture directories contain owner subdirectories only; do not add first-level implementation files there. `lib/` is the exception and stays flat `*.nix` helpers. `docs/` first-level entries are section directories containing `.md`/`.mdx`; JS/TS Docusaurus app code belongs in `packages/bunjs-docs/`, not under `docs/`.
+Architecture rule: root architecture directories contain owner subdirectories only; do not add first-level implementation files there. `lib/` is the exception and stays flat `*.nix` helpers. Every `packages/<name>/` and `external-packages/<name>/` directory contains `package.nix`; every `programmes/<name>/` directory contains `module.nix` or `package.nix`. Package scripts depend on the narrowest relevant exported command rather than an aggregate bundle. `docs/` first-level entries are section directories containing `.md`/`.mdx`; JS/TS Docusaurus app code belongs in `packages/bunjs-docs/`, not under `docs/`.
+
+### Repository audits
+
+These commands build and run on a Nix-enabled Linux system without global installation or profile activation:
+
+```bash
+nix run path:.#persist-audit
+nix run path:.#nix-unused-audit
+nix run path:.#nix-unused-audit -- --strict
+
+nix build --no-link path:.#checks.x86_64-linux.repository-architecture
+nix build --no-link path:.#checks.x86_64-linux.update-pkgs-workflow-coverage
+```
+
+`persist-audit` locates persistence/cache declarations. `nix-unused-audit` runs [deadnix](https://github.com/astro/deadnix) and [statix](https://github.com/oppiliappan/statix); `--strict` makes unused bindings fail. The architecture check enforces directory-only roots for `docs/`, `packages/`, `external-packages/`, and `programmes/`; the update workflow check warns for external package directories missing an updater mode.
 
 ### 📤 Export surface
 
@@ -322,10 +338,10 @@ openchamber-web
 
 ### 📚 Exported package directories
 
-| Root                 | Directories                                                                                                                               | Notes                                                                                                                                                                               |
-| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `packages/`          | `bunjs-docs`, `bunjs-lyrics`, `bunjs-scripts`, `pass-credential`, `qs-menus`, `services-auth-gateway`                                     | In-repo software. `bunjs-lyrics` also exports the compatibility attr `lyricsctl`; `bunjs-scripts` and `qs-menus` are multi-output package modules imported directly by `flake.nix`. |
-| `external-packages/` | `cliproxyapi`, `cpa-usage-keeper`, `omniroute`, `openchamber-web`, `update-pkgs`, `wallpapers`, `waydroid-script`, `waydroid-total-spoof` | Packaged upstream projects plus the repo-local `update-pkgs` workflow. `cpa-usage-keeper` also exposes `cpa-usage-keeper-web` for update hash refreshes.                            |
+| Root                 | Directories                                                                                                                               | Notes                                                                                                                                                                      |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/`          | `bunjs-*`, `lyricsctl`, `pass-credential`, `qs-menus`, `repo-audits`, `services-auth-gateway`                                              | In-repo software. Each Bun command/service owns its source, manifest, lockfile, and Nix derivation; only cohesive command families such as `bunjs-vpn-proxy` group files.   |
+| `external-packages/` | `cliproxyapi`, `cpa-usage-keeper`, `omniroute`, `openchamber-web`, `update-pkgs`, `wallpapers`, `waydroid-script`, `waydroid-total-spoof` | Packaged upstream projects plus the repo-local `update-pkgs` workflow. `cpa-usage-keeper` also exposes `cpa-usage-keeper-web` for update hash refreshes.                   |
 
 > [!TIP]
 > When adding packages, use the repo's custom-package workflow: derivation under `packages/<name>/package.nix` for in-repo software or `external-packages/<name>/package.nix` for external sources, update support where the upstream release model permits it, `nix build --no-link path:.#<name>`, then host exclusions only where the package should not exist. External packages without an automatic update shape must be listed as `manual` in `external-packages/update-pkgs/workflow.nix`; otherwise `checks.update-pkgs-workflow-coverage` and `update-pkgs` warn.
@@ -339,7 +355,7 @@ Root `package.json` is command glue only. It delegates installs into each packag
 ```bash
 bun run install:all
 bun run build:vpn-proxy-web
-bun run typecheck:scripts
+bun run test:vpn-proxy
 ```
 
 | Area           | Contents                                                                                                         |
@@ -356,7 +372,7 @@ The docs app keeps `packages/bunjs-docs/package-lock.json` committed because `pa
 
 ## 🛡️ VPN proxy
 
-The VPN proxy lives under `packages/bunjs-scripts/proxy/` and is exposed by `packages/bunjs-scripts/module.nix`.
+The VPN proxy lives under `packages/bunjs-vpn-proxy/` and is exposed by `packages/bunjs-vpn-proxy/module.nix`.
 
 ```text
 client
@@ -456,8 +472,8 @@ HOST=legion5i ./rebuild.sh --debug --skip-secrets validate
 HOST=macbook ./rebuild.sh --debug --skip-secrets validate
 HOST=main_vps ./rebuild.sh --debug --skip-secrets validate
 
-# TypeScript scripts, when touched
-bun run typecheck:scripts
+# VPN proxy TypeScript/runtime contract, when touched
+bun run test:vpn-proxy
 ```
 
 > [!CAUTION]

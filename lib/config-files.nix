@@ -35,49 +35,43 @@ rec {
     };
 
   known = rec {
-    ohMyPoshTheme = mkFile {
-      relativePath = "programmes/oh-my-posh/settings.json";
-      storePath = root + "/programmes/oh-my-posh/settings.json";
-    };
-
     vscodiumSettings = mkFile {
       relativePath = "modules/desktop/vscodium/settings.json";
       storePath = root + "/modules/desktop/vscodium/settings.json";
     };
 
-    opencodeStateDirectory = mkFile {
-      relativePath = "modules/terminal/opencode";
-      storePath = root + "/modules/terminal/opencode";
+    modelsStateDirectory = mkFile {
+      relativePath = "packages/models";
+      storePath = root + "/packages/models";
     };
 
-    opencodeModels = mkFile {
-      relativePath = "${opencodeStateDirectory.relativePath}/models.json";
-      storePath = root + "/modules/terminal/opencode/models.json";
+    modelsCatalog = mkFile {
+      relativePath = "${modelsStateDirectory.relativePath}/models.json";
+      storePath = root + "/packages/models/models.json";
     };
 
-    opencodeState = mkFile {
-      relativePath = "${opencodeStateDirectory.relativePath}/state.json";
-      storePath = root + "/modules/terminal/opencode/state.json";
+    modelsState = mkFile {
+      relativePath = "${modelsStateDirectory.relativePath}/state.json";
+      storePath = root + "/packages/models/state.json";
     };
 
-    opencodePresets = mkFile {
-      relativePath = "${opencodeStateDirectory.relativePath}/presets.json";
-      storePath = root + "/modules/terminal/opencode/presets.json";
+    modelsPresets = mkFile {
+      relativePath = "${modelsStateDirectory.relativePath}/presets.json";
+      storePath = root + "/packages/models/presets.json";
     };
 
-    opencodeLocalPatches = mkFile {
-      relativePath = "${opencodeStateDirectory.relativePath}/_model-local-patches.json";
-      storePath = root + "/modules/terminal/opencode/_model-local-patches.json";
+    modelsLocalPatches = mkFile {
+      relativePath = "${modelsStateDirectory.relativePath}/_model-local-patches.json";
+      storePath = root + "/packages/models/_model-local-patches.json";
     };
   };
 
   managedFiles = with known; [
-    ohMyPoshTheme
     vscodiumSettings
-    opencodeModels
-    opencodeState
-    opencodePresets
-    opencodeLocalPatches
+    modelsCatalog
+    modelsState
+    modelsPresets
+    modelsLocalPatches
   ];
 
   withInputPaths = files: map (file: file // { inputPath = file.storePath; }) files;

@@ -5,14 +5,14 @@ let
   routerProviderName = "Router";
   # models.json is the reviewed cache written by `models sync`. It keeps
   # upstream metadata local while the provider config uses the same model IDs.
-  modelsFile = ./models.json;
+  modelsFile = self.lib.configFiles.known.modelsCatalog.storePath;
   # Local patches are reserved for exact model facts the sync API omits or gets
   # wrong. Prefer vendor pages for real context/output pairs; OmniRoute often
   # returns context-only rows and OpenCode rejects partial `limit` objects, so
   # normalizeModel fills output with the upstream openai-compatible default
   # until a patch lands. Sources: https://opencode.ai/docs/models/ and
   # https://github.com/diegosouzapw/OmniRoute/pull/578
-  localPatchesFile = ./_model-local-patches.json;
+  localPatchesFile = self.lib.configFiles.known.modelsLocalPatches.storePath;
   localPatches =
     let
       exists = builtins.pathExists localPatchesFile;

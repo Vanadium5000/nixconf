@@ -24,7 +24,6 @@
         filterAttrs
         mapAttrs
         mapAttrs'
-        mapAttrsToList
         nameValuePair
         mkEnableOption
         mkOption
@@ -39,21 +38,31 @@
       portOf = path: fallback: attrByPath path fallback config;
       traefikEnabled = attrByPath [ "services" "traefik" "enable" ] false config;
       secrets = self.secrets or { };
+      theme = self.themes.mainTheme;
+      inherit (theme)
+        colors
+        palette
+        glass
+        settings
+        ;
+      rgba = self.themes.toRgba;
+      rgb = self.themes.toRgb;
 
-      # Neon accents for mdi/si icons (Homepage supports mdi-NAME-#hex / si-NAME-#hex).
+      # Homepage supports mdi/si icon colour suffixes. Derive them from the
+      # active typed theme rather than coupling this module to one palette.
       # Source: https://gethomepage.dev/configs/services/#icons
       c = {
-        cyan = "#00F0FF";
-        magenta = "#FF2BD6";
-        violet = "#A855F7";
-        lime = "#B8FF3C";
-        amber = "#FFB020";
-        rose = "#FF4D6D";
-        blue = "#3B82F6";
-        sky = "#38BDF8";
-        emerald = "#34D399";
-        orange = "#FB923C";
-        white = "#E2E8F0";
+        cyan = colors.base0C;
+        magenta = colors.base0E;
+        violet = colors.base0D;
+        lime = colors.base0B;
+        amber = colors.base0A;
+        rose = colors.base08;
+        blue = colors.base0D;
+        sky = colors.base0C;
+        emerald = colors.base0B;
+        orange = colors.base09;
+        white = colors.base07;
       };
 
       ports = {
@@ -452,53 +461,45 @@
         HOMEPAGE_VAR_QBITTORRENT_PASSWORD=${secrets.QBITTORRENT_WEBUI_PASSWORD or ""}
       '';
 
-      # Nix Cyberpunk Electric Dark — Application Theme
-      # Deep void base, electric cyan/magenta neon, glass cards, scanline wash.
-      cyberpunkCSS = ''
+      # This stylesheet consumes only the typed theme contract; selecting a
+      # different registry entry rethemes Homepage without a CSS fork.
+      homepageCSS = ''
         :root {
-          --color-50: 236 254 255;
-          --color-100: 207 250 254;
-          --color-200: 165 243 252;
-          --color-300: 103 232 249;
-          --color-400: 34 211 238;
-          --color-500: 6 182 212;
-          --color-600: 8 145 178;
-          --color-700: 14 116 144;
-          --color-800: 12 28 48;
-          --color-900: 6 12 28;
-          --color-950: 2 4 14;
+          --color-50: ${rgb colors.base07};
+          --color-100: ${rgb colors.base06};
+          --color-200: ${rgb colors.base05};
+          --color-300: ${rgb colors.base04};
+          --color-400: ${rgb colors.base0C};
+          --color-500: ${rgb palette.accentAlt};
+          --color-600: ${rgb palette.accent};
+          --color-700: ${rgb colors.base0D};
+          --color-800: ${rgb colors.base01};
+          --color-900: ${rgb colors.base00};
+          --color-950: ${rgb colors.base00};
 
-          --cyber-bg: #02040e;
-          --cyber-panel: rgba(8, 16, 36, 0.72);
-          --cyber-panel-border: rgba(0, 240, 255, 0.22);
-          --cyber-panel-glow: 0 0 0 1px rgba(0, 240, 255, 0.12), 0 0 28px rgba(0, 240, 255, 0.08),
-            0 12px 40px rgba(0, 0, 0, 0.45);
-          --cyber-cyan: #00f0ff;
-          --cyber-magenta: #ff2bd6;
-          --cyber-violet: #a855f7;
-          --cyber-text: #d7f7ff;
-          --cyber-muted: #7f9bb3;
-          --cyber-grid: rgba(0, 240, 255, 0.045);
+          --nixconf-bg: ${palette.background};
+          --nixconf-panel: ${rgba glass.background settings.opacity};
+          --nixconf-panel-border: ${rgba palette.border 0.22};
+          --nixconf-panel-glow: 0 0 0 1px ${rgba palette.border 0.12}, 0 0 28px ${rgba palette.border 0.08},
+            0 12px 40px ${rgba colors.base00 glass.shadowOpacity};
+          --nixconf-accent: ${palette.accent};
+          --nixconf-accent-alt: ${palette.accentAlt};
+          --nixconf-text: ${palette.foregroundAlt};
+          --nixconf-muted: ${colors.base04};
         }
 
         html,
         body {
-          color: var(--cyber-text) !important;
-          background-color: var(--cyber-bg) !important;
+          color: var(--nixconf-text) !important;
+          background-color: var(--nixconf-bg) !important;
           background-image:
-            radial-gradient(ellipse 80% 50% at 10% -10%, rgba(0, 240, 255, 0.18), transparent 55%),
-            radial-gradient(ellipse 70% 45% at 100% 0%, rgba(255, 43, 214, 0.14), transparent 50%),
-            radial-gradient(ellipse 60% 40% at 50% 110%, rgba(168, 85, 247, 0.12), transparent 55%),
-            linear-gradient(rgba(0, 240, 255, 0.03) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(0, 240, 255, 0.03) 1px, transparent 1px),
-            linear-gradient(180deg, #02040e 0%, #050a1a 45%, #02040e 100%) !important;
-          background-size:
-            auto,
-            auto,
-            auto,
-            48px 48px,
-            48px 48px,
-            auto !important;
+            radial-gradient(ellipse 80% 50% at 10% -10%, ${rgba palette.accentAlt 0.18}, transparent 55%),
+            radial-gradient(ellipse 70% 45% at 100% 0%, ${rgba colors.base0E 0.14}, transparent 50%),
+            radial-gradient(ellipse 60% 40% at 50% 110%, ${rgba palette.accent 0.12}, transparent 55%),
+            linear-gradient(${rgba palette.border 0.03} 1px, transparent 1px),
+            linear-gradient(90deg, ${rgba palette.border 0.03} 1px, transparent 1px),
+            linear-gradient(180deg, ${palette.background} 0%, ${palette.backgroundAlt} 45%, ${palette.background} 100%) !important;
+          background-size: auto, auto, auto, 48px 48px, 48px 48px, auto !important;
           background-attachment: fixed !important;
         }
 
@@ -508,12 +509,7 @@
           position: fixed;
           inset: 0;
           z-index: 0;
-          background: repeating-linear-gradient(
-            to bottom,
-            transparent 0,
-            transparent 2px,
-            rgba(0, 0, 0, 0.08) 3px
-          );
+          background: repeating-linear-gradient(to bottom, transparent 0, transparent 2px, ${rgba colors.base00 0.08} 3px);
           opacity: 0.35;
         }
 
@@ -525,20 +521,14 @@
           z-index: 1;
         }
 
-        /* Information / resource widgets bar */
         #information-widgets,
         .information-widget,
         .widget-container,
         [class*="information-widgets"] {
           backdrop-filter: blur(18px) saturate(140%);
-          background: linear-gradient(
-            135deg,
-            rgba(0, 240, 255, 0.08),
-            rgba(255, 43, 214, 0.05) 50%,
-            rgba(8, 16, 36, 0.75)
-          ) !important;
-          border: 1px solid var(--cyber-panel-border) !important;
-          box-shadow: var(--cyber-panel-glow) !important;
+          background: linear-gradient(135deg, ${rgba palette.accentAlt 0.08}, ${rgba colors.base0E 0.05} 50%, ${rgba glass.background 0.75}) !important;
+          border: 1px solid var(--nixconf-panel-border) !important;
+          box-shadow: var(--nixconf-panel-glow) !important;
           border-radius: 1rem !important;
         }
 
@@ -547,25 +537,19 @@
         [class*="service-card"],
         [class*="bookmark-card"] {
           backdrop-filter: blur(16px) saturate(130%);
-          background: var(--cyber-panel) !important;
-          border: 1px solid var(--cyber-panel-border) !important;
-          box-shadow: var(--cyber-panel-glow) !important;
+          background: var(--nixconf-panel) !important;
+          border: 1px solid var(--nixconf-panel-border) !important;
+          box-shadow: var(--nixconf-panel-glow) !important;
           border-radius: 0.9rem !important;
-          transition:
-            border-color 160ms ease,
-            box-shadow 160ms ease,
-            transform 160ms ease !important;
+          transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease !important;
         }
 
         .service-card:hover,
         .bookmark:hover,
         [class*="service-card"]:hover,
         [class*="bookmark-card"]:hover {
-          border-color: rgba(0, 240, 255, 0.55) !important;
-          box-shadow:
-            0 0 0 1px rgba(0, 240, 255, 0.28),
-            0 0 36px rgba(0, 240, 255, 0.18),
-            0 0 48px rgba(255, 43, 214, 0.1) !important;
+          border-color: ${rgba palette.border 0.55} !important;
+          box-shadow: 0 0 0 1px ${rgba palette.border 0.28}, 0 0 36px ${rgba palette.border 0.18}, 0 0 48px ${rgba colors.base0E 0.1} !important;
           transform: translateY(-1px);
         }
 
@@ -575,26 +559,25 @@
         .bookmark-group-name,
         [class*="service-group"] button,
         [class*="bookmark-group"] button {
-          color: var(--cyber-cyan) !important;
+          color: var(--nixconf-accent-alt) !important;
           letter-spacing: 0.04em;
-          text-shadow: 0 0 18px rgba(0, 240, 255, 0.35);
+          text-shadow: 0 0 18px ${rgba palette.accentAlt 0.35};
           font-weight: 650 !important;
         }
 
         .service-title,
         .bookmark-text,
         a {
-          color: var(--cyber-text) !important;
+          color: var(--nixconf-text) !important;
         }
 
         .service-description,
         .service-card p,
         [class*="description"] {
-          color: var(--cyber-muted) !important;
+          color: var(--nixconf-muted) !important;
           font-variant-numeric: tabular-nums;
         }
 
-        /* Port badge emphasis: " · :8082" */
         .service-description {
           font-size: 0.86em !important;
         }
@@ -602,53 +585,47 @@
         input,
         select,
         textarea {
-          background: rgba(2, 8, 22, 0.85) !important;
-          border: 1px solid rgba(0, 240, 255, 0.25) !important;
-          color: var(--cyber-text) !important;
+          background: ${rgba palette.background 0.85} !important;
+          border: 1px solid ${rgba palette.border 0.25} !important;
+          color: var(--nixconf-text) !important;
           border-radius: 0.75rem !important;
-          box-shadow: inset 0 0 18px rgba(0, 240, 255, 0.05);
+          box-shadow: inset 0 0 18px ${rgba palette.border 0.05};
         }
 
         input:focus {
           outline: none !important;
-          border-color: var(--cyber-magenta) !important;
-          box-shadow:
-            0 0 0 1px rgba(255, 43, 214, 0.45),
-            0 0 24px rgba(255, 43, 214, 0.2) !important;
+          border-color: ${colors.base0E} !important;
+          box-shadow: 0 0 0 1px ${rgba colors.base0E 0.45}, 0 0 24px ${rgba colors.base0E 0.2} !important;
         }
 
-        /* Resource meters */
         [class*="resource"],
         .gauge,
         .progressbar,
         progress {
-          accent-color: var(--cyber-cyan);
+          accent-color: var(--nixconf-accent-alt);
         }
 
-        /* Status dots */
         .status-dot,
         [class*="status"] {
-          filter: drop-shadow(0 0 4px rgba(0, 240, 255, 0.65));
+          filter: drop-shadow(0 0 4px ${rgba palette.accentAlt 0.65});
         }
 
-        /* Soft neon scrollbar */
         ::-webkit-scrollbar {
           width: 10px;
           height: 10px;
         }
         ::-webkit-scrollbar-track {
-          background: #02040e;
+          background: var(--nixconf-bg);
         }
         ::-webkit-scrollbar-thumb {
-          background: linear-gradient(180deg, var(--cyber-cyan), var(--cyber-magenta));
+          background: linear-gradient(180deg, var(--nixconf-accent-alt), ${colors.base0E});
           border-radius: 999px;
-          border: 2px solid #02040e;
+          border: 2px solid var(--nixconf-bg);
         }
 
-        /* Footer version chip */
         footer,
         [class*="footer"] {
-          color: var(--cyber-muted) !important;
+          color: var(--nixconf-muted) !important;
           opacity: 0.85;
         }
       '';
@@ -697,7 +674,7 @@
           listenPort = cfg.port;
           allowedHosts = "*";
           environmentFiles = [ homepageEnvironmentFile ];
-          customCSS = cyberpunkCSS;
+          customCSS = homepageCSS;
 
           settings = {
             title = "Nix Cyberpunk — ${hostName}";
@@ -892,7 +869,7 @@
 
         services.traefik.dynamicConfigOptions.http = mkIf traefikEnabled {
           routers = mapAttrs' (
-            name: service:
+            name: _service:
             nameValuePair (mkTraefikRouterName name) {
               rule = "Host(`${name}`)";
               service = mkTraefikServiceName name;

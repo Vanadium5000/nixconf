@@ -1,0 +1,14 @@
+{
+  "name": "bunjs-quickshell-docs-mcp",
+  "private": true,
+  "scripts": {
+    "check": "bun --syntax quickshell-docs.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.25.3",
+    "zod": "4.3.6"
+  },
+  "devDependencies": {
+    "@types/bun": "1.3.11"
+  }
+}

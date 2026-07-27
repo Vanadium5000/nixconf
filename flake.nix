@@ -125,15 +125,22 @@
           ./lib/default.nix
           ./packages/_exports
           ./packages/bunjs-docs/module.nix
-          ./packages/bunjs-scripts/module.nix
-          ./packages/bunjs-scripts/package.nix
+          ./packages/models/package.nix
+          ./packages/bunjs-vpn-proxy/module.nix
+          ./packages/bunjs-vpn-proxy/commands.nix
           ./packages/services-auth-gateway/module.nix
           ./packages/qs-menus/package.nix
           ./external-packages/cliproxyapi/module.nix
           ./external-packages/cpa-usage-keeper/module.nix
           ./external-packages/omniroute/module.nix
           ./programmes
-          ./modules
+          ./modules/common
+          ./modules/desktop
+          ./modules/flake
+          ./modules/system
+          ./modules/terminal
+          ./modules/theme/default.nix
+          ./modules/theme/kde-color-scheme.nix
           ./hosts
           ./secrets.nix
         ]

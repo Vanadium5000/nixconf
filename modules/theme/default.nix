@@ -1,52 +1,123 @@
-{ lib, ... }:
+{ config, lib, ... }:
 let
-  # ===========================================================================
-  # Nix Cyberpunk Electric Dark - Application Theme
-  # Used for terminal applications, syntax highlighting, and app-specific styling
-  # ===========================================================================
-  colors = {
-    base00 = "#000000"; # black (background)
-    base01 = "#0d0d0d"; # darkish black (lighter background)
-    base02 = "#383838"; # brightish black (selection)
-    base03 = "#545454"; # bright black (comments)
-    base04 = "#7e7e7e"; # darker white (dark foreground)
-    base05 = "#a8a8a8"; # white (default foreground)
-    base06 = "#d2d2d2"; # middle white (light foreground)
-    base07 = "#fcfcfc"; # bright white (lightest)
-    base08 = "#fc5454"; # bright red
-    base09 = "#a85400"; # orange/yellow
-    base0A = "#fcfc54"; # bright yellow
-    base0B = "#54fc54"; # bright green
-    base0C = "#54fcfc"; # bright cyan
-    base0D = "#5454fc"; # bright blue
-    base0E = "#fc54fc"; # bright magenta
-    base0F = "#00a800"; # dark green
-
-    # Semantic aliases
-    accent = colors.base0D;
-    accent-alt = colors.base0C;
-    background = colors.base00;
-    background-alt = colors.base01;
-    foreground = colors.base05;
-    foreground-alt = colors.base06;
-    border-color = colors.base0D;
-    border-color-inactive = colors.base03;
+  inherit (lib) types;
+  base16Names = [
+    "base00"
+    "base01"
+    "base02"
+    "base03"
+    "base04"
+    "base05"
+    "base06"
+    "base07"
+    "base08"
+    "base09"
+    "base0A"
+    "base0B"
+    "base0C"
+    "base0D"
+    "base0E"
+    "base0F"
+  ];
+  requiredColors = builtins.listToAttrs (
+    map (name: {
+      inherit name;
+      value = types.strMatching "#[0-9A-Fa-f]{6}";
+    }) base16Names
+  );
+  # A complete Base16 palette lets every consumer derive its own surface while
+  # `palette` carries the semantic aliases that differ between themes.
+  colorType = types.strMatching "#[0-9A-Fa-f]{6}";
+  paletteType = types.submodule {
+    options = {
+      accent = lib.mkOption { type = colorType; };
+      accentAlt = lib.mkOption { type = colorType; };
+      background = lib.mkOption { type = colorType; };
+      backgroundAlt = lib.mkOption { type = colorType; };
+      foreground = lib.mkOption { type = colorType; };
+      foregroundAlt = lib.mkOption { type = colorType; };
+      border = lib.mkOption { type = colorType; };
+      borderInactive = lib.mkOption { type = colorType; };
+      error = lib.mkOption { type = colorType; };
+      success = lib.mkOption { type = colorType; };
+      warning = lib.mkOption { type = colorType; };
+    };
   };
-
-  # ===========================================================================
-  # General Theme Settings
-  # ===========================================================================
-  theme = {
-    font = "JetBrainsMono Nerd Font";
-    blur = true;
-    rounding = 8;
-    opacity = 1.0;
-    gaps-in = 2; # Between windows/buttons
-    gaps-out = 4; # Between windows and display edge
-    border-size = 1;
-    font-size = 11;
-    system.font-size = 11;
+  glassType = types.submodule {
+    options = {
+      background = lib.mkOption { type = colorType; };
+      backgroundSolid = lib.mkOption { type = colorType; };
+      accent = lib.mkOption { type = colorType; };
+      accentAlt = lib.mkOption { type = colorType; };
+      textPrimary = lib.mkOption { type = colorType; };
+      textSecondary = lib.mkOption { type = colorType; };
+      separator = lib.mkOption { type = colorType; };
+      separatorOpaque = lib.mkOption { type = colorType; };
+      highlightOpacity = lib.mkOption { type = types.numbers.between 0.0 1.0; };
+      innerStrokeOpacity = lib.mkOption { type = types.numbers.between 0.0 1.0; };
+      borderOpacity = lib.mkOption { type = types.numbers.between 0.0 1.0; };
+      shadowOpacity = lib.mkOption { type = types.numbers.between 0.0 1.0; };
+      shadowRadius = lib.mkOption { type = types.ints.positive; };
+      shadowOffsetY = lib.mkOption { type = types.ints.unsigned; };
+      blurRadius = lib.mkOption { type = types.ints.positive; };
+      cornerRadius = lib.mkOption { type = types.ints.positive; };
+      cornerRadiusSmall = lib.mkOption { type = types.ints.positive; };
+      padding = lib.mkOption { type = types.ints.positive; };
+      itemSpacing = lib.mkOption { type = types.ints.positive; };
+      fontSizeSmall = lib.mkOption { type = types.ints.positive; };
+      fontSizeMedium = lib.mkOption { type = types.ints.positive; };
+      fontSizeLarge = lib.mkOption { type = types.ints.positive; };
+      fontSizeTitle = lib.mkOption { type = types.ints.positive; };
+      animationDuration = lib.mkOption { type = types.ints.positive; };
+      animationDurationSlow = lib.mkOption { type = types.ints.positive; };
+    };
   };
+  themeType = types.submodule {
+    options = {
+      name = lib.mkOption { type = types.str; };
+      scheme = lib.mkOption { type = types.strMatching "[A-Za-z][A-Za-z0-9_-]*"; };
+      type = lib.mkOption {
+        type = types.enum [
+          "dark"
+          "light"
+        ];
+      };
+      colors = lib.mkOption { type = types.submodule { options = requiredColors; }; };
+      palette = lib.mkOption { type = paletteType; };
+      glass = lib.mkOption { type = glassType; };
+      settings = lib.mkOption {
+        type = types.submodule {
+          options = {
+            font = lib.mkOption { type = types.str; };
+            font-size = lib.mkOption { type = types.ints.positive; };
+            blur = lib.mkOption { type = types.bool; };
+            rounding = lib.mkOption { type = types.ints.unsigned; };
+            opacity = lib.mkOption { type = types.numbers.between 0.0 1.0; };
+            gaps-in = lib.mkOption { type = types.ints.unsigned; };
+            gaps-out = lib.mkOption { type = types.ints.unsigned; };
+            border-size = lib.mkOption { type = types.ints.unsigned; };
+            system.font-size = lib.mkOption { type = types.ints.positive; };
+          };
+        };
+      };
+    };
+  };
+  defaultRegistry = import ./themes/cyberpunk-electric-dark.nix;
+  mainThemeName = config.flake.mainThemeName;
+  registry = defaultRegistry // config.flake.themeRegistry;
+  mainTheme =
+    registry.${mainThemeName} or (throw "modules/theme: main theme '${mainThemeName}' is not declared");
+  colors =
+    mainTheme.colors
+    // mainTheme.palette
+    // {
+      accent-alt = mainTheme.palette.accentAlt;
+      background-alt = mainTheme.palette.backgroundAlt;
+      foreground-alt = mainTheme.palette.foregroundAlt;
+      border-color = mainTheme.palette.border;
+      border-color-inactive = mainTheme.palette.borderInactive;
+    };
+  theme = mainTheme.settings;
 
   # ===========================================================================
   # Color Conversion Utilities
@@ -114,18 +185,56 @@ let
     else
       str;
 
+  hexToRgb =
+    color:
+    "${builtins.toString (extractChannel (stripHash color) 0)} ${builtins.toString (extractChannel (stripHash color) 2)} ${builtins.toString (extractChannel (stripHash color) 4)}";
+
+  hexToCssRgba = color: opacity: "rgb(${hexToRgb color} / ${builtins.toString opacity})";
+
+  hexToQmlRgba =
+    color: opacity:
+    let
+      raw = stripHash color;
+    in
+    "Qt.rgba(${builtins.toString (extractChannel raw 0)} / 255, ${builtins.toString (extractChannel raw 2)} / 255, ${builtins.toString (extractChannel raw 4)} / 255, ${builtins.toString opacity})";
+
   colorsNoHash = builtins.mapAttrs (_: v: stripHash v) colors;
   colorsRgba = builtins.mapAttrs (_: v: hexToRgba (stripHash v) theme.opacity) colors;
   colorsRgbaValues = builtins.mapAttrs (_: v: hexToRgbaValues (stripHash v) theme.opacity) colors;
 in
 {
-  flake = {
-    inherit
-      colors
-      colorsNoHash
-      colorsRgba
-      colorsRgbaValues
-      theme
-      ;
+  options.flake = {
+    themeRegistry = lib.mkOption {
+      type = types.attrsOf themeType;
+      default = { };
+      description = "Typed colour, semantic, glass, and layout definitions available to this flake.";
+    };
+    mainThemeName = lib.mkOption {
+      type = types.str;
+      default = "cyberpunk-electric-dark";
+      description = "Key of the active entry in flake.themeRegistry.";
+    };
+  };
+
+  config = {
+    flake = {
+      inherit
+        colors
+        colorsNoHash
+        colorsRgba
+        colorsRgbaValues
+        theme
+        ;
+      themes = {
+        inherit
+          mainTheme
+          mainThemeName
+          ;
+        registry = registry;
+        toRgb = hexToRgb;
+        toRgba = hexToCssRgba;
+        toQmlRgba = hexToQmlRgba;
+      };
+    };
   };
 }

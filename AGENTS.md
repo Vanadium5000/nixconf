@@ -10,7 +10,8 @@
 - **DRY**: use `self.lib` for reusable functions and `config.preferences` for shared values.
 - **Formatting**: from repo root run `nix run nixpkgs#nixfmt-tree -- .`; check-only with `nix run nixpkgs#nixfmt-tree -- --ci .`. Avoid file-by-file formatter drift.
 - **README & DOCS freshness**: update `README.md` & `docs/` in the same edit when changing flake inputs/exports, host inventory, profile/service architecture, public routes/ports, persistence or secrets flow, package exposure/update policy, script workspaces, or rebuild commands. Keep docs factual and generated-from-current-code in spirit. Include detailed fenced code blocks for commands/config, concrete explanations, diagrams when they clarify flow, source links to upstream docs/issues, and relative links to owning repo paths.
-- **Architecture layout**: root architecture directories are subdirectory-owned; do not add first-level implementation files there. Exception: `lib/` is flat `*.nix` helpers. `packages/<name>/` owns in-repo software, `external-packages/<name>/` owns packaged upstream projects, and `programmes/<name>/` owns wrappers/configuration for upstream tools. Keep `docs/` first-level entries as section directories containing only `.md`/`.mdx`; do not put JS/TS app code in `docs/`.
+- **Architecture layout**: root architecture directories are subdirectory-owned; do not add first-level implementation files there. Exception: `lib/` is flat `*.nix` helpers. `packages/<name>/` owns in-repo software and must contain `package.nix`; its directory name is the exported package name, with `bunjs-` reserved for Bun-programme directories. Package scripts depend on the narrowest exported command, never an unrelated aggregate. `external-packages/<name>/` owns packaged upstream projects and must contain `package.nix`. `programmes/<name>/` owns wrappers/configuration for upstream tools and must contain `module.nix` or `package.nix`. Keep `docs/` first-level entries as section directories containing only `.md`/`.mdx`; do not put JS/TS app code in `docs/`.
+- **Repository audits**: keep `checks.repository-architecture` clean when changing root architecture trees. Use `nix run path:.#persist-audit` to locate persistence/cache declarations and `nix run path:.#nix-unused-audit` (or `-- --strict`) for Nix static analysis; these packages are opt-in and must not be installed by broad profiles.
 
 ## 🧊 Infrastructure Patterns
 
@@ -47,7 +48,7 @@ main_vps: hosts/main_vps/
    ├─ services.cliproxyapi: external-packages/cliproxyapi/module.nix; external-packages/cliproxyapi/package.nix
    ├─ services.cpa-usage-keeper: external-packages/cpa-usage-keeper/module.nix; external-packages/cpa-usage-keeper/package.nix
    ├─ services.services-auth-gateway: packages/services-auth-gateway/module.nix; packages/services-auth-gateway/package.nix
-   ├─ services.vpn-proxy: packages/bunjs-scripts/module.nix; proxy docs/scripts in packages/bunjs-scripts/proxy/
+   ├─ services.vpn-proxy: packages/bunjs-vpn-proxy/module.nix; proxy docs/scripts in packages/bunjs-vpn-proxy/
    ├─ manual btrbk backups: modules/terminal/btrbk.nix; backs up /persist/system to /run/media/<user>/<drive>/BTRFS-BACKUPS/<host>-<persisted 8 hex>/ with no timer
    └─ docker compose stacks: modules/terminal/docker-compose-stacks.nix discovers modules/terminal/docker/compose/<stack>/*.yaml; portainer enabled fleet-wide; gluetun-qbittorrent enabled on desktop hosts only
 

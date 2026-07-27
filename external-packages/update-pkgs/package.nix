@@ -13,6 +13,8 @@ let
   mediumPackagePattern = shellCasePattern workflow.packageSets.medium;
   heavyPackagePattern = shellCasePattern workflow.packageSets.heavy;
   updateModeCases = shellCases workflow.updateModes;
+  smokeArgumentCases = shellCases workflow.smokeArguments;
+  customUpdaterCases = shellCases workflow.customUpdaters;
   manualReasonCases = shellCases workflow.manualReasons;
   externalPackageNames =
     let
@@ -22,7 +24,7 @@ let
     in
     builtins.filter (name: builtins.pathExists (root + "/${name}/package.nix")) dirs;
   coveredPackageNames = builtins.attrNames workflow.updateModes;
-  missingCoverage = pkgs.lib.subtractLists coveredPackageNames externalPackageNames;
+  missingCoverage = pkgs.lib.subtractLists externalPackageNames coveredPackageNames;
   coverageWarning =
     if missingCoverage == [ ] then
       ""
@@ -419,21 +421,18 @@ pkgs.writeShellApplication {
           refresh_fake_hash_from_build "$file" "$attr" run_flake_build_attr "$pkg"
         }
 
-        package_smoke_commands() {
-          local pkg="$1" bin="$2"
+        package_smoke_argument() {
+          local pkg="$1"
           case "$pkg" in
-          omniroute)
-            # omniroute's npm artifact has shipped CLI command drift before (notably
-            # an empty bin/cli/commands/serve.mjs in 3.8.42). `--help` imports the
-            # command registry, which catches missing exports without starting the server.
-            printf '%s\t%s\n' "$bin" "--help"
-            ;;
-          cliproxyapi | cpa-usage-keeper | openchamber-web | waydroid-script | waydroid-total-spoof)
-            printf '%s\t%s\n' "$bin" "--help"
-            ;;
-          *)
-            return 0
-            ;;
+          ${smokeArgumentCases}
+          *) return 1 ;;
+          esac
+        }
+
+        package_custom_updater() {
+          case "$1" in
+          ${customUpdaterCases}
+          *) return 1 ;;
           esac
         }
 
@@ -478,18 +477,16 @@ pkgs.writeShellApplication {
             return 0
           fi
 
-          if [ -z "$(package_smoke_commands "$pkg" "$bin")" ]; then
+          if ! arg=$(package_smoke_argument "$pkg"); then
             echo "  Build validation only; no non-GUI smoke command is configured for $pkg."
             TESTED+=("$pkg")
             return 0
           fi
 
-          while IFS=$'\t' read -r cmd arg; do
-            if run_smoke_command "$cmd" "$arg"; then
-              TESTED+=("$pkg")
-              return 0
-            fi
-          done < <(package_smoke_commands "$pkg" "$bin")
+          if run_smoke_command "$bin" "$arg"; then
+            TESTED+=("$pkg")
+            return 0
+          fi
 
           echo "  Build passed, but no safe help/version smoke command succeeded for $bin."
           FAILED+=("$pkg")
@@ -1110,8 +1107,9 @@ pkgs.writeShellApplication {
           for pkg in "''${PACKAGES[@]}"; do
             echo "================================================================"
             echo "Checking $pkg..."
-            # Per-package mode comes from workflow.nix; package-specific shell here
-            # is limited to custom updater function names.
+            # Modes, smoke arguments, and custom-updater bindings are rendered
+            # from workflow.nix; shell functions only implement source-specific
+            # mechanics such as multi-output hash refreshes.
             case "$(package_update_mode "$pkg")" in
             manual)
           reason=$(manual_update_reason "$pkg" || printf '%s' 'manual update required')
@@ -1119,23 +1117,20 @@ pkgs.writeShellApplication {
               SKIPPED+=("$pkg")
               ;;
             custom)
-          updater="update_''${pkg//-/_}_package"
-          if ! declare -F "$updater" >/dev/null; then
+          updater_id=$(package_custom_updater "$pkg" || true)
+          updater="update_''${updater_id}_package"
+          if [ -z "$updater_id" ] || ! declare -F "$updater" >/dev/null; then
             echo " Missing custom updater function: $updater"
                   FAILED+=("$pkg")
           elif "$updater"; then
-            if [ "$pkg" = omniroute ]; then
-                if build_package_quiet "$pkg"; then
+            if build_package_quiet "$pkg"; then
                 UPDATED+=("$pkg")
-              else
-                  FAILED+=("$pkg")
-              fi
-              else
-                UPDATED+=("$pkg")
-              fi
-                else
-                SKIPPED+=("$pkg")
-                fi
+            else
+              FAILED+=("$pkg")
+            fi
+          else
+            SKIPPED+=("$pkg")
+          fi
               ;;
             nix-update-branch)
               set +e

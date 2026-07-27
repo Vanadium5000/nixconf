@@ -10,6 +10,7 @@
     let
       cfg = config.preferences.kde;
       selfpkgs = self.packages.${pkgs.stdenv.hostPlatform.system};
+      colorSchemes = self.packages.${pkgs.stdenv.hostPlatform.system}.kde-color-schemes;
       user = config.preferences.user.username;
       homeDirectory = config.preferences.paths.homeDirectory;
       persistedHomeDirectory = "/persist/system/${lib.removePrefix "/" homeDirectory}";
@@ -77,6 +78,10 @@
           # offer it as a global theme without forcing it as the active theme.
           # Source: https://invent.kde.org/plasma/oxygen/-/raw/master/lookandfeel/CMakeLists.txt
           pkgs.kdePackages.oxygen
+          # Expose the Nix-declared palette to Plasma's colour-scheme chooser;
+          # do not force it as the active scheme because Plasma configuration is
+          # deliberately imperative and persisted per user.
+          colorSchemes
           pkgs.kdePackages.partitionmanager
           pkgs.kdePackages.print-manager
           pkgs.kdePackages.spectacle
@@ -115,6 +120,8 @@
           QT_QUICK_CONTROLS_STYLE = lib.mkForce "org.kde.desktop";
           SSH_ASKPASS_REQUIRE = "prefer";
         };
+
+        environment.pathsToLink = [ "/share/color-schemes" ];
 
         # Plasma's own NixOS module defaults to pinentry-qt/ksshaskpass; keep
         # those choices forced on this profile so GPG and pkexec/SSH prompts use

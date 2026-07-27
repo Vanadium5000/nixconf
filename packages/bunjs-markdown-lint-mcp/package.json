@@ -1,0 +1,14 @@
+{
+  "name": "bunjs-markdown-lint-mcp",
+  "private": true,
+  "scripts": {
+    "check": "bun --syntax markdown-lint.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.25.3",
+    "zod": "4.3.6"
+  },
+  "devDependencies": {
+    "@types/bun": "1.3.11"
+  }
+}

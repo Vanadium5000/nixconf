@@ -1,9 +1,0 @@
-{
-  "name": "bunjs-lyrics",
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "check": "bun --syntax synced-lyrics.ts"
-  },
-  "dependencies": {}
-}

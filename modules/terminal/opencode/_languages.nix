@@ -1,4 +1,4 @@
-{ pkgs, self }:
+{ pkgs, ... }:
 let
   lib = pkgs.lib;
   timeoutSeconds = 20;

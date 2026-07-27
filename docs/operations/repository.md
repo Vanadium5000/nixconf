@@ -19,8 +19,8 @@ flake.nix
 
 - `AGENTS.md`: mandatory AI agent operating instructions at the repository root.
 - `hosts/`: active host definitions.
-- `packages/<name>/`: in-repo software with `package.nix` and any package-owned module/assets.
-- `external-packages/<name>/`: packaged upstream projects with `package.nix`; `external-packages/update-pkgs/workflow.nix` owns automatic or documented-manual update workflow coverage and uncovered packages warn.
+- `packages/<name>/`: in-repo software with `package.nix` and any package-owned module/assets. The directory name is the exported package name; `bunjs-` is reserved for Bun-programme directories.
+- `external-packages/<name>/`: packaged upstream projects with `package.nix`; `external-packages/update-pkgs/workflow.nix` owns package sets, updater modes, safe smoke arguments, custom-updater bindings, and documented manual coverage. Uncovered packages warn.
 - `programmes/<name>/`: wrappers and configuration for upstream tools built with `BirdeeHub/nix-wrapper-modules`.
 - `modules/terminal/`: terminal/server profile modules.
 - `modules/terminal/docker/compose/<stack>/`: Docker Compose stack assets consumed by `modules/terminal/docker-compose-stacks.nix`.
@@ -28,7 +28,34 @@ flake.nix
 - `modules/terminal/monitoring/homepage.nix`: Homepage dashboard cards and bookmarks.
 - `lib/`: flat `*.nix` helper files.
 
+Multi-command package owners export each runnable command directly. Do not add a convenience aggregate that pulls unrelated scripts, runtimes, browsers, or daemons into one closure; choose the exact `self.packages.<system>.<command>` at the consuming profile, service, host, or package. For example, music and credential commands depend on `qs-dmenu`, not the unrelated `qs-menus` aggregate.
+
 Root architecture directories contain owner subdirectories only; do not add first-level implementation files there. `lib/` is the flat-helper exception. Keep first-level `docs/` entries as section directories containing `.md`/`.mdx` only; Docusaurus JS/TS code belongs in `packages/bunjs-docs/`.
+
+## Repository audits
+
+The flake exposes read-only audit commands from [`packages/repo-audits/package.nix`](../../packages/repo-audits/package.nix). They are intentionally opt-in: they do not add developer tooling to any host profile.
+
+```bash
+# Build or run from any Linux system with Nix; no global setup required.
+nix run path:.#persist-audit
+nix run path:.#nix-unused-audit
+
+# Make unused Nix bindings fail the audit after reviewing the report.
+nix run path:.#nix-unused-audit -- --strict
+```
+
+- `persist-audit` reports source locations of declared persistent and cache state.
+- `nix-unused-audit` runs [deadnix](https://github.com/astro/deadnix) and [statix](https://github.com/oppiliappan/statix) over the root Nix architecture directories.
+- `checks.repository-architecture` evaluates the first-level directory contract for `docs/`, `packages/`, `external-packages/`, and `programmes/`.
+- `checks.update-pkgs-workflow-coverage` warns when an external package lacks an update mode in [`external-packages/update-pkgs/workflow.nix`](../../external-packages/update-pkgs/workflow.nix); `update-pkgs` emits the same warning interactively.
+
+Run the checks directly without linking a `result` path:
+
+```bash
+nix build --no-link path:.#checks.x86_64-linux.repository-architecture
+nix build --no-link path:.#checks.x86_64-linux.update-pkgs-workflow-coverage
+```
 
 Deleted checkout files should not create repo-local `.Trash-*` directories. `modules/common/impermanence.nix` enables trash support on persisted bind mounts and persists `~/.local/share/Trash` in `/persist/cache`, so VSCodium/Dolphin/GIO deletes route through the global XDG trash. `.Trash-*` is ignored only as a safety net, not as the intended state path.
 
@@ -83,7 +110,7 @@ Run dependency installs from the repository root only through package-scoped hel
 bun run install:all
 ```
 
-Use `bun run install:docs`, `bun run install:scripts`, or `bun run install:lyrics` when working on one package. Keep `packages/bunjs-docs/package-lock.json` committed: the NixOS docs module at `packages/bunjs-docs/module.nix` uses it for reproducible `pkgs.buildNpmPackage` builds during rebuilds.
+Use `bun run install:docs`, `bun run install:vpn-proxy`, or `bun run install:lyrics` when working on one package. Other Bun packages are self-contained: run Bun from that package directory if their manifest declares development dependencies. Keep `packages/bunjs-docs/package-lock.json` committed: the NixOS docs module at `packages/bunjs-docs/module.nix` uses it for reproducible `pkgs.buildNpmPackage` builds during rebuilds.
 
 ```nix
 # Typical module shape in this repository.

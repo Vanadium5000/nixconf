@@ -1,0 +1,10 @@
+{
+  "name": "bunjs-music-search",
+  "private": true,
+  "scripts": {
+    "check": "bun --syntax music-search.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "1.3.11"
+  }
+}

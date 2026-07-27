@@ -27,7 +27,7 @@
 
       # State is repo-owned so model-group choices survive wrapper runs and can
       # be reviewed/committed like any other configuration change.
-      stateFile = ./state.json;
+      stateFile = self.lib.configFiles.known.modelsState.storePath;
       state = modelGroups.mkState { inherit stateFile; };
       slimConfig = modelGroups.mkSlimConfig { inherit state; };
       opencodeModelsMetadata = modelGroups.mkMenuMetadata // {
@@ -154,8 +154,8 @@
             (pkgs.writeShellScript "image-gen-mcp-wrapper" ''
               export ROUTER_API_KEY="${routerDefaultApiKey}"
               export ROUTER_BASE_URL="${routerDefaultBaseUrl}"
-              MODELS_FILE="${configSourceDirectory}/modules/terminal/opencode/models.json"
-              PATCHES_FILE="${configSourceDirectory}/modules/terminal/opencode/_model-local-patches.json"
+              MODELS_FILE="${configSourceDirectory}/packages/models/models.json"
+              PATCHES_FILE="${configSourceDirectory}/packages/models/_model-local-patches.json"
 
               # Prefer the first runtime-effective model that advertises image output.
               # Source of truth is the repo models cache plus repo-owned JSON patches.

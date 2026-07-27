@@ -550,7 +550,7 @@
                 HOME=${shellHomeDirectory} \
                 MODELS_OMP_FILE=${shellOmpModelsFile} \
                 MODELS_OMP_API_KEY=${lib.escapeShellArg piApiKey} \
-                MODELS_STATE_DIR=${shellConfigSourceDirectory}/modules/terminal/opencode \
+                MODELS_STATE_DIR=${shellConfigSourceDirectory}/packages/models \
                 ${modelsCommand}/bin/models sync-omp >/dev/null
               chmod 0600 ${shellOmpModelsFile}
               chown ${shellUser}:users ${shellOmpModelsFile}

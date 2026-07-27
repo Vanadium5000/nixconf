@@ -1,0 +1,13 @@
+{
+  "name": "bunjs-playwright-stealth-browser",
+  "private": true,
+  "scripts": {
+    "check": "bun --syntax playwright-stealth-browser.ts"
+  },
+  "dependencies": {
+    "playwright-core": "1.56.1"
+  },
+  "devDependencies": {
+    "@types/bun": "1.3.11"
+  }
+}

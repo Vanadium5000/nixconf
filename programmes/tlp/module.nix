@@ -1,7 +1,12 @@
-{ ... }:
+{ self, ... }:
 {
   flake.nixosModules.tlp =
-    { lib, config, ... }:
+    {
+      lib,
+      config,
+      pkgs,
+      ...
+    }:
     let
       cfg = lib.attrByPath [ "preferences" "hardware" "tlp" ] { enable = false; } config;
       chargeSettings = {
@@ -49,6 +54,10 @@
 
         # Can interfere with TLP and tends to get enabled implicitly by desktop stacks.
         services.power-profiles-daemon.enable = false;
+
+        environment.systemPackages = [
+          self.packages.${pkgs.stdenv.hostPlatform.system}.tlp
+        ];
       };
     };
 }

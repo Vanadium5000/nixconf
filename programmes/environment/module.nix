@@ -25,11 +25,8 @@
       rawPackages = [
         # Wrapped programmes
         self'.packages.qalc
-        self'.packages.monero-wallet
-        self'.packages.bitcoin-wallet
-        self'.packages.ethereum-wallet
         self'.packages.git
-        self'.packages.oh-my-posh
+        self'.packages.starship
         self'.packages.fresh
       ]
       ++ (

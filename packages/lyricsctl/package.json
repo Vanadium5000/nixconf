@@ -1,0 +1,7 @@
+{
+  "name": "lyricsctl",
+  "private": true,
+  "scripts": {
+    "check": "bun --syntax synced-lyrics.ts"
+  }
+}

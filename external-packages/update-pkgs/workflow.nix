@@ -36,6 +36,23 @@
     waydroid-total-spoof = "nix-update-branch";
   };
 
+  smokeArguments = {
+    cliproxyapi = "--help";
+    cpa-usage-keeper = "--help";
+    omniroute = "--help";
+    openchamber-web = "--help";
+    waydroid-script = "--help";
+    waydroid-total-spoof = "--help";
+  };
+
+  # Custom updaters are keyed by package name so package.nix remains the
+  # single source for sources/hashes while this workflow owns update strategy.
+  customUpdaters = {
+    cpa-usage-keeper = "cpa_usage_keeper";
+    omniroute = "omniroute";
+    openchamber-web = "openchamber_web";
+  };
+
   manualReasons = {
     update-pkgs = "repo-local update workflow package";
     wallpapers = "pinned image set with many fixed URLs";

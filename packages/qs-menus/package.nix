@@ -1,5 +1,6 @@
 {
   inputs,
+  self,
   ...
 }:
 {
@@ -11,6 +12,14 @@
       ...
     }:
     let
+      theme = self.themes.mainTheme;
+      inherit (theme)
+        colors
+        palette
+        glass
+        settings
+        ;
+      qmlRgba = self.themes.toQmlRgba;
       # Helper to prepare QML files for the Nix store
       # Quickshell requires imports to be valid. We can't easily use absolute paths for imports
       # without file:// schema, and editing the source is messy.
@@ -19,12 +28,104 @@
       #   ├── script.qml
       #   ├── lib -> /nix/store/.../lib
       # This allows 'import "./lib"' in the QML to work natively.
+      mkThemeQml = pkgs.writeText "nixconf-qs-theme.qml" ''
+        pragma Singleton
+        import QtQuick
+
+        QtObject {
+            readonly property QtObject colors: QtObject {
+                readonly property color base00: "${colors.base00}"
+                readonly property color base01: "${colors.base01}"
+                readonly property color base02: "${colors.base02}"
+                readonly property color base03: "${colors.base03}"
+                readonly property color base04: "${colors.base04}"
+                readonly property color base05: "${colors.base05}"
+                readonly property color base06: "${colors.base06}"
+                readonly property color base07: "${colors.base07}"
+                readonly property color red: "${colors.base08}"
+                readonly property color orange: "${colors.base09}"
+                readonly property color yellow: "${colors.base0A}"
+                readonly property color green: "${colors.base0B}"
+                readonly property color cyan: "${colors.base0C}"
+                readonly property color blue: "${colors.base0D}"
+                readonly property color magenta: "${colors.base0E}"
+                readonly property color darkGreen: "${colors.base0F}"
+                readonly property color accent: "${palette.accent}"
+                readonly property color accentAlt: "${palette.accentAlt}"
+                readonly property color background: "${palette.background}"
+                readonly property color backgroundAlt: "${palette.backgroundAlt}"
+                readonly property color foreground: "${palette.foreground}"
+                readonly property color foregroundAlt: "${palette.foregroundAlt}"
+                readonly property color border: "${palette.border}"
+                readonly property color borderInactive: "${palette.borderInactive}"
+                readonly property color error: "${palette.error}"
+                readonly property color success: "${palette.success}"
+                readonly property color warning: "${palette.warning}"
+            }
+
+            readonly property QtObject glass: QtObject {
+                readonly property color backgroundColor: ${qmlRgba glass.background settings.opacity}
+                readonly property color backgroundSolid: "${glass.backgroundSolid}"
+                readonly property color accentColor: "${glass.accent}"
+                readonly property color accentColorAlt: "${glass.accentAlt}"
+                readonly property color textPrimary: "${glass.textPrimary}"
+                readonly property color textSecondary: "${glass.textSecondary}"
+                readonly property color textTertiary: ${qmlRgba glass.textSecondary 0.3}
+                readonly property color separator: "${glass.separator}"
+                readonly property color separatorOpaque: "${glass.separatorOpaque}"
+                readonly property real highlightOpacity: ${toString glass.highlightOpacity}
+                readonly property color innerStrokeColor: Qt.rgba(1, 1, 1, ${toString glass.innerStrokeOpacity})
+                readonly property real borderOpacity: ${toString glass.borderOpacity}
+                readonly property int borderWidth: ${toString settings.border-size}
+                readonly property real shadowOpacity: ${toString glass.shadowOpacity}
+                readonly property real shadowRadius: ${toString glass.shadowRadius}
+                readonly property real shadowOffsetY: ${toString glass.shadowOffsetY}
+                readonly property real blurRadius: ${toString glass.blurRadius}
+                readonly property int cornerRadius: ${toString glass.cornerRadius}
+                readonly property int cornerRadiusSmall: ${toString glass.cornerRadiusSmall}
+                readonly property int padding: ${toString glass.padding}
+                readonly property int itemSpacing: ${toString glass.itemSpacing}
+                readonly property string fontFamily: "${settings.font}"
+                readonly property int fontSizeSmall: ${toString glass.fontSizeSmall}
+                readonly property int fontSizeMedium: ${toString glass.fontSizeMedium}
+                readonly property int fontSizeLarge: ${toString glass.fontSizeLarge}
+                readonly property int fontSizeTitle: ${toString glass.fontSizeTitle}
+                readonly property int animationDuration: ${toString glass.animationDuration}
+                readonly property int animationDurationSlow: ${toString glass.animationDurationSlow}
+            }
+
+            readonly property color background: colors.background
+            readonly property color backgroundAlt: colors.backgroundAlt
+            readonly property color foreground: colors.foreground
+            readonly property color foregroundAlt: colors.foregroundAlt
+            readonly property color accent: colors.accent
+            readonly property color accentAlt: colors.accentAlt
+            readonly property color error: colors.error
+            readonly property color success: colors.success
+            readonly property string fontName: glass.fontFamily
+            readonly property int fontSize: glass.fontSizeMedium
+            readonly property int fontSizeSmall: glass.fontSizeSmall
+            readonly property int fontSizeLarge: glass.fontSizeLarge
+            readonly property int rounding: glass.cornerRadius
+            readonly property int gapsIn: glass.itemSpacing
+            readonly property int gapsOut: glass.padding
+
+            function rgba(baseColor, alpha) {
+                return Qt.rgba(baseColor.r, baseColor.g, baseColor.b, alpha)
+            }
+        }
+      '';
       mkQml =
         name: src:
         let
           env = pkgs.runCommandLocal "qs-${name}" { } ''
             mkdir -p $out
-            ln -s ${./lib} $out/lib
+            mkdir -p $out/lib
+            ln -s ${mkThemeQml} $out/lib/Theme.qml
+            ln -s ${./lib}/GlassPanel.qml $out/lib/GlassPanel.qml
+            ln -s ${./lib}/GlassButton.qml $out/lib/GlassButton.qml
+            ln -s ${./lib}/InstanceLock.qml $out/lib/InstanceLock.qml
+            ln -s ${./lib}/qmldir $out/lib/qmldir
             cp ${src} $out/${name}
             cp ${./list_apps.ts} $out/list_apps.ts 2>/dev/null || true
           '';

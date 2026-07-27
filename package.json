@@ -5,10 +5,10 @@
   "scripts": {
     "install:docs": "bun install --cwd packages/bunjs-docs",
     "build:docs": "bun run --cwd packages/bunjs-docs build",
-    "install:scripts": "bun install --cwd packages/bunjs-scripts",
-    "install:lyrics": "bun install --cwd packages/bunjs-lyrics",
-    "install:all": "bun run install:docs && bun run install:scripts && bun run install:lyrics",
-    "build:vpn-proxy-web": "bun run --cwd packages/bunjs-scripts build:web-ui",
-    "typecheck:scripts": "bunx tsc -p packages/bunjs-scripts/tsconfig.json --noEmit"
+    "install:vpn-proxy": "bun install --cwd packages/bunjs-vpn-proxy",
+    "install:lyrics": "bun install --cwd packages/lyricsctl",
+    "install:all": "bun run install:docs && bun run install:vpn-proxy && bun run install:lyrics",
+    "build:vpn-proxy-web": "bun run --cwd packages/bunjs-vpn-proxy build:web-ui",
+    "test:vpn-proxy": "bun run --cwd packages/bunjs-vpn-proxy test"
   }
 }

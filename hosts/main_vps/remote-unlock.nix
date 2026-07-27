@@ -4,7 +4,7 @@ let
 in
 {
   flake.nixosModules.main_vpsHost =
-    { lib, pkgs, ... }:
+    { pkgs, ... }:
     let
       initrdUnlockPort = 22;
       initrdUnlockShell = pkgs.writeTextFile {

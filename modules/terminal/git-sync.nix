@@ -123,7 +123,7 @@
         };
 
       # Function to create a launchd daemon configuration for Darwin
-      mkAgent = name: repo: {
+      mkAgent = _name: repo: {
         enable = true;
         config = {
           UserName = repo.user; # Run as the specified user

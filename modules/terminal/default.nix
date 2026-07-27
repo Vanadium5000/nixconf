@@ -25,7 +25,6 @@
       ]
       ++ lib.optionals (hostName != "main_vps") [
         selfpkgs.lyricsctl
-        selfpkgs.synced-lyrics
       ];
     in
     {
@@ -49,7 +48,8 @@
         self.nixosModules.docker-compose-stacks
         self.nixosModules.unison
 
-        # VPN Proxy Services (SOCKS5 + HTTP CONNECT)
+        # VPN proxy services are package-owned so their runtime closure and
+        # persistence contract travel together.
         self.nixosModules.vpn-proxy-service
 
         # Server services (disabled by default, enable per-host)
