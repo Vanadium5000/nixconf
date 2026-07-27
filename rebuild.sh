@@ -1124,7 +1124,7 @@ so generated files such as secrets.nix are included even when invoking the
 script from another directory.
 
 Environment Variables:
-  HOST       Target nixosConfigurations attribute. Required except matrix/secrets.
+  HOST       Target nixosConfigurations attribute. Required except lint/matrix/secrets.
   ARGS       Extra nix/nixos-rebuild flags appended after --impure.
              Defaults to: " --accept-flake-config"
 

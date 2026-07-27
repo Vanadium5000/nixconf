@@ -70,7 +70,7 @@ flake.nix
 | Local packages     | `packages/_exports/default.nix`, package-owned `package.nix` files | Auto-exposes single-derivation package directories and imports multi-output package modules; command wrappers are exported individually from their owning package               |
 | Package updates    | `external-packages/update-pkgs/workflow.nix`                       | Declarative package sets, updater modes, safe smoke arguments, custom-updater bindings, and manual reasons; missing coverage warns during the check and when `update-pkgs` runs |
 | Programme wrappers | `programmes/<name>/`                                               | Portable configured upstream tools built with the `BirdeeHub/nix-wrapper-modules` input                                                                                         |
-| Repository audits  | `packages/repo-audits/package.nix`                                 | Opt-in `persist-audit` and `nix-unused-audit` commands; `repository-architecture` and update-workflow coverage checks protect the directory and updater contracts               |
+| Repository audits  | `packages/repo-audits/package.nix`                                 | Opt-in `persist-audit` and `nix-unused-audit` commands; flake checks protect directory, updater, and installed-package export contracts                                         |
 | Shared library     | `lib/`                                                             | Flat `*.nix` persistence, generators, config-file helpers, git rendering, nixpkgs policy, user package paths                                                                    |
 
 Architecture rule: root architecture directories contain owner subdirectories only; do not add first-level implementation files there. `lib/` is the exception and stays flat `*.nix` helpers. Every `packages/<name>/` and `external-packages/<name>/` directory contains `package.nix`; every `programmes/<name>/` directory contains `module.nix` or `package.nix`. Package scripts depend on the narrowest relevant exported command rather than an aggregate bundle. `docs/` first-level entries are section directories containing `.md`/`.mdx`; JS/TS Docusaurus app code belongs in `packages/bunjs-docs/`, not under `docs/`.
@@ -86,9 +86,10 @@ nix run path:.#nix-unused-audit -- --strict
 
 nix build --no-link path:.#checks.x86_64-linux.repository-architecture
 nix build --no-link path:.#checks.x86_64-linux.update-pkgs-workflow-coverage
+nix build --no-link path:.#checks.x86_64-linux.installed-package-references
 ```
 
-`persist-audit` locates persistence/cache declarations. `nix-unused-audit` runs [deadnix](https://github.com/astro/deadnix) and [statix](https://github.com/oppiliappan/statix); `--strict` makes unused bindings fail. The architecture check enforces directory-only roots for `docs/`, `packages/`, `external-packages/`, and `programmes/`; the update workflow check warns for external package directories missing an updater mode.
+`persist-audit` locates persistence/cache declarations. `nix-unused-audit` runs [deadnix](https://github.com/astro/deadnix) and [statix](https://github.com/oppiliappan/statix); `--strict` makes unused bindings fail. The architecture check enforces directory-only roots for `docs/`, `packages/`, `external-packages/`, and `programmes/`; the update workflow check warns for external package directories missing an updater mode. The installed-package check forces every host's `environment.systemPackages` derivation paths, catching stale auto-exported package attributes during `nix flake check` rather than a later system rebuild.
 
 ### 📤 Export surface
 
@@ -366,7 +367,7 @@ bun run test:vpn-proxy
 
 Packaged outputs do not depend on checkout-local `node_modules`; per-package local installs are for editor tooling and interactive development only.
 
-The docs app keeps `packages/bunjs-docs/package-lock.json` committed because `packages/bunjs-docs/module.nix` consumes that lockfile for reproducible Nix builds while reading content from root `docs/`. Root Bun workspace installation supplies editor TypeScript diagnostics and local Docusaurus commands.
+The docs app keeps `packages/bunjs-docs/package-lock.json` committed because `packages/bunjs-docs/package.nix` consumes that lockfile for reproducible Nix builds. The package copies root `docs/` beside the Docusaurus app and sets `NIXCONF_DOCS_ROOT=./docs`, so a sandboxed build reads the staged content rather than an invalid checkout-relative path. Root Bun workspace installation supplies editor TypeScript diagnostics and local Docusaurus commands.
 
 ---
 

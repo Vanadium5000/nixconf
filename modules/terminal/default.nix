@@ -17,7 +17,7 @@
         environmentShell
         selfpkgs.git-identity
         selfpkgs.m
-        selfpkgs.markdown-lint-mcp
+        selfpkgs.bunjs-markdown-lint-mcp
         selfpkgs.models
         selfpkgs.openports
         selfpkgs.qalc

@@ -95,13 +95,13 @@
           pkgs.playerctl
           pkgs.wl-clipboard
           pkgs.unstable.voxtype
-          selfpkgs.qs-checklist
+          selfpkgs.bunjs-checklist
           selfpkgs.qs-dmenu
           selfpkgs.qs-emoji
-          selfpkgs.qs-music-local
-          selfpkgs.qs-music-search
+          selfpkgs.bunjs-music-local
+          selfpkgs.bunjs-music-search
           selfpkgs.qs-nerd
-          selfpkgs.qs-passmenu
+          selfpkgs.bunjs-passmenu
           selfpkgs.qs-vpn
           selfpkgs.toggle-lyrics-overlay
           selfpkgs.sound-toggle

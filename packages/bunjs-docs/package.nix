@@ -48,6 +48,9 @@ buildNpmPackage {
   npmConfigHook = importNpmLock.npmConfigHook;
   npmFlags = [ "--legacy-peer-deps" ];
 
+  # `mergedSrc` copies repository docs beside the Docusaurus app instead of
+  # retaining its checkout-relative `../../docs` position.
+  NIXCONF_DOCS_ROOT = "./docs";
   env.DISABLE_VERSION_CHECK = "true";
 
   installPhase = ''

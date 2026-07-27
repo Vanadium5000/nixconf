@@ -139,7 +139,7 @@
           # Enabled globally so repo guidance and generated plans stay lintable.
           type = "local";
           command = [
-            "${self.packages.${system}.markdown-lint-mcp}/bin/markdown-lint-mcp"
+            "${self.packages.${system}.bunjs-markdown-lint-mcp}/bin/markdown-lint-mcp"
           ];
           enabled = true;
           timeout = 10000;
@@ -191,7 +191,7 @@
                 ' "$MODELS_FILE")"
               fi
 
-              exec ${self.packages.${system}.image-gen-mcp}/bin/image-gen-mcp
+              exec ${self.packages.${system}.bunjs-image-gen-mcp}/bin/image-gen-mcp
             '')
           ];
           enabled = true;

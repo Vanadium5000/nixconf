@@ -42,7 +42,11 @@
   };
 
   config.perSystem =
-    { system, ... }:
+    {
+      system,
+      pkgs,
+      ...
+    }:
     {
       _module.args.pkgs = self.lib.nixpkgs.mkPkgs {
         inherit inputs self system;
@@ -62,5 +66,20 @@
           program = "${self.packages.${system}.rebuild}/bin/rebuild";
         };
       };
+
+      checks.installed-package-references =
+        let
+          # Evaluate every host's installed package derivation paths so stale
+          # flake references fail during `nix flake check`, without making this
+          # lightweight guard build the installed packages themselves.
+          installedPackagePaths = lib.concatMap (
+            hostConfig: map (package: package.drvPath) hostConfig.config.environment.systemPackages
+          ) (builtins.attrValues self.nixosConfigurations);
+        in
+        builtins.deepSeq installedPackagePaths (
+          pkgs.runCommandLocal "installed-package-references" { } ''
+            mkdir -p "$out"
+          ''
+        );
     };
 }

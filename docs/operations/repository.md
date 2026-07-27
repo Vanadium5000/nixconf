@@ -34,7 +34,7 @@ Root architecture directories contain owner subdirectories only; do not add firs
 
 ## Repository audits
 
-The flake exposes read-only audit commands from [`packages/repo-audits/package.nix`](../../packages/repo-audits/package.nix). They are intentionally opt-in: they do not add developer tooling to any host profile.
+The flake exposes read-only audit commands from [`packages/repo-audits/package.nix`](https://github.com/Vanadium5000/nixconf/blob/main/packages/repo-audits/package.nix). They are intentionally opt-in: they do not add developer tooling to any host profile.
 
 ```bash
 # Build or run from any Linux system with Nix; no global setup required.
@@ -48,18 +48,20 @@ nix run path:.#nix-unused-audit -- --strict
 - `persist-audit` reports source locations of declared persistent and cache state.
 - `nix-unused-audit` runs [deadnix](https://github.com/astro/deadnix) and [statix](https://github.com/oppiliappan/statix) over the root Nix architecture directories.
 - `checks.repository-architecture` evaluates the first-level directory contract for `docs/`, `packages/`, `external-packages/`, and `programmes/`.
-- `checks.update-pkgs-workflow-coverage` warns when an external package lacks an update mode in [`external-packages/update-pkgs/workflow.nix`](../../external-packages/update-pkgs/workflow.nix); `update-pkgs` emits the same warning interactively.
+- `checks.update-pkgs-workflow-coverage` warns when an external package lacks an update mode in [`external-packages/update-pkgs/workflow.nix`](https://github.com/Vanadium5000/nixconf/blob/main/external-packages/update-pkgs/workflow.nix); `update-pkgs` emits the same warning interactively.
+- `checks.installed-package-references` forces every host's `environment.systemPackages` derivation paths, catching stale auto-exported package attributes before a rebuild reaches `system-path` evaluation.
 
 Run the checks directly without linking a `result` path:
 
 ```bash
 nix build --no-link path:.#checks.x86_64-linux.repository-architecture
 nix build --no-link path:.#checks.x86_64-linux.update-pkgs-workflow-coverage
+nix build --no-link path:.#checks.x86_64-linux.installed-package-references
 ```
 
 ## Repository lint
 
-[`rebuild.sh`](../../rebuild.sh) exposes a read-only `lint` action. It runs five independent lanes concurrently and emits every lane's full output before returning; a failure in one lane does not suppress the remaining diagnostics.
+[`rebuild.sh`](https://github.com/Vanadium5000/nixconf/blob/main/rebuild.sh) exposes a read-only `lint` action. It runs five independent lanes concurrently and emits every lane's full output before returning; a failure in one lane does not suppress the remaining diagnostics.
 
 ```bash
 # Run the full repository check without requiring HOST or password-store access.
@@ -75,19 +77,19 @@ HOST=legion5i ./rebuild.sh --debug --skip-secrets --skip-lint validate
 
 Bootstrap the pinned root Prettier and MarkdownLint CLI dependencies once per checkout with `bun install --frozen-lockfile`. The command then discovers tracked paths with `git ls-files`, so ignored dependency/build trees do not affect results. Its lanes are:
 
-| Lane       | Files/tool                                                                                        | Contract                                                                        |
-| ---------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| LSP        | OpenCode diagnostics for `.nix`, `.sh`, `.bash`, and `.zsh`; eight bounded workers                | LSP/server errors and error diagnostics fail; warnings remain visible           |
-| Nix format | `nixfmt-tree -- --ci .`                                                                           | Formatting must already match nixfmt                                            |
-| TypeScript | Every tracked `.ts` through temporary, non-emitting `tsc` project configs                         | Compiler diagnostics fail; `.tsx` is deliberately not part of the `.ts` request |
-| Prettier   | Tracked formatter-managed JSON, CSS, TypeScript, and TSX sources                                  | Formatting must already match Prettier; `--cache` accelerates repeated runs     |
-| Markdown   | Tracked `README.md` and `docs/` Markdown through [`.markdownlint.json`](../../.markdownlint.json) | Enabled MarkdownLint rules must pass                                            |
+| Lane       | Files/tool                                                                                                                                    | Contract                                                                        |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| LSP        | OpenCode diagnostics for `.nix`, `.sh`, `.bash`, and `.zsh`; eight bounded workers                                                            | LSP/server errors and error diagnostics fail; warnings remain visible           |
+| Nix format | `nixfmt-tree -- --ci .`                                                                                                                       | Formatting must already match nixfmt                                            |
+| TypeScript | Every tracked `.ts` through temporary, non-emitting `tsc` project configs                                                                     | Compiler diagnostics fail; `.tsx` is deliberately not part of the `.ts` request |
+| Prettier   | Tracked formatter-managed JSON, CSS, TypeScript, and TSX sources                                                                              | Formatting must already match Prettier; `--cache` accelerates repeated runs     |
+| Markdown   | Tracked `README.md` and `docs/` Markdown through [`.markdownlint.json`](https://github.com/Vanadium5000/nixconf/blob/main/.markdownlint.json) | Enabled MarkdownLint rules must pass                                            |
 
 The TypeScript compiler comes from `nixpkgs#typescript`; temporary project configs type-check every tracked `.ts` file without emitting output. Root Bun workspaces install each package's declared dependencies once, and root `@types/bun` and `@types/node` provide the shared Bun/Node runtime declarations. The checkout and source files remain untouched. Prettier stores only its ignored cache state to accelerate repeated runs.
 
 ## Model catalog state
 
-[`packages/models/`](../../packages/models/) is the only checkout-owned location for `models.json`, model-group state, presets, provider choice, and local patches. `models sync` writes the catalog there; `models sync-config` derives the mutable OpenCode, OMO Slim, and OMP runtime files from the same state without fetching models. The command rejects the obsolete `modules/nixos/terminal/opencode/` state path, preventing divergent catalogs.
+[`packages/models/`](https://github.com/Vanadium5000/nixconf/tree/main/packages/models) is the only checkout-owned location for `models.json`, model-group state, presets, provider choice, and local patches. `models sync` writes the catalog there; `models sync-config` derives the mutable OpenCode, OMO Slim, and OMP runtime files from the same state without fetching models. The command rejects the obsolete `modules/nixos/terminal/opencode/` state path, preventing divergent catalogs.
 
 ```bash
 models sync          # Fetch and normalize the selected gateway catalog.
@@ -147,7 +149,7 @@ Run a single Bun workspace install from the repository root. The root lockfile p
 bun install --frozen-lockfile
 ```
 
-Keep `packages/bunjs-docs/package-lock.json` committed: the NixOS docs module at `packages/bunjs-docs/module.nix` uses it for reproducible `pkgs.buildNpmPackage` builds during rebuilds. Packaged outputs still use Nix-managed dependency builds rather than checkout-local `node_modules`.
+Keep `packages/bunjs-docs/package-lock.json` committed: `packages/bunjs-docs/package.nix` uses it for reproducible `pkgs.buildNpmPackage` builds during rebuilds. The package stages root `docs/` beside the Docusaurus app with `NIXCONF_DOCS_ROOT=./docs`; packaged outputs still use Nix-managed dependency builds rather than checkout-local `node_modules`.
 
 ```nix
 # Typical module shape in this repository.
