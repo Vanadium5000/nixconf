@@ -165,6 +165,9 @@
           inherit pkgs;
           package = self'.packages.zsh;
           runtimePkgs = rawPackages;
+          # The wrapper normally shell-quotes env values, which would preserve
+          # `$HOME` literally and break GUI-launched credential tools.
+          escapingFunction = inputs.wrappers.lib.escapeShellArgWithEnv;
           env = userPackageEnv // {
             EDITOR = "${self'.packages.fresh}/bin/fresh";
             VISUAL = "${self'.packages.fresh}/bin/fresh";

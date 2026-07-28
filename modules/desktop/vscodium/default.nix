@@ -106,12 +106,6 @@
         ]);
 
       settingsFile = self.lib.configFiles.known.vscodiumSettings;
-      generatedSettingsFile = pkgs.runCommand "vscodium-settings.json" { } ''
-        ${pkgs.jq}/bin/jq \
-          --arg colorTheme ${lib.escapeShellArg theme.name} \
-          '."workbench.colorTheme" = $colorTheme' \
-          ${settingsFile.storePath} > "$out"
-      '';
 
       editorWaylandArgs = "--ozone-platform-hint=auto --enable-features=WaylandWindowDecorations --enable-wayland-ime=true --wayland-text-input-version=3";
 
@@ -142,6 +136,10 @@
       environment.systemPackages = with pkgs; [
         vscodiumWayland
         antigravityWayland
+
+        # The Git extension resolves the configured absolute system command;
+        # install Git in this profile rather than relying on a terminal shell.
+        git
 
         # LSPs/Dependencies
         nixd
@@ -220,13 +218,13 @@
             ".config/VSCodium/User/settings.json" = self.lib.configFiles.mkUserFile {
               inherit config;
               inherit (settingsFile) relativePath;
-              storePath = generatedSettingsFile;
+              inherit (settingsFile) storePath;
               file.permissions = "0644";
             };
             ".config/Antigravity/User/settings.json" = self.lib.configFiles.mkUserFile {
               inherit config;
               inherit (settingsFile) relativePath;
-              storePath = generatedSettingsFile;
+              inherit (settingsFile) storePath;
               file.permissions = "0644";
             };
           };

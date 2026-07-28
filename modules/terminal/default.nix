@@ -121,8 +121,8 @@
 
         # Environment Variables
         environment.variables = {
-          # PASSWORD_STORE_DIR for stuff like qs-passmenu
-          PASSWORD_STORE_DIR = "$HOME/.local/share/password-store";
+          # GUI launchers do not expand `$HOME` in /etc/set-environment.
+          PASSWORD_STORE_DIR = "${config.preferences.paths.homeDirectory}/.local/share/password-store";
           FLAKE = config.preferences.paths.configDirectory; # Config Directory
           NIXCONF_CONFIG_SOURCE = config.preferences.paths.configSourceDirectory;
         };

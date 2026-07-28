@@ -10,23 +10,23 @@ preferences.kde.enable = true;
 
 ## Runtime model
 
-| Surface | KDE module decision |
-| --- | --- |
-| Session | `services.desktopManager.plasma6.enable = true` plus `services.displayManager.plasma-login-manager.enable = true`. |
+| Surface                | KDE module decision                                                                                                                      |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Session                | `services.desktopManager.plasma6.enable = true` plus `services.displayManager.plasma-login-manager.enable = true`.                       |
 | Display manager safety | `services.displayManager.sddm.enable = lib.mkForce false`, so Plasma Login Manager and SDDM cannot both claim `display-manager.service`. |
-| Polkit | KDE uses `polkit-kde-agent-1`, keeps `security.polkit.enable = true`, and narrows admin identities to the primary user. |
-| GPG/SSH prompts | `pinentry-qt` is forced for GnuPG and `ksshaskpass` is forced for SSH askpass. |
-| Portals | KDE portal is the preferred portal backend; GTK remains installed as fallback where upstream Plasma module includes it. |
-| Shortcuts | No Plasma shortcut declarations. Configure keybinds in KDE Settings. Important utility commands are installed directly on `PATH`. |
+| Polkit                 | KDE uses `polkit-kde-agent-1`, keeps `security.polkit.enable = true`, and narrows admin identities to the primary user.                  |
+| GPG/SSH prompts        | `pinentry-qt` is forced for GnuPG and `ksshaskpass` is forced for SSH askpass.                                                           |
+| Portals                | KDE portal is the preferred portal backend; GTK remains installed as fallback where upstream Plasma module includes it.                  |
+| Shortcuts              | No Plasma shortcut declarations. Configure keybinds in KDE Settings. Important utility commands are installed directly on `PATH`.        |
 
 ## Impermanence boundary
 
 KDE's configuration system is user-mutable by design. The module persists the files KDE edits instead of declaring those settings in Nix.
 
-| Tier | Examples | Notes |
-| --- | --- | --- |
+| Tier          | Examples                                                                                                                                                                                                                                                 | Notes                                                                        |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
 | Durable state | `.config/kdeglobals`, `.config/kglobalshortcutsrc`, `.config/kwinrc`, `.config/kwinrulesrc`, `.config/plasma-org.kde.plasma.desktop-appletsrc`, `.config/plasmashellrc`, `.local/share/kwalletd`, `.local/share/plasma`, `.local/share/user-places.xbel` | Shell layout, KWin, shortcuts, KWallet, places, and per-user Plasma choices. |
-| Cache | `.cache/plasma-svgelements`, `.cache/plasmashell`, `.cache/qmlcache`, `.cache/thumbnails`, `wallpaper` | Rebuildable rendering/cache data and the local wallpaper selector cache. |
+| Cache         | `.cache/plasma-svgelements`, `.cache/plasmashell`, `.cache/qmlcache`, `.cache/thumbnails`, `wallpaper`                                                                                                                                                   | Rebuildable rendering/cache data and the local wallpaper selector cache.     |
 
 KDE UserBase documents the cascading config-file model: defaults can come from system config trees, but `$KDEHOME` user config has highest precedence and apps rewrite these files. This module avoids lock-down entries, so System Settings remains the source of truth for user choices.
 
@@ -59,6 +59,21 @@ plasma-systemmonitor
 ```
 
 Screenshots, screen recording, zoom, panels, window movement, and session power actions should use Plasma/KWin/Spectacle defaults unless a real gap appears.
+
+## Password menu
+
+`qs-passmenu` reads the synchronized password store at
+`~/.local/share/password-store`. The terminal profile exports this as an absolute
+`PASSWORD_STORE_DIR` so KDE and other GUI launchers do not preserve `$HOME`
+literally; the command also resolves that legacy literal form before searching.
+The directory is persisted by
+[`modules/common/impermanence.nix`](https://github.com/Vanadium5000/nixconf/blob/main/modules/common/impermanence.nix)
+and synchronized by
+[`modules/terminal/default.nix`](https://github.com/Vanadium5000/nixconf/blob/main/modules/terminal/default.nix).
+
+VSCodium pins its Git executable to the system profile in
+[`modules/desktop/vscodium/settings.json`](https://github.com/Vanadium5000/nixconf/blob/main/modules/desktop/vscodium/settings.json),
+so source control does not depend on the desktop session's inherited `PATH`.
 
 ## Validation
 
