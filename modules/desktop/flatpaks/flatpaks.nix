@@ -97,6 +97,15 @@
         run-flatpak-instance
       ];
 
+      preferences.commandHelp.commands = [
+        {
+          command = "run-flatpak-instance";
+          description = "Run a Flatpak app in an isolated per-instance home directory.";
+          usage = "run-flatpak-instance <APP_ID> <INSTANCE_ID> [ARGS...]";
+          package = run-flatpak-instance;
+        }
+      ];
+
       # Persist flatpak apps
       impermanence.nixos.cache.directories = [ "/var/lib/flatpak" ];
 

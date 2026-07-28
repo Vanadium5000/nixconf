@@ -33,7 +33,19 @@
       options.preferences.hardware.hdmiCec.enable = lib.mkEnableOption "HDMI-CEC remote media controls";
 
       config = lib.mkIf cfg.enable {
-        environment.systemPackages = [ pkgs.v4l-utils ];
+        preferences.commandHelp.commands = [
+          {
+            command = "nixconf-hdmi-cec-setup";
+            description = "Configure detected HDMI-CEC adapters as playback devices.";
+            usage = "sudo nixconf-hdmi-cec-setup";
+            package = cecSetup;
+          }
+        ];
+
+        environment.systemPackages = [
+          pkgs.v4l-utils
+          cecSetup
+        ];
 
         services.udev.extraRules = ''
           ACTION=="add|change", SUBSYSTEM=="cec", TAG+="systemd", ENV{SYSTEMD_WANTS}+="nixconf-hdmi-cec-setup.service"

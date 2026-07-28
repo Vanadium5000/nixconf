@@ -180,8 +180,16 @@
           shellPath = pkgs.zsh.shellPath;
         };
 
-      packages.rebuild = pkgs.writeShellScriptBin "rebuild" ''
-        exec ${../../rebuild.sh} "$@"
-      '';
+      packages.rebuild =
+        (pkgs.writeShellScriptBin "rebuild" ''
+          exec ${../../rebuild.sh} "$@"
+        '').overrideAttrs
+          (old: {
+            meta = (old.meta or { }) // {
+              description = "Nixconf host rebuild, validation, and maintenance wrapper";
+              mainProgram = "rebuild";
+              platforms = pkgs.lib.platforms.unix;
+            };
+          });
     };
 }

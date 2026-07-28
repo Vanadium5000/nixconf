@@ -237,6 +237,25 @@ in
       };
 
       config = mkIf config.preferences.enable {
+        preferences.commandHelp.commands = [
+          {
+            command = "a";
+            description = "List active zsh aliases and their expansions.";
+            usage = "a";
+          }
+          {
+            command = "unlock-host";
+            aliases = [ "unlock-device" ];
+            description = "Connect to an initrd SSH unlock service and retain its separate host key.";
+            usage = "unlock-host <host|host:port|ssh://host:port> [port]";
+          }
+          {
+            command = "killport";
+            description = "Send SIGTERM to the process listening on a TCP port.";
+            usage = "killport <port>";
+          }
+        ];
+
         system.activationScripts.zsh-user-config = {
           text = self.lib.userFiles.mkActivationScript {
             user = config.preferences.user.username;

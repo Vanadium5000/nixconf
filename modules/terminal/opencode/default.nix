@@ -421,6 +421,27 @@
       ]
       ++ languages.packages;
 
+      preferences.commandHelp.commands = [
+        {
+          command = "opencode";
+          description = "Launch the configured OpenCode coding agent.";
+          usage = "opencode [args]";
+          package = opencodeWrapped;
+        }
+        {
+          command = "opencode-obsidian-project-mcp";
+          description = "Run the project-scoped Obsidian MCP wrapper used by OpenCode.";
+          usage = "opencode-obsidian-project-mcp [args]";
+          package = opencodeObsidianProjectMcp;
+        }
+        {
+          command = "image-gen-mcp";
+          description = "Run the configured image-generation MCP server used by OpenCode.";
+          usage = "image-gen-mcp";
+          package = self.packages.${pkgs.stdenv.hostPlatform.system}.bunjs-image-gen-mcp;
+        }
+      ];
+
       # OpenCode downloads provider/plugin/runtime artifacts at launch; keep the
       # generated caches across reboot without promoting them to backup state.
       # Source: opencodeInitScript creates ~/.local/cache/opencode.

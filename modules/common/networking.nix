@@ -261,6 +261,15 @@
     in
     {
       config = lib.mkIf cfg.enable {
+        preferences.commandHelp.commands = [
+          {
+            command = "dns-emergency";
+            description = "Inspect or repair DNS at runtime without a NixOS rebuild.";
+            usage = "dns-emergency {status|restart-resolved|plain|dhcp|disable-dot|restore|stop-resolved|flush|test [host]}";
+            package = dnsEmergency;
+          }
+        ];
+
         networking = {
           hostName = config.environment.variables.HOST;
 

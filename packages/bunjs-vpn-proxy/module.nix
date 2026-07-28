@@ -57,6 +57,61 @@
       };
 
       config = mkIf cfg.enable {
+        preferences.commandHelp.commands = [
+          {
+            command = "vpn-proxy";
+            description = "Run the VPN SOCKS5 proxy command-line server and management interface.";
+            usage = "vpn-proxy [serve|tool] [args]";
+            package = packageSet.vpn-proxy;
+          }
+          {
+            command = "http-proxy";
+            description = "Run the legacy VPN HTTP CONNECT proxy command-line server.";
+            usage = "http-proxy [command]";
+            package = packageSet.http-proxy;
+          }
+          {
+            command = "vpn-resolver";
+            description = "Resolve and inspect VPN profile names and endpoints.";
+            usage = "vpn-resolver {list|list-json|resolve|match|server-ip} [args]";
+            package = packageSet.vpn-resolver;
+          }
+          {
+            command = "vpn-proxy-netns";
+            description = "Operate the VPN proxy network-namespace helper.";
+            usage = "vpn-proxy-netns [command] [args]";
+            package = packageSet.vpn-proxy-netns;
+          }
+          {
+            command = "vpn-proxy-cleanup";
+            description = "Run the VPN proxy namespace cleanup process.";
+            usage = "vpn-proxy-cleanup [args]";
+            package = packageSet.vpn-proxy-cleanup;
+          }
+          {
+            command = "vpn-proxy-web";
+            description = "Run the local VPN proxy web management interface.";
+            usage = "vpn-proxy-web [args]";
+            package = packageSet.vpn-proxy-web;
+          }
+          {
+            command = "vpn-proxy-singbox-config";
+            description = "Generate the sing-box configuration used by VPN proxy services.";
+            usage = "vpn-proxy-singbox-config [args]";
+            package = packageSet.vpn-proxy-singbox-config;
+          }
+        ];
+
+        environment.systemPackages = [
+          packageSet.vpn-resolver
+          packageSet.vpn-proxy
+          packageSet.http-proxy
+          packageSet.vpn-proxy-netns
+          packageSet.vpn-proxy-cleanup
+          packageSet.vpn-proxy-web
+          packageSet.vpn-proxy-singbox-config
+        ];
+
         impermanence.nixos.directories = [
           {
             directory = "/var/lib/vpn-proxy";

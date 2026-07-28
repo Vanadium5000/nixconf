@@ -291,6 +291,14 @@
       };
 
       config = mkIf cfg.enable {
+        preferences.commandHelp.commands = optional cfg.nixconf.bypassWrapper.enable {
+          command = "opensnitch-bypass";
+          description = "Run a command through the authenticated OpenSnitch root bypass.";
+          usage = "opensnitch-bypass [--] command [args...]";
+          details = "Uses pkexec for non-root callers and only bypasses policy after authenticated elevation.";
+          package = opensnitchBypass;
+        };
+
         # OpenSnitch's eBPF monitor needs trace/kprobe support and NFQUEUE/nftables
         # queue modules; load them up-front so opensnitchd -check-requirements does
         # not depend on first-connection autoload timing. Source: OpenSnitch wiki

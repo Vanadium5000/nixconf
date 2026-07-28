@@ -185,6 +185,15 @@
             selfpkgs.waydroid-script # Keep this local so update-pkgs can track the exact commit pinned by this flake.
           ];
 
+        preferences.commandHelp.commands = lib.optionals config.preferences.profiles.desktop.enable [
+          {
+            command = "waydroid-script";
+            description = "Run the packaged Waydroid management and device-spoofing helper.";
+            usage = "waydroid-script [--help|command]";
+            package = selfpkgs.waydroid-script;
+          }
+        ];
+
         virtualisation.waydroid = lib.mkIf config.preferences.profiles.desktop.enable {
           enable = true;
           package = waydroidWithoutBrokenPostStopHook;

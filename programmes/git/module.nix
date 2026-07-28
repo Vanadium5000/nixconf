@@ -194,6 +194,19 @@ in
       };
 
       config = mkIf config.preferences.enable {
+        preferences.commandHelp.commands = [
+          {
+            command = "git-identity";
+            aliases = [
+              "g"
+              "gi"
+            ];
+            description = "Manage and select Git identities for repositories.";
+            usage = "git-identity [setup|status|list|use|edit|delete] [args]";
+            package = mkHelper pkgs;
+          }
+        ];
+
         assertions = [
           {
             assertion = builtins.hasAttr cfg.defaultIdentity cfg.identities;

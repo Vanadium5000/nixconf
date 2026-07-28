@@ -15,16 +15,6 @@
       environmentShell = selfpkgs.environment;
       terminalFlakePackages = [
         environmentShell
-        selfpkgs.git-identity
-        selfpkgs.m
-        selfpkgs.bunjs-markdown-lint-mcp
-        selfpkgs.models
-        selfpkgs.openports
-        selfpkgs.qalc
-        selfpkgs.rebuild
-      ]
-      ++ lib.optionals (hostName != "main_vps") [
-        selfpkgs.lyricsctl
       ];
     in
     {
@@ -106,6 +96,62 @@
 
         preferences.zsh.aliases.gi = "git-identity setup";
         preferences.zsh.aliases.g = "git-identity setup";
+        preferences.zsh.aliases.r = "rebuild";
+        preferences.commandHelp.commands = [
+          {
+            command = "rebuild";
+            aliases = [ "r" ];
+            description = "Run the Nixconf host rebuild, validation, and maintenance wrapper.";
+            usage = "HOST=<host> rebuild [OPTIONS] [ACTION] [TARGET]";
+            details = "Use rebuild --help for actions. Validation is safe here; switch, deploy, install, and rollback intentionally change host state.";
+            package = selfpkgs.rebuild;
+          }
+          {
+            command = "models";
+            description = "Manage the shared OpenCode and OMP model catalog and runtime configuration.";
+            usage = "models [sync|sync-all|sync-opencode|sync-config|sync-omp|omp-categories|preset-apply|provider|init]";
+            package = selfpkgs.models;
+          }
+          {
+            command = "markdown-lint-mcp";
+            description = "Run the configured Markdown lint MCP server used by OpenCode.";
+            usage = "markdown-lint-mcp";
+            package = selfpkgs.bunjs-markdown-lint-mcp;
+          }
+          {
+            command = "qmllint-mcp";
+            description = "Run the configured QML and Qt lint MCP server used by OpenCode.";
+            usage = "qmllint-mcp";
+            package = selfpkgs.bunjs-qmllint-mcp;
+          }
+          {
+            command = "quickshell-docs-mcp";
+            description = "Run the configured Quickshell documentation MCP server used by OpenCode.";
+            usage = "quickshell-docs-mcp";
+            package = selfpkgs.bunjs-quickshell-docs-mcp;
+          }
+          {
+            command = "openports";
+            description = "Show currently-open NixOS firewall ports and accept rules.";
+            usage = "openports";
+            details = "Prompts through the system sudo wrapper and only inspects live iptables state.";
+            package = selfpkgs.openports;
+          }
+          {
+            command = "qalc";
+            description = "Open the interactive Qalculate calculator with automatic calculation enabled.";
+            usage = "qalc [expression]";
+            package = selfpkgs.qalc;
+          }
+        ]
+        ++ lib.optionals (hostName != "main_vps") [
+          {
+            command = "lyricsctl";
+            description = "Display, control, and fetch synced lyrics for the active media player.";
+            usage = "lyricsctl [watch|current|status|lookup|sources|show|hide|toggle|control|seek|tui] [options]";
+            package = selfpkgs.lyricsctl;
+          }
+        ];
         services.nixconf-docs.enable = true;
 
         # Password-store folder

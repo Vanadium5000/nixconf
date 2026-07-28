@@ -175,6 +175,16 @@
       };
 
       config = mkIf cfg.enable {
+        preferences.commandHelp.commands = [
+          {
+            command = "btrbk-persist-system";
+            description = "Run the manual btrbk backup for the /persist/system subvolume.";
+            usage = "sudo btrbk-persist-system [--yes] [btrbk arguments]";
+            details = "Requires the configured removable Btrfs backup drive; no automatic timer runs this command.";
+            package = runPersistSystem;
+          }
+        ];
+
         assertions = [
           {
             assertion =

@@ -97,6 +97,7 @@
           pkgs.unstable.voxtype
           selfpkgs.bunjs-checklist
           selfpkgs.qs-dmenu
+          selfpkgs.qs-askpass
           selfpkgs.qs-emoji
           selfpkgs.bunjs-music-local
           selfpkgs.bunjs-music-search
@@ -120,6 +121,117 @@
           QT_QUICK_CONTROLS_STYLE = lib.mkForce "org.kde.desktop";
           SSH_ASKPASS_REQUIRE = "prefer";
         };
+
+        preferences.commandHelp.commands = [
+          {
+            command = "qs-checklist";
+            description = "Open the daily checklist picker.";
+            usage = "qs-checklist";
+            package = selfpkgs.bunjs-checklist;
+          }
+          {
+            command = "qs-dmenu";
+            description = "Show the Quickshell dmenu-compatible selector.";
+            usage = "printf '%s\\n' option | qs-dmenu [options]";
+            package = selfpkgs.qs-dmenu;
+          }
+          {
+            command = "qs-askpass";
+            description = "Prompt for a password through the Quickshell selector.";
+            usage = "qs-askpass [prompt]";
+            package = selfpkgs.qs-askpass;
+          }
+          {
+            command = "qs-emoji";
+            description = "Search and copy an emoji with the Quickshell selector.";
+            usage = "qs-emoji";
+            package = selfpkgs.qs-emoji;
+          }
+          {
+            command = "qs-music-local";
+            description = "Browse the local MPD music library and play a selection.";
+            usage = "qs-music-local";
+            package = selfpkgs.bunjs-music-local;
+          }
+          {
+            command = "qs-music-search";
+            description = "Search online media or queue a URL in MPD.";
+            usage = "qs-music-search [query]";
+            package = selfpkgs.bunjs-music-search;
+          }
+          {
+            command = "qs-nerd";
+            description = "Search and copy a Nerd Font glyph with the Quickshell selector.";
+            usage = "qs-nerd";
+            package = selfpkgs.qs-nerd;
+          }
+          {
+            command = "qs-passmenu";
+            description = "Open the Quickshell password-store menu and credential generator.";
+            usage = "qs-passmenu [--autotype|--type [command]]";
+            package = selfpkgs.bunjs-passmenu;
+          }
+          {
+            command = "qs-vpn";
+            description = "Select and connect or disconnect a NetworkManager OpenVPN profile.";
+            usage = "qs-vpn";
+            package = selfpkgs.qs-vpn;
+          }
+          {
+            command = "toggle-lyrics-overlay";
+            description = "Show, hide, or toggle the Quickshell synced-lyrics overlay.";
+            usage = "toggle-lyrics-overlay [show|hide|toggle]";
+            package = selfpkgs.toggle-lyrics-overlay;
+          }
+          {
+            command = "sound-toggle";
+            description = "Toggle mute for the default PipeWire audio sink.";
+            usage = "sound-toggle";
+            package = selfpkgs.sound-toggle;
+          }
+          {
+            command = "sound-change";
+            description = "Change volume or mute state for the default PipeWire audio sink.";
+            usage = "sound-change {mute|up [percent]|down [percent]|set [percent]}";
+            package = selfpkgs.sound-change;
+          }
+          {
+            command = "sound-up";
+            description = "Increase default PipeWire audio-sink volume by five percent.";
+            usage = "sound-up";
+            package = selfpkgs.sound-up;
+          }
+          {
+            command = "sound-down";
+            description = "Decrease default PipeWire audio-sink volume by five percent.";
+            usage = "sound-down";
+            package = selfpkgs.sound-down;
+          }
+          {
+            command = "sound-up-small";
+            description = "Increase default PipeWire audio-sink volume by one percent.";
+            usage = "sound-up-small";
+            package = selfpkgs.sound-up-small;
+          }
+          {
+            command = "sound-down-small";
+            description = "Decrease default PipeWire audio-sink volume by one percent.";
+            usage = "sound-down-small";
+            package = selfpkgs.sound-down-small;
+          }
+          {
+            command = "sound-set";
+            description = "Set default PipeWire audio-sink volume to a percentage.";
+            usage = "sound-set <percent>";
+            package = selfpkgs.sound-set;
+          }
+          {
+            command = "toggle-lid-inhibit";
+            description = "Control the persistent lid-close suspend inhibitor.";
+            usage = "toggle-lid-inhibit [enable|disable|toggle|status|is-active]";
+            package = selfpkgs.toggle-lid-inhibit;
+          }
+        ];
 
         environment.pathsToLink = [ "/share/color-schemes" ];
 

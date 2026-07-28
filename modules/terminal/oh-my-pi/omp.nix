@@ -1,4 +1,4 @@
-{ self, ... }:
+{ self, inputs, ... }:
 {
   flake.nixosModules.omp =
     {
@@ -16,6 +16,7 @@
       configSourceDirectory = config.preferences.paths.configSourceDirectory;
       system = pkgs.stdenv.hostPlatform.system;
       modelsCommand = self.packages.${system}.models;
+      ompCommand = inputs.llm-agents.packages.${system}.omp;
       languages = import ../opencode/_languages.nix { inherit pkgs self; };
       piApiKey = self.secrets.OMNIROUTE_PI_API_KEY or "";
       exaApiKey = self.secrets.EXA_API_KEY or "";
@@ -579,7 +580,7 @@
         # Source: https://github.com/can1357/oh-my-pi/blob/main/docs/environment-variables.md
         environment.variables.PI_STREAM_FIRST_EVENT_TIMEOUT_MS = toString streamFirstEventTimeoutMs;
 
-        environment.systemPackages = languages.packages;
+        environment.systemPackages = [ ompCommand ] ++ languages.packages;
 
         preferences.zsh = {
           aliases.o = "omp";
@@ -589,6 +590,21 @@
             "q(|[[:space:]]*)"
           ];
         };
+
+        preferences.commandHelp.commands = [
+          {
+            command = "omp";
+            aliases = [ "o" ];
+            description = "Launch Oh My Pi with the configured persistent agent state.";
+            usage = "omp [args]";
+            package = ompCommand;
+          }
+          {
+            command = "q";
+            description = "Ask the constrained one-shot Oh My Pi assistant.";
+            usage = "q <prompt>";
+          }
+        ];
       };
     };
 }

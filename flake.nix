@@ -124,6 +124,7 @@
         inputs.import-tree [
           ./lib/default.nix
           ./packages/_exports
+          ./packages/help/module.nix
           ./packages/bunjs-docs/module.nix
           ./packages/models/package.nix
           ./packages/bunjs-vpn-proxy/module.nix

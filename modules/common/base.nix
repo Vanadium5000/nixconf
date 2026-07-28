@@ -20,6 +20,7 @@
     in
     {
       imports = [
+        self.nixosModules.command-help
         self.nixosModules.opensnitch
         self.nixosModules.fresh
         self.nixosModules.git

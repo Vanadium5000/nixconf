@@ -27,6 +27,7 @@
 - [📦 Custom packages](#-custom-packages)
 - [🧰 Scripts and local development](#-scripts-and-local-development)
 - [🛡️ VPN proxy](#️-vpn-proxy)
+- [❓ Command help](#command-help)
 - [🚧 Rebuild wrapper](#-rebuild-wrapper)
 - [🧪 Verification checklist](#-verification-checklist)
 - [📝 License](#-license)
@@ -396,7 +397,36 @@ client
 
 ## 🚧 Rebuild wrapper
 
-`rebuild.sh` is the supported entry point. It writes secrets, evaluates the host matrix, and calls the relevant NixOS action.
+`rebuild.sh` is the supported entry point. The terminal profile also exposes it as
+`rebuild` (alias: `r`), so it works from any directory without relying on a
+checkout-relative path. It writes secrets, evaluates the host matrix, and calls
+the relevant NixOS action.
+
+## Command help
+
+Every enabled Nixconf module or package can append a record to
+`preferences.commandHelp.commands`. The shared command-help module merges those
+records for the evaluated host, rejects duplicate command or alias names, writes
+`/etc/nixconf/help.json`, and installs the exported `help` package. This keeps
+the index host-specific: a desktop-only command is absent on `main_vps`, while
+an enabled service's CLI appears with the service.
+
+```bash
+# Formatted output in an interactive terminal; h is the zsh alias.
+help
+h
+
+# Plain output for logs or pipes, or an explicit less view.
+help --plain
+help --pager
+
+# Test the exported package with any compatible JSON document.
+nix run path:.#help -- --plain --docs ./help.json
+```
+
+The standalone package accepts `--docs FILE` or `--docs-json JSON`; otherwise it
+uses `NIXCONF_HELP_DOCS` (the host sets this to `/etc/nixconf/help.json`) and then
+`NIXCONF_HELP_DOCS_JSON`.
 
 > [!WARNING]
 > Agents must not run rebuild/switch/deploy/install/rollback/generation-changing commands. `HOST=<host> ./rebuild.sh validate` is the allowed rebuild wrapper validation path.

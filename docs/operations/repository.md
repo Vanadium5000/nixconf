@@ -102,6 +102,33 @@ Deleted checkout files should not create repo-local `.Trash-*` directories. `mod
 
 When a change affects operator behavior, public routes, host services, or recovery steps, update `docs/` in the same patch.
 
+## Host command help
+
+[`packages/help/package.nix`](https://github.com/Vanadium5000/nixconf/blob/main/packages/help/package.nix)
+exports a portable `help` command. Its companion
+[`packages/help/module.nix`](https://github.com/Vanadium5000/nixconf/blob/main/packages/help/module.nix)
+owns `preferences.commandHelp.commands`, generates `/etc/nixconf/help.json`, and
+installs only command providers registered by enabled modules. Add an executable
+where it is enabled, then add its record in the same conditional `config` block:
+
+```nix
+preferences.commandHelp.commands = [
+  {
+    command = "example-command";
+    aliases = [ "ec" ]; # Optional.
+    description = "One-line purpose shown by help.";
+    usage = "example-command [options]";
+    details = "Optional operational note.";
+    package = examplePackage;
+  }
+];
+```
+
+`help` renders formatted records interactively, `help --plain` is pipe-safe, and
+`help --pager` uses `less`. `h` aliases `help`; terminal hosts also alias
+`rebuild` as `r`. The package is testable off-host through `--docs FILE` or
+`--docs-json JSON`, without an activated `/etc/nixconf/help.json`.
+
 ## Manual `/persist/system` backups
 
 `modules/terminal/btrbk.nix` installs nixpkgs `btrbk` plus a `btrbk-persist-system` wrapper on every terminal-profile host. It backs up the `/persist/system` Btrfs subvolume to a removable Btrfs target under:

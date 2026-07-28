@@ -221,6 +221,15 @@ in
 
       config = mkIf config.programs.fresh.enable {
         preferences.zsh.aliases.f = "fresh";
+        preferences.commandHelp.commands = [
+          {
+            command = "fresh";
+            aliases = [ "f" ];
+            description = "Open the configured Fresh terminal editor.";
+            usage = "fresh [path]";
+            package = pkgs.unstable.fresh-editor;
+          }
+        ];
 
         system.activationScripts.fresh-user-config = {
           text = self.lib.userFiles.mkActivationScript {
