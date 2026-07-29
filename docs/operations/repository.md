@@ -125,9 +125,11 @@ preferences.commandHelp.commands = [
 ```
 
 `help` renders formatted records interactively, `help --plain` is pipe-safe, and
-`help --pager` uses `less`. `h` aliases `help`; terminal hosts also alias
-`rebuild` as `r`. The package is testable off-host through `--docs FILE` or
-`--docs-json JSON`, without an activated `/etc/nixconf/help.json`.
+`help --pager` uses `less`. It reads `/etc/nixconf/help.json` by default, so the
+index works even when a graphical or non-login shell did not inherit
+`NIXCONF_HELP_DOCS`. `h` aliases `help`; terminal hosts also alias `rebuild` as
+`r`. The package is testable off-host through `--docs FILE` or `--docs-json
+JSON`.
 
 ## Manual `/persist/system` backups
 

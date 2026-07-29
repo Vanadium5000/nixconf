@@ -6,12 +6,13 @@
   # Example usage:
   #   { self, ... }:
   #   let
-  #     persist = self.lib.persistence.mkPersistent { ... };
+  #     bind = self.lib.bindMounts.mkUserPath { ... };
   #   in { ... }
 
   flake.lib = {
-    # Persistence helpers for managing files across reboots (impermanence setups)
-    persistence = import ./persistence.nix { inherit lib; };
+    # User-path bind mount helper. Impermanence itself stays owned by the
+    # dedicated modules/common/impermanence.nix module.
+    bindMounts = import ./bind-mounts.nix { inherit lib; };
 
     # NixOS activation-script helper for managing files in the primary user's home.
     userFiles = import ./user-files.nix { inherit lib; };

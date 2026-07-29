@@ -488,9 +488,8 @@
       # Persist the whole OMOS/OMP tree because local inspection shows it mixes
       # mutable DBs, logs, plugins, and editable YAML under ~/.omp and ~/.omp/agent.
       # Source: observed local paths ~/.omp/{agent,logs,plugins,gpu_cache.json}.
-      ompPersistence = self.lib.persistence.mkPersistent {
-        method = "bind";
-        inherit user;
+      ompBinding = self.lib.bindMounts.mkUserPath {
+        inherit pkgs user;
         fileName = "omp";
         targetFile = ompDirectory;
         isDirectory = true;
@@ -568,12 +567,9 @@
           deps = [ "users" ];
         };
 
-        system.activationScripts.omp-persistence = {
-          text = ompPersistence.activationScript;
-          deps = [ "users" ];
-        };
+        systemd.services.omp-bind = ompBinding.systemdService;
 
-        fileSystems = ompPersistence.fileSystems;
+        fileSystems = ompBinding.fileSystems;
 
         # OMP loads ~/.omp/agent/.env after process env; keep API keys scoped to
         # that 0600 file above instead of exporting them through /etc/profile.

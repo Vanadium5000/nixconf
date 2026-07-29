@@ -255,8 +255,8 @@ Root is wiped on boot. Persist only state that must survive.
 
 | Layer         | Path                                            | Responsibility                          |
 | ------------- | ----------------------------------------------- | --------------------------------------- |
-| NixOS module  | `modules/common/impermanence.nix`               | Filesystem/persistence wiring           |
-| Library       | `lib/persistence.nix`                           | Helpers for persisted files/directories |
+| NixOS module  | `modules/common/impermanence.nix`               | Impermanence filesystem wiring          |
+| Library       | `lib/bind-mounts.nix`                           | Regular-path bind mount helper          |
 | Apps/services | `impermanence.*` near the module using the path | Service/app-owned state paths           |
 
 Rules:
@@ -265,7 +265,7 @@ Rules:
 - Regenerable data belongs in cache paths.
 - Global user state is limited to broad directories and credentials; app paths live beside the programme/service module that uses them.
 - Heavy or reinstallable data is cache-tier: `~/Downloads`, `~/Torrents`, `~/.bun`, `~/.npm`, `/var/log`, and `/var/lib/systemd`.
-- Terminal/desktop apps split mutable XDG state explicitly: `gh` auth is persisted; OpenCode, GitHub CLI, and editor caches stay cache-tier.
+- Terminal/desktop apps split mutable XDG state explicitly: `gh` auth plus OpenCode/OMP state are durable, while OpenCode runtime artifacts, GitHub CLI caches, and editor state use the cache tier. Managed user paths use bind mounts or ordinary copied files, never symlinks: the checkout itself is bind-mounted from `/persist/system`, and VSCodium/Antigravity bind `User/settings.json` to the selected checkout/store source. Electron therefore sees regular paths and cannot atomically replace a configuration symlink; migration retains divergent legacy files beside the mount point with a `.pre-nixos-bind.<timestamp>` suffix, while the declarative source remains authoritative.
 - GUI deletes route to the global XDG trash instead of checkout-local `.Trash-*`: `modules/common/impermanence.nix` sets `allowTrash = true` on persisted bind mounts and persists `~/.local/share/Trash` in `/persist/cache` so VSCodium, Dolphin, and GIO clients can trash files from `~/nixconf` without polluting the repository root.
 
 ### Manual btrbk backups
@@ -425,8 +425,9 @@ nix run path:.#help -- --plain --docs ./help.json
 ```
 
 The standalone package accepts `--docs FILE` or `--docs-json JSON`; otherwise it
-uses `NIXCONF_HELP_DOCS` (the host sets this to `/etc/nixconf/help.json`) and then
-`NIXCONF_HELP_DOCS_JSON`.
+reads `/etc/nixconf/help.json`. `NIXCONF_HELP_DOCS` and
+`NIXCONF_HELP_DOCS_JSON` override that host default for nonstandard installs and
+tests.
 
 > [!WARNING]
 > Agents must not run rebuild/switch/deploy/install/rollback/generation-changing commands. `HOST=<host> ./rebuild.sh validate` is the allowed rebuild wrapper validation path.

@@ -106,7 +106,25 @@
         ]);
 
       settingsFile = self.lib.configFiles.known.vscodiumSettings;
-
+      homeDirectory = config.preferences.paths.homeDirectory;
+      settingsSource = self.lib.configFiles.mkConfigSourcePath {
+        inherit config;
+        inherit (settingsFile) relativePath storePath;
+      };
+      settingsBindings =
+        map
+          (
+            editor:
+            self.lib.bindMounts.mkUserPath {
+              inherit pkgs user;
+              sourcePath = settingsSource;
+              targetFile = "${homeDirectory}/.config/${editor}/User/settings.json";
+            }
+          )
+          [
+            "VSCodium"
+            "Antigravity"
+          ];
       editorWaylandArgs = "--ozone-platform-hint=auto --enable-features=WaylandWindowDecorations --enable-wayland-ime=true --wayland-text-input-version=3";
 
       vscodiumWayland = editorEdgePkgs.vscodium.override {
@@ -209,28 +227,16 @@
         deps = [ "users" ];
       };
 
-      system.activationScripts.vscodium-user-files = {
-        text = self.lib.userFiles.mkActivationScript {
-          inherit user;
-          inherit pkgs;
-          homeDirectory = config.preferences.paths.homeDirectory;
-          files = {
-            ".config/VSCodium/User/settings.json" = self.lib.configFiles.mkUserFile {
-              inherit config;
-              inherit (settingsFile) relativePath;
-              inherit (settingsFile) storePath;
-              file.permissions = "0644";
-            };
-            ".config/Antigravity/User/settings.json" = self.lib.configFiles.mkUserFile {
-              inherit config;
-              inherit (settingsFile) relativePath;
-              inherit (settingsFile) storePath;
-              file.permissions = "0644";
-            };
-          };
-        };
-        deps = [ "users" ];
+      systemd.services = {
+        vscodium-settings-bind = (builtins.elemAt settingsBindings 0).systemdService;
+        antigravity-settings-bind = (builtins.elemAt settingsBindings 1).systemdService;
       };
+
+      # Electron sees regular files, but their settings stay sourced from the
+      # selected checkout/store configuration rather than writable symlinks.
+      fileSystems = lib.foldl' (
+        fileSystems: binding: fileSystems // binding.fileSystems
+      ) { } settingsBindings;
 
       # Central unfree policy owns the rationale; this feature owns the opt-in.
       preferences.allowedUnfree = self.lib.nixpkgs.allowedUnfreeFor "modules/desktop/vscodium/default.nix";

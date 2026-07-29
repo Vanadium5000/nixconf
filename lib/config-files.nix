@@ -6,7 +6,6 @@ let
   inherit (lib)
     concatMapStringsSep
     escapeShellArg
-    optionalAttrs
     ;
 
   sourceNames = {
@@ -154,9 +153,10 @@ rec {
         inherit config relativePath storePath;
       };
     }
-    // optionalAttrs (config.preferences.configFiles.source == sourceNames.store && !(file ? type)) {
-      # Store-backed managed config should land as a normal mutable file, while
-      # checkout-backed config remains a symlink for live editing from ~/nixconf.
+    // lib.optionalAttrs (!(file ? type)) {
+      # Activation copies declarative config into a regular file. A program
+      # cannot replace a checkout/store symlink and silently detach it from the
+      # managed source; callers requiring a live immutable view use a bind mount.
       type = "copy";
     };
 }

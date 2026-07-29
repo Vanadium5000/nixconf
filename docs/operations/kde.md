@@ -25,7 +25,7 @@ KDE's configuration system is user-mutable by design. The module persists the fi
 
 | Tier          | Examples                                                                                                                                                                                                                                                 | Notes                                                                        |
 | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| Durable state | `.config/kdeglobals`, `.config/kglobalshortcutsrc`, `.config/kwinrc`, `.config/kwinrulesrc`, `.config/plasma-org.kde.plasma.desktop-appletsrc`, `.config/plasmashellrc`, `.local/share/kwalletd`, `.local/share/plasma`, `.local/share/user-places.xbel` | Shell layout, KWin, shortcuts, KWallet, places, and per-user Plasma choices. |
+| Durable state | Selected `.config/*`, `.config/*.rc`, and `.local/share/*` paths | Shell layout, KWin, shortcuts, KWallet, places, and per-user Plasma choices. Each KConfig file is persisted explicitly so its atomic replacement remains an ordinary file rather than a fragile bind mount. |
 | Cache         | `.cache/plasma-svgelements`, `.cache/plasmashell`, `.cache/qmlcache`, `.cache/thumbnails`, `wallpaper`                                                                                                                                                   | Rebuildable rendering/cache data and the local wallpaper selector cache.     |
 
 KDE UserBase documents the cascading config-file model: defaults can come from system config trees, but `$KDEHOME` user config has highest precedence and apps rewrite these files. This module avoids lock-down entries, so System Settings remains the source of truth for user choices.
@@ -74,6 +74,16 @@ and synchronized by
 VSCodium pins its Git executable to the system profile in
 [`modules/desktop/vscodium/settings.json`](https://github.com/Vanadium5000/nixconf/blob/main/modules/desktop/vscodium/settings.json),
 so source control does not depend on the desktop session's inherited `PATH`.
+
+Both VSCodium and Antigravity expose that same `settings.json` through a regular
+file bind mount at their `User/settings.json` paths. The source follows
+`preferences.configFiles.source`: the checkout for local editing or the flake
+store copy on hosts without a checkout. The checkout itself is a persistent bind
+mount, so the source is available before either editor-file mount. Migration
+removes the former symlink; a divergent legacy file is preserved beside the
+mount point as `settings.json.pre-nixos-bind.<timestamp>`. The bind source is
+never initialized from editor state, so the declarative setting remains
+authoritative.
 
 ## Validation
 

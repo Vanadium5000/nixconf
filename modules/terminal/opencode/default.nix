@@ -385,23 +385,20 @@
       # Bind mounts are used instead of symlinks so applications see regular
       # paths even on impermanent roots and cannot replace persistence with a
       # fresh file by accident.
-      toolsPersistence = self.lib.persistence.mkPersistent {
-        method = "bind";
-        inherit user;
+      toolsBinding = self.lib.bindMounts.mkUserPath {
+        inherit pkgs user;
         fileName = "antigravity_tools";
         targetFile = "${homeDirectory}/.antigravity_tools";
         isDirectory = true;
       };
-      opencodePersistence = self.lib.persistence.mkPersistent {
-        method = "bind";
-        inherit user;
+      opencodeBinding = self.lib.bindMounts.mkUserPath {
+        inherit pkgs user;
         fileName = "opencode";
         targetFile = "${homeDirectory}/.local/share/opencode";
         isDirectory = true;
       };
-      opencodeMemPersistence = self.lib.persistence.mkPersistent {
-        method = "bind";
-        inherit user;
+      opencodeMemBinding = self.lib.bindMounts.mkUserPath {
+        inherit pkgs user;
         fileName = "opencode-mem";
         targetFile = "${homeDirectory}/.opencode-mem";
         isDirectory = true;
@@ -450,20 +447,14 @@
         ".local/cache/opencode"
       ];
 
-      # Setup script ensures mount targets exist before the bind mounts are
-      # activated, which keeps impermanence boot ordering predictable.
-      system.activationScripts.opencode-persistence = {
-        text =
-          toolsPersistence.activationScript
-          + opencodePersistence.activationScript
-          + opencodeMemPersistence.activationScript;
-        deps = [ "users" ];
+      systemd.services = {
+        opencode-tools-bind = toolsBinding.systemdService;
+        opencode-state-bind = opencodeBinding.systemdService;
+        opencode-memory-bind = opencodeMemBinding.systemdService;
       };
 
       fileSystems =
-        toolsPersistence.fileSystems
-        // opencodePersistence.fileSystems
-        // opencodeMemPersistence.fileSystems;
+        toolsBinding.fileSystems // opencodeBinding.fileSystems // opencodeMemBinding.fileSystems;
 
       system.activationScripts.opencode-user-files = {
         text =

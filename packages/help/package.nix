@@ -38,7 +38,9 @@ writeShellApplication {
 
     plain=0
     pager=0
-    docs_file="''${NIXCONF_HELP_DOCS:-}"
+    # Activated hosts always generate this file. Keep the environment override
+    # for nonstandard installs, but do not require a login shell to propagate it.
+    docs_file="''${NIXCONF_HELP_DOCS:-/etc/nixconf/help.json}"
     docs_json="''${NIXCONF_HELP_DOCS_JSON:-}"
 
     while [ "$#" -gt 0 ]; do
@@ -87,7 +89,7 @@ writeShellApplication {
     elif [ -n "$docs_file" ]; then
       docs_input="$docs_file"
     else
-      printf 'help: no documentation source; set NIXCONF_HELP_DOCS or pass --docs/--docs-json\n' >&2
+      printf 'help: no documentation source; pass --docs or --docs-json\n' >&2
       exit 66
     fi
 

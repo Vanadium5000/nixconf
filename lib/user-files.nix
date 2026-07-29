@@ -30,7 +30,7 @@ let
       source = storeSource pkgs path file;
       target = targetPath homeDirectory path;
       mode = file.permissions or null;
-      copy = (file.type or null) == "copy" || file ? text;
+      copy = (file.type or "copy") == "copy" || file ? text;
       recursive = file.recursive or false;
       clobber = file.clobber or true;
       quotedSource = escapeShellArg source;
@@ -70,10 +70,7 @@ let
               cp -Lr --no-preserve=mode "$source"/. "$target"/
             ''
           else
-            ''
-              rm -rf "$target"
-              ln -s "$source" "$target"
-            ''
+            throw "userFiles: '${path}' has unsupported type '${file.type or "copy"}'"
         }
         ${optionalString (mode != null && (copy || recursive)) ''
           chmod -R ${quotedMode} "$target"

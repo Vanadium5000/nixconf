@@ -51,9 +51,45 @@
 
       cfg = config.impermanence;
       username = config.preferences.user.username;
-      homeDirectory = config.preferences.paths.homeDirectory;
-      checkoutDirectory = "${homeDirectory}/nixconf";
+      checkoutDirectory = config.preferences.paths.configDirectory;
       persistentCheckoutDirectory = "/persist/system${checkoutDirectory}";
+      escapeSystemdPath =
+        path: builtins.replaceStrings [ "-" "/" ] [ "\\x2d" "-" ] (lib.removePrefix "/" path);
+      checkoutMountUnit = "${escapeSystemdPath checkoutDirectory}.mount";
+      checkoutBindSetup = ''
+        persistent=${lib.escapeShellArg persistentCheckoutDirectory}
+        checkout=${lib.escapeShellArg checkoutDirectory}
+
+        ${pkgs.coreutils}/bin/install -d -m 0755 -o ${username} -g users "$(${pkgs.coreutils}/bin/dirname "$persistent")"
+        ${pkgs.coreutils}/bin/install -d -m 0755 -o ${username} -g users "$(${pkgs.coreutils}/bin/dirname "$checkout")"
+
+        if [ -L "$persistent" ]; then
+          echo "ERROR: refusing symlinked persistent checkout '$persistent'." >&2
+          exit 1
+        fi
+
+        if ! ${pkgs.util-linux}/bin/mountpoint -q "$checkout"; then
+          if [ -L "$checkout" ]; then
+            # The former target was a persistence symlink. Retain an unexpected
+            # link durably rather than discarding the only route to its data.
+            if [ "$(${pkgs.coreutils}/bin/readlink "$checkout")" != "$persistent" ]; then
+              ${pkgs.coreutils}/bin/mv "$checkout" "$persistent.symlink.pre-nixos-bind.$(${pkgs.coreutils}/bin/date +%Y%m%d%H%M%S)"
+            else
+              ${pkgs.coreutils}/bin/rm "$checkout"
+            fi
+          elif [ -e "$checkout" ]; then
+            if [ -d "$checkout" ] && { [ ! -e "$persistent" ] || ${pkgs.coreutils}/bin/rmdir "$persistent" 2>/dev/null; }; then
+              # Seed a first migration from a real checkout without copying or
+              # overwriting it; the bind below restores the original path.
+              ${pkgs.coreutils}/bin/mv "$checkout" "$persistent"
+            else
+              ${pkgs.coreutils}/bin/mv "$checkout" "$persistent.target.pre-nixos-bind.$(${pkgs.coreutils}/bin/date +%Y%m%d%H%M%S)"
+            fi
+          fi
+
+          ${pkgs.coreutils}/bin/install -d -m 0755 -o ${username} -g users "$persistent" "$checkout"
+        fi
+      '';
     in
     {
       imports = [
@@ -204,30 +240,36 @@
           "d /var/lib/private 0700 root root -"
         ];
 
-        system.activationScripts.nixconf-checkout-symlink = {
+        system.activationScripts.nixconf-checkout-bind = {
           deps = [ "users" ];
-          text = ''
-            persistent=${lib.escapeShellArg persistentCheckoutDirectory}
-            checkout=${lib.escapeShellArg checkoutDirectory}
+          text = checkoutBindSetup;
+        };
 
-            ${pkgs.coreutils}/bin/install -d -m 0755 -o ${username} -g users "$persistent"
-            ${pkgs.coreutils}/bin/install -d -m 0755 -o ${username} -g users "$(${pkgs.coreutils}/bin/dirname "$checkout")"
+        # Bind the checkout so editors see a normal writable tree. This also
+        # keeps checkout-sourced managed file binds available before local-fs
+        # mounts their individual configuration files.
+        fileSystems."${checkoutDirectory}" = {
+          device = persistentCheckoutDirectory;
+          fsType = "none";
+          options = [
+            "bind"
+            "nofail"
+            "x-systemd.requires-mounts-for=/persist/system"
+          ];
+        };
 
-            if [ -L "$checkout" ]; then
-              current="$(${pkgs.coreutils}/bin/readlink "$checkout")"
-              if [ "$current" != "$persistent" ]; then
-                ${pkgs.coreutils}/bin/rm -f "$checkout"
-                ${pkgs.coreutils}/bin/ln -s "$persistent" "$checkout"
-              fi
-            elif [ ! -e "$checkout" ]; then
-              ${pkgs.coreutils}/bin/ln -s "$persistent" "$checkout"
-            elif ${pkgs.coreutils}/bin/rmdir "$checkout" 2>/dev/null; then
-              ${pkgs.coreutils}/bin/ln -s "$persistent" "$checkout"
-            else
-              echo "nixconf-checkout-symlink: keeping non-empty $checkout; move it to $persistent before deleting files from editors" >&2
-            fi
-            ${pkgs.coreutils}/bin/chown -h ${username}:users "$checkout" 2>/dev/null || true
-          '';
+        systemd.services.nixconf-checkout-bind = {
+          description = "Prepare persistent nixconf checkout bind mount";
+          before = [ checkoutMountUnit ];
+          requiredBy = [ checkoutMountUnit ];
+          after = [ "persist-system.mount" ];
+          path = [
+            pkgs.coreutils
+            pkgs.util-linux
+          ];
+          script = checkoutBindSetup;
+          unitConfig.DefaultDependencies = false;
+          serviceConfig.Type = "oneshot";
         };
 
         # systemd stage-1 does not support postResumeCommands; run the Btrfs

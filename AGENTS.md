@@ -62,7 +62,7 @@ graphical hosts: hosts/{legion5i,macbook}/
 ├─ OpenSnitch enabled with eBPF/nftables; advanced typed mutableRules reset /var/lib/opensnitch/rules from Nix every activation/service start while UI config persists in ~/.config/opensnitch; authenticated bypass wrapper is opensnitch-bypass
 └─ qBittorrent WebUI: Gluetun/PIA stack binds 127.0.0.1:8088; qBittorrent shares Gluetun network namespace, pins torrent traffic to tun0, and downloads to persisted ~/Torrents
 
-persistence helpers: lib/persistence.nix; NixOS module modules/common/impermanence.nix; app state split across home persistence/cache for gh, OpenCode, OMP, Plasma, Firefox, VSCodium, and app data; btrbk host target suffix/transactions persist in /var/lib/btrbk
+user-path bind helper: lib/bind-mounts.nix; NixOS impermanence module: modules/common/impermanence.nix; app state split across home persistence/cache for gh, OpenCode, OMP, Plasma, Firefox, VSCodium, and app data; btrbk host target suffix/transactions persist in /var/lib/btrbk
 DNS stack (all hosts via modules/common/networking.nix): NSS prefers systemd-resolved (Cloudflare DoT opportunistic + DHCP/VPN link DNS + FallbackDNS); /etc/resolv.conf is static public 1.1.1.1/1.0.0.1/9.9.9.9/8.8.8.8 fail-open (not 127.0.0.53 stub); emergency tool dns-emergency (plain/dhcp/stop-resolved/restore) — docs/operations/dns.md
 monitoring dashboards: modules/terminal/monitoring/
 ```

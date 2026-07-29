@@ -281,6 +281,9 @@
           ".local/share/sddm"
         ];
 
+        # KConfig writes via temp-file replacement, so per-file bind mounts
+        # would fail with EBUSY. Preserve this explicit impermanence symlink
+        # exception; it retains the selected paths without broadening state.
         impermanence.home.files = map (file: {
           inherit file;
           method = "symlink";
@@ -303,10 +306,8 @@
           "d ${homeDirectory}/.local/share/keyrings 0700 ${user} users -"
         ]
         ++ lib.optionals config.impermanence.enable (
-          # KConfig saves via temp-file rename: per-file bind mounts reject
-          # that with EBUSY, while missing targets create dangling symlinks.
-          # Force symlink persistence above and precreate these files here.
-          # Source: nix-community/impermanence mount-file.bash symlink branch.
+          # Missing file targets would create dangling persistence links. Seed
+          # the persisted parents and exact files before impermanence mounts.
           [
             "d ${persistedHomeDirectory}/.config 0755 ${user} users -"
             "d ${persistedHomeDirectory}/.local/share 0755 ${user} users -"

@@ -45,9 +45,10 @@
             type = types.enum (builtins.attrValues self.lib.configFiles.sourceNames);
             default = "checkout";
             description = ''
-              Source for repo-owned config files consumed by programs.
-              `checkout` keeps symlinks to preferences.paths.configDirectory for local editing;
-              `store` copies the flake inputs from the Nix store for hosts without ~/nixconf.
+              Source for repo-owned config files consumed by programs. `checkout`
+              uses the persistent checkout for activation refreshes; `store` uses
+              flake inputs on hosts without a checkout. Managed paths are regular
+              files or bind mounts, never source symlinks.
             '';
           };
         };

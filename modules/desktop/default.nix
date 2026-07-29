@@ -228,7 +228,6 @@
           ".config/emailidentities"
           ".config/kmail2rc"
         ];
-
         impermanence.home.cache.directories = [ ];
         # XDG Integration
         # Enable the NixOS XDG generators so non-Plasma sessions still expose

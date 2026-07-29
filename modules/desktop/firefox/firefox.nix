@@ -41,10 +41,9 @@
         ${extraPrefs}
       '';
 
-      # Persistence configuration using bind mount for reliability
-      permissionsPersistence = self.lib.persistence.mkPersistent {
-        method = "bind";
-        inherit user;
+      # Bind mount preserves a regular writable path for Firefox.
+      permissionsBinding = self.lib.bindMounts.mkUserPath {
+        inherit pkgs user;
         fileName = "librewolf-permissions.sqlite";
         targetFile = "/home/${user}/.librewolf/${user}.default/permissions.sqlite";
       };
@@ -54,9 +53,8 @@
       # Ref: MDN storage.local vs storage.sync behavior:
       # https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/storage/local
       # https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/storage/sync
-      containerProxySettingsPersistence = self.lib.persistence.mkPersistent {
-        method = "bind";
-        inherit user;
+      containerProxySettingsBinding = self.lib.bindMounts.mkUserPath {
+        inherit pkgs user;
         fileName = "librewolf-container-proxy-extension-data";
         # Upstream extension ID is "contaner-proxy@bekh-ivanov.me" (manifest gecko.id).
         # Persist the whole directory (not only storage.js) so atomic writes using
@@ -68,9 +66,8 @@
       # Container Proxy relations map to Multi-Account Containers internal IDs
       # (firefox-container-*), so proxy mapping consistency also depends on the
       # MAC extension state being the same across devices.
-      multiAccountContainersSettingsPersistence = self.lib.persistence.mkPersistent {
-        method = "bind";
-        inherit user;
+      multiAccountContainersSettingsBinding = self.lib.bindMounts.mkUserPath {
+        inherit pkgs user;
         fileName = "librewolf-multi-account-containers-extension-data";
         # Keep full extension directory for the same atomic-write reason.
         targetFile = "/home/${user}/.librewolf/${user}.default/browser-extension-data/@testpilot-containers";
@@ -79,9 +76,8 @@
 
       # Keep container identity metadata aligned across hosts so the same
       # firefox-container-* IDs resolve to the same logical containers.
-      containersJsonPersistence = self.lib.persistence.mkPersistent {
-        method = "bind";
-        inherit user;
+      containersJsonBinding = self.lib.bindMounts.mkUserPath {
+        inherit pkgs user;
         fileName = "librewolf-containers.json";
         targetFile = "/home/${user}/.librewolf/${user}.default/containers.json";
       };
@@ -285,25 +281,19 @@
           deps = [ "users" ];
         };
 
-        system.activationScripts.firefox-permissions = {
-          text = permissionsPersistence.activationScript;
-          deps = [ "users" ];
-        };
-
-        system.activationScripts.firefox-container-proxy = {
-          text =
-            containerProxySettingsPersistence.activationScript
-            + multiAccountContainersSettingsPersistence.activationScript
-            + containersJsonPersistence.activationScript;
-          deps = [ "users" ];
+        systemd.services = {
+          firefox-permissions-bind = permissionsBinding.systemdService;
+          firefox-container-proxy-bind = containerProxySettingsBinding.systemdService;
+          firefox-multi-account-containers-bind = multiAccountContainersSettingsBinding.systemdService;
+          firefox-containers-json-bind = containersJsonBinding.systemdService;
         };
 
         # Bind mount for reliable persistence (apps can't overwrite)
         fileSystems =
-          permissionsPersistence.fileSystems
-          // containerProxySettingsPersistence.fileSystems
-          // multiAccountContainersSettingsPersistence.fileSystems
-          // containersJsonPersistence.fileSystems;
+          permissionsBinding.fileSystems
+          // containerProxySettingsBinding.fileSystems
+          // multiAccountContainersSettingsBinding.fileSystems
+          // containersJsonBinding.fileSystems;
 
         # Default Configuration
         programs.librewolf.policies = {
