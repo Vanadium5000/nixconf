@@ -84,17 +84,18 @@ in
           root = ../. + "/${rootName}";
           entries = builtins.readDir root;
           requiredFiles = rule.requiredFiles or [ rule.requiredFile ];
+          allowNamedDefinition = rule.allowNamedDefinition or false;
           allowedDirectories = rule.allowedDirectories or [ ];
+          requiredContract = requiredFiles ++ lib.optional allowNamedDefinition "<directory-name>.nix";
           invalid = lib.filter (
             entry:
             let
               entryPath = root + "/${entry}";
+              hasRequiredFile = lib.any (file: builtins.pathExists (entryPath + "/${file}")) requiredFiles;
+              hasNamedDefinition = allowNamedDefinition && builtins.pathExists (entryPath + "/${entry}.nix");
               isAllowedDirectory =
                 entries.${entry} == "directory"
-                && (
-                  builtins.elem entry allowedDirectories
-                  || lib.any (file: builtins.pathExists (entryPath + "/${file}")) requiredFiles
-                );
+                && (builtins.elem entry allowedDirectories || hasRequiredFile || hasNamedDefinition);
             in
             !isAllowedDirectory
           ) (builtins.attrNames entries);
@@ -102,7 +103,7 @@ in
         if invalid == [ ] then
           ""
         else
-          lib.warn "${rootName}: every first-level entry must be a directory containing one of ${builtins.concatStringsSep ", " requiredFiles}${lib.optionalString (allowedDirectories != [ ]) " or an allowed infrastructure directory: ${builtins.concatStringsSep ", " allowedDirectories}"}; invalid: ${builtins.concatStringsSep ", " invalid}" "";
+          lib.warn "${rootName}: every first-level entry must be a directory containing one of ${builtins.concatStringsSep ", " requiredContract}${lib.optionalString (allowedDirectories != [ ]) " or an allowed infrastructure directory: ${builtins.concatStringsSep ", " allowedDirectories}"}; invalid: ${builtins.concatStringsSep ", " invalid}" "";
     in
     builtins.concatStringsSep "" (lib.mapAttrsToList checkRoot roots);
 }

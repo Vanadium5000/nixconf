@@ -21,7 +21,7 @@ flake.nix
 - `hosts/`: active host definitions.
 - `packages/<name>/`: in-repo software with `package.nix` and any package-owned module/assets. The directory name is the exported package name; `bunjs-` is reserved for Bun-programme directories.
 - `external-packages/<name>/`: packaged upstream projects with `package.nix`; `external-packages/update-pkgs/workflow.nix` owns package sets, updater modes, safe smoke arguments, custom-updater bindings, and documented manual coverage. Uncovered packages warn.
-- `programmes/<name>/`: wrappers and configuration for upstream tools built with `BirdeeHub/nix-wrapper-modules`.
+- `programmes/<name>/`: wrappers and configuration for upstream tools built with [`nix-wrapper-modules`](https://birdeehub.github.io/nix-wrapper-modules/md/intro.html). A programme owner contains `module.nix`, `package.nix`, or an owner-matching `<name>.nix` wrapper definition such as [`programmes/herdr/herdr.nix`](../../programmes/herdr/herdr.nix).
 - `modules/terminal/`: terminal/server profile modules.
 - `modules/terminal/docker/compose/<stack>/`: Docker Compose stack assets consumed by `modules/terminal/docker-compose-stacks.nix`.
 - `modules/desktop/`: graphical profile modules for the KDE Plasma desktop stack.
@@ -31,6 +31,12 @@ flake.nix
 Multi-command package owners export each runnable command directly. Do not add a convenience aggregate that pulls unrelated scripts, runtimes, browsers, or daemons into one closure; choose the exact `self.packages.<system>.<command>` at the consuming profile, service, host, or package. For example, music and credential commands depend on `qs-dmenu`, not the unrelated `qs-menus` aggregate.
 
 Root architecture directories contain owner subdirectories only; do not add first-level implementation files there. `lib/` is the flat-helper exception. Keep first-level `docs/` entries as section directories containing `.md`/`.mdx` only; Docusaurus JS/TS code belongs in `packages/bunjs-docs/`.
+
+## Wrapper-first package policy
+
+Before packaging upstream software locally, check nixpkgs, then flake inputs such as [`llm-agents`](https://github.com/numtide/llm-agents.nix), then whether a portable wrapper belongs in `programmes/<name>/<name>.nix`; [`programmes/herdr/herdr.nix`](../../programmes/herdr/herdr.nix) is an owner-matching wrapper example. Wrappers use `inputs.wrappers.lib.wrapPackage` from the [`nix-wrapper-modules`](https://birdeehub.github.io/nix-wrapper-modules/md/intro.html) input declared in [`flake.nix`](../../flake.nix), and exporting one does not enable or install it: a profile, host, service, or package must select the export explicitly.
+
+Use `packages/<name>/` only for in-repo software. Use `external-packages/<name>/` only when upstream packaging is genuinely absent or needed; only then does [`external-packages/update-pkgs/workflow.nix`](../../external-packages/update-pkgs/workflow.nix) require automatic or documented-manual update coverage. This lookup and ownership order prevents locally repackaging externally maintained tools already supplied by nixpkgs or a flake input.
 
 ## Repository audits
 
@@ -47,7 +53,7 @@ nix run path:.#nix-unused-audit -- --strict
 
 - `persist-audit` reports source locations of declared persistent and cache state.
 - `nix-unused-audit` runs [deadnix](https://github.com/astro/deadnix) and [statix](https://github.com/oppiliappan/statix) over the root Nix architecture directories.
-- `checks.repository-architecture` evaluates the first-level directory contract for `docs/`, `packages/`, `external-packages/`, and `programmes/`.
+- `checks.repository-architecture` evaluates the first-level directory contract for `docs/`, `packages/`, `external-packages/`, and `programmes/`; programme owners must contain `module.nix`, `package.nix`, or an owner-matching `<name>.nix` wrapper definition.
 - `checks.update-pkgs-workflow-coverage` warns when an external package lacks an update mode in [`external-packages/update-pkgs/workflow.nix`](https://github.com/Vanadium5000/nixconf/blob/main/external-packages/update-pkgs/workflow.nix); `update-pkgs` emits the same warning interactively.
 - `checks.installed-package-references` forces every host's `environment.systemPackages` derivation paths, catching stale auto-exported package attributes before a rebuild reaches `system-path` evaluation.
 

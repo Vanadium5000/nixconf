@@ -57,6 +57,7 @@ let
           "module.nix"
           "package.nix"
         ];
+        allowNamedDefinition = true;
       };
     };
   };

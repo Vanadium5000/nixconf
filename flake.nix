@@ -56,8 +56,8 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # LLM agent package set. OpenCode comes from this flake rather than a
-    # local release override or the upstream opencode source flake.
+    # Externally maintained LLM-agent tools, including OpenCode and Herdr,
+    # come from this flake rather than local release overrides or source flakes.
     # Source: https://github.com/numtide/llm-agents.nix
     llm-agents = {
       url = "github:numtide/llm-agents.nix";

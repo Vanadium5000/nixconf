@@ -70,11 +70,11 @@ flake.nix
 | Module exports     | `modules/flake/exports.nix`                                        | Grouped module sets and evaluated `hostModuleMatrix`                                                                                                                            |
 | Local packages     | `packages/_exports/default.nix`, package-owned `package.nix` files | Auto-exposes single-derivation package directories and imports multi-output package modules; command wrappers are exported individually from their owning package               |
 | Package updates    | `external-packages/update-pkgs/workflow.nix`                       | Declarative package sets, updater modes, safe smoke arguments, custom-updater bindings, and manual reasons; missing coverage warns during the check and when `update-pkgs` runs |
-| Programme wrappers | `programmes/<name>/`                                               | Portable configured upstream tools built with the `BirdeeHub/nix-wrapper-modules` input                                                                                         |
+| Programme wrappers | `programmes/<name>/`                                               | Wrapper-first portable upstream tools built with `BirdeeHub/nix-wrapper-modules`; exported wrappers remain uninstalled until a consumer selects them                            |
 | Repository audits  | `packages/repo-audits/package.nix`                                 | Opt-in `persist-audit` and `nix-unused-audit` commands; flake checks protect directory, updater, and installed-package export contracts                                         |
 | Shared library     | `lib/`                                                             | Flat `*.nix` persistence, generators, config-file helpers, git rendering, nixpkgs policy, user package paths                                                                    |
 
-Architecture rule: root architecture directories contain owner subdirectories only; do not add first-level implementation files there. `lib/` is the exception and stays flat `*.nix` helpers. Every `packages/<name>/` and `external-packages/<name>/` directory contains `package.nix`; every `programmes/<name>/` directory contains `module.nix` or `package.nix`. Package scripts depend on the narrowest relevant exported command rather than an aggregate bundle. `docs/` first-level entries are section directories containing `.md`/`.mdx`; JS/TS Docusaurus app code belongs in `packages/bunjs-docs/`, not under `docs/`.
+Architecture rule: root architecture directories contain owner subdirectories only; do not add first-level implementation files there. `lib/` is the exception and stays flat `*.nix` helpers. Every `packages/<name>/` and `external-packages/<name>/` directory contains `package.nix`; every `programmes/<name>/` directory contains `module.nix`, `package.nix`, or an owner-matching `<name>.nix` wrapper definition. Package scripts depend on the narrowest relevant exported command rather than an aggregate bundle. `docs/` first-level entries are section directories containing `.md`/`.mdx`; JS/TS Docusaurus app code belongs in `packages/bunjs-docs/`, not under `docs/`.
 
 ### Repository audits
 
@@ -253,11 +253,11 @@ References: [NixOS KDE wiki](https://wiki.nixos.org/wiki/KDE), [KDE UserBase con
 
 Root is wiped on boot. Persist only state that must survive.
 
-| Layer         | Path                                            | Responsibility                          |
-| ------------- | ----------------------------------------------- | --------------------------------------- |
-| NixOS module  | `modules/common/impermanence.nix`               | Impermanence filesystem wiring          |
-| Library       | `lib/bind-mounts.nix`                           | Regular-path bind mount helper          |
-| Apps/services | `impermanence.*` near the module using the path | Service/app-owned state paths           |
+| Layer         | Path                                            | Responsibility                 |
+| ------------- | ----------------------------------------------- | ------------------------------ |
+| NixOS module  | `modules/common/impermanence.nix`               | Impermanence filesystem wiring |
+| Library       | `lib/bind-mounts.nix`                           | Regular-path bind mount helper |
+| Apps/services | `impermanence.*` near the module using the path | Service/app-owned state paths  |
 
 Rules:
 
@@ -345,8 +345,35 @@ openchamber-web
 | `packages/`          | `bunjs-*`, `lyricsctl`, `pass-credential`, `qs-menus`, `repo-audits`, `services-auth-gateway`                                             | In-repo software. Each Bun command/service owns its source, manifest, lockfile, and Nix derivation; only cohesive command families such as `bunjs-vpn-proxy` group files. |
 | `external-packages/` | `cliproxyapi`, `cpa-usage-keeper`, `omniroute`, `openchamber-web`, `update-pkgs`, `wallpapers`, `waydroid-script`, `waydroid-total-spoof` | Packaged upstream projects plus the repo-local `update-pkgs` workflow. `cpa-usage-keeper` also exposes `cpa-usage-keeper-web` for update hash refreshes.                  |
 
+### 🧩 Wrapper-first package policy
+
+Before adding an upstream derivation locally, use this ownership order. A wrapper is a package export, not an installation decision: it enters a profile, host, service, or another package only when that consumer explicitly selects it.
+
+| Lookup order         | Owner and action                                                                                                                                               | Installation and update boundary                                                                   |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| 1. nixpkgs           | Use the existing nixpkgs package.                                                                                                                              | The consumer installs it; no local package owner or update-workflow entry is created.              |
+| 2. Flake inputs      | Check inputs such as [`llm-agents`](https://github.com/numtide/llm-agents.nix) for maintained upstream tools.                                                  | Prefer the input package over a local release override or duplicate derivation.                    |
+| 3. Programme wrapper | Create `programmes/<name>/<name>.nix` when the available package needs a portable wrapper.                                                                     | Export with `inputs.wrappers.lib.wrapPackage`; it remains uninstalled until a consumer selects it. |
+| 4. Local derivation  | Use `packages/<name>/package.nix` for in-repo software; use `external-packages/<name>/package.nix` only when upstream packaging is genuinely absent or needed. | Only an actual `external-packages/` owner requires update-workflow coverage.                       |
+
+The generic wrapper source shape deliberately defines only package composition; consumers choose any runtime configuration and installation separately.
+
+```nix
+{ inputs, ... }:
+{
+  perSystem =
+    { pkgs, ... }:
+    {
+      packages.example = inputs.wrappers.lib.wrapPackage {
+        inherit pkgs;
+        package = inputs.some-input.packages.${pkgs.stdenv.hostPlatform.system}.example;
+      };
+    };
+}
+```
+
 > [!TIP]
-> When adding packages, use the repo's custom-package workflow: derivation under `packages/<name>/package.nix` for in-repo software or `external-packages/<name>/package.nix` for external sources, update support where the upstream release model permits it, `nix build --no-link path:.#<name>`, then host exclusions only where the package should not exist. External packages without an automatic update shape must be listed as `manual` in `external-packages/update-pkgs/workflow.nix`; otherwise `checks.update-pkgs-workflow-coverage` and `update-pkgs` warn.
+> When adding packages, check nixpkgs, then flake inputs, then a programme wrapper before making a local derivation. Use `packages/<name>/package.nix` for in-repo software and `external-packages/<name>/package.nix` only when upstream packaging is genuinely absent or needed; build exports with `nix build --no-link path:.#<name>`. Only external-package directories need update coverage: an unsupported automatic release shape needs a `manualReasons` entry in `external-packages/update-pkgs/workflow.nix`, otherwise `checks.update-pkgs-workflow-coverage` and `update-pkgs` warn.
 
 ---
 
@@ -517,11 +544,13 @@ HOST=legion5i ./rebuild.sh generations
 
 ### 📦 Add a package
 
-1. Add `packages/<name>/package.nix` or `external-packages/<name>/package.nix` with `pname` matching the exported package name.
-2. Prefer stable nixpkgs; add to `edgePackages` only when the pinned stable channel cannot build or run it correctly.
-3. Add `external-packages/update-pkgs/workflow.nix` coverage for external packages: automatic updater mode for supported release shapes or a `manualReasons` entry for intentional manual updates.
-4. Build with `nix build --no-link path:.#<name>`.
-5. Add host exclusions only when a package cannot run or should not exist on a host class.
+1. Decide in order: nixpkgs, then flake inputs, then `programmes/<name>/<name>.nix` with `nix-wrapper-modules`, then a local derivation.
+2. Use the existing nixpkgs or flake-input package when available; a wrapper exports a package but is not installed until a consumer selects it.
+3. Add `packages/<name>/package.nix` with matching `pname` only for in-repo software; add `external-packages/<name>/package.nix` only when upstream packaging is genuinely absent or needed.
+4. Prefer stable nixpkgs; add to `edgePackages` only when the pinned stable channel cannot build or run it correctly.
+5. Add `external-packages/update-pkgs/workflow.nix` coverage only for actual external packages: an automatic updater mode for supported release shapes or a `manualReasons` entry for intentional manual updates.
+6. Build with `nix build --no-link path:.#<name>`.
+7. Add host exclusions only when a package cannot run or should not exist on a host class.
 
 ---
 
