@@ -119,7 +119,6 @@
           XDG_SESSION_DESKTOP = "KDE";
           QT_QPA_PLATFORMTHEME = lib.mkForce "kde";
           QT_QUICK_CONTROLS_STYLE = lib.mkForce "org.kde.desktop";
-          SSH_ASKPASS_REQUIRE = "prefer";
         };
 
         preferences.commandHelp.commands = [

@@ -7,16 +7,16 @@
 
 buildGo126Module rec {
   pname = "cliproxyapi";
-  version = "7.2.22";
+  version = "7.2.113";
 
   src = fetchFromGitHub {
     owner = "router-for-me";
     repo = "CLIProxyAPI";
     rev = "v${version}";
-    hash = "sha256-iabSRs+qIsnz1r/rg3AnD8pqnzDwyKdFvpfKWyZ0+DU=";
+    hash = "sha256-aget6PRnWkzNy/QAG54qCRjHfTRui3srplM+U73Hlbc=";
   };
 
-  vendorHash = "sha256-vQU3hLDga5PMUwH4KSB3T5sZ1uPUgHQHeyQGJTKHIYs=";
+  vendorHash = "sha256-CrDp7MOr+AwJUhTovklXx3F1yaktQlvD7VYhYSY6VvY=";
 
   # go mod download via proxy.golang.org can fail mid-FOD with HTTP/2
   # INTERNAL_ERROR stream resets; force HTTP/1.1 only for the modules fetch.

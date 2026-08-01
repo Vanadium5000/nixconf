@@ -262,6 +262,8 @@ Root is wiped on boot. Persist only state that must survive.
 Rules:
 
 - Critical state goes to persistent directories.
+- Persist SSH server host keys as files; otherwise boot-time `sshd-keygen`
+  creates a new identity after root rotation and invalidates client trust.
 - Regenerable data belongs in cache paths.
 - Global user state is limited to broad directories and credentials; app paths live beside the programme/service module that uses them.
 - Heavy or reinstallable data is cache-tier: `~/Downloads`, `~/Torrents`, `~/.bun`, `~/.npm`, `/var/log`, and `/var/lib/systemd`.

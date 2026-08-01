@@ -272,8 +272,6 @@
           programs.gnupg.agent = {
             enable = true;
             enableSSHSupport = true;
-            # Use Pinentry Qt on graphical hosts by default; server hosts can override.
-            pinentryPackage = pkgs.pinentry-qt;
           };
           environment.systemPackages = [ pkgs.pinentry-qt ];
 

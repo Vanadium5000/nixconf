@@ -21,7 +21,7 @@ flake.nix
 - `hosts/`: active host definitions.
 - `packages/<name>/`: in-repo software with `package.nix` and any package-owned module/assets. The directory name is the exported package name; `bunjs-` is reserved for Bun-programme directories.
 - `external-packages/<name>/`: packaged upstream projects with `package.nix`; `external-packages/update-pkgs/workflow.nix` owns package sets, updater modes, safe smoke arguments, custom-updater bindings, and documented manual coverage. Uncovered packages warn.
-- `programmes/<name>/`: wrappers and configuration for upstream tools built with [`nix-wrapper-modules`](https://birdeehub.github.io/nix-wrapper-modules/md/intro.html). A programme owner contains `module.nix`, `package.nix`, or an owner-matching `<name>.nix` wrapper definition such as [`programmes/herdr/herdr.nix`](../../programmes/herdr/herdr.nix).
+- `programmes/<name>/`: wrappers and configuration for upstream tools built with [`nix-wrapper-modules`](https://birdeehub.github.io/nix-wrapper-modules/md/intro.html). A programme owner contains `module.nix`, `package.nix`, or an owner-matching `<name>.nix` wrapper definition such as [`programmes/herdr/herdr.nix`](https://github.com/Vanadium5000/nixconf/blob/main/programmes/herdr/herdr.nix).
 - `modules/terminal/`: terminal/server profile modules.
 - `modules/terminal/docker/compose/<stack>/`: Docker Compose stack assets consumed by `modules/terminal/docker-compose-stacks.nix`.
 - `modules/desktop/`: graphical profile modules for the KDE Plasma desktop stack.
@@ -34,9 +34,9 @@ Root architecture directories contain owner subdirectories only; do not add firs
 
 ## Wrapper-first package policy
 
-Before packaging upstream software locally, check nixpkgs, then flake inputs such as [`llm-agents`](https://github.com/numtide/llm-agents.nix), then whether a portable wrapper belongs in `programmes/<name>/<name>.nix`; [`programmes/herdr/herdr.nix`](../../programmes/herdr/herdr.nix) is an owner-matching wrapper example. Wrappers use `inputs.wrappers.lib.wrapPackage` from the [`nix-wrapper-modules`](https://birdeehub.github.io/nix-wrapper-modules/md/intro.html) input declared in [`flake.nix`](../../flake.nix), and exporting one does not enable or install it: a profile, host, service, or package must select the export explicitly.
+Before packaging upstream software locally, check nixpkgs, then flake inputs such as [`llm-agents`](https://github.com/numtide/llm-agents.nix), then whether a portable wrapper belongs in `programmes/<name>/<name>.nix`; [`programmes/herdr/herdr.nix`](https://github.com/Vanadium5000/nixconf/blob/main/programmes/herdr/herdr.nix) is an owner-matching wrapper example. Wrappers use `inputs.wrappers.lib.wrapPackage` from the [`nix-wrapper-modules`](https://birdeehub.github.io/nix-wrapper-modules/md/intro.html) input declared in [`flake.nix`](https://github.com/Vanadium5000/nixconf/blob/main/flake.nix), and exporting one does not enable or install it: a profile, host, service, or package must select the export explicitly.
 
-Use `packages/<name>/` only for in-repo software. Use `external-packages/<name>/` only when upstream packaging is genuinely absent or needed; only then does [`external-packages/update-pkgs/workflow.nix`](../../external-packages/update-pkgs/workflow.nix) require automatic or documented-manual update coverage. This lookup and ownership order prevents locally repackaging externally maintained tools already supplied by nixpkgs or a flake input.
+Use `packages/<name>/` only for in-repo software. Use `external-packages/<name>/` only when upstream packaging is genuinely absent or needed; only then does [`external-packages/update-pkgs/workflow.nix`](https://github.com/Vanadium5000/nixconf/blob/main/external-packages/update-pkgs/workflow.nix) require automatic or documented-manual update coverage. This lookup and ownership order prevents locally repackaging externally maintained tools already supplied by nixpkgs or a flake input.
 
 ## Repository audits
 
