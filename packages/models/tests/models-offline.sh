@@ -54,10 +54,13 @@ cat > "$root/gateway.json" <<'EOF'
 {"data":[{"id":"zeta","name":"Gateway Zeta"},{"id":"alpha","name":"Gateway Alpha"},{"id":"gpt-5.6-terra","name":"Gateway Terra"}]}
 EOF
 cat > "$root/omniroute-gateway.json" <<'EOF'
-{"data":[{"id":"zeta","name":"Gateway Zeta","owned_by":"codex"},{"id":"alpha","name":"Gateway Alpha","owned_by":"other"}]}
+{"data":[{"id":"zeta","name":"Gateway Zeta","owned_by":"codex"},{"id":"alpha","name":"Gateway Alpha","owned_by":"other"},{"id":"gpt-5.6-terra","name":"Gateway Terra","owned_by":"codex","context_length":444}]}
 EOF
 cat > "$root/official.json" <<'EOF'
 {"data":[{"id":"zeta","owned_by":"codex","context_length":123456,"max_completion_tokens":6543,"thinking":{"levels":["low","high"],"min":"low","max":"high"},"modalities":{"input":["text","image"],"output":["text"]},"supported_parameters":["tools"]},{"id":"alpha","owned_by":"other"},{"id":"gpt-5.6-terra","context_length":111,"max_completion_tokens":222,"thinking":{"levels":["low"]}},{"id":"official-only","context_length":999999}]}
+EOF
+cat > "$root/official-sparse-terra.json" <<'EOF'
+{"data":[{"id":"zeta","owned_by":"codex","context_length":123456,"max_completion_tokens":6543},{"id":"alpha","owned_by":"other"},{"id":"gpt-5.6-terra","context_length":333}]}
 EOF
 printf '#!%s\n' "$BASH" > "$root/curl"
 cat >> "$root/curl" <<'EOF'
@@ -87,12 +90,13 @@ chmod 0755 "$root/curl"
 
 run_models() {
   HOME="$home" MODELS_STATE_DIR="$state" MODELS_CONFIG_DIR="$config" \
+    MODELS_OPENCODE_COMPAT_CONFIG_FILE="$root/compat/opencode.json" \
     MODELS_CURL="$root/curl" CLIPROXYAPI_KEY=test-key \
     CLIPROXYAPI_MODELS_URL=https://gateway.test/v1/models \
     OMNIROUTE_MODELS_URL=https://omniroute.test/v1/models OMNIROUTE_OPENCODE_API_KEY=test-key \
     MODELS_CLIPROXYAPI_CATALOG_URL=https://official.test/models.json \
     FAKE_GATEWAY_JSON="$root/gateway.json" FAKE_OMNIROUTE_GATEWAY_JSON="$root/omniroute-gateway.json" \
-    FAKE_OFFICIAL_JSON="$root/official.json" \
+    FAKE_OFFICIAL_JSON="${FAKE_OFFICIAL_JSON:-$root/official.json}" \
     "$models_bin" "$@"
 }
 
@@ -103,6 +107,9 @@ jq -e '.providers.router.models.zeta.reasoning_effort == ["high", "low"]' "$stat
 jq -e '.providers.router.models.zeta.modalities.input == ["image", "text"] and .providers.router.models.zeta.tool_call' "$state/models.json" >/dev/null
 ! jq -e '.providers.router.models["official-only"]' "$state/models.json" >/dev/null
 jq -e '.providers.router.models["gpt-5.6-terra"].limit == {context: 111, output: 222}' "$state/models.json" >/dev/null
+jq -e '.provider.router.models["gpt-5.6-terra"].limit == {context: 111, output: 222}' "$home/.config/opencode/config.json" >/dev/null
+grep -A12 'id: "gpt-5.6-terra"' "$home/.omp/agent/models.yml" | grep -q 'contextWindow: 111'
+grep -A12 'id: "gpt-5.6-terra"' "$home/.omp/agent/models.yml" | grep -q 'maxTokens: 222'
 grep -q 'legacyLow: router/gpt-5.5' "$home/.omp/agent/config.yml"
 grep -q 'legacyTerra: router/gpt-5.6-terra' "$home/.omp/agent/config.yml"
 
@@ -117,7 +124,7 @@ jq -e '.categories.deep == "router/alpha"' "$state/state.json" >/dev/null
 grep -q 'deep: router/alpha' "$home/.omp/agent/config.yml"
 before="$root/before"
 mkdir "$before"
-for file in "$state/state.json" "$home/.config/opencode/config.json" "$home/.config/opencode/oh-my-opencode-slim.jsonc" "$home/.config/opencode/opencode-mem.jsonc" "$home/.omp/agent/models.yml" "$home/.omp/agent/config.yml"; do
+for file in "$state/state.json" "$home/.config/opencode/config.json" "$home/.config/opencode/oh-my-opencode-slim.jsonc" "$home/.config/opencode/opencode-mem.jsonc" "$home/.omp/agent/models.yml" "$home/.omp/agent/config.yml" "$root/compat/opencode.json"; do
   cp "$file" "$before/$(basename "$file")"
 done
 mkdir "$root/yq-fail"
@@ -130,7 +137,17 @@ if MODELS_YQ="$root/yq-fail/yq" run_models assign router/zeta high deep --omp de
   printf '%s\n' 'expected induced OMP mutation failure' >&2
   exit 1
 fi
-for file in "$state/state.json" "$home/.config/opencode/config.json" "$home/.config/opencode/oh-my-opencode-slim.jsonc" "$home/.config/opencode/opencode-mem.jsonc" "$home/.omp/agent/models.yml" "$home/.omp/agent/config.yml"; do
+for file in "$state/state.json" "$home/.config/opencode/config.json" "$home/.config/opencode/oh-my-opencode-slim.jsonc" "$home/.config/opencode/opencode-mem.jsonc" "$home/.omp/agent/models.yml" "$home/.omp/agent/config.yml" "$root/compat/opencode.json"; do
+  cmp "$file" "$before/$(basename "$file")"
+done
+
+# Compatibility publication is a destination-local staged write; its failure
+# must restore every assignment target, including a custom compatibility path.
+if MODELS_FAIL_COMPAT_PUBLISH=1 run_models assign router/zeta high deep --omp deep; then
+  printf '%s\n' 'expected induced compatibility publication failure' >&2
+  exit 1
+fi
+for file in "$state/state.json" "$home/.config/opencode/config.json" "$home/.config/opencode/oh-my-opencode-slim.jsonc" "$home/.config/opencode/opencode-mem.jsonc" "$home/.omp/agent/models.yml" "$home/.omp/agent/config.yml" "$root/compat/opencode.json"; do
   cmp "$file" "$before/$(basename "$file")"
 done
 
@@ -160,13 +177,23 @@ FAKE_OFFICIAL_MODE=timeout run_models sync
 jq -e '.providers.router.models | keys == ["alpha", "gpt-5.6-terra", "zeta"]' "$state/models.json" >/dev/null
 
 # OmniRoute filters enriched official owned_by metadata, unlike CLIProxyAPI.
+# A sparse official Terra row retains its live context and receives only the
+# source-cited fallback ceiling before OmniRoute's narrow vetted fallback rule.
+FAKE_OFFICIAL_JSON="$root/official-sparse-terra.json" run_models sync
+run_models sync-config
+jq -e '.provider.router.models["gpt-5.6-terra"].limit == {context: 333, output: 128000}' "$home/.config/opencode/config.json" >/dev/null
+run_models sync-omp
+grep -A12 'id: "gpt-5.6-terra"' "$home/.omp/agent/models.yml" | grep -q 'contextWindow: 333'
+grep -A12 'id: "gpt-5.6-terra"' "$home/.omp/agent/models.yml" | grep -q 'maxTokens: 128000'
 jq -n '{provider:"omniroute"}' > "$state/provider.json"
 run_models sync
 run_models sync-config
-jq -e '.provider.router.models | keys == ["zeta"]' "$home/.config/opencode/config.json" >/dev/null
+jq -e '(.provider.router.models | keys == ["gpt-5.6-terra", "zeta"]) and .provider.router.models["gpt-5.6-terra"].limit == {context: 444, output: 128000}' "$home/.config/opencode/config.json" >/dev/null
 run_models sync-omp
 grep -q 'id: "zeta"' "$home/.omp/agent/models.yml"
 ! grep -q 'id: "alpha"' "$home/.omp/agent/models.yml"
+grep -A12 'id: "gpt-5.6-terra"' "$home/.omp/agent/models.yml" | grep -q 'contextWindow: 444'
+grep -A12 'id: "gpt-5.6-terra"' "$home/.omp/agent/models.yml" | grep -q 'maxTokens: 128000'
 
 # Broken mutable state fails open rather than removing all model choices.
 printf '{broken json\n' > "$state/filter.json"

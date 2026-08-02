@@ -36,6 +36,9 @@
           PROVIDER_FILE="$MODELS_STATE_DIR/provider.json"
           OPENCODE_CONFIG_FILE="$HOME/.config/opencode/config.json"
           OPENCODE_COMPAT_CONFIG_FILE="''${MODELS_OPENCODE_COMPAT_CONFIG_FILE:-$HOME/.config/opencode/opencode.json}"
+          # Test-only failure injection proves assignment rollback covers the
+          # separately configurable compatibility destination; unset in normal use.
+          FAIL_COMPAT_PUBLISH="''${MODELS_FAIL_COMPAT_PUBLISH:-0}"
           OMO_SLIM_CONFIG_FILE="$HOME/.config/opencode/oh-my-opencode-slim.jsonc"
           OPENCODE_MEM_FILE="$HOME/.config/opencode/opencode-mem.jsonc"
           LOCAL_JSONC_FILE="$PWD/opencode.jsonc"
@@ -86,6 +89,19 @@
             local destination="$1"
             mkdir -p "$(dirname "$destination")"
             mktemp "$(dirname "$destination")/.$(basename "$destination").models.XXXXXX"
+          }
+
+          publish_opencode_compat_config() {
+            [ "$OPENCODE_COMPAT_CONFIG_FILE" = "$OPENCODE_CONFIG_FILE" ] && return 0
+            # Stage beside the configured compatibility destination so its final
+            # rename is atomic even when HOME and a test/custom destination differ.
+            local tmp
+            tmp=$(stage_file "$OPENCODE_COMPAT_CONFIG_FILE") || return 1
+            if [ "$FAIL_COMPAT_PUBLISH" = 1 ] || ! cp "$OPENCODE_CONFIG_FILE" "$tmp" || ! chmod 0600 "$tmp" || ! mv "$tmp" "$OPENCODE_COMPAT_CONFIG_FILE"; then
+              rm -f "$tmp"
+              log_error "Failed to publish OpenCode compatibility config to $OPENCODE_COMPAT_CONFIG_FILE"
+              return 1
+            fi
           }
 
           ensure_provider_file() {
@@ -217,8 +233,23 @@
                   reasoning: true,
                   reasoning_effort: ["low", "medium", "high", "xhigh", "max"],
                   limit: { context: 372000, output: 128000 },
-                  metadata: { catalog_source: "local-terra-fallback" }
+                  # This is a locally vetted fallback, not a claim that every
+                  # gateway row is Codex-owned. Its facts are from the Router
+                  # catalog source cited above; the exact marker permits only
+                  # this model through the otherwise strict OmniRoute ownership filter.
+                  metadata: { catalog_source: "local-terra-fallback", vetted_omniroute_fallback: true }
                 };
+              def merge_terra_fallback($live):
+                (terra_fallback * $live) as $merged
+                # normalized_limit marks only its generic 8192 placeholder, so
+                # a sparse live Terra row keeps its real context while receiving
+                # the source-verified 128k ceiling rather than that placeholder.
+                | if $live.metadata.limit_output_inferred == true then
+                    $merged | .limit.output = terra_fallback.limit.output
+                  else
+                    $merged
+                  end
+                | del(.metadata.limit_output_inferred);
               (.providers[$provider_id].models // .providers.omniroute.models // {}) as $models
               | ($models * (($patches[0] // {}) | with_entries(select($models[.key] != null)))) as $patched
               # CLIProxyAPI v7.2.113 and OmniRoute v3.8.48 accept Responses
@@ -226,7 +257,7 @@
               | if ($router_provider == "cliproxyapi" or $router_provider == "omniroute") then
                   # Recursive merge fills sparse/missing live rows while values
                   # present in the router-for-me official catalog remain authoritative.
-                  $patched + { "gpt-5.6-terra": (terra_fallback * ($patched["gpt-5.6-terra"] // {})) }
+                  $patched + { "gpt-5.6-terra": merge_terra_fallback($patched["gpt-5.6-terra"] // {}) }
                 else
                   $patched
                 end
@@ -240,7 +271,7 @@
             # The mutable schema is deliberately exact and fails open: raw cache
             # metadata remains reviewable; every consumer sees this post-patch catalog.
             if $JQ -e 'type == "object" and (keys | sort == ["providers", "version"]) and .version == 1 and (.providers | type == "object") and all(.providers[]; type == "object" and (keys | sort == ["metadata"]) and (.metadata | type == "object" and (keys | sort == ["owned_by"])) and (.metadata.owned_by | type == "object" and (keys | sort == ["equals"]) and (.equals | type == "string" and length > 0)))' "$filter_file" >/dev/null 2>&1; then
-              $JQ -cS --arg provider "$router_provider" --slurpfile filters "$filter_file" '($filters[0].providers[$provider].metadata.owned_by.equals? // null) as $owner | if $owner == null then . else with_entries(select(.value.metadata.owned_by? == $owner)) end'
+              $JQ -cS --arg provider "$router_provider" --slurpfile filters "$filter_file" '($filters[0].providers[$provider].metadata.owned_by.equals? // null) as $owner | if $owner == null then . else with_entries(select(.value.metadata.owned_by? == $owner or ($provider == "omniroute" and .key == "gpt-5.6-terra" and .value.metadata.vetted_omniroute_fallback == true))) end'
             else
               log_warn "Invalid filter.json; using unfiltered catalog" >&2
               $JQ -cS .
@@ -541,17 +572,13 @@
               fi
             fi
 
-            if [ "$OPENCODE_COMPAT_CONFIG_FILE" != "$OPENCODE_CONFIG_FILE" ]; then
-              mkdir -p "$(dirname "$OPENCODE_COMPAT_CONFIG_FILE")"
-              cp "$OPENCODE_CONFIG_FILE" "$OPENCODE_COMPAT_CONFIG_FILE"
-              chmod 0600 "$OPENCODE_COMPAT_CONFIG_FILE"
-            fi
+            publish_opencode_compat_config
           }
 
           sync_all_runtime_configs_from_state() {
             local quiet="''${1:-0}"
 
-            sync_opencode_config_from_state "$quiet"
+            sync_opencode_config_from_state "$quiet" || return 1
             sync_omp_models "$quiet"
           }
 
@@ -626,11 +653,7 @@
             mkdir -p "$(dirname "$OPENCODE_CONFIG_FILE")"
             mv "$opencode_tmp" "$OPENCODE_CONFIG_FILE"
             chmod 0600 "$OPENCODE_CONFIG_FILE"
-            if [ "$OPENCODE_COMPAT_CONFIG_FILE" != "$OPENCODE_CONFIG_FILE" ]; then
-              mkdir -p "$(dirname "$OPENCODE_COMPAT_CONFIG_FILE")"
-              cp "$OPENCODE_CONFIG_FILE" "$OPENCODE_COMPAT_CONFIG_FILE"
-              chmod 0600 "$OPENCODE_COMPAT_CONFIG_FILE"
-            fi
+            publish_opencode_compat_config || return 1
 
             mkdir -p "$(dirname "$OMO_SLIM_CONFIG_FILE")"
             mv "$slim_tmp" "$OMO_SLIM_CONFIG_FILE"
@@ -865,7 +888,7 @@
                   .top_provider.max_completion_tokens?, .topProvider.maxCompletionTokens?
                 ]) as $output
                 | if $context != null then
-                    { context: $context, output: ($output // 8192) }
+                    { context: $context, output: ($output // 8192), output_inferred: ($output == null) }
                   else
                     {}
                   end;
@@ -901,7 +924,8 @@
                     # wire `id` so OpenCode/OMP still request the OmniRoute model.
                     # Source: https://opencode.ai/docs/providers/
                     + (if $key != $raw_id then { id: $raw_id } else {} end)
-                    + (if ($limit | length) > 0 then { limit: $limit } else {} end)
+                    + (if ($limit | length) > 0 then { limit: ($limit | del(.output_inferred)) } else {} end)
+                    + (if $limit.output_inferred then { metadata: (model_metadata + { limit_output_inferred: true }) } else {} end)
                     + (if ($modalities | length) > 0 then { modalities: $modalities } else {} end)
                     + (if ($efforts | length) > 0 then { reasoning: true, reasoning_effort: $efforts } else {} end)
                     + (if ((
