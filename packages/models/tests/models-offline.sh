@@ -21,6 +21,9 @@ EOF
 cat > "$state/_model-local-patches.json" <<'EOF'
 {}
 EOF
+cat > "$state/filter.json" <<'EOF'
+{"version":1,"providers":{"omniroute":{"metadata":{"owned_by":{"equals":"codex"}}}}}
+EOF
 cat > "$state/presets.json" <<'EOF'
 {"presets":{}}
 EOF
@@ -40,14 +43,21 @@ cat > "$config/models-metadata.json" <<'EOF'
 {"categories":{"deep":{"defaultModel":"router/zeta"}},"menu":{},"slimModelBindings":[{"path":["agents","build"],"category":"deep"}],"opencodeModelBindings":[]}
 EOF
 cat > "$home/.omp/agent/config.yml" <<'EOF'
-{}
+unrelated: retained
+modelRoles:
+  deep: router/zeta
+  legacyLow: router/gpt-5.5-low
+  legacyTerra: router/gpt-5.6-terra-xhigh
 EOF
 
 cat > "$root/gateway.json" <<'EOF'
-{"data":[{"id":"zeta","name":"Gateway Zeta"},{"id":"alpha","name":"Gateway Alpha"}]}
+{"data":[{"id":"zeta","name":"Gateway Zeta"},{"id":"alpha","name":"Gateway Alpha"},{"id":"gpt-5.6-terra","name":"Gateway Terra"}]}
+EOF
+cat > "$root/omniroute-gateway.json" <<'EOF'
+{"data":[{"id":"zeta","name":"Gateway Zeta","owned_by":"codex"},{"id":"alpha","name":"Gateway Alpha","owned_by":"other"}]}
 EOF
 cat > "$root/official.json" <<'EOF'
-{"data":[{"id":"zeta","context_length":123456,"max_completion_tokens":6543,"thinking":{"levels":["low","high"],"min":"low","max":"high"},"modalities":{"input":["text","image"],"output":["text"]},"supported_parameters":["tools"]},{"id":"official-only","context_length":999999}]}
+{"data":[{"id":"zeta","owned_by":"codex","context_length":123456,"max_completion_tokens":6543,"thinking":{"levels":["low","high"],"min":"low","max":"high"},"modalities":{"input":["text","image"],"output":["text"]},"supported_parameters":["tools"]},{"id":"alpha","owned_by":"other"},{"id":"gpt-5.6-terra","context_length":111,"max_completion_tokens":222,"thinking":{"levels":["low"]}},{"id":"official-only","context_length":999999}]}
 EOF
 printf '#!%s\n' "$BASH" > "$root/curl"
 cat >> "$root/curl" <<'EOF'
@@ -66,6 +76,8 @@ if [[ "$url" == *official* ]]; then
     invalid) printf '{not json' > "$out" ;;
     *) cp "$FAKE_OFFICIAL_JSON" "$out" ;;
   esac
+elif [[ "$url" == *omniroute* ]]; then
+  cp "$FAKE_OMNIROUTE_GATEWAY_JSON" "$out"
 else
   cp "$FAKE_GATEWAY_JSON" "$out"
 fi
@@ -77,17 +89,50 @@ run_models() {
   HOME="$home" MODELS_STATE_DIR="$state" MODELS_CONFIG_DIR="$config" \
     MODELS_CURL="$root/curl" CLIPROXYAPI_KEY=test-key \
     CLIPROXYAPI_MODELS_URL=https://gateway.test/v1/models \
+    OMNIROUTE_MODELS_URL=https://omniroute.test/v1/models OMNIROUTE_OPENCODE_API_KEY=test-key \
     MODELS_CLIPROXYAPI_CATALOG_URL=https://official.test/models.json \
-    FAKE_GATEWAY_JSON="$root/gateway.json" FAKE_OFFICIAL_JSON="$root/official.json" \
+    FAKE_GATEWAY_JSON="$root/gateway.json" FAKE_OMNIROUTE_GATEWAY_JSON="$root/omniroute-gateway.json" \
+    FAKE_OFFICIAL_JSON="$root/official.json" \
     "$models_bin" "$@"
 }
 
 run_models sync
-jq -e '.providers.router.models | keys == ["alpha", "zeta"]' "$state/models.json" >/dev/null
+jq -e '.providers.router.models | keys == ["alpha", "gpt-5.6-terra", "zeta"]' "$state/models.json" >/dev/null
 jq -e '.providers.router.models.zeta.limit == {context: 123456, output: 6543}' "$state/models.json" >/dev/null
 jq -e '.providers.router.models.zeta.reasoning_effort == ["high", "low"]' "$state/models.json" >/dev/null
 jq -e '.providers.router.models.zeta.modalities.input == ["image", "text"] and .providers.router.models.zeta.tool_call' "$state/models.json" >/dev/null
 ! jq -e '.providers.router.models["official-only"]' "$state/models.json" >/dev/null
+jq -e '.providers.router.models["gpt-5.6-terra"].limit == {context: 111, output: 222}' "$state/models.json" >/dev/null
+grep -q 'legacyLow: router/gpt-5.5' "$home/.omp/agent/config.yml"
+grep -q 'legacyTerra: router/gpt-5.6-terra' "$home/.omp/agent/config.yml"
+
+# The noninteractive union commands exercise a successful BOTH assignment and
+# replacement before forcing yq failure. A failed OMP write must roll back state
+# and every generated runtime/config file, not merely the YAML target.
+run_models assign router/zeta high deep --omp deep
+jq -e '.categories.deep == {model:"router/zeta",reasoningEffort:"high"}' "$state/state.json" >/dev/null
+grep -q 'deep: router/zeta' "$home/.omp/agent/config.yml"
+run_models replace-assignments router/zeta router/alpha ''
+jq -e '.categories.deep == "router/alpha"' "$state/state.json" >/dev/null
+grep -q 'deep: router/alpha' "$home/.omp/agent/config.yml"
+before="$root/before"
+mkdir "$before"
+for file in "$state/state.json" "$home/.config/opencode/config.json" "$home/.config/opencode/oh-my-opencode-slim.jsonc" "$home/.config/opencode/opencode-mem.jsonc" "$home/.omp/agent/models.yml" "$home/.omp/agent/config.yml"; do
+  cp "$file" "$before/$(basename "$file")"
+done
+mkdir "$root/yq-fail"
+cat > "$root/yq-fail/yq" <<EOF
+#!$BASH
+exit 1
+EOF
+chmod 0755 "$root/yq-fail/yq"
+if MODELS_YQ="$root/yq-fail/yq" run_models assign router/zeta high deep --omp deep; then
+  printf '%s\n' 'expected induced OMP mutation failure' >&2
+  exit 1
+fi
+for file in "$state/state.json" "$home/.config/opencode/config.json" "$home/.config/opencode/oh-my-opencode-slim.jsonc" "$home/.config/opencode/opencode-mem.jsonc" "$home/.omp/agent/models.yml" "$home/.omp/agent/config.yml"; do
+  cmp "$file" "$before/$(basename "$file")"
+done
 
 # `select` exercises the same state validation that feeds OMO Slim generation.
 run_models select deep router/zeta high
@@ -105,8 +150,27 @@ zeta_line=$(grep -n 'id: "zeta"' "$home/.omp/agent/models.yml" | cut -d: -f1)
 
 # Invalid and timed-out optional catalog responses retain gateway-only sync.
 FAKE_OFFICIAL_MODE=invalid run_models sync
-jq -e '.providers.router.models | keys == ["alpha", "zeta"]' "$state/models.json" >/dev/null
+jq -e '.providers.router.models | keys == ["alpha", "gpt-5.6-terra", "zeta"]' "$state/models.json" >/dev/null
+run_models sync-config
+jq -e '.provider.router.models["gpt-5.6-terra"].limit == {context: 372000, output: 128000} and .provider.router.models["gpt-5.6-terra"].reasoning_effort == ["low", "medium", "high", "xhigh", "max"]' "$home/.config/opencode/config.json" >/dev/null
+run_models sync-omp
+grep -A12 'id: "gpt-5.6-terra"' "$home/.omp/agent/models.yml" | grep -q 'api: openai-responses'
+grep -A12 'id: "gpt-5.6-terra"' "$home/.omp/agent/models.yml" | grep -q 'reasoning: true'
 FAKE_OFFICIAL_MODE=timeout run_models sync
-jq -e '.providers.router.models | keys == ["alpha", "zeta"]' "$state/models.json" >/dev/null
+jq -e '.providers.router.models | keys == ["alpha", "gpt-5.6-terra", "zeta"]' "$state/models.json" >/dev/null
+
+# OmniRoute filters enriched official owned_by metadata, unlike CLIProxyAPI.
+jq -n '{provider:"omniroute"}' > "$state/provider.json"
+run_models sync
+run_models sync-config
+jq -e '.provider.router.models | keys == ["zeta"]' "$home/.config/opencode/config.json" >/dev/null
+run_models sync-omp
+grep -q 'id: "zeta"' "$home/.omp/agent/models.yml"
+! grep -q 'id: "alpha"' "$home/.omp/agent/models.yml"
+
+# Broken mutable state fails open rather than removing all model choices.
+printf '{broken json\n' > "$state/filter.json"
+run_models sync-config
+jq -e '.provider.router.models | keys == ["alpha", "gpt-5.6-terra", "zeta"]' "$home/.config/opencode/config.json" >/dev/null
 
 printf '%s\n' 'models offline regression tests passed'

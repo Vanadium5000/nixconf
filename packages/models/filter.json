@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "providers": {
+    "omniroute": {
+      "metadata": {
+        "owned_by": {
+          "equals": "codex"
+        }
+      }
+    }
+  }
+}

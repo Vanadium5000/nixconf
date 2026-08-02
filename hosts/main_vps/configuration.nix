@@ -191,8 +191,11 @@
                 text_completion_stream = false;
                 chat_completion = true;
                 chat_completion_stream = true;
-                responses = false;
-                responses_stream = false;
+                # Forward native Responses requests during the migration, while
+                # chat completions above remain enabled for legacy clients.
+                # Source: https://platform.openai.com/docs/api-reference/responses
+                responses = true;
+                responses_stream = true;
                 embedding = false;
                 speech = false;
                 speech_stream = false;
@@ -203,6 +206,8 @@
                 list_models = "/v1/models";
                 chat_completion = "/v1/chat/completions";
                 chat_completion_stream = "/v1/chat/completions";
+                responses = "/v1/responses";
+                responses_stream = "/v1/responses";
               };
             };
           };

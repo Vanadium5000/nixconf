@@ -15,6 +15,7 @@
         cp ${./state.json} "$out/state.json"
         cp ${./presets.json} "$out/presets.json"
         cp ${./_model-local-patches.json} "$out/_model-local-patches.json"
+        cp ${./filter.json} "$out/filter.json"
         cp ${./provider.json} "$out/provider.json"
       '';
 
@@ -55,6 +56,9 @@
           # https://mikefarah.gitbook.io/yq/operators/assign-update
           YQ="${pkgs.yq-go}/bin/yq"
           OMP_CONFIG_FILE="''${MODELS_OMP_CONFIG_FILE:-$HOME/.omp/agent/config.yml}"
+          # Tests may inject a failing yq binary to prove rollback; normal
+          # operation remains pinned to the packaged yq-go binary above.
+          YQ="''${MODELS_YQ:-$YQ}"
           OMP_MODELS_FILE="''${MODELS_OMP_FILE:-$HOME/.omp/agent/models.yml}"
           ROUTER_PROVIDER_ID="router"
           ROUTER_PROVIDER_NAME="Router"
@@ -75,6 +79,14 @@
           log_omp() { $GUM style --foreground 141 "[models:omp] $*"; }
           log_warn() { $GUM style --foreground 214 "[models:warn] $*"; }
           log_error() { $GUM style --foreground 196 "[models:error] $*"; }
+
+          # rename(2) is atomic only on one filesystem; state and HOME may be
+          # distinct persisted mounts, so stage beside each destination.
+          stage_file() {
+            local destination="$1"
+            mkdir -p "$(dirname "$destination")"
+            mktemp "$(dirname "$destination")/.$(basename "$destination").models.XXXXXX"
+          }
 
           ensure_provider_file() {
             ensure_repo_state_files
@@ -163,6 +175,10 @@
               cp "${modelStateAssetsDir}/_model-local-patches.json" "$PATCHES_FILE"
             fi
 
+            if [ ! -f "$MODELS_STATE_DIR/filter.json" ]; then
+              cp "${modelStateAssetsDir}/filter.json" "$MODELS_STATE_DIR/filter.json"
+            fi
+
             if [ ! -f "$PROVIDER_FILE" ]; then
               cp "${modelStateAssetsDir}/provider.json" "$PROVIDER_FILE"
             fi
@@ -170,8 +186,13 @@
 
           get_effective_models_json() {
             ensure_repo_state_files
+            local router_provider
+            router_provider=$(get_router_provider)
 
-            $JQ -cS --arg provider_id "$ROUTER_PROVIDER_ID" --slurpfile patches "$PATCHES_FILE" --argjson default_output 8192 '
+            # router-for-me catalog has verified Terra at 372k/128k with the
+            # listed Responses efforts; retain this fallback when its live row is
+            # unavailable or sparse. Source: https://models.router-for.me/models.json.
+            $JQ -cS --arg provider_id "$ROUTER_PROVIDER_ID" --arg router_provider "$router_provider" --slurpfile patches "$PATCHES_FILE" --argjson default_output 8192 '
               # OpenCode validates limit.context + limit.output as a pair for
               # custom providers. Upstream openai-compatible placeholder uses
               # 8192 when max completion tokens are unknown.
@@ -190,10 +211,40 @@
                     else
                       {}
                     end);
+              def terra_fallback:
+                {
+                  name: "gpt-5.6-terra",
+                  reasoning: true,
+                  reasoning_effort: ["low", "medium", "high", "xhigh", "max"],
+                  limit: { context: 372000, output: 128000 },
+                  metadata: { catalog_source: "local-terra-fallback" }
+                };
               (.providers[$provider_id].models // .providers.omniroute.models // {}) as $models
-              | $models * (($patches[0] // {}) | with_entries(select($models[.key] != null)))
+              | ($models * (($patches[0] // {}) | with_entries(select($models[.key] != null)))) as $patched
+              # CLIProxyAPI v7.2.113 and OmniRoute v3.8.48 accept Responses
+              # reasoning.effort; do not synthesize it for Bifrost without evidence.
+              | if ($router_provider == "cliproxyapi" or $router_provider == "omniroute") then
+                  # Recursive merge fills sparse/missing live rows while values
+                  # present in the router-for-me official catalog remain authoritative.
+                  $patched + { "gpt-5.6-terra": (terra_fallback * ($patched["gpt-5.6-terra"] // {})) }
+                else
+                  $patched
+                end
               | map_values(normalize_model)
-            ' "$MODELS_FILE"
+            ' "$MODELS_FILE" | filter_effective_models "$router_provider" "$MODELS_STATE_DIR/filter.json"
+          }
+
+          filter_effective_models() {
+            local router_provider="$1"
+            local filter_file="$2"
+            # The mutable schema is deliberately exact and fails open: raw cache
+            # metadata remains reviewable; every consumer sees this post-patch catalog.
+            if $JQ -e 'type == "object" and (keys | sort == ["providers", "version"]) and .version == 1 and (.providers | type == "object") and all(.providers[]; type == "object" and (keys | sort == ["metadata"]) and (.metadata | type == "object" and (keys | sort == ["owned_by"])) and (.metadata.owned_by | type == "object" and (keys | sort == ["equals"]) and (.equals | type == "string" and length > 0)))' "$filter_file" >/dev/null 2>&1; then
+              $JQ -cS --arg provider "$router_provider" --slurpfile filters "$filter_file" '($filters[0].providers[$provider].metadata.owned_by.equals? // null) as $owner | if $owner == null then . else with_entries(select(.value.metadata.owned_by? == $owner)) end'
+            else
+              log_warn "Invalid filter.json; using unfiltered catalog" >&2
+              $JQ -cS .
+            fi
           }
 
           # All consumers use this explicit order rather than JSON object order.
@@ -512,11 +563,11 @@
             ensure_state_file
 
             local effective_models_file
-            effective_models_file=$(mktemp)
+            effective_models_file=$(stage_file "$OPENCODE_CONFIG_FILE.models")
             get_effective_models_json > "$effective_models_file"
 
             local opencode_tmp
-            opencode_tmp=$(mktemp)
+            opencode_tmp=$(stage_file "$OPENCODE_CONFIG_FILE")
             $JQ --slurpfile models "$effective_models_file" \
               --arg provider_id "$ROUTER_PROVIDER_ID" \
               --arg base_url "$(get_router_base_url)" \
@@ -529,7 +580,7 @@
             rm -f "$effective_models_file"
 
             local slim_tmp
-            slim_tmp=$(mktemp)
+            slim_tmp=$(stage_file "$OMO_SLIM_CONFIG_FILE")
             cp "$OMO_SLIM_BASE_CONFIG_FILE" "$slim_tmp"
 
             while IFS=$'\t' read -r path_json category_id; do
@@ -539,7 +590,7 @@
               effort=$(get_group_reasoning_effort "$category_id")
 
               local next_tmp
-              next_tmp=$(mktemp)
+              next_tmp=$(stage_file "$slim_tmp.next")
               if [ -n "$effort" ]; then
                 $JQ --argjson path "$path_json" --arg model "$model" --arg effort "$effort" \
                   'setpath($path + ["model"]; $model) | setpath($path + ["variant"]; $effort)' \
@@ -559,7 +610,7 @@
               effort=$(get_group_reasoning_effort "$category_id")
 
               local next_tmp
-              next_tmp=$(mktemp)
+              next_tmp=$(stage_file "$opencode_tmp.next")
               if [ -n "$effort" ]; then
                 $JQ --argjson path "$path_json" --arg model "$model" --arg effort "$effort" \
                   'setpath($path + ["model"]; $model) | setpath($path + ["variant"]; $effort)' \
@@ -586,7 +637,7 @@
             chmod 0600 "$OMO_SLIM_CONFIG_FILE"
 
             local mem_tmp
-            mem_tmp=$(mktemp)
+            mem_tmp=$(stage_file "$OPENCODE_MEM_FILE")
             $JQ --arg model "$(get_group_model "deep")" '.memoryModel = $model' "$OPENCODE_MEM_BASE_FILE" > "$mem_tmp"
 
             mkdir -p "$(dirname "$OPENCODE_MEM_FILE")"
@@ -635,7 +686,7 @@
             local catalog_file
             local normalization_input
             response_file=$(mktemp)
-            temp_json=$(mktemp)
+            temp_json=$(stage_file "$MODELS_FILE")
             catalog_file=$(mktemp)
             normalization_input="$response_file"
 
@@ -669,14 +720,16 @@
 
             if [ "$router_provider" = "cliproxyapi" ] && fetch_cliproxyapi_catalog "$catalog_file"; then
               normalization_input=$(mktemp)
-              # Preserve the gateway's exposed set; source-only catalog rows are
+              # Preserve the gateway exposed set; source-only catalog rows are
               # metadata, never selectable models.
               if ! $JQ -S --slurpfile catalog "$catalog_file" '
                 ($catalog[0].data? // $catalog[0]) as $official
                 | .data |= map(
                     . as $gateway
                     | ($official | map(select((.id? | tostring) == ($gateway.id | tostring))) | .[0] // {}) as $source
-                    | $gateway + ($source | del(.id, .object, .owned_by, .name))
+                    # Preserve official ownership metadata for provider filtering;
+                    # gateway IDs still exclusively decide selectable source rows.
+                    | $gateway + ($source | del(.id, .object, .name))
                     | ._models_catalog_source = (if ($source | length) > 0 then "gateway+official" else "gateway" end)
                   )
               ' "$response_file" > "$normalization_input"; then
@@ -914,7 +967,10 @@
                       # Keep cache metadata aligned with the generated runtime
                       # provider in _providers.nix: one stable OpenCode provider
                       # called Router, with the concrete gateway selected by state.
-                      npm: "@ai-sdk/openai-compatible",
+                      # Match _providers.nix: native OpenAI transport selects
+                      # Responses API while retaining the gateway /v1 base.
+                      # Source: https://ai-sdk.dev/providers/ai-sdk-providers/openai#responses-api
+                      npm: "@ai-sdk/openai",
                       name: "Router",
                       options: {
                         baseURL: env.MODELS_SELECTED_BASE_URL
@@ -1020,8 +1076,7 @@
             ensure_repo_state_files
 
             local tmp
-            tmp=$(mktemp)
-            mkdir -p "$(dirname "$OMP_MODELS_FILE")"
+            tmp=$(stage_file "$OMP_MODELS_FILE")
 
             {
               printf '%s\n' '# Managed by `models sync-omp`; edit for local OMP experiments, then rerun sync when refreshing Router.'
@@ -1041,10 +1096,13 @@
                       cacheRead: (($cost.cacheRead // $cost.cache_read // $pricing.cache_read // $pricing.cacheRead // 0) | tonumber?),
                       cacheWrite: (($cost.cacheWrite // $cost.cache_write // $pricing.cache_write // $pricing.cacheWrite // 0) | tonumber?)
                     };
-                "providers:\n  \($provider_id):\n    name: \($provider_name | q)\n    baseUrl: \($base_url | q)\n    apiKey: \($api_key | q)\n    api: openai-completions\n    timeoutMs: \($provider_timeout_ms)\n    models:\n" +
+                # OMP Responses transport sends OpenAI /v1/responses API at
+                # both scopes; retain the selected gateway /v1 base URL. Source:
+                # https://github.com/can1357/oh-my-pi/blob/main/docs/models.md
+                "providers:\n  \($provider_id):\n    name: \($provider_name | q)\n    baseUrl: \($base_url | q)\n    apiKey: \($api_key | q)\n    api: openai-responses\n    timeoutMs: \($provider_timeout_ms)\n    models:\n" +
                 (map(
                   .value as $model
-                  | "      - id: \(($model.id // .key) | q)\n        name: \(($model.name // .key) | q)\n        api: openai-completions\n        provider: \($provider_id | q)\n        baseUrl: \($base_url | q)\n        input: \((($model.modalities.input // ["text"]) | map(select(. == "text" or . == "image")) | if length > 0 then . else ["text"] end) | q)\n        cost: \(($model | cost) | q)" +
+                  | "      - id: \(($model.id // .key) | q)\n        name: \(($model.name // .key) | q)\n        api: openai-responses\n        provider: \($provider_id | q)\n        baseUrl: \($base_url | q)\n        input: \((($model.modalities.input // ["text"]) | map(select(. == "text" or . == "image")) | if length > 0 then . else ["text"] end) | q)\n        cost: \(($model | cost) | q)" +
                     (if $model.reasoning == true then "\n        reasoning: true" else "" end) +
                     (if $model.limit.context? != null and $model.limit.context > 0 then "\n        contextWindow: \($model.limit.context)" else "" end) +
                     (if $model.limit.output? != null then "\n        maxTokens: \($model.limit.output)" else "" end)
@@ -1073,6 +1131,8 @@
                           or test("^router/codex/")
                           or test("^router/GPT 5.5")
                           or test("^router/gpt-5.5:")
+                          or test("^router/gpt-5[.]5-(low|medium|high|xhigh)$")
+                          or test("^router/gpt-5[.]6-terra-(low|medium|high|xhigh|max)$")
                           or . == "router/gpt-5.4:mini"
                         )] | length > 0
                       ' "$OMP_CONFIG_FILE"); then
@@ -1104,6 +1164,11 @@
                           | sub("^router/gpt-5[.]5:high$"; "router/gpt-5.5-high")
                           | sub("^router/gpt-5[.]5:xhigh$"; "router/gpt-5.5-xhigh")
                           | sub("^router/gpt-5[.]4:mini$"; "router/gpt-5.4-mini")
+                           # OMP modelRoles are scalar IDs; its Responses catalog
+                           # has no safe per-role reasoning-effort field. Source:
+                           # https://github.com/can1357/oh-my-pi/blob/main/docs/models.md.
+                           | sub("^router/gpt-5[.]5-(low|medium|high|xhigh)$"; "router/gpt-5.5")
+                           | sub("^router/gpt-5[.]6-terra-(low|medium|high|xhigh|max)$"; "router/gpt-5.6-terra")
                 )
             ' "$tmp"; then
               rm -f "$tmp"
@@ -1313,7 +1378,7 @@
             ids_json=$(printf '%s\n' "$@" | $JQ -Rsc 'split("\n") | map(select(length > 0))')
 
             local temp_state
-            temp_state=$(mktemp)
+            temp_state=$(stage_file "$STATE_FILE")
             
             if [ -n "$effort" ]; then
               $JQ --arg full_id "$full_id" --arg effort "$effort" --argjson category_ids "$ids_json" '
@@ -1333,6 +1398,65 @@
 
             mv "$temp_state" "$STATE_FILE"
             sync_all_runtime_configs_from_state 1
+          }
+
+          # Assignment changes span repo state, generated OpenCode/OMO files and
+          # OMP YAML. Validate every target before writing, then retain same-dir
+          # backups so an OMP/yq or runtime-generation failure leaves no durable
+          # partial assignment. This is a rollback fallback for independent
+          # directories; each individual replacement remains an atomic rename.
+          apply_assignments_transactionally() {
+            local full_id="$1" effort="$2"
+            shift 2
+            local target="omo" id
+            local omo_ids=() omp_ids=()
+            while [ $# -gt 0 ]; do
+              if [ "$1" = "--omp" ]; then target="omp"; shift; continue; fi
+              if [ "$target" = "omo" ]; then omo_ids+=("$1"); else omp_ids+=("$1"); fi
+              shift
+            done
+            [ "''${#omo_ids[@]}" -gt 0 ] || [ "''${#omp_ids[@]}" -gt 0 ] || return 1
+            if [ "''${#omo_ids[@]}" -gt 0 ] && ! model_selection_is_valid "$full_id" "$effort"; then
+              log_error "Model or reasoning level is unavailable from the current Router catalog: $full_id''${effort:+ ($effort)}"
+              return 1
+            fi
+            if [ "''${#omp_ids[@]}" -gt 0 ] && ! model_id_is_available "$full_id"; then
+              log_error "Model is unavailable from the current Router catalog: $full_id"
+              return 1
+            fi
+            for id in "''${omo_ids[@]}"; do
+              if ! $JQ -e --arg id "$id" '.categories[$id] != null' "$OPENCODE_METADATA_FILE" >/dev/null; then
+                log_error "OpenCode category is not declared: $id"; return 1
+              fi
+            done
+            for id in "''${omp_ids[@]}"; do
+              if ! omp_category_exists "$id"; then
+                log_error "OMP model role is not declared in $OMP_CONFIG_FILE: $id"; return 1
+              fi
+            done
+
+            local paths=("$STATE_FILE" "$OPENCODE_CONFIG_FILE" "$OPENCODE_COMPAT_CONFIG_FILE" "$OMO_SLIM_CONFIG_FILE" "$OPENCODE_MEM_FILE" "$OMP_MODELS_FILE" "$OMP_CONFIG_FILE")
+            local backups=() existed=() path backup
+            for path in "''${paths[@]}"; do
+              backup=$(stage_file "$path.backup")
+              backups+=("$backup")
+              if [ -e "$path" ]; then cp -p "$path" "$backup"; existed+=(1); else existed+=(0); fi
+            done
+            rollback_assignments() {
+              local index
+              for index in "''${!paths[@]}"; do
+                if [ "''${existed[$index]}" = 1 ]; then mv -f "''${backups[$index]}" "''${paths[$index]}"; else rm -f "''${paths[$index]}" "''${backups[$index]}"; fi
+              done
+            }
+            if { [ "''${#omo_ids[@]}" -eq 0 ] || update_multiple_groups_state "$full_id" "$effort" "''${omo_ids[@]}"; } \
+              && { [ "''${#omp_ids[@]}" -eq 0 ] || set_omp_categories "$full_id" "''${omp_ids[@]}"; }; then
+              rm -f "''${backups[@]}"
+              unset -f rollback_assignments
+              return 0
+            fi
+            rollback_assignments
+            unset -f rollback_assignments
+            return 1
           }
 
           get_model_name() {
@@ -1857,64 +1981,170 @@
             $GUM style --foreground 212 "✅ Updated ''${#matched_categories[@]} categories to $target_model (effort: ''${selected_effort:-auto})"
           }
 
+          assignment_picker_lines() {
+            # One union table keeps the user-facing concept an assignment: OMP
+            # calls them roles while OMO Slim consumes OpenCode categories. The
+            # target is data on each row, not a separate decision to remember.
+            ensure_state_file
+            get_effective_models_json | $JQ -r \
+              --slurpfile state "$STATE_FILE" \
+              --slurpfile meta "$OPENCODE_METADATA_FILE" \
+              --slurpfile omp <(omp_category_models_json) '
+                . as $models
+                | ($meta[0].categories // {}) as $omo_definitions
+                | ($state[0].categories // {}) as $omo_state
+                | ($omp[0] // {}) as $omp_roles
+                | (($omo_definitions | keys) + ($omp_roles | keys) | unique[]) as $id
+                | ($omo_definitions[$id] != null) as $has_omo
+                | ($omp_roles[$id] != null) as $has_omp
+                | (if $has_omo then
+                     (($omo_state[$id] // $omo_definitions[$id].defaultModel)
+                       | if type == "object" then .model else . end)
+                   else null end) as $omo_model
+                | (if $has_omp then $omp_roles[$id] else null end) as $omp_model
+                | (if $has_omo and $has_omp and $omo_model == $omp_model then
+                     [{ target: "both", model: $omo_model }]
+                   elif $has_omo and $has_omp then
+                     [{ target: "OMO Slim", model: $omo_model }, { target: "OMP", model: $omp_model }]
+                   elif $has_omo then [{ target: "OMO Slim", model: $omo_model }]
+                   else [{ target: "OMP", model: $omp_model }]
+                   end)[]
+                | .target as $target | .model as $model
+                | ($model | sub("^router/"; "")) as $model_id
+                | (if (($model | startswith("router/")) and ($models[$model_id] == null))
+                   then "\u001b[31m✗ invalid\u001b[0m" else "\u001b[32m✓ valid\u001b[0m" end) as $status
+                | (if $has_omo then ($omo_definitions[$id].label // $id) else $id end) as $label
+                | "\($id)\t\($target)\t\($model)\t\($status)  \($label)"
+              '
+          }
+
+          choose_assignments() {
+            local selected
+            if ! selected=$(assignment_picker_lines | $GUM choose \
+              --no-limit \
+              --header "✦ Change assignments — Assignment · Target · Current model (Space to select)" \
+              --cursor="▶ " \
+              --selected.foreground="212" \
+              --cursor.foreground="212"); then
+              return 0
+            fi
+            [ -n "$selected" ] || return 0
+
+            local omo_ids=()
+            local omp_ids=()
+            local assignment_id target _
+            while IFS=$'\t' read -r assignment_id target _; do
+              [ -n "$assignment_id" ] || continue
+              case "$target" in
+                "OMO Slim") omo_ids+=("$assignment_id") ;;
+                OMP) omp_ids+=("$assignment_id") ;;
+                both) omo_ids+=("$assignment_id"); omp_ids+=("$assignment_id") ;;
+              esac
+            done <<< "$selected"
+
+            if [ "''${#omo_ids[@]}" -gt 0 ]; then
+              $GUM style --foreground 39 "OpenCode / OMO Slim: ''${omo_ids[*]}"
+            fi
+            if [ "''${#omp_ids[@]}" -gt 0 ]; then
+              $GUM style --foreground 141 "OMP: ''${omp_ids[*]}"
+            fi
+
+            local new_model provider model_id selected_effort=""
+            new_model=$(pick_model_id "🤖 Select the new model for the selected assignments") || return 0
+            if [ "''${#omo_ids[@]}" -gt 0 ]; then
+              provider="''${new_model%%/*}"
+              model_id="''${new_model#*/}"
+              selected_effort=$(pick_reasoning_effort "$provider" "$model_id") || return 0
+            fi
+            apply_assignments_transactionally "$new_model" "$selected_effort" "''${omo_ids[@]}" --omp "''${omp_ids[@]}" || return 1
+            $GUM style --foreground 212 "✅ Updated ''${#omo_ids[@]} OMO Slim and ''${#omp_ids[@]} OMP assignment(s) to $new_model"
+          }
+
+          replace_model_across_assignments() {
+            local assignment_models
+            assignment_models=$(assignment_picker_lines | while IFS=$'\t' read -r assignment_id target model _; do
+              # The first three columns are machine-stable; the fourth is the
+              # visual status/label column shown in the assignment table.
+              printf '%s\t%s\t%s\n' "$model" "$target" "$assignment_id"
+            done)
+
+            local source_options
+            source_options=$(printf '%s\n' "$assignment_models" | $JQ -Rrs '
+              split("\n") | map(select(length > 0) | split("\t"))
+              | group_by(.[0])[]
+              | "\(.[0][0])\t\(map(.[1]) | unique | join(", ")) — \(map(.[2]) | join(", "))"
+            ')
+            if [ -z "$source_options" ]; then
+              $GUM style --foreground 214 "No assignments are available to replace"
+              return 0
+            fi
+
+            local source_selection source_model
+            if ! source_selection=$(printf '%s\n' "$source_options" | $GUM filter \
+              --header "⇄ Replace model — Current model · Target · Assignments" \
+              --placeholder "Search assigned models..."); then
+              return 0
+            fi
+            [ -n "$source_selection" ] || return 0
+            source_model=$(printf '%s\n' "$source_selection" | cut -f1)
+
+            local target_model provider model_id selected_effort=""
+            target_model=$(pick_model_id "🤖 Replace $source_model with") || return 0
+            provider="''${target_model%%/*}"
+            model_id="''${target_model#*/}"
+
+            local omo_ids=()
+            local omp_ids=()
+            local model target assignment_id
+            while IFS=$'\t' read -r model target assignment_id; do
+              [ "$model" = "$source_model" ] || continue
+              case "$target" in
+                "OMO Slim") omo_ids+=("$assignment_id") ;;
+                OMP) omp_ids+=("$assignment_id") ;;
+                both) omo_ids+=("$assignment_id"); omp_ids+=("$assignment_id") ;;
+              esac
+            done <<< "$assignment_models"
+            [ "''${#omo_ids[@]}" -eq 0 ] && [ "''${#omp_ids[@]}" -eq 0 ] && return 0
+
+            if [ "''${#omo_ids[@]}" -gt 0 ]; then
+              selected_effort=$(pick_reasoning_effort "$provider" "$model_id") || return 0
+            fi
+            apply_assignments_transactionally "$target_model" "$selected_effort" "''${omo_ids[@]}" --omp "''${omp_ids[@]}" || return 1
+            $GUM style --foreground 212 "✅ Replaced $source_model across ''${#omo_ids[@]} OMO Slim and ''${#omp_ids[@]} OMP assignment(s)"
+          }
+
+          replace_assignments_noninteractive() {
+            local source_model="$1" target_model="$2" effort="$3"
+            local omo_ids=() omp_ids=() assignment_id target model _
+            while IFS=$'\t' read -r assignment_id target model _; do
+              [ "$model" = "$source_model" ] || continue
+              case "$target" in
+                "OMO Slim") omo_ids+=("$assignment_id") ;;
+                OMP) omp_ids+=("$assignment_id") ;;
+                both) omo_ids+=("$assignment_id"); omp_ids+=("$assignment_id") ;;
+              esac
+            done < <(assignment_picker_lines)
+            [ "''${#omo_ids[@]}" -gt 0 ] || [ "''${#omp_ids[@]}" -gt 0 ] || return 0
+            apply_assignments_transactionally "$target_model" "$effort" "''${omo_ids[@]}" --omp "''${omp_ids[@]}"
+          }
+
           render_state_summary() {
             local invalid_count
-            local categories_summary
-            local omp_categories_summary
             local omp_invalid_count
             invalid_count=$(invalid_category_model_count)
             omp_invalid_count=$(invalid_omp_category_model_count)
 
-            # Single jq pass over stdin/slurpfile avoids per-row --argjson of the
-            # full models catalog (E2BIG / "Argument list too long" on large caches).
-            categories_summary=$(
-              get_effective_models_json | $JQ -r --slurpfile state "$STATE_FILE" --slurpfile meta "$OPENCODE_METADATA_FILE" '
-                . as $models
-                | $meta[0].categories
-                | to_entries[]
-                | .key as $category_id
-                | .value.label as $label
-                | ((($state[0].categories // {})[$category_id] // .value.defaultModel) | if type == "object" then . else {model: .} end) as $assignment
-                | ($assignment.model // "") as $model
-                | ($assignment.reasoningEffort // "") as $effort
-                | ($model | sub("^router/"; "")) as $model_id
-                | (if (($model | startswith("router/")) and ($models[$model_id] == null)) then "invalid" else "valid" end) as $status
-                | (if $effort != "" and $effort != null then " (effort: \($effort))" else "" end) as $detail
-                | "- \($label): \($model)\($detail) [\($status)]"
-              '
-            )
-
-            omp_categories_summary=$(omp_category_models_json | $JQ -r '
-              to_entries[]
-              | "- \(.key): \(.value)"
-            ')
-
             $GUM style --foreground 39 "Router: $(router_provider_label) ($(get_router_base_url))"
-            if [ "$invalid_count" -gt 0 ]; then
-              $GUM style --foreground 196 "$invalid_count Invalid category model(s)"
+            $GUM style --foreground 212 "Assignments                              Target       Current model"
+            # The same rows drive the picker and dashboard, so labels, targets,
+            # and validity never drift between the overview and edit workflow.
+            assignment_picker_lines | while IFS=$'\t' read -r assignment_id target model detail; do
+              printf '  %-40s %-12s %s  %s\n' "$assignment_id" "$target" "$model" "$detail"
+            done
+            if [ "$invalid_count" -gt 0 ] || [ "$omp_invalid_count" -gt 0 ]; then
+              $GUM style --foreground 196 "Invalid assignments — OMO Slim: $invalid_count · OMP: $omp_invalid_count"
             else
-              $GUM style --foreground 82 "0 Invalid category models"
-            fi
-            printf '%s\n%s' \
-              "$($GUM style --foreground 212 "$(get_menu_text categoryStatePrefix):")" \
-              "$(
-                while IFS= read -r line; do
-                  if [[ "$line" == *" [invalid]" ]]; then
-                    $GUM style --foreground 196 -- "$line"
-                  else
-                    $GUM style --foreground 82 -- "$line"
-                  fi
-                done <<< "$categories_summary"
-              )"
-            if [ -n "$omp_categories_summary" ]; then
-              if [ "$omp_invalid_count" -gt 0 ]; then
-                $GUM style --foreground 196 "$omp_invalid_count Invalid OMP model role(s)"
-              else
-                $GUM style --foreground 82 "0 Invalid OMP model roles"
-              fi
-              printf '%s\n%s\n' \
-                "$($GUM style --foreground 141 "OMP modelRoles (from $OMP_CONFIG_FILE):")" \
-                "$omp_categories_summary"
+              $GUM style --foreground 82 "All assignments point to available models"
             fi
           }
 
@@ -1982,11 +2212,10 @@
                 "$(get_menu_text syncAction)$sync_warning" \
                 "$(get_menu_text syncConfigAction)" \
                 "$(get_menu_text providerAction)" \
-                "$(get_menu_text changeCategoriesAction)$invalid_suffix" \
-                "🥧 OMP: Change Model Roles ($omp_invalid_count Invalid)" \
-                "$(get_menu_text replaceModelAction)" \
-                "$(get_menu_text presetSaveAction)" \
-                "$(get_menu_text presetManageAction)" \
+                "✦ Change assignments$invalid_suffix" \
+                "⇄ Replace model across assignments" \
+                "✦ Save current assignments as preset" \
+                "✦ Browse presets" \
                 "$(get_menu_text initAction)" \
                 "$(get_menu_text syncOmpAction)" \
                 "$(get_menu_text exitAction)" \
@@ -2001,11 +2230,10 @@
                 "$(get_menu_text syncAction)"*) sync_models || true ;;
                 "$(get_menu_text syncConfigAction)") sync_config_from_state || true ;;
                 "$(get_menu_text providerAction)") set_router_provider || true ;;
-                "$(get_menu_text changeCategoriesAction)"*) choose_categories || true ;;
-                "🥧 OMP: Change Model Roles"*) choose_omp_categories || true ;;
-                "$(get_menu_text replaceModelAction)") replace_model_across_categories || true ;;
-                "$(get_menu_text presetSaveAction)") save_preset || true ;;
-                "$(get_menu_text presetManageAction)") preset_manager || true ;;
+                "✦ Change assignments"*) choose_assignments || true ;;
+                "⇄ Replace model across assignments") replace_model_across_assignments || true ;;
+                "✦ Save current assignments as preset") save_preset || true ;;
+                "✦ Browse presets") preset_manager || true ;;
                 "$(get_menu_text initAction)") init_project || true ;;
                 "$(get_menu_text syncOmpAction)") sync_omp_models || true ;;
                 "$(get_menu_text exitAction)") return 0 ;;
@@ -2023,11 +2251,15 @@
             sync-config) sync_config_from_state 1 ;;
             sync-omp) sync_omp_models ;;
             select) update_group_state "''${2:-}" "''${3:-}" "''${4:-}" ;;
+            # Noninteractive test/automation interface: IDs before --omp are
+            # OpenCode categories and IDs after it are OMP modelRoles.
+            assign) apply_assignments_transactionally "''${2:-}" "''${3:-}" "''${@:4}" ;;
+            replace-assignments) replace_assignments_noninteractive "''${2:-}" "''${3:-}" "''${4:-}" ;;
             omp-categories) set_omp_categories "''${2:-}" "''${@:3}" ;;
             preset-apply) apply_preset "''${2:-}" ;;
             provider) set_router_provider "''${2:-}" ;;
             init) init_project ;;
-            *) echo "Usage: models [sync|sync-all|sync-opencode|sync-config|sync-omp|select <category> <router/model> [reasoning-level]|omp-categories <router/model> <model-role...>|preset-apply <name>|provider|init]"; exit 1 ;;
+            *) echo "Usage: models [sync|sync-all|sync-opencode|sync-config|sync-omp|select <category> <router/model> [reasoning-level]|assign <router/model> <reasoning-level> <omo-category...> --omp <omp-role...>|replace-assignments <from> <to> [reasoning-level]|omp-categories <router/model> <model-role...>|preset-apply <name>|provider|init]"; exit 1 ;;
           esac
         '';
       };

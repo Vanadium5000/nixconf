@@ -492,7 +492,11 @@ The TypeScript lane uses the pinned `nixpkgs#typescript` compiler and temporary,
 
 ### 🤖 Model catalog state
 
-[`packages/models/`](packages/models/) is the sole checkout-owned model catalog and selection state. `models sync` updates `packages/models/models.json`; model-group and preset commands update its sibling JSON state files. `models sync-config` derives the mutable OpenCode, OMO Slim, and OMP runtime configuration from that package-owned state without fetching models. The obsolete `modules/nixos/terminal/opencode/` location is rejected by the command to prevent a second writable catalog.
+[`packages/models/`](packages/models/) is the sole checkout-owned model catalog and selection state. Its [`package.nix`](packages/models/package.nix) exposes `models` (alias `m`), updates the reviewed `models.json` cache, and derives the mutable OpenCode, OMO Slim, and OMP runtime files from the same state. `models sync-config` does not fetch models. The obsolete `modules/nixos/terminal/opencode/` location is rejected so two writable catalogs cannot diverge.
+
+Run `models` without arguments for the operator UI. Its assignment table is a union of OpenCode/OMO Slim categories and OMP `modelRoles`: every row identifies the assignment, target, and current model. A shared assignment with the same model is one `both` row; divergent values are separate `OMO Slim` and `OMP` rows. The first layer intentionally offers **Change assignments**, **Replace model across assignments**, **Save current assignments as preset**, and **Browse presets**, so an operator can work from the unified table instead of selecting an application first. Assignment mutations validate all selected targets and roll back the state and generated files if an OMP update fails.
+
+For automation, the checked command syntax is:
 
 ```bash
 # Refresh the reviewed catalog from the selected gateway.
@@ -500,7 +504,37 @@ models sync
 
 # Regenerate local application configurations from packages/models/.
 models sync-config
+
+# Set one OMO Slim/OpenCode category, optionally with a supported reasoning level.
+models select deep router/gpt-5.6-terra high
+
+# Assign the model to OMO Slim categories before --omp and OMP modelRoles after it.
+models assign router/gpt-5.6-terra high deep ultrabrain --omp deep
+
+# Replace every assignment currently using one model; an empty quoted effort clears it.
+models replace-assignments router/gpt-5.5 router/gpt-5.6-terra ''
 ```
+
+The active gateway is recorded in [`packages/models/provider.json`](packages/models/provider.json); the checked-in selection is OmniRoute. `filter.json` is provider-aware and is accepted only with this exact version-1 shape (additional keys make it invalid):
+
+```json
+{
+  "version": 1,
+  "providers": {
+    "omniroute": {
+      "metadata": {
+        "owned_by": { "equals": "codex" }
+      }
+    }
+  }
+}
+```
+
+Thus the current OmniRoute catalog exposes only models whose normalized `metadata.owned_by` is exactly `codex`. A missing provider entry applies no filter. Malformed `filter.json` fails open to the unfiltered catalog and emits a warning; this preserves model choices rather than silently publishing an empty list. The schema and filter behavior are implemented in [`packages/models/package.nix`](packages/models/package.nix).
+
+When CLIProxyAPI is selected, `models sync` first uses its gateway `/v1/models` response as the selectable set, then makes an optional five-second request to the [official CLIProxyAPI catalog](https://models.router-for.me/models.json) to enrich matching IDs. Catalog-only rows are never added, and unavailable, non-2xx, invalid, or unusable official data falls back to gateway metadata. This limitation keeps sync usable without the optional catalog while avoiding models the selected gateway did not advertise.
+
+Generated Router providers use the OpenAI **Responses API** transport: OpenCode uses `@ai-sdk/openai` with the gateway `/v1` base URL, and generated OMP provider and model entries use `openai-responses`. See the [AI SDK Responses API documentation](https://ai-sdk.dev/providers/ai-sdk-providers/openai#responses-api) and [OMP model-provider schema](https://github.com/can1357/oh-my-pi/blob/main/docs/models.md); the local generators are [`modules/terminal/opencode/_providers.nix`](modules/terminal/opencode/_providers.nix) and [`packages/models/package.nix`](packages/models/package.nix).
 
 ### 🧑💻 User-operated mutation examples
 

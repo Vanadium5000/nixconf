@@ -75,7 +75,10 @@ let
     # The concrete gateway is mutable (`models provider ...`); OpenCode only sees
     # one stable Router provider so agent/category model IDs do not churn when
     # switching CLIProxyAPI, Bifrost, or OmniRoute. Source: https://opencode.ai/docs/providers/
-    npm = "@ai-sdk/openai-compatible";
+    # Use the native OpenAI SDK transport so Router requests use Responses API;
+    # keep /v1 because the SDK appends the documented /responses endpoint.
+    # Source: https://ai-sdk.dev/providers/ai-sdk-providers/openai#responses-api
+    npm = "@ai-sdk/openai";
     name = routerProviderName;
     options = {
       baseURL = "https://cliproxyapi.${publicBaseDomain}/v1";
