@@ -1,12 +1,12 @@
 {
   "categories": {
-    "artistry": "router/gpt-5.6-sol",
-    "deep": "router/gpt-5.6-sol",
+    "artistry": "router/gpt-5.6-terra",
+    "deep": "router/gpt-5.6-terra",
     "quick": "router/gpt-5.5",
-    "ultrabrain": "router/gpt-5.6-sol",
-    "unspecified-high": "router/gpt-5.6-sol",
+    "ultrabrain": "router/gpt-5.6-terra",
+    "unspecified-high": "router/gpt-5.6-terra",
     "unspecified-low": "router/gpt-5.5",
-    "visual-engineering": "router/gpt-5.6-sol",
+    "visual-engineering": "router/gpt-5.6-terra",
     "writing": "router/gpt-5.5"
   }
 }

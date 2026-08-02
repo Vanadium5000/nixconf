@@ -82,17 +82,15 @@ let
       apiKey = self.secrets.CLIPROXYAPI_KEY;
 
       # OpenCode's request timeout covers slow first events from gateway-routed
-      # providers; 200000ms matches the shared models timeout and is 2x OMP's
-      # first-event stream watchdog default, while still failing visibly.
       # Source: https://github.com/anomalyco/opencode/blob/dev/packages/opencode/src/config/provider.ts
-      timeout = 200000;
+      timeout = 600000;
 
       # OpenCode default: no SSE idle watchdog unless `chunkTimeout` is set.
       # OmniRoute/OpenAI-compatible tool streams have had chunk-shape/finish
       # compatibility bugs; abort idle streams so a half-closed gateway response
       # cannot leave the session busy forever.
       # Source: https://github.com/anomalyco/opencode/issues/21173
-      chunkTimeout = 45000;
+      chunkTimeout = 300000;
     };
     models = builtins.mapAttrs normalizeModel (lib.recursiveUpdate baseModels filteredPatches);
   };

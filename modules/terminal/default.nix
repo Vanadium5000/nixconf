@@ -109,7 +109,7 @@
           {
             command = "models";
             description = "Manage the shared OpenCode and OMP model catalog and runtime configuration.";
-            usage = "models [sync|sync-all|sync-opencode|sync-config|sync-omp|omp-categories|preset-apply|provider|init]";
+            usage = "models [sync|sync-all|sync-opencode|sync-config|sync-omp|select <category> <router/model> [reasoning-level]|omp-categories|preset-apply|provider|init]";
             package = selfpkgs.models;
           }
           {

@@ -2,93 +2,2101 @@
   "providers": {
     "router": {
       "models": {
-        "codex-auto-review": {
+        "aug/claude-haiku-4.5": {
+          "limit": {
+            "context": 200000,
+            "output": 64000
+          },
           "metadata": {
             "object": "model",
-            "owned_by": "openai",
-            "upstream_id": "codex-auto-review"
+            "owned_by": "auggie",
+            "upstream_id": "aug/claude-haiku-4.5"
           },
-          "name": "codex-auto-review"
+          "modalities": {
+            "input": [
+              "image",
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "name": "Claude Haiku 4.5",
+          "tool_call": true
+        },
+        "aug/claude-opus-4.6": {
+          "limit": {
+            "context": 200000,
+            "output": 128000
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "auggie",
+            "upstream_id": "aug/claude-opus-4.6"
+          },
+          "modalities": {
+            "input": [
+              "image",
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "name": "Claude Opus 4.6",
+          "tool_call": true
+        },
+        "aug/claude-sonnet-4.6": {
+          "limit": {
+            "context": 200000,
+            "output": 64000
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "auggie",
+            "upstream_id": "aug/claude-sonnet-4.6"
+          },
+          "modalities": {
+            "input": [
+              "image",
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "name": "Claude Sonnet 4.6",
+          "tool_call": true
+        },
+        "aug/claude-sonnet-4.6-thinking": {
+          "limit": {
+            "context": 200000,
+            "output": 8192
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "auggie",
+            "upstream_id": "aug/claude-sonnet-4.6-thinking"
+          },
+          "modalities": {
+            "input": [
+              "image",
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "name": "Claude Sonnet 4.6 Thinking",
+          "tool_call": true
+        },
+        "aug/gemini-3.0-flash": {
+          "limit": {
+            "context": 1000000,
+            "output": 8192
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "auggie",
+            "upstream_id": "aug/gemini-3.0-flash"
+          },
+          "modalities": {
+            "input": [
+              "image",
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "name": "Gemini 3 Flash",
+          "tool_call": true
+        },
+        "aug/gemini-3.1-pro": {
+          "limit": {
+            "context": 1000000,
+            "output": 65535
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "auggie",
+            "upstream_id": "aug/gemini-3.1-pro"
+          },
+          "modalities": {
+            "input": [
+              "image",
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "name": "Gemini 3.1 Pro",
+          "tool_call": true
+        },
+        "aug/gpt-5.4-high": {
+          "limit": {
+            "context": 200000,
+            "output": 131072
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "auggie",
+            "upstream_id": "aug/gpt-5.4-high"
+          },
+          "modalities": {
+            "input": [
+              "image",
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "name": "GPT-5.4 High",
+          "tool_call": true
+        },
+        "aug/gpt-5.4-medium": {
+          "limit": {
+            "context": 200000,
+            "output": 131072
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "auggie",
+            "upstream_id": "aug/gpt-5.4-medium"
+          },
+          "modalities": {
+            "input": [
+              "image",
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "name": "GPT-5.4 Medium",
+          "tool_call": true
+        },
+        "aug/gpt-5.5-high": {
+          "limit": {
+            "context": 200000,
+            "output": 128000
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "auggie",
+            "upstream_id": "aug/gpt-5.5-high"
+          },
+          "modalities": {
+            "input": [
+              "image",
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "name": "GPT-5.5 High",
+          "tool_call": true
+        },
+        "aug/gpt-5.5-medium": {
+          "limit": {
+            "context": 200000,
+            "output": 128000
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "auggie",
+            "upstream_id": "aug/gpt-5.5-medium"
+          },
+          "modalities": {
+            "input": [
+              "image",
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "name": "GPT-5.5 Medium",
+          "tool_call": true
+        },
+        "aug/kimi-k2.6": {
+          "limit": {
+            "context": 131000,
+            "output": 262144
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "auggie",
+            "upstream_id": "aug/kimi-k2.6"
+          },
+          "modalities": {
+            "input": [
+              "image",
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "name": "Kimi K2.6",
+          "tool_call": true
+        },
+        "aug/prism": {
+          "limit": {
+            "context": 200000,
+            "output": 8192
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "auggie",
+            "upstream_id": "aug/prism"
+          },
+          "name": "Augment Prism",
+          "tool_call": true
+        },
+        "auto/best-chat": {
+          "limit": {
+            "context": 1048576,
+            "output": 512000
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/best-chat"
+          },
+          "name": "auto/best-chat",
+          "tool_call": true
+        },
+        "auto/best-coding": {
+          "limit": {
+            "context": 1048576,
+            "output": 512000
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/best-coding"
+          },
+          "name": "auto/best-coding",
+          "tool_call": true
+        },
+        "auto/best-coding-fast": {
+          "limit": {
+            "context": 1048576,
+            "output": 512000
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/best-coding-fast"
+          },
+          "name": "auto/best-coding-fast",
+          "tool_call": true
+        },
+        "auto/best-fast": {
+          "limit": {
+            "context": 1048576,
+            "output": 512000
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/best-fast"
+          },
+          "name": "auto/best-fast",
+          "tool_call": true
+        },
+        "auto/best-free": {
+          "limit": {
+            "context": 1048576,
+            "output": 512000
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/best-free"
+          },
+          "name": "auto/best-free",
+          "tool_call": true
+        },
+        "auto/best-reasoning": {
+          "limit": {
+            "context": 1048576,
+            "output": 512000
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/best-reasoning"
+          },
+          "name": "auto/best-reasoning",
+          "tool_call": true
+        },
+        "auto/best-vision": {
+          "limit": {
+            "context": 1048576,
+            "output": 512000
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/best-vision"
+          },
+          "name": "auto/best-vision",
+          "tool_call": true
+        },
+        "auto/chat": {
+          "limit": {
+            "context": 1048576,
+            "output": 512000
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/chat"
+          },
+          "name": "auto/chat",
+          "tool_call": true
+        },
+        "auto/cheap": {
+          "limit": {
+            "context": 1048576,
+            "output": 512000
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/cheap"
+          },
+          "name": "auto/cheap",
+          "tool_call": true
+        },
+        "auto/claude-opus": {
+          "limit": {
+            "context": 1048576,
+            "output": 512000
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/claude-opus"
+          },
+          "name": "auto/claude-opus",
+          "tool_call": true
+        },
+        "auto/claude-sonnet": {
+          "limit": {
+            "context": 1048576,
+            "output": 512000
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/claude-sonnet"
+          },
+          "name": "auto/claude-sonnet",
+          "tool_call": true
+        },
+        "auto/coding": {
+          "limit": {
+            "context": 1048576,
+            "output": 512000
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/coding"
+          },
+          "name": "auto/coding",
+          "tool_call": true
+        },
+        "auto/coding:cheap": {
+          "limit": {
+            "context": 1048576,
+            "output": 512000
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/coding:cheap"
+          },
+          "name": "auto/coding:cheap",
+          "tool_call": true
+        },
+        "auto/coding:fast": {
+          "limit": {
+            "context": 1048576,
+            "output": 512000
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/coding:fast"
+          },
+          "name": "auto/coding:fast",
+          "tool_call": true
+        },
+        "auto/coding:free": {
+          "limit": {
+            "context": 1048576,
+            "output": 512000
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/coding:free"
+          },
+          "name": "auto/coding:free",
+          "tool_call": true
+        },
+        "auto/coding:pro": {
+          "limit": {
+            "context": 372000,
+            "output": 128000
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/coding:pro"
+          },
+          "name": "auto/coding:pro",
+          "tool_call": true
+        },
+        "auto/coding:reliable": {
+          "limit": {
+            "context": 1048576,
+            "output": 512000
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/coding:reliable"
+          },
+          "name": "auto/coding:reliable",
+          "tool_call": true
+        },
+        "auto/fast": {
+          "limit": {
+            "context": 1048576,
+            "output": 512000
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/fast"
+          },
+          "name": "auto/fast",
+          "tool_call": true
+        },
+        "auto/gemini": {
+          "limit": {
+            "context": 1000000,
+            "output": 65535
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/gemini"
+          },
+          "name": "auto/gemini",
+          "tool_call": true
+        },
+        "auto/gemma": {
+          "limit": {
+            "context": 128000,
+            "output": 8192
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/gemma"
+          },
+          "name": "auto/gemma",
+          "tool_call": true
+        },
+        "auto/glm": {
+          "limit": {
+            "context": 128000,
+            "output": 8192
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/glm"
+          },
+          "name": "auto/glm",
+          "tool_call": true
+        },
+        "auto/llama": {
+          "limit": {
+            "context": 128000,
+            "output": 8192
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/llama"
+          },
+          "name": "auto/llama",
+          "tool_call": true
+        },
+        "auto/mimo": {
+          "limit": {
+            "context": 1000000,
+            "output": 128000
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/mimo"
+          },
+          "name": "auto/mimo",
+          "tool_call": true
+        },
+        "auto/minimax": {
+          "limit": {
+            "context": 1048576,
+            "output": 512000
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/minimax"
+          },
+          "name": "auto/minimax",
+          "tool_call": true
+        },
+        "auto/multimodal": {
+          "limit": {
+            "context": 1048576,
+            "output": 512000
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/multimodal"
+          },
+          "name": "auto/multimodal",
+          "tool_call": true
+        },
+        "auto/offline": {
+          "limit": {
+            "context": 1048576,
+            "output": 512000
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/offline"
+          },
+          "name": "auto/offline",
+          "tool_call": true
+        },
+        "auto/pro-chat": {
+          "limit": {
+            "context": 1048576,
+            "output": 512000
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/pro-chat"
+          },
+          "name": "auto/pro-chat",
+          "tool_call": true
+        },
+        "auto/pro-coding": {
+          "limit": {
+            "context": 1048576,
+            "output": 512000
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/pro-coding"
+          },
+          "name": "auto/pro-coding",
+          "tool_call": true
+        },
+        "auto/pro-fast": {
+          "limit": {
+            "context": 1048576,
+            "output": 512000
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/pro-fast"
+          },
+          "name": "auto/pro-fast",
+          "tool_call": true
+        },
+        "auto/pro-reasoning": {
+          "limit": {
+            "context": 1048576,
+            "output": 512000
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/pro-reasoning"
+          },
+          "name": "auto/pro-reasoning",
+          "tool_call": true
+        },
+        "auto/pro-vision": {
+          "limit": {
+            "context": 1048576,
+            "output": 512000
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/pro-vision"
+          },
+          "name": "auto/pro-vision",
+          "tool_call": true
+        },
+        "auto/reasoning": {
+          "limit": {
+            "context": 1048576,
+            "output": 512000
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/reasoning"
+          },
+          "name": "auto/reasoning",
+          "tool_call": true
+        },
+        "auto/reasoning:pro": {
+          "limit": {
+            "context": 372000,
+            "output": 128000
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/reasoning:pro"
+          },
+          "name": "auto/reasoning:pro",
+          "tool_call": true
+        },
+        "auto/smart": {
+          "limit": {
+            "context": 1048576,
+            "output": 512000
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/smart"
+          },
+          "name": "auto/smart",
+          "tool_call": true
+        },
+        "auto/vision": {
+          "limit": {
+            "context": 1048576,
+            "output": 512000
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/vision"
+          },
+          "name": "auto/vision",
+          "tool_call": true
+        },
+        "auto/zai": {
+          "limit": {
+            "context": 128000,
+            "output": 8192
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "combo",
+            "upstream_id": "auto/zai"
+          },
+          "name": "auto/zai",
+          "tool_call": true
+        },
+        "codex-auto-review": {
+          "id": "codex/codex-auto-review",
+          "limit": {
+            "context": 400000,
+            "output": 8192
+          },
+          "metadata": {
+            "alternate_upstream_ids": [
+              "codex-auto-review",
+              "cx/codex-auto-review"
+            ],
+            "object": "model",
+            "owned_by": "codex",
+            "upstream_id": "codex/codex-auto-review"
+          },
+          "name": "codex/codex-auto-review",
+          "tool_call": true
+        },
+        "ddgw/claude-3-5-haiku-20241022": {
+          "limit": {
+            "context": 200000,
+            "output": 8192
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "duckduckgo-web",
+            "upstream_id": "ddgw/claude-3-5-haiku-20241022"
+          },
+          "modalities": {
+            "input": [
+              "image",
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "name": "Claude 3.5 Haiku",
+          "tool_call": true
+        },
+        "ddgw/gpt-4o-mini": {
+          "limit": {
+            "context": 128000,
+            "output": 16384
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "duckduckgo-web",
+            "upstream_id": "ddgw/gpt-4o-mini"
+          },
+          "modalities": {
+            "input": [
+              "image",
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "name": "GPT-4o Mini",
+          "tool_call": true
+        },
+        "ddgw/gpt-5-mini": {
+          "limit": {
+            "context": 400000,
+            "output": 8192
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "duckduckgo-web",
+            "upstream_id": "ddgw/gpt-5-mini"
+          },
+          "name": "GPT-5 Mini",
+          "tool_call": true
+        },
+        "ddgw/llama-4-scout": {
+          "limit": {
+            "context": 128000,
+            "output": 8192
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "duckduckgo-web",
+            "upstream_id": "ddgw/llama-4-scout"
+          },
+          "name": "Llama 4 Scout",
+          "tool_call": true
+        },
+        "ddgw/mistral-small-2501": {
+          "limit": {
+            "context": 128000,
+            "output": 8192
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "duckduckgo-web",
+            "upstream_id": "ddgw/mistral-small-2501"
+          },
+          "name": "Mistral Small",
+          "tool_call": true
+        },
+        "ddgw/o3-mini": {
+          "limit": {
+            "context": 400000,
+            "output": 8192
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "duckduckgo-web",
+            "upstream_id": "ddgw/o3-mini"
+          },
+          "name": "O3 Mini",
+          "tool_call": true
         },
         "gpt-5.3-codex-spark": {
-          "metadata": {
-            "object": "model",
-            "owned_by": "openai",
-            "upstream_id": "gpt-5.3-codex-spark"
+          "id": "codex/gpt-5.3-codex-spark",
+          "limit": {
+            "context": 400000,
+            "output": 8192
           },
-          "name": "gpt-5.3-codex-spark"
-        },
-        "gpt-5.4": {
           "metadata": {
+            "alternate_upstream_ids": [
+              "cx/gpt-5.3-codex-spark"
+            ],
             "object": "model",
-            "owned_by": "openai",
-            "upstream_id": "gpt-5.4"
+            "owned_by": "codex",
+            "upstream_id": "codex/gpt-5.3-codex-spark"
           },
-          "name": "gpt-5.4"
-        },
-        "gpt-5.4-mini": {
-          "metadata": {
-            "object": "model",
-            "owned_by": "openai",
-            "upstream_id": "gpt-5.4-mini"
-          },
-          "name": "gpt-5.4-mini"
+          "name": "codex/GPT 5.3 Codex Spark",
+          "tool_call": true
         },
         "gpt-5.5": {
-          "metadata": {
-            "object": "model",
-            "owned_by": "openai",
-            "upstream_id": "gpt-5.5"
+          "id": "codex/gpt-5.5",
+          "limit": {
+            "context": 272000,
+            "output": 128000
           },
-          "name": "gpt-5.5"
+          "metadata": {
+            "alternate_upstream_ids": [
+              "cx/gpt-5.5"
+            ],
+            "object": "model",
+            "owned_by": "codex",
+            "upstream_id": "codex/gpt-5.5"
+          },
+          "modalities": {
+            "input": [
+              "image",
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "name": "codex/GPT 5.5",
+          "tool_call": true
+        },
+        "gpt-5.5-high": {
+          "id": "codex/gpt-5.5-high",
+          "limit": {
+            "context": 272000,
+            "output": 128000
+          },
+          "metadata": {
+            "alternate_upstream_ids": [
+              "cx/gpt-5.5-high"
+            ],
+            "object": "model",
+            "owned_by": "codex",
+            "upstream_id": "codex/gpt-5.5-high"
+          },
+          "modalities": {
+            "input": [
+              "image",
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "name": "codex/GPT 5.5 (High)",
+          "tool_call": true
+        },
+        "gpt-5.5-low": {
+          "id": "codex/gpt-5.5-low",
+          "limit": {
+            "context": 272000,
+            "output": 128000
+          },
+          "metadata": {
+            "alternate_upstream_ids": [
+              "cx/gpt-5.5-low"
+            ],
+            "object": "model",
+            "owned_by": "codex",
+            "upstream_id": "codex/gpt-5.5-low"
+          },
+          "modalities": {
+            "input": [
+              "image",
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "name": "codex/GPT 5.5 (Low)",
+          "tool_call": true
+        },
+        "gpt-5.5-medium": {
+          "id": "codex/gpt-5.5-medium",
+          "limit": {
+            "context": 272000,
+            "output": 128000
+          },
+          "metadata": {
+            "alternate_upstream_ids": [
+              "cx/gpt-5.5-medium"
+            ],
+            "object": "model",
+            "owned_by": "codex",
+            "upstream_id": "codex/gpt-5.5-medium"
+          },
+          "modalities": {
+            "input": [
+              "image",
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "name": "codex/GPT 5.5 (Medium)",
+          "tool_call": true
+        },
+        "gpt-5.5-xhigh": {
+          "id": "codex/gpt-5.5-xhigh",
+          "limit": {
+            "context": 272000,
+            "output": 128000
+          },
+          "metadata": {
+            "alternate_upstream_ids": [
+              "cx/gpt-5.5-xhigh"
+            ],
+            "object": "model",
+            "owned_by": "codex",
+            "upstream_id": "codex/gpt-5.5-xhigh"
+          },
+          "modalities": {
+            "input": [
+              "image",
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "name": "codex/GPT 5.5 (xHigh)",
+          "tool_call": true
         },
         "gpt-5.6-luna": {
+          "id": "codex/gpt-5.6-luna",
+          "limit": {
+            "context": 500000,
+            "output": 128000
+          },
           "metadata": {
             "object": "model",
-            "owned_by": "openai",
-            "upstream_id": "gpt-5.6-luna"
+            "owned_by": "codex",
+            "upstream_id": "codex/gpt-5.6-luna"
           },
-          "name": "gpt-5.6-luna"
+          "modalities": {
+            "input": [
+              "text"
+            ],
+            "output": [
+              "image"
+            ]
+          },
+          "name": "GPT 5.6 Luna",
+          "tool_call": true
+        },
+        "gpt-5.6-luna-high": {
+          "id": "codex/gpt-5.6-luna-high",
+          "limit": {
+            "context": 372000,
+            "output": 128000
+          },
+          "metadata": {
+            "alternate_upstream_ids": [
+              "cx/gpt-5.6-luna-high"
+            ],
+            "object": "model",
+            "owned_by": "codex",
+            "upstream_id": "codex/gpt-5.6-luna-high"
+          },
+          "modalities": {
+            "input": [
+              "image",
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "name": "codex/GPT 5.6 Luna (High)",
+          "tool_call": true
+        },
+        "gpt-5.6-luna-low": {
+          "id": "codex/gpt-5.6-luna-low",
+          "limit": {
+            "context": 372000,
+            "output": 128000
+          },
+          "metadata": {
+            "alternate_upstream_ids": [
+              "cx/gpt-5.6-luna-low"
+            ],
+            "object": "model",
+            "owned_by": "codex",
+            "upstream_id": "codex/gpt-5.6-luna-low"
+          },
+          "modalities": {
+            "input": [
+              "image",
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "name": "codex/GPT 5.6 Luna (Low)",
+          "tool_call": true
+        },
+        "gpt-5.6-luna-max": {
+          "id": "codex/gpt-5.6-luna-max",
+          "limit": {
+            "context": 372000,
+            "output": 128000
+          },
+          "metadata": {
+            "alternate_upstream_ids": [
+              "cx/gpt-5.6-luna-max"
+            ],
+            "object": "model",
+            "owned_by": "codex",
+            "upstream_id": "codex/gpt-5.6-luna-max"
+          },
+          "modalities": {
+            "input": [
+              "image",
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "name": "codex/GPT 5.6 Luna (Max)",
+          "tool_call": true
+        },
+        "gpt-5.6-luna-medium": {
+          "id": "codex/gpt-5.6-luna-medium",
+          "limit": {
+            "context": 372000,
+            "output": 128000
+          },
+          "metadata": {
+            "alternate_upstream_ids": [
+              "cx/gpt-5.6-luna-medium"
+            ],
+            "object": "model",
+            "owned_by": "codex",
+            "upstream_id": "codex/gpt-5.6-luna-medium"
+          },
+          "modalities": {
+            "input": [
+              "image",
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "name": "codex/GPT 5.6 Luna (Medium)",
+          "tool_call": true
+        },
+        "gpt-5.6-luna-xhigh": {
+          "id": "codex/gpt-5.6-luna-xhigh",
+          "limit": {
+            "context": 372000,
+            "output": 128000
+          },
+          "metadata": {
+            "alternate_upstream_ids": [
+              "cx/gpt-5.6-luna-xhigh"
+            ],
+            "object": "model",
+            "owned_by": "codex",
+            "upstream_id": "codex/gpt-5.6-luna-xhigh"
+          },
+          "modalities": {
+            "input": [
+              "image",
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "name": "codex/GPT 5.6 Luna (xHigh)",
+          "tool_call": true
         },
         "gpt-5.6-sol": {
+          "id": "codex/gpt-5.6-sol",
+          "limit": {
+            "context": 500000,
+            "output": 128000
+          },
           "metadata": {
             "object": "model",
-            "owned_by": "openai",
-            "upstream_id": "gpt-5.6-sol"
+            "owned_by": "codex",
+            "upstream_id": "codex/gpt-5.6-sol"
           },
-          "name": "gpt-5.6-sol"
+          "modalities": {
+            "input": [
+              "text"
+            ],
+            "output": [
+              "image"
+            ]
+          },
+          "name": "GPT 5.6 Sol",
+          "tool_call": true
+        },
+        "gpt-5.6-sol-high": {
+          "id": "codex/gpt-5.6-sol-high",
+          "limit": {
+            "context": 372000,
+            "output": 128000
+          },
+          "metadata": {
+            "alternate_upstream_ids": [
+              "cx/gpt-5.6-sol-high"
+            ],
+            "object": "model",
+            "owned_by": "codex",
+            "upstream_id": "codex/gpt-5.6-sol-high"
+          },
+          "modalities": {
+            "input": [
+              "image",
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "name": "codex/GPT 5.6 Sol (High)",
+          "tool_call": true
+        },
+        "gpt-5.6-sol-low": {
+          "id": "codex/gpt-5.6-sol-low",
+          "limit": {
+            "context": 372000,
+            "output": 128000
+          },
+          "metadata": {
+            "alternate_upstream_ids": [
+              "cx/gpt-5.6-sol-low"
+            ],
+            "object": "model",
+            "owned_by": "codex",
+            "upstream_id": "codex/gpt-5.6-sol-low"
+          },
+          "modalities": {
+            "input": [
+              "image",
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "name": "codex/GPT 5.6 Sol (Low)",
+          "tool_call": true
+        },
+        "gpt-5.6-sol-max": {
+          "id": "codex/gpt-5.6-sol-max",
+          "limit": {
+            "context": 372000,
+            "output": 128000
+          },
+          "metadata": {
+            "alternate_upstream_ids": [
+              "cx/gpt-5.6-sol-max"
+            ],
+            "object": "model",
+            "owned_by": "codex",
+            "upstream_id": "codex/gpt-5.6-sol-max"
+          },
+          "modalities": {
+            "input": [
+              "image",
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "name": "codex/GPT 5.6 Sol (Max)",
+          "tool_call": true
+        },
+        "gpt-5.6-sol-medium": {
+          "id": "codex/gpt-5.6-sol-medium",
+          "limit": {
+            "context": 372000,
+            "output": 128000
+          },
+          "metadata": {
+            "alternate_upstream_ids": [
+              "cx/gpt-5.6-sol-medium"
+            ],
+            "object": "model",
+            "owned_by": "codex",
+            "upstream_id": "codex/gpt-5.6-sol-medium"
+          },
+          "modalities": {
+            "input": [
+              "image",
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "name": "codex/GPT 5.6 Sol (Medium)",
+          "tool_call": true
+        },
+        "gpt-5.6-sol-ultra": {
+          "id": "codex/gpt-5.6-sol-ultra",
+          "limit": {
+            "context": 372000,
+            "output": 128000
+          },
+          "metadata": {
+            "alternate_upstream_ids": [
+              "cx/gpt-5.6-sol-ultra"
+            ],
+            "object": "model",
+            "owned_by": "codex",
+            "upstream_id": "codex/gpt-5.6-sol-ultra"
+          },
+          "modalities": {
+            "input": [
+              "image",
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "name": "codex/GPT 5.6 Sol (Ultra)",
+          "tool_call": true
+        },
+        "gpt-5.6-sol-xhigh": {
+          "id": "codex/gpt-5.6-sol-xhigh",
+          "limit": {
+            "context": 372000,
+            "output": 128000
+          },
+          "metadata": {
+            "alternate_upstream_ids": [
+              "cx/gpt-5.6-sol-xhigh"
+            ],
+            "object": "model",
+            "owned_by": "codex",
+            "upstream_id": "codex/gpt-5.6-sol-xhigh"
+          },
+          "modalities": {
+            "input": [
+              "image",
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "name": "codex/GPT 5.6 Sol (xHigh)",
+          "tool_call": true
         },
         "gpt-5.6-terra": {
+          "id": "codex/gpt-5.6-terra",
+          "limit": {
+            "context": 500000,
+            "output": 128000
+          },
           "metadata": {
             "object": "model",
-            "owned_by": "openai",
-            "upstream_id": "gpt-5.6-terra"
+            "owned_by": "codex",
+            "upstream_id": "codex/gpt-5.6-terra"
           },
-          "name": "gpt-5.6-terra"
+          "modalities": {
+            "input": [
+              "text"
+            ],
+            "output": [
+              "image"
+            ]
+          },
+          "name": "GPT 5.6 Terra",
+          "tool_call": true
         },
-        "gpt-image-1.5": {
-          "metadata": {
-            "object": "model",
-            "owned_by": "openai",
-            "upstream_id": "gpt-image-1.5"
+        "gpt-5.6-terra-high": {
+          "id": "codex/gpt-5.6-terra-high",
+          "limit": {
+            "context": 372000,
+            "output": 128000
           },
-          "name": "gpt-image-1.5"
+          "metadata": {
+            "alternate_upstream_ids": [
+              "cx/gpt-5.6-terra-high"
+            ],
+            "object": "model",
+            "owned_by": "codex",
+            "upstream_id": "codex/gpt-5.6-terra-high"
+          },
+          "modalities": {
+            "input": [
+              "image",
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "name": "codex/GPT 5.6 Terra (High)",
+          "tool_call": true
         },
-        "gpt-image-2": {
+        "gpt-5.6-terra-low": {
+          "id": "codex/gpt-5.6-terra-low",
+          "limit": {
+            "context": 372000,
+            "output": 128000
+          },
+          "metadata": {
+            "alternate_upstream_ids": [
+              "cx/gpt-5.6-terra-low"
+            ],
+            "object": "model",
+            "owned_by": "codex",
+            "upstream_id": "codex/gpt-5.6-terra-low"
+          },
+          "modalities": {
+            "input": [
+              "image",
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "name": "codex/GPT 5.6 Terra (Low)",
+          "tool_call": true
+        },
+        "gpt-5.6-terra-max": {
+          "id": "codex/gpt-5.6-terra-max",
+          "limit": {
+            "context": 372000,
+            "output": 128000
+          },
+          "metadata": {
+            "alternate_upstream_ids": [
+              "cx/gpt-5.6-terra-max"
+            ],
+            "object": "model",
+            "owned_by": "codex",
+            "upstream_id": "codex/gpt-5.6-terra-max"
+          },
+          "modalities": {
+            "input": [
+              "image",
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "name": "codex/GPT 5.6 Terra (Max)",
+          "tool_call": true
+        },
+        "gpt-5.6-terra-medium": {
+          "id": "codex/gpt-5.6-terra-medium",
+          "limit": {
+            "context": 372000,
+            "output": 128000
+          },
+          "metadata": {
+            "alternate_upstream_ids": [
+              "cx/gpt-5.6-terra-medium"
+            ],
+            "object": "model",
+            "owned_by": "codex",
+            "upstream_id": "codex/gpt-5.6-terra-medium"
+          },
+          "modalities": {
+            "input": [
+              "image",
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "name": "codex/GPT 5.6 Terra (Medium)",
+          "tool_call": true
+        },
+        "gpt-5.6-terra-ultra": {
+          "id": "codex/gpt-5.6-terra-ultra",
+          "limit": {
+            "context": 372000,
+            "output": 128000
+          },
+          "metadata": {
+            "alternate_upstream_ids": [
+              "cx/gpt-5.6-terra-ultra"
+            ],
+            "object": "model",
+            "owned_by": "codex",
+            "upstream_id": "codex/gpt-5.6-terra-ultra"
+          },
+          "modalities": {
+            "input": [
+              "image",
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "name": "codex/GPT 5.6 Terra (Ultra)",
+          "tool_call": true
+        },
+        "gpt-5.6-terra-xhigh": {
+          "id": "codex/gpt-5.6-terra-xhigh",
+          "limit": {
+            "context": 372000,
+            "output": 128000
+          },
+          "metadata": {
+            "alternate_upstream_ids": [
+              "cx/gpt-5.6-terra-xhigh"
+            ],
+            "object": "model",
+            "owned_by": "codex",
+            "upstream_id": "codex/gpt-5.6-terra-xhigh"
+          },
+          "modalities": {
+            "input": [
+              "image",
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "name": "codex/GPT 5.6 Terra (xHigh)",
+          "tool_call": true
+        },
+        "mcode/mimo-auto": {
+          "limit": {
+            "context": 1000000,
+            "output": 128000
+          },
           "metadata": {
             "object": "model",
-            "owned_by": "openai",
-            "upstream_id": "gpt-image-2"
+            "owned_by": "mimocode",
+            "upstream_id": "mcode/mimo-auto"
           },
-          "name": "gpt-image-2"
+          "name": "MiMo Auto",
+          "tool_call": true
+        },
+        "no-think/aug/claude-haiku-4.5": {
+          "limit": {
+            "context": 200000,
+            "output": 8192
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "auggie",
+            "upstream_id": "no-think/aug/claude-haiku-4.5"
+          },
+          "modalities": {
+            "input": [
+              "image",
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "name": "no-think/aug/claude-haiku-4.5",
+          "tool_call": true
+        },
+        "no-think/aug/claude-opus-4.6": {
+          "limit": {
+            "context": 200000,
+            "output": 8192
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "auggie",
+            "upstream_id": "no-think/aug/claude-opus-4.6"
+          },
+          "modalities": {
+            "input": [
+              "image",
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "name": "no-think/aug/claude-opus-4.6",
+          "tool_call": true
+        },
+        "no-think/aug/claude-sonnet-4.6": {
+          "limit": {
+            "context": 200000,
+            "output": 8192
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "auggie",
+            "upstream_id": "no-think/aug/claude-sonnet-4.6"
+          },
+          "modalities": {
+            "input": [
+              "image",
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "name": "no-think/aug/claude-sonnet-4.6",
+          "tool_call": true
+        },
+        "oc/big-pickle": {
+          "limit": {
+            "context": 200000,
+            "output": 8192
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "opencode",
+            "upstream_id": "oc/big-pickle"
+          },
+          "name": "Big Pickle",
+          "tool_call": true
+        },
+        "oc/deepseek-v4-flash-free": {
+          "limit": {
+            "context": 1000000,
+            "output": 384000
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "opencode",
+            "upstream_id": "oc/deepseek-v4-flash-free"
+          },
+          "name": "DeepSeek V4 Flash Free",
+          "tool_call": true
+        },
+        "oc/ling-2.6-1t-free": {
+          "limit": {
+            "context": 200000,
+            "output": 8192
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "opencode",
+            "upstream_id": "oc/ling-2.6-1t-free"
+          },
+          "name": "ling-2.6-1t-free",
+          "tool_call": true
+        },
+        "oc/minimax-m2.5-free": {
+          "limit": {
+            "context": 204800,
+            "output": 131072
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "opencode",
+            "upstream_id": "oc/minimax-m2.5-free"
+          },
+          "name": "MiniMax M2.5 Free",
+          "tool_call": true
+        },
+        "oc/minimax-m3-free": {
+          "limit": {
+            "context": 1048576,
+            "output": 512000
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "opencode",
+            "upstream_id": "oc/minimax-m3-free"
+          },
+          "modalities": {
+            "input": [
+              "image",
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "name": "minimax-m3-free",
+          "tool_call": true
+        },
+        "oc/nemotron-3-super-free": {
+          "limit": {
+            "context": 1000000,
+            "output": 8192
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "opencode",
+            "upstream_id": "oc/nemotron-3-super-free"
+          },
+          "name": "Nemotron 3 Super Free",
+          "tool_call": true
+        },
+        "oc/qwen3.6-plus-free": {
+          "limit": {
+            "context": 200000,
+            "output": 65536
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "opencode",
+            "upstream_id": "oc/qwen3.6-plus-free"
+          },
+          "modalities": {
+            "input": [
+              "image",
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "name": "Qwen3.6 Plus Free",
+          "tool_call": true
+        },
+        "oc/trinity-large-preview-free": {
+          "limit": {
+            "context": 200000,
+            "output": 8192
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "opencode",
+            "upstream_id": "oc/trinity-large-preview-free"
+          },
+          "name": "trinity-large-preview-free",
+          "tool_call": true
+        },
+        "pepper/pepper-1": {
+          "limit": {
+            "context": 128000,
+            "output": 8192
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "chipotle",
+            "upstream_id": "pepper/pepper-1"
+          },
+          "name": "Pepper (Chipotle AI 🌯)",
+          "tool_call": true
+        },
+        "tllm/CLAUDE_4_5_HAIKU": {
+          "limit": {
+            "context": 200000,
+            "output": 8192
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "theoldllm",
+            "upstream_id": "tllm/CLAUDE_4_5_HAIKU"
+          },
+          "name": "Claude 4.5 Haiku (The Old LLM 🆓)",
+          "tool_call": true
+        },
+        "tllm/CLAUDE_4_6_OPUS": {
+          "limit": {
+            "context": 200000,
+            "output": 8192
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "theoldllm",
+            "upstream_id": "tllm/CLAUDE_4_6_OPUS"
+          },
+          "name": "Claude 4.6 Opus (The Old LLM 🆓)",
+          "tool_call": true
+        },
+        "tllm/CLAUDE_4_6_SONNET": {
+          "limit": {
+            "context": 200000,
+            "output": 8192
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "theoldllm",
+            "upstream_id": "tllm/CLAUDE_4_6_SONNET"
+          },
+          "name": "Claude 4.6 Sonnet (The Old LLM 🆓)",
+          "tool_call": true
+        },
+        "tllm/GPT_4o": {
+          "limit": {
+            "context": 200000,
+            "output": 8192
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "theoldllm",
+            "upstream_id": "tllm/GPT_4o"
+          },
+          "name": "GPT-4o (The Old LLM 🆓)",
+          "tool_call": true
+        },
+        "tllm/GPT_5": {
+          "limit": {
+            "context": 400000,
+            "output": 8192
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "theoldllm",
+            "upstream_id": "tllm/GPT_5"
+          },
+          "name": "GPT-5 (The Old LLM 🆓)",
+          "tool_call": true
+        },
+        "tllm/GPT_5_1": {
+          "limit": {
+            "context": 400000,
+            "output": 8192
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "theoldllm",
+            "upstream_id": "tllm/GPT_5_1"
+          },
+          "name": "GPT-5.1 (The Old LLM 🆓)",
+          "tool_call": true
+        },
+        "tllm/GPT_5_2": {
+          "limit": {
+            "context": 400000,
+            "output": 8192
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "theoldllm",
+            "upstream_id": "tllm/GPT_5_2"
+          },
+          "name": "GPT-5.2 (The Old LLM 🆓)",
+          "tool_call": true
+        },
+        "tllm/GPT_5_3": {
+          "limit": {
+            "context": 400000,
+            "output": 8192
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "theoldllm",
+            "upstream_id": "tllm/GPT_5_3"
+          },
+          "name": "GPT-5.3 (The Old LLM 🆓)",
+          "tool_call": true
+        },
+        "tllm/GPT_5_4": {
+          "limit": {
+            "context": 400000,
+            "output": 8192
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "theoldllm",
+            "upstream_id": "tllm/GPT_5_4"
+          },
+          "name": "GPT-5.4 (The Old LLM 🆓)",
+          "tool_call": true
+        },
+        "tllm/GPT_o3_mini": {
+          "limit": {
+            "context": 200000,
+            "output": 8192
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "theoldllm",
+            "upstream_id": "tllm/GPT_o3_mini"
+          },
+          "name": "o3-mini (The Old LLM 🆓)",
+          "tool_call": true
+        },
+        "tllm/GPT_o4_mini": {
+          "limit": {
+            "context": 200000,
+            "output": 8192
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "theoldllm",
+            "upstream_id": "tllm/GPT_o4_mini"
+          },
+          "name": "o4-mini (The Old LLM 🆓)",
+          "tool_call": true
+        },
+        "tllm/claude_haiku_3_5": {
+          "limit": {
+            "context": 200000,
+            "output": 8192
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "theoldllm",
+            "upstream_id": "tllm/claude_haiku_3_5"
+          },
+          "name": "Claude Haiku 3.5 (The Old LLM 🆓)",
+          "tool_call": true
+        },
+        "tllm/claude_opus_4": {
+          "limit": {
+            "context": 200000,
+            "output": 8192
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "theoldllm",
+            "upstream_id": "tllm/claude_opus_4"
+          },
+          "name": "Claude Opus 4 (The Old LLM 🆓)",
+          "tool_call": true
+        },
+        "tllm/claude_sonnet_4": {
+          "limit": {
+            "context": 200000,
+            "output": 8192
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "theoldllm",
+            "upstream_id": "tllm/claude_sonnet_4"
+          },
+          "name": "Claude Sonnet 4 (The Old LLM 🆓)",
+          "tool_call": true
+        },
+        "tllm/deepseek_v4": {
+          "limit": {
+            "context": 200000,
+            "output": 8192
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "theoldllm",
+            "upstream_id": "tllm/deepseek_v4"
+          },
+          "name": "DeepSeek V4 (The Old LLM 🆓)",
+          "tool_call": true
+        },
+        "tllm/gemini_1_5_flash": {
+          "limit": {
+            "context": 1000000,
+            "output": 8192
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "theoldllm",
+            "upstream_id": "tllm/gemini_1_5_flash"
+          },
+          "name": "Gemini 1.5 Flash (The Old LLM 🆓)",
+          "tool_call": true
+        },
+        "tllm/gemini_2_0_flash": {
+          "limit": {
+            "context": 1000000,
+            "output": 8192
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "theoldllm",
+            "upstream_id": "tllm/gemini_2_0_flash"
+          },
+          "name": "Gemini 2.0 Flash (The Old LLM 🆓)",
+          "tool_call": true
+        },
+        "tllm/gemini_2_5_pro": {
+          "limit": {
+            "context": 1000000,
+            "output": 8192
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "theoldllm",
+            "upstream_id": "tllm/gemini_2_5_pro"
+          },
+          "name": "Gemini 2.5 Pro (The Old LLM 🆓)",
+          "tool_call": true
+        },
+        "tllm/gemini_3_flash": {
+          "limit": {
+            "context": 1000000,
+            "output": 8192
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "theoldllm",
+            "upstream_id": "tllm/gemini_3_flash"
+          },
+          "name": "Gemini 3 Flash (The Old LLM 🆓)",
+          "tool_call": true
+        },
+        "tllm/gemini_3_pro": {
+          "limit": {
+            "context": 1000000,
+            "output": 8192
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "theoldllm",
+            "upstream_id": "tllm/gemini_3_pro"
+          },
+          "name": "Gemini 3 Pro (The Old LLM 🆓)",
+          "tool_call": true
+        },
+        "tllm/openrouter_deepseek_r1": {
+          "limit": {
+            "context": 200000,
+            "output": 8192
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "theoldllm",
+            "upstream_id": "tllm/openrouter_deepseek_r1"
+          },
+          "name": "DeepSeek R1 (The Old LLM 🆓)",
+          "tool_call": true
+        },
+        "tllm/openrouter_gpt_4_o": {
+          "limit": {
+            "context": 200000,
+            "output": 8192
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "theoldllm",
+            "upstream_id": "tllm/openrouter_gpt_4_o"
+          },
+          "name": "GPT-4o (The Old LLM 🆓)",
+          "tool_call": true
+        },
+        "tllm/openrouter_gpt_4_o_mini": {
+          "limit": {
+            "context": 200000,
+            "output": 8192
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "theoldllm",
+            "upstream_id": "tllm/openrouter_gpt_4_o_mini"
+          },
+          "name": "GPT-4o mini (The Old LLM 🆓)",
+          "tool_call": true
+        },
+        "tllm/openrouter_grok_4": {
+          "limit": {
+            "context": 200000,
+            "output": 8192
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "theoldllm",
+            "upstream_id": "tllm/openrouter_grok_4"
+          },
+          "name": "Grok 4 (The Old LLM 🆓)",
+          "tool_call": true
+        },
+        "tllm/sonar-pro": {
+          "limit": {
+            "context": 200000,
+            "output": 8192
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "theoldllm",
+            "upstream_id": "tllm/sonar-pro"
+          },
+          "name": "Sonar Pro (The Old LLM 🆓)",
+          "tool_call": true
+        },
+        "tllm/together_deepseek_v3": {
+          "limit": {
+            "context": 200000,
+            "output": 8192
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "theoldllm",
+            "upstream_id": "tllm/together_deepseek_v3"
+          },
+          "name": "DeepSeek V3 (The Old LLM 🆓)",
+          "tool_call": true
+        },
+        "veo-free/seedance": {
+          "limit": {
+            "context": 128000,
+            "output": 8192
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "veoaifree-web",
+            "upstream_id": "veo-free/seedance"
+          },
+          "name": "veo-free/Seedance",
+          "tool_call": true
+        },
+        "veo-free/veo": {
+          "limit": {
+            "context": 128000,
+            "output": 8192
+          },
+          "metadata": {
+            "object": "model",
+            "owned_by": "veoaifree-web",
+            "upstream_id": "veo-free/veo"
+          },
+          "name": "veo-free/VEO 3.1",
+          "tool_call": true
+        },
+        "veoaifree-web/seedance": {
+          "metadata": {
+            "object": "model",
+            "owned_by": "veoaifree-web",
+            "upstream_id": "veoaifree-web/seedance"
+          },
+          "name": "veoaifree-web/Seedance",
+          "tool_call": true
+        },
+        "veoaifree-web/veo": {
+          "metadata": {
+            "object": "model",
+            "owned_by": "veoaifree-web",
+            "upstream_id": "veoaifree-web/veo"
+          },
+          "name": "veoaifree-web/VEO 3.1",
+          "tool_call": true
         }
       },
       "name": "Router",
       "npm": "@ai-sdk/openai-compatible",
       "options": {
-        "baseURL": "https://cliproxyapi.my-website.space/v1"
+        "baseURL": "https://omniroute.my-website.space/v1"
       },
-      "syncedAt": "2026-08-01T19:46:43Z"
+      "syncedAt": "2026-08-02T19:55:55Z"
     }
   }
 }

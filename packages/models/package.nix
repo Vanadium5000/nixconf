@@ -46,7 +46,10 @@
           OPENCODE_METADATA_FILE="''${MODELS_METADATA_FILE:-$MODELS_CONFIG_DIR/models-metadata.json}"
           JQ="${pkgs.jq}/bin/jq"
           GUM="${pkgs.gum}/bin/gum"
-          CURL="${pkgs.curl}/bin/curl"
+          CURL="''${MODELS_CURL:-${pkgs.curl}/bin/curl}"
+          # Five seconds bounds this optional catalog request; it must never
+          # prevent a gateway model sync. Source: models.router-for.me contract.
+          CLIPROXYAPI_CATALOG_URL="''${MODELS_CLIPROXYAPI_CATALOG_URL:-https://models.router-for.me/models.json}"
           # yq-go edits only the selected YAML nodes, retaining document
           # comments, styles, anchors, and unrelated OMP settings. Ref:
           # https://mikefarah.gitbook.io/yq/operators/assign-update
@@ -191,6 +194,11 @@
               | $models * (($patches[0] // {}) | with_entries(select($models[.key] != null)))
               | map_values(normalize_model)
             ' "$MODELS_FILE"
+          }
+
+          # All consumers use this explicit order rather than JSON object order.
+          ordered_effective_model_entries() {
+            get_effective_models_json | $JQ -c 'to_entries | sort_by(.key)'
           }
 
           get_effective_model_field() {
@@ -587,6 +595,24 @@
 
           }
 
+          fetch_cliproxyapi_catalog() {
+            local catalog_file="$1"
+            local status
+            if ! status=$($CURL -sS -L --connect-timeout 5 --max-time 5 --retry 0 \
+              -w '%{http_code}' -o "$catalog_file" -H 'Accept: application/json' "$CLIPROXYAPI_CATALOG_URL"); then
+              log_warn "CLIProxyAPI official catalog unavailable; using gateway metadata"
+              return 1
+            fi
+            case "$status" in 2*) ;; *) log_warn "CLIProxyAPI official catalog HTTP $status; using gateway metadata"; return 1 ;; esac
+            # The official endpoint has shipped both a bare array and OpenAI's
+            # {data:[...]} envelope; accept only a non-empty model array.
+            # Source: https://models.router-for.me/models.json.
+            if ! $JQ -e '(.data? // .) | type == "array" and length > 0' "$catalog_file" >/dev/null 2>&1; then
+              log_warn "CLIProxyAPI official catalog is invalid; using gateway metadata"
+              return 1
+            fi
+          }
+
           # Fetch models from the selected Router gateway and update models.json.
           # Rich gateways may include limits/modalities/pricing; plain OpenAI
           # compatible gateways still yield usable IDs and can be locally patched.
@@ -606,8 +632,12 @@
             log_general "Fetching $(router_provider_label "$router_provider") models from $url"
             local response_file
             local temp_json
+            local catalog_file
+            local normalization_input
             response_file=$(mktemp)
             temp_json=$(mktemp)
+            catalog_file=$(mktemp)
+            normalization_input="$response_file"
 
             local http_status
             if ! http_status=$($CURL -sS -L --connect-timeout 25 --max-time 90 --retry 2 --retry-delay 1 \
@@ -616,7 +646,7 @@
               -H "Accept: application/json" \
               "$url"); then
               $GUM style --foreground 196 "Error: Failed to reach $url"
-              rm -f "$response_file" "$temp_json"
+              rm -f "$response_file" "$catalog_file" "$temp_json"
               return 1
             fi
 
@@ -626,15 +656,34 @@
                 local api_error
                 api_error=$($JQ -r '.error.message // .message // .error // empty' "$response_file" 2>/dev/null || true)
                 $GUM style --foreground 196 "Error: Model API returned HTTP $http_status''${api_error:+: $api_error}"
-                rm -f "$response_file" "$temp_json"
+                rm -f "$response_file" "$catalog_file" "$temp_json"
                 return 1
                 ;;
             esac
 
             if ! $JQ -e '.data | type == "array" and length > 0' "$response_file" >/dev/null 2>&1; then
               $GUM style --foreground 196 "Error: Model API response did not contain a non-empty data array"
-              rm -f "$response_file" "$temp_json"
+              rm -f "$response_file" "$catalog_file" "$temp_json"
               return 1
+            fi
+
+            if [ "$router_provider" = "cliproxyapi" ] && fetch_cliproxyapi_catalog "$catalog_file"; then
+              normalization_input=$(mktemp)
+              # Preserve the gateway's exposed set; source-only catalog rows are
+              # metadata, never selectable models.
+              if ! $JQ -S --slurpfile catalog "$catalog_file" '
+                ($catalog[0].data? // $catalog[0]) as $official
+                | .data |= map(
+                    . as $gateway
+                    | ($official | map(select((.id? | tostring) == ($gateway.id | tostring))) | .[0] // {}) as $source
+                    | $gateway + ($source | del(.id, .object, .owned_by, .name))
+                    | ._models_catalog_source = (if ($source | length) > 0 then "gateway+official" else "gateway" end)
+                  )
+              ' "$response_file" > "$normalization_input"; then
+                log_warn "CLIProxyAPI official catalog is unusable; using gateway metadata"
+                rm -f "$normalization_input"
+                normalization_input="$response_file"
+              fi
             fi
 
             # Normalize the rich model payload into OpenCode's model schema while
@@ -711,6 +760,9 @@
                   .reasoningEffort?,
                   .supported_reasoning_efforts?,
                   .supportedReasoningEfforts?,
+                  .thinking.levels?,
+                  .thinking_levels?,
+                  .thinkingLevels?,
                   .capabilities.reasoning_effort?,
                   .capabilities.supported_reasoning_efforts?
                 ]) as $explicit
@@ -776,6 +828,7 @@
                 + optional_object("architecture"; .architecture? // {})
                 + optional_object("top_provider"; .top_provider? // .topProvider? // {})
                 + optional_object("per_request_limits"; .per_request_limits? // .perRequestLimits? // {})
+                + optional_value("catalog_source"; ._models_catalog_source?)
                 + (support_list as $supported | if ($supported | length) > 0 then { supported_parameters: $supported } else {} end);
 
               def to_opencode_entry:
@@ -871,7 +924,7 @@
                     }
                   }
                 }
-            ' "$response_file" > "$temp_json"; then
+            ' "$normalization_input" > "$temp_json"; then
               $GUM style --foreground 196 "Error: Failed to normalize model metadata"
               rm -f "$response_file" "$temp_json"
               return 1
@@ -884,7 +937,8 @@
             fi
 
             mv "$temp_json" "$MODELS_FILE"
-            rm -f "$response_file"
+            rm -f "$response_file" "$catalog_file"
+            [ "$normalization_input" = "$response_file" ] || rm -f "$normalization_input"
 
             local stats
             stats=$($JQ -r '
@@ -971,7 +1025,7 @@
 
             {
               printf '%s\n' '# Managed by `models sync-omp`; edit for local OMP experiments, then rerun sync when refreshing Router.'
-              get_effective_models_json | $JQ -r \
+              ordered_effective_model_entries | $JQ -r \
                 --arg provider_id "$OMP_PROVIDER_ID" \
                 --arg provider_name "$OMP_PROVIDER_NAME" \
                 --arg base_url "$omp_base_url" \
@@ -988,7 +1042,7 @@
                       cacheWrite: (($cost.cacheWrite // $cost.cache_write // $pricing.cache_write // $pricing.cacheWrite // 0) | tonumber?)
                     };
                 "providers:\n  \($provider_id):\n    name: \($provider_name | q)\n    baseUrl: \($base_url | q)\n    apiKey: \($api_key | q)\n    api: openai-completions\n    timeoutMs: \($provider_timeout_ms)\n    models:\n" +
-                (to_entries | sort_by(.key) | map(
+                (map(
                   .value as $model
                   | "      - id: \(($model.id // .key) | q)\n        name: \(($model.name // .key) | q)\n        api: openai-completions\n        provider: \($provider_id | q)\n        baseUrl: \($base_url | q)\n        input: \((($model.modalities.input // ["text"]) | map(select(. == "text" or . == "image")) | if length > 0 then . else ["text"] end) | q)\n        cost: \(($model | cost) | q)" +
                     (if $model.reasoning == true then "\n        reasoning: true" else "" end) +
@@ -1182,6 +1236,21 @@
                       get_effective_models_json | $JQ -e --arg model_id "$model_id" 'has($model_id)' >/dev/null
           }
 
+          model_selection_is_valid() {
+            local full_id="$1"
+            local effort="$2"
+            local provider="''${full_id%%/*}"
+            local model_id="''${full_id#*/}"
+            [ "$provider" = "$ROUTER_PROVIDER_ID" ] || return 1
+            get_effective_models_json | $JQ -e --arg model_id "$model_id" --arg effort "$effort" '
+              .[$model_id] as $model
+              | $model != null
+              | if $effort == "" then .
+                else (($model.reasoning_effort // []) | index($effort) != null)
+                end
+            ' >/dev/null
+          }
+
           set_omp_categories() {
                       local full_id="$1"
                       shift
@@ -1207,6 +1276,10 @@
             local effort="$3"
 
             ensure_state_file
+            if ! model_selection_is_valid "$full_id" "$effort"; then
+              log_error "Model or reasoning level is unavailable from the current Router catalog: $full_id''${effort:+ ($effort)}"
+              return 1
+            fi
             local temp_state
             temp_state=$(mktemp)
             
@@ -1232,6 +1305,10 @@
             fi
 
             ensure_state_file
+            if ! model_selection_is_valid "$full_id" "$effort"; then
+              log_error "Model or reasoning level is unavailable from the current Router catalog: $full_id''${effort:+ ($effort)}"
+              return 1
+            fi
             local ids_json
             ids_json=$(printf '%s\n' "$@" | $JQ -Rsc 'split("\n") | map(select(length > 0))')
 
@@ -1272,8 +1349,8 @@
           }
 
           model_picker_lines() {
-            get_effective_models_json | $JQ -r '
-              to_entries[]
+            ordered_effective_model_entries | $JQ -r '
+              .[]
               | "router/\(.key)\tRouter: \(.value.name) (\(.key))"
             '
           }
@@ -1945,17 +2022,36 @@
             sync-opencode) sync_opencode_config_from_state ;;
             sync-config) sync_config_from_state 1 ;;
             sync-omp) sync_omp_models ;;
+            select) update_group_state "''${2:-}" "''${3:-}" "''${4:-}" ;;
             omp-categories) set_omp_categories "''${2:-}" "''${@:3}" ;;
             preset-apply) apply_preset "''${2:-}" ;;
             provider) set_router_provider "''${2:-}" ;;
             init) init_project ;;
-            *) echo "Usage: models [sync|sync-all|sync-opencode|sync-config|sync-omp|omp-categories <router/model> <model-role...>|preset-apply <name>|provider|init]"; exit 1 ;;
+            *) echo "Usage: models [sync|sync-all|sync-opencode|sync-config|sync-omp|select <category> <router/model> [reasoning-level]|omp-categories <router/model> <model-role...>|preset-apply <name>|provider|init]"; exit 1 ;;
           esac
         '';
       };
     in
     {
       packages.models = modelsPackage;
+
+      # Keep this fixture-driven HTTP contract offline: the harness replaces curl
+      # and invokes the built wrapper, covering the shipped command rather than a
+      # copied shell fragment. Source: packages/models/tests/models-offline.sh.
+      checks.models-offline =
+        pkgs.runCommandLocal "models-offline"
+          {
+            nativeBuildInputs = [
+              pkgs.bash
+              pkgs.coreutils
+              pkgs.gnugrep
+              pkgs.jq
+            ];
+          }
+          ''
+            ${pkgs.bash}/bin/bash ${./tests/models-offline.sh} ${modelsPackage}/bin/models
+            mkdir -p "$out"
+          '';
 
       packages.m = inputs.wrappers.lib.wrapPackage {
         inherit pkgs;
