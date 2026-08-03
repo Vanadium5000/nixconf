@@ -428,8 +428,9 @@ client
 
 `rebuild.sh` is the supported entry point. The terminal profile also exposes it as
 `rebuild` (alias: `r`), so it works from any directory without relying on a
-checkout-relative path. It writes secrets, evaluates the host matrix, and calls
-the relevant NixOS action.
+checkout-relative path. It writes secrets and calls the relevant NixOS action.
+Run `rebuild matrix` to explicitly inspect the
+all-host module matrix; normal actions skip that diagnostic evaluation.
 
 ## Command help
 

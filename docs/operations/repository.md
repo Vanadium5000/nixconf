@@ -95,7 +95,7 @@ The TypeScript compiler comes from `nixpkgs#typescript`; temporary project confi
 
 ## Model catalog state
 
-[`packages/models/`](../../packages/models/) is the only checkout-owned location for `models.json`, OpenCode/OMO Slim category state, OMP role assignments, presets, provider choice, and local patches. [`packages/models/package.nix`](../../packages/models/package.nix) owns the `models` command (also exported as `m`): `models sync` writes the catalog and `models sync-config` derives mutable OpenCode, OMO Slim, and OMP runtime files from the same state without fetching models. The command rejects the obsolete `modules/nixos/terminal/opencode/` state path, preventing divergent catalogs.
+[`packages/models/`](https://github.com/Vanadium5000/nixconf/tree/main/packages/models/) is the only checkout-owned location for `models.json`, OpenCode/OMO Slim category state, OMP role assignments, presets, provider choice, and local patches. [`packages/models/package.nix`](https://github.com/Vanadium5000/nixconf/blob/main/packages/models/package.nix) owns the `models` command (also exported as `m`): `models sync` writes the catalog and `models sync-config` derives mutable OpenCode, OMO Slim, and OMP runtime files from the same state without fetching models. The command rejects the obsolete `modules/nixos/terminal/opencode/` state path, preventing divergent catalogs.
 
 `models` opens an assignment-first UI. Its single table unions OpenCode/OMO Slim categories with OMP `modelRoles`, displaying **Assignment · Target · Current model**. A matching cross-application assignment is labelled `both`; a shared name with differing models is rendered as separate `OMO Slim` and `OMP` rows. The first operator actions are **Change assignments**, **Replace model across assignments**, **Save current assignments as preset**, and **Browse presets**. Changes validate every selected target and are transactional across state, generated OpenCode/OMO Slim files, OMP's generated model catalog, and OMP's role YAML: a failed OMP write restores the previous files.
 
@@ -116,7 +116,7 @@ models assign router/gpt-5.6-terra high deep ultrabrain --omp deep
 models replace-assignments router/gpt-5.5 router/gpt-5.6-terra ''
 ```
 
-The checked-in provider choice in [`packages/models/provider.json`](../../packages/models/provider.json) is OmniRoute. Filtering is provider-aware and reads [`packages/models/filter.json`](../../packages/models/filter.json) only when it exactly matches the versioned owned-by schema below; any extra or missing keys make the file invalid:
+The checked-in provider choice in [`packages/models/provider.json`](https://github.com/Vanadium5000/nixconf/blob/main/packages/models/provider.json) is OmniRoute. Filtering is provider-aware and reads [`packages/models/filter.json`](https://github.com/Vanadium5000/nixconf/blob/main/packages/models/filter.json) only when it exactly matches the versioned owned-by schema below; any extra or missing keys make the file invalid:
 
 ```json
 {
@@ -133,11 +133,11 @@ The checked-in provider choice in [`packages/models/provider.json`](../../packag
 }
 ```
 
-The current rule retains only OmniRoute rows whose normalized `metadata.owned_by` equals `codex`. Providers without a rule remain unfiltered. Invalid JSON or a schema mismatch fails open with a warning and retains the unfiltered post-patch catalog, rather than making all models unavailable. This deliberate fallback and the exact validation predicate live in [`packages/models/package.nix`](../../packages/models/package.nix).
+The current rule retains only OmniRoute rows whose normalized `metadata.owned_by` equals `codex`. Providers without a rule remain unfiltered. Invalid JSON or a schema mismatch fails open with a warning and retains the unfiltered post-patch catalog, rather than making all models unavailable. This deliberate fallback and the exact validation predicate live in [`packages/models/package.nix`](https://github.com/Vanadium5000/nixconf/blob/main/packages/models/package.nix).
 
 With CLIProxyAPI selected, the gateway's `/v1/models` response remains the authoritative selectable catalog. Sync optionally fetches the [official CLIProxyAPI catalog](https://models.router-for.me/models.json), with a five-second limit, only to enrich gateway rows with matching IDs. Official-only models are not added; failed requests, non-success responses, invalid data, or failed enrichment retain gateway metadata. This means official metadata can improve limits, capabilities, and ownership filtering but cannot make an unadvertised gateway model selectable.
 
-The generated stable Router provider uses the OpenAI Responses transport: OpenCode config uses the `@ai-sdk/openai` provider with its gateway `/v1` base URL, while generated OMP provider and model entries declare `openai-responses`. The transport is defined in [`modules/terminal/opencode/_providers.nix`](../../modules/terminal/opencode/_providers.nix) and [`packages/models/package.nix`](../../packages/models/package.nix). References: [AI SDK Responses API](https://ai-sdk.dev/providers/ai-sdk-providers/openai#responses-api) and [OMP model providers](https://github.com/can1357/oh-my-pi/blob/main/docs/models.md).
+The generated stable Router provider uses the OpenAI Responses transport: OpenCode config uses the `@ai-sdk/openai` provider with its gateway `/v1` base URL, while generated OMP provider and model entries declare `openai-responses`. The transport is defined in [`modules/terminal/opencode/_providers.nix`](https://github.com/Vanadium5000/nixconf/blob/main/modules/terminal/opencode/_providers.nix) and [`packages/models/package.nix`](https://github.com/Vanadium5000/nixconf/blob/main/packages/models/package.nix). References: [AI SDK Responses API](https://ai-sdk.dev/providers/ai-sdk-providers/openai#responses-api) and [OMP model providers](https://github.com/can1357/oh-my-pi/blob/main/docs/models.md).
 
 Deleted checkout files should not create repo-local `.Trash-*` directories. `modules/common/impermanence.nix` enables trash support on persisted bind mounts and persists `~/.local/share/Trash` in `/persist/cache`, so VSCodium/Dolphin/GIO deletes route through the global XDG trash. `.Trash-*` is ignored only as a safety net, not as the intended state path.
 

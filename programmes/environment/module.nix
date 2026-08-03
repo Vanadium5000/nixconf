@@ -28,6 +28,7 @@
         self'.packages.git
         self'.packages.starship
         self'.packages.fresh
+        self'.packages.pi-agent
       ]
       ++ (
         with pkgs;

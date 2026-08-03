@@ -46,8 +46,17 @@ let
     _modelId: model:
     let
       hasContext = model ? context || (model ? limit && model.limit ? context);
-      hasInput = model ? input || (model ? limit && model.limit ? input);
       hasOutput = model ? output || (model ? limit && model.limit ? output);
+      # `limit.input` accepts a token count only. Catalog modality lists such as
+      # [ "image" "text" ] must stay in `modalities.input`, never provider limits.
+      input =
+        if model ? input && builtins.isInt model.input then
+          model.input
+        else if model ? limit && model.limit ? input && builtins.isInt model.limit.input then
+          model.limit.input
+        else
+          null;
+      hasInput = input != null;
       # Drop output-only rows: context anchors compaction and OpenCode rejects a
       # partial limit object. Pair missing output with the upstream default.
       limit = lib.optionalAttrs hasContext (
@@ -56,7 +65,7 @@ let
           output = if hasOutput then model.output or model.limit.output else defaultOutputLimit;
         }
         // (lib.optionalAttrs hasInput {
-          input = model.input or model.limit.input;
+          inherit input;
         })
       );
     in

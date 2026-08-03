@@ -85,6 +85,19 @@
 
           # rename(2) is atomic only on one filesystem; state and HOME may be
           # distinct persisted mounts, so stage beside each destination.
+          # Bare Pi config destinations are independently overridable for the
+          # offline fixture; source: https://pi.dev/docs/latest/settings.
+          PI_AGENT_DIR="''${MODELS_PI_AGENT_DIR:-$HOME/.pi/agent}"
+          PI_MODELS_FILE="''${MODELS_PI_MODELS_FILE:-$PI_AGENT_DIR/models.json}"
+          PI_SETTINGS_FILE="''${MODELS_PI_SETTINGS_FILE:-$PI_AGENT_DIR/settings.json}"
+          PI_MCP_FILE="''${MODELS_PI_MCP_FILE:-$PI_AGENT_DIR/mcp.json}"
+          # Pi resolves each settings package entry as an extension directory,
+          # not a derivation root. buildNpmPackage installs this extension below
+          # lib/node_modules; the bare output path makes Pi's module resolver
+          # search a non-existent package.json. Source:
+          # https://github.com/nicobailon/pi-mcp-adapter#readme.
+          PI_MCP_ADAPTER_PACKAGE="''${PI_MCP_ADAPTER_PACKAGE:-${self'.packages.pi-mcp-adapter}/lib/node_modules/pi-mcp-adapter}"
+
           stage_file() {
             local destination="$1"
             mkdir -p "$(dirname "$destination")"
@@ -132,9 +145,9 @@
 
           router_base_url_for() {
             case "$1" in
-              cliproxyapi) printf '%s\n' "https://cliproxyapi.${self.secrets.PUBLIC_BASE_DOMAIN}/v1" ;;
-              bifrost) printf '%s\n' "https://bifrost.${self.secrets.PUBLIC_BASE_DOMAIN}/openai" ;;
-              omniroute) printf '%s\n' "https://omniroute.${self.secrets.PUBLIC_BASE_DOMAIN}/v1" ;;
+              cliproxyapi) printf '%s\n' "''${MODELS_CLIPROXYAPI_BASE_URL:-https://cliproxyapi.${self.secrets.PUBLIC_BASE_DOMAIN}/v1}" ;;
+              bifrost) printf '%s\n' "''${MODELS_BIFROST_BASE_URL:-https://bifrost.${self.secrets.PUBLIC_BASE_DOMAIN}/openai}" ;;
+              omniroute) printf '%s\n' "''${MODELS_OMNIROUTE_BASE_URL:-https://omniroute.${self.secrets.PUBLIC_BASE_DOMAIN}/v1}" ;;
               *) return 1 ;;
             esac
           }
@@ -158,6 +171,13 @@
           }
 
           omp_api_key_for() {
+            case "$1" in
+              omniroute) printf '%s\n' "$OMNIROUTE_PI_API_KEY" ;;
+              *) router_api_key_for "$1" ;;
+            esac
+          }
+
+          pi_api_key_for() {
             case "$1" in
               omniroute) printf '%s\n' "$OMNIROUTE_PI_API_KEY" ;;
               *) router_api_key_for "$1" ;;
@@ -217,7 +237,13 @@
               def normalize_model:
                 . as $model
                 | ($model.context // $model.limit.context // null) as $context
-                | ($model.input // $model.limit.input // null) as $input
+                # `limit.input` is an optional token count, whereas
+                # `modalities.input` is a string array. Never promote modality
+                # metadata into the OpenCode limit schema. Source:
+                # https://opencode.ai/docs/models/.
+                | ($model.input | if type == "number" then . else null end) as $root_input
+                | ($model.limit.input | if type == "number" then . else null end) as $limit_input
+                | ($root_input // $limit_input) as $input
                 | ($model.output // $model.limit.output // null) as $output
                 | ($model | del(.context, .input, .output, .limit))
                   + (if $context != null then
@@ -579,7 +605,8 @@
             local quiet="''${1:-0}"
 
             sync_opencode_config_from_state "$quiet" || return 1
-            sync_omp_models "$quiet"
+            sync_omp_models "$quiet" || return 1
+            sync_pi "$quiet"
           }
 
           sync_config_from_state() {
@@ -1211,6 +1238,76 @@
             fi
           }
 
+          # Generate bare Pi's three agent-local JSON documents together. Pi uses
+          # `openai-responses` with a /v1 gateway base (therefore /v1/responses),
+          # and pi-mcp-adapter reads mcp.json without redirecting PI_CODING_AGENT_DIR.
+          # Sources: https://pi.dev/docs/latest/models, https://pi.dev/docs/latest/settings,
+          # https://github.com/nicobailon/pi-mcp-adapter#readme.
+          sync_pi() {
+            local quiet="''${1:-0}" router_provider pi_api_key pi_base_url pi_model
+            router_provider=$(get_router_provider)
+            pi_api_key="''${MODELS_PI_API_KEY:-$(pi_api_key_for "$router_provider")}"
+            pi_base_url="''${MODELS_PI_BASE_URL:-$(router_base_url_for "$router_provider")}"
+            pi_model=$(get_group_model pi | sed 's,^router/,,' )
+            if [ -z "$pi_api_key" ] || [ -z "$PI_MCP_ADAPTER_PACKAGE" ]; then
+              log_error "Pi sync requires the selected Router credential and PI_MCP_ADAPTER_PACKAGE"
+              return 1
+            fi
+            local models_tmp settings_tmp mcp_tmp
+            models_tmp=$(stage_file "$PI_MODELS_FILE")
+            settings_tmp=$(stage_file "$PI_SETTINGS_FILE")
+            mcp_tmp=$(stage_file "$PI_MCP_FILE")
+            if ! ordered_effective_model_entries | $JQ \
+              --arg base_url "$pi_base_url" --arg api_key "$pi_api_key" '
+                { providers: { router: {
+                  baseUrl: $base_url, apiKey: $api_key, api: "openai-responses",
+                  models: [ .[] | .key as $id | .value | {
+                    id: $id, name: (.name // $id), api: "openai-responses",
+                    # Pi expects a modality array. `limit.input`, if present,
+                    # is an OpenCode token count and cannot be used here.
+                    reasoning: (.reasoning // false),
+                    input: ((.modalities.input // ["text"])
+                      | map(select(. == "text" or . == "image"))
+                      | if length > 0 then . else ["text"] end),
+                    contextWindow: (.limit.context // 0), maxTokens: (.limit.output // 0),
+                    cost: (.cost // { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 })
+                  } ]
+                } } }
+              ' > "$models_tmp" \
+              || ! $JQ -n --arg model "$pi_model" --arg adapter "$PI_MCP_ADAPTER_PACKAGE" '
+                { defaultProvider: "router", defaultModel: $model, packages: [$adapter] }
+              ' > "$settings_tmp" \
+              || ! $JQ -n '
+                { settings: { hostConfigDiscovery: "off" }, mcpServers: {
+                  context7: { type: "http", url: "https://mcp.context7.com/mcp", lifecycle: "lazy" },
+                  github: { type: "http", url: "https://api.githubcopilot.com/mcp/", lifecycle: "lazy", headers: { "X-MCP-Readonly": "true", "X-MCP-Toolsets": "context,repos,users,issues,pull_requests" } },
+                  exa: { type: "http", url: "https://mcp.exa.ai/mcp?tools=web_search_exa,web_fetch_exa", lifecycle: "lazy", headers: { "x-api-key": "''${EXA_API_KEY}" }, includeTools: ["web_search_exa", "web_fetch_exa"] }
+                } }
+              ' > "$mcp_tmp"; then
+              rm -f "$models_tmp" "$settings_tmp" "$mcp_tmp"
+              return 1
+            fi
+            chmod 0600 "$models_tmp" "$settings_tmp" "$mcp_tmp"
+            local pi_paths=("$PI_MODELS_FILE" "$PI_SETTINGS_FILE" "$PI_MCP_FILE")
+            local pi_tmps=("$models_tmp" "$settings_tmp" "$mcp_tmp")
+            local pi_backups=() pi_existed=() index path backup
+            for path in "''${pi_paths[@]}"; do
+              backup=$(stage_file "$path.backup")
+              pi_backups+=("$backup")
+              if [ -e "$path" ]; then cp -p "$path" "$backup"; pi_existed+=(1); else pi_existed+=(0); fi
+            done
+            for index in "''${!pi_paths[@]}"; do
+              if ! mv "''${pi_tmps[$index]}" "''${pi_paths[$index]}"; then
+                for index in "''${!pi_paths[@]}"; do
+                  if [ "''${pi_existed[$index]}" = 1 ]; then mv -f "''${pi_backups[$index]}" "''${pi_paths[$index]}"; else rm -f "''${pi_paths[$index]}"; fi
+                done
+                return 1
+              fi
+            done
+            rm -f "''${pi_backups[@]}"
+            [ "$quiet" -eq 1 ] || log_general "Synced bare Pi config to $PI_AGENT_DIR"
+          }
+
           omp_category_models_json() {
             if [ ! -f "$OMP_CONFIG_FILE" ]; then
               printf '{}\n'
@@ -1459,7 +1556,7 @@
               fi
             done
 
-            local paths=("$STATE_FILE" "$OPENCODE_CONFIG_FILE" "$OPENCODE_COMPAT_CONFIG_FILE" "$OMO_SLIM_CONFIG_FILE" "$OPENCODE_MEM_FILE" "$OMP_MODELS_FILE" "$OMP_CONFIG_FILE")
+            local paths=("$STATE_FILE" "$OPENCODE_CONFIG_FILE" "$OPENCODE_COMPAT_CONFIG_FILE" "$OMO_SLIM_CONFIG_FILE" "$OPENCODE_MEM_FILE" "$OMP_MODELS_FILE" "$OMP_CONFIG_FILE" "$PI_MODELS_FILE" "$PI_SETTINGS_FILE" "$PI_MCP_FILE")
             local backups=() existed=() path backup
             for path in "''${paths[@]}"; do
               backup=$(stage_file "$path.backup")
@@ -2266,6 +2363,10 @@
             done
           }
 
+          usage() {
+            printf '%s\n' 'Usage: models [sync|sync-all|sync-opencode|sync-config|sync-omp|select <category> <router/model> [reasoning-level]|assign <router/model> <reasoning-level> <omo-category...> --omp <omp-role...>|replace-assignments <from> <to> [reasoning-level]|omp-categories <router/model> <model-role...>|preset-apply <name>|provider|init]'
+          }
+
           if [ $# -eq 0 ]; then tui_menu; exit 0; fi
 
           case "''${1:-}" in
@@ -2283,7 +2384,8 @@
             preset-apply) apply_preset "''${2:-}" ;;
             provider) set_router_provider "''${2:-}" ;;
             init) init_project ;;
-            *) echo "Usage: models [sync|sync-all|sync-opencode|sync-config|sync-omp|select <category> <router/model> [reasoning-level]|assign <router/model> <reasoning-level> <omo-category...> --omp <omp-role...>|replace-assignments <from> <to> [reasoning-level]|omp-categories <router/model> <model-role...>|preset-apply <name>|provider|init]"; exit 1 ;;
+            -h|--help) usage ;;
+            *) usage >&2; exit 1 ;;
           esac
         '';
       };

@@ -1016,8 +1016,9 @@ matrix_render_precomputed_tables() {
 should_render_module_matrix() {
  local action="$1"
  case "$action" in
- build | switch | dry-run | validate | deploy | install | matrix)
-  return 0
+  # The matrix evaluates every host; keep that optional inspection off critical paths.
+  matrix)
+   return 0
   ;;
  *)
   return 1
@@ -1137,7 +1138,7 @@ Actions:
   build        Write secrets.nix and build without activating.
   dry-run      Ask nixos-rebuild to print the activation delta without changing state.
   lint         Run parallel LSP, Nix, TypeScript, Prettier, and Markdown checks.
-  validate     Evaluate host matrix, run nix flake check, and lint in parallel.
+  validate     Run nix flake check and lint in parallel.
   matrix       Evaluate and render hostModuleMatrix only; skips secrets by default.
   secrets      Fetch all pass entries in parallel and atomically rewrite secrets.nix only.
   deploy       Switch a remote machine through nixos-rebuild --target-host TARGET.
