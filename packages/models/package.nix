@@ -390,6 +390,31 @@
             $JQ -r --arg key "$key" '.menu[$key]' "$OPENCODE_METADATA_FILE"
           }
 
+          category_target() {
+            local category_id="$1"
+            # OpenCode/OMO definitions predate explicit targets and default to
+            # `omo`; package-owned targets must declare their target explicitly.
+            $JQ -r --arg category_id "$category_id" '
+              .categories[$category_id]
+              | if type == "object" then (.target // "omo") else empty end
+            ' "$OPENCODE_METADATA_FILE"
+          }
+
+          ensure_declared_categories() {
+            local category_id target
+            for category_id in "$@"; do
+              target=$(category_target "$category_id")
+              if [ -z "$target" ]; then
+                log_error "Model-selection category is not declared: $category_id"
+                return 1
+              fi
+              if [ "$target" = "pi" ] && [ -n "''${MODELS_SELECTION_EFFORT:-}" ]; then
+                log_error "Pi does not support a reasoning-effort selection"
+                return 1
+              fi
+            done
+          }
+
           get_group_model() {
             local group_id="$1"
             ensure_state_file
@@ -1462,6 +1487,9 @@
             local effort="$3"
 
             ensure_state_file
+            if ! MODELS_SELECTION_EFFORT="$effort" ensure_declared_categories "$group_id"; then
+              return 1
+            fi
             if ! model_selection_is_valid "$full_id" "$effort"; then
               log_error "Model or reasoning level is unavailable from the current Router catalog: $full_id''${effort:+ ($effort)}"
               return 1
@@ -1491,6 +1519,9 @@
             fi
 
             ensure_state_file
+            if ! MODELS_SELECTION_EFFORT="$effort" ensure_declared_categories "$@"; then
+              return 1
+            fi
             if ! model_selection_is_valid "$full_id" "$effort"; then
               log_error "Model or reasoning level is unavailable from the current Router catalog: $full_id''${effort:+ ($effort)}"
               return 1
@@ -1529,27 +1560,39 @@
           apply_assignments_transactionally() {
             local full_id="$1" effort="$2"
             shift 2
+            # `--pi` is deliberately separate from OpenCode groups: Pi shares
+            # the package state/catalog but has no OpenCode or OMO runtime binding.
             local target="omo" id
-            local omo_ids=() omp_ids=()
+            local omo_ids=() pi_ids=() omp_ids=()
             while [ $# -gt 0 ]; do
-              if [ "$1" = "--omp" ]; then target="omp"; shift; continue; fi
-              if [ "$target" = "omo" ]; then omo_ids+=("$1"); else omp_ids+=("$1"); fi
+              case "$1" in
+                --omp) target="omp"; shift; continue ;;
+                --pi) target="pi"; shift; continue ;;
+              esac
+              case "$target" in
+                omo) omo_ids+=("$1") ;;
+                pi) pi_ids+=("$1") ;;
+                omp) omp_ids+=("$1") ;;
+              esac
               shift
             done
-            [ "''${#omo_ids[@]}" -gt 0 ] || [ "''${#omp_ids[@]}" -gt 0 ] || return 1
+            [ "''${#omo_ids[@]}" -gt 0 ] || [ "''${#pi_ids[@]}" -gt 0 ] || [ "''${#omp_ids[@]}" -gt 0 ] || return 1
             if [ "''${#omo_ids[@]}" -gt 0 ] && ! model_selection_is_valid "$full_id" "$effort"; then
               log_error "Model or reasoning level is unavailable from the current Router catalog: $full_id''${effort:+ ($effort)}"
               return 1
             fi
-            if [ "''${#omp_ids[@]}" -gt 0 ] && ! model_id_is_available "$full_id"; then
+            if { [ "''${#pi_ids[@]}" -gt 0 ] || [ "''${#omp_ids[@]}" -gt 0 ]; } && ! model_id_is_available "$full_id"; then
               log_error "Model is unavailable from the current Router catalog: $full_id"
               return 1
             fi
-            for id in "''${omo_ids[@]}"; do
-              if ! $JQ -e --arg id "$id" '.categories[$id] != null' "$OPENCODE_METADATA_FILE" >/dev/null; then
-                log_error "OpenCode category is not declared: $id"; return 1
-              fi
-            done
+            if ! MODELS_SELECTION_EFFORT="$effort" ensure_declared_categories "''${omo_ids[@]}"; then
+              return 1
+            fi
+            # Pi intentionally receives no effort; Pi settings have only a
+            # provider/model default and accept no reasoning-level field.
+            if ! MODELS_SELECTION_EFFORT="" ensure_declared_categories "''${pi_ids[@]}"; then
+              return 1
+            fi
             for id in "''${omp_ids[@]}"; do
               if ! omp_category_exists "$id"; then
                 log_error "OMP model role is not declared in $OMP_CONFIG_FILE: $id"; return 1
@@ -1570,6 +1613,7 @@
               done
             }
             if { [ "''${#omo_ids[@]}" -eq 0 ] || update_multiple_groups_state "$full_id" "$effort" "''${omo_ids[@]}"; } \
+              && { [ "''${#pi_ids[@]}" -eq 0 ] || update_multiple_groups_state "$full_id" "" "''${pi_ids[@]}"; } \
               && { [ "''${#omp_ids[@]}" -eq 0 ] || set_omp_categories "$full_id" "''${omp_ids[@]}"; }; then
               rm -f "''${backups[@]}"
               unset -f rollback_assignments
@@ -2118,12 +2162,16 @@
                 | (($omo_definitions | keys) + ($omp_roles | keys) | unique[]) as $id
                 | ($omo_definitions[$id] != null) as $has_omo
                 | ($omp_roles[$id] != null) as $has_omp
+                | ($omo_definitions[$id].target // "omo") as $selection_target
                 | (if $has_omo then
                      (($omo_state[$id] // $omo_definitions[$id].defaultModel)
                        | if type == "object" then .model else . end)
                    else null end) as $omo_model
                 | (if $has_omp then $omp_roles[$id] else null end) as $omp_model
-                | (if $has_omo and $has_omp and $omo_model == $omp_model then
+                # Pi is a package-owned singleton, never an OMO Slim target.
+                | (if $has_omo and $selection_target == "pi" then
+                     [{ target: "Pi", model: $omo_model }]
+                   elif $has_omo and $has_omp and $omo_model == $omp_model then
                      [{ target: "both", model: $omo_model }]
                    elif $has_omo and $has_omp then
                      [{ target: "OMO Slim", model: $omo_model }, { target: "OMP", model: $omp_model }]
@@ -2152,12 +2200,14 @@
             [ -n "$selected" ] || return 0
 
             local omo_ids=()
+            local pi_ids=()
             local omp_ids=()
             local assignment_id target _
             while IFS=$'\t' read -r assignment_id target _; do
               [ -n "$assignment_id" ] || continue
               case "$target" in
                 "OMO Slim") omo_ids+=("$assignment_id") ;;
+                Pi) pi_ids+=("$assignment_id") ;;
                 OMP) omp_ids+=("$assignment_id") ;;
                 both) omo_ids+=("$assignment_id"); omp_ids+=("$assignment_id") ;;
               esac
@@ -2165,6 +2215,9 @@
 
             if [ "''${#omo_ids[@]}" -gt 0 ]; then
               $GUM style --foreground 39 "OpenCode / OMO Slim: ''${omo_ids[*]}"
+            fi
+            if [ "''${#pi_ids[@]}" -gt 0 ]; then
+              $GUM style --foreground 208 "Pi: ''${pi_ids[*]}"
             fi
             if [ "''${#omp_ids[@]}" -gt 0 ]; then
               $GUM style --foreground 141 "OMP: ''${omp_ids[*]}"
@@ -2177,8 +2230,8 @@
               model_id="''${new_model#*/}"
               selected_effort=$(pick_reasoning_effort "$provider" "$model_id") || return 0
             fi
-            apply_assignments_transactionally "$new_model" "$selected_effort" "''${omo_ids[@]}" --omp "''${omp_ids[@]}" || return 1
-            $GUM style --foreground 212 "✅ Updated ''${#omo_ids[@]} OMO Slim and ''${#omp_ids[@]} OMP assignment(s) to $new_model"
+            apply_assignments_transactionally "$new_model" "$selected_effort" "''${omo_ids[@]}" --pi "''${pi_ids[@]}" --omp "''${omp_ids[@]}" || return 1
+            $GUM style --foreground 212 "✅ Updated ''${#omo_ids[@]} OMO Slim, ''${#pi_ids[@]} Pi, and ''${#omp_ids[@]} OMP assignment(s) to $new_model"
           }
 
           replace_model_across_assignments() {
@@ -2215,38 +2268,41 @@
             model_id="''${target_model#*/}"
 
             local omo_ids=()
+            local pi_ids=()
             local omp_ids=()
             local model target assignment_id
             while IFS=$'\t' read -r model target assignment_id; do
               [ "$model" = "$source_model" ] || continue
               case "$target" in
                 "OMO Slim") omo_ids+=("$assignment_id") ;;
+                Pi) pi_ids+=("$assignment_id") ;;
                 OMP) omp_ids+=("$assignment_id") ;;
                 both) omo_ids+=("$assignment_id"); omp_ids+=("$assignment_id") ;;
               esac
             done <<< "$assignment_models"
-            [ "''${#omo_ids[@]}" -eq 0 ] && [ "''${#omp_ids[@]}" -eq 0 ] && return 0
+            [ "''${#omo_ids[@]}" -eq 0 ] && [ "''${#pi_ids[@]}" -eq 0 ] && [ "''${#omp_ids[@]}" -eq 0 ] && return 0
 
             if [ "''${#omo_ids[@]}" -gt 0 ]; then
               selected_effort=$(pick_reasoning_effort "$provider" "$model_id") || return 0
             fi
-            apply_assignments_transactionally "$target_model" "$selected_effort" "''${omo_ids[@]}" --omp "''${omp_ids[@]}" || return 1
-            $GUM style --foreground 212 "✅ Replaced $source_model across ''${#omo_ids[@]} OMO Slim and ''${#omp_ids[@]} OMP assignment(s)"
+            apply_assignments_transactionally "$target_model" "$selected_effort" "''${omo_ids[@]}" --pi "''${pi_ids[@]}" --omp "''${omp_ids[@]}" || return 1
+            $GUM style --foreground 212 "✅ Replaced $source_model across ''${#omo_ids[@]} OMO Slim, ''${#pi_ids[@]} Pi, and ''${#omp_ids[@]} OMP assignment(s)"
           }
 
           replace_assignments_noninteractive() {
             local source_model="$1" target_model="$2" effort="$3"
-            local omo_ids=() omp_ids=() assignment_id target model _
+            local omo_ids=() pi_ids=() omp_ids=() assignment_id target model _
             while IFS=$'\t' read -r assignment_id target model _; do
               [ "$model" = "$source_model" ] || continue
               case "$target" in
                 "OMO Slim") omo_ids+=("$assignment_id") ;;
+                Pi) pi_ids+=("$assignment_id") ;;
                 OMP) omp_ids+=("$assignment_id") ;;
                 both) omo_ids+=("$assignment_id"); omp_ids+=("$assignment_id") ;;
               esac
             done < <(assignment_picker_lines)
-            [ "''${#omo_ids[@]}" -gt 0 ] || [ "''${#omp_ids[@]}" -gt 0 ] || return 0
-            apply_assignments_transactionally "$target_model" "$effort" "''${omo_ids[@]}" --omp "''${omp_ids[@]}"
+            [ "''${#omo_ids[@]}" -gt 0 ] || [ "''${#pi_ids[@]}" -gt 0 ] || [ "''${#omp_ids[@]}" -gt 0 ] || return 0
+            apply_assignments_transactionally "$target_model" "$effort" "''${omo_ids[@]}" --pi "''${pi_ids[@]}" --omp "''${omp_ids[@]}"
           }
 
           render_state_summary() {

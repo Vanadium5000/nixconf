@@ -41,7 +41,7 @@ cat >"$config/opencode-mem-base.json" <<'EOF'
 {}
 EOF
 cat >"$config/models-metadata.json" <<'EOF'
-{"categories":{"deep":{"defaultModel":"router/zeta"},"pi":{"defaultModel":"router/zeta"}},"menu":{},"slimModelBindings":[{"path":["agents","build"],"category":"deep"}],"opencodeModelBindings":[]}
+{"categories":{"deep":{"defaultModel":"router/zeta"},"pi":{"target":"pi","defaultModel":"router/zeta"}},"menu":{},"slimModelBindings":[{"path":["agents","build"],"category":"deep"}],"opencodeModelBindings":[]}
 EOF
 cat >"$home/.omp/agent/config.yml" <<'EOF'
 unrelated: retained
@@ -176,6 +176,11 @@ done
 # `select` exercises the same state validation that feeds OMO Slim generation.
 run_models select deep router/zeta high
 jq -e '.agents.build.model == "router/zeta" and .agents.build.variant == "high"' "$home/.config/opencode/oh-my-opencode-slim.jsonc" >/dev/null
+# Pi has no OpenCode binding, but its package-owned category must remain
+# selectable and regenerate Pi's default without touching OMO Slim state.
+run_models assign router/alpha '' --pi pi
+jq -e '.categories.pi == "router/alpha"' "$state/state.json" >/dev/null
+jq -e '.defaultProvider == "router" and .defaultModel == "alpha"' "$home/.pi/agent/settings.json" >/dev/null
 if run_models select deep router/zeta unavailable; then
   printf '%s\n' 'expected unavailable reasoning level to be rejected' >&2
   exit 1

@@ -493,9 +493,9 @@ The TypeScript lane uses the pinned `nixpkgs#typescript` compiler and temporary,
 
 ### 🤖 Model catalog state
 
-[`packages/models/`](packages/models/) is the sole checkout-owned model catalog and selection state. Its [`package.nix`](packages/models/package.nix) exposes `models` (alias `m`), updates the reviewed `models.json` cache, and derives the mutable OpenCode, OMO Slim, and OMP runtime files from the same state. `models sync-config` does not fetch models. The obsolete `modules/nixos/terminal/opencode/` location is rejected so two writable catalogs cannot diverge.
+[`packages/models/`](packages/models/) is the sole checkout-owned model catalog and selection state. Its [`package.nix`](packages/models/package.nix) exposes `models` (alias `m`), updates the reviewed `models.json` cache, and derives the mutable OpenCode, OMO Slim, OMP, and bare Pi runtime files from the same state. Package-owned selection targets, including bare Pi, are declared in [`categories.nix`](packages/models/categories.nix); the OpenCode module owns only OpenCode/OMO bindings. `models sync-config` does not fetch models. The obsolete `modules/nixos/terminal/opencode/` location is rejected so two writable catalogs cannot diverge.
 
-Run `models` without arguments for the operator UI. Its assignment table is a union of OpenCode/OMO Slim categories and OMP `modelRoles`: every row identifies the assignment, target, and current model. A shared assignment with the same model is one `both` row; divergent values are separate `OMO Slim` and `OMP` rows. The first layer intentionally offers **Change assignments**, **Replace model across assignments**, **Save current assignments as preset**, and **Browse presets**, so an operator can work from the unified table instead of selecting an application first. Assignment mutations validate all selected targets and roll back the state and generated files if an OMP update fails.
+Run `models` without arguments for the operator UI. Its assignment table is a union of OpenCode/OMO Slim categories, package-owned targets such as **Pi**, and OMP `modelRoles`: every row identifies the assignment, target, and current model. A shared OpenCode/OMP assignment with the same model is one `both` row; divergent values are separate `OMO Slim` and `OMP` rows. Pi is always a distinct `Pi` row and selecting it updates `~/.pi/agent/settings.json`'s default model without attempting an OpenCode binding. The first layer intentionally offers **Change assignments**, **Replace model across assignments**, **Save current assignments as preset**, and **Browse presets**, so an operator can work from the unified table instead of selecting an application first. Assignment mutations validate all selected targets and roll back the state and generated files if an OMP update fails.
 
 For automation, the checked command syntax is:
 
@@ -509,8 +509,9 @@ models sync-config
 # Set one OMO Slim/OpenCode category, optionally with a supported reasoning level.
 models select deep router/gpt-5.6-terra high
 
-# Assign the model to OMO Slim categories before --omp and OMP modelRoles after it.
-models assign router/gpt-5.6-terra high deep ultrabrain --omp deep
+# Assign the model to OMO Slim categories before --omp, package-owned Pi
+# categories after --pi, and OMP modelRoles after --omp. Pi ignores effort.
+models assign router/gpt-5.6-terra high deep ultrabrain --pi pi --omp deep
 
 # Replace every assignment currently using one model; an empty quoted effort clears it.
 models replace-assignments router/gpt-5.5 router/gpt-5.6-terra ''

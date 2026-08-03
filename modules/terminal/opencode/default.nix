@@ -21,6 +21,7 @@
       providers = import ./_providers.nix { inherit self lib; };
       pluginsConfig = import ./_plugins.nix;
       modelGroups = import ./_categories.nix { inherit lib; };
+      modelCategories = import ../../../packages/models/categories.nix;
 
       opencode = inputs.llm-agents.packages.${system}.opencode;
       modelsCommand = self.packages.${system}.models;
@@ -31,6 +32,10 @@
       state = modelGroups.mkState { inherit stateFile; };
       slimConfig = modelGroups.mkSlimConfig { inherit state; };
       opencodeModelsMetadata = modelGroups.mkMenuMetadata // {
+        # Pi is package-owned rather than an OpenCode/OMO category. The shared
+        # menu metadata nevertheless includes it so the models UI can display
+        # and edit the complete package-owned selection state.
+        categories = modelGroups.mkMenuMetadata.categories // modelCategories;
         menu = modelGroups.mkMenuMetadata.menu // {
           reasoningEffortHeader = "Select reasoning effort for this model";
         };

@@ -23,13 +23,6 @@ let
       description = "General implementation and autonomous end-to-end execution";
       defaultModel = "router/gpt-5.3-codex";
     };
-    pi = {
-      label = "Pi";
-      description = "Bare Pi's single default model selection";
-      # Pi has defaultProvider/defaultModel, not OpenCode/OMO agent bindings.
-      # Source: https://pi.dev/docs/latest/settings#model-configuration
-      defaultModel = "router/gpt-5.3-codex";
-    };
     artistry = {
       label = "Artistry";
       description = "Creative, non-conventional problem solving";
@@ -253,7 +246,6 @@ in
       rawVisualEngineering = dataCategories."visual-engineering" or null;
       rawUltrabrain = dataCategories.ultrabrain or null;
       rawDeep = dataCategories.deep or null;
-      rawPi = dataCategories.pi or null;
       rawArtistry = dataCategories.artistry or null;
       rawQuick = dataCategories.quick or null;
       rawWriting = dataCategories.writing or null;
@@ -274,7 +266,6 @@ in
           else
             rawDeep
         ) categories.deep.defaultModel;
-        pi = extractSelection (if rawPi == null then legacyMedium else rawPi) categories.pi.defaultModel;
         artistry = extractSelection (
           if rawArtistry == null then legacyMultimodal else rawArtistry
         ) categories.artistry.defaultModel;
